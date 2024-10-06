@@ -15,7 +15,7 @@ The EntityManager is responsible for creating, managing, and deleting entities. 
 ##### Key Functions
 
 1. create_entity
-*Creates a new entity with a unique ID and stores it in the EntityManager. The entity is returned for further manipulation.*
+	*Creates a new entity with a unique ID and stores it in the EntityManager. The entity is returned for further manipulation.*
 
 	```rust
 	let mut entity_manager = EntityManager::new();
@@ -24,7 +24,7 @@ The EntityManager is responsible for creating, managing, and deleting entities. 
 <br>
 
 2. delete_entity
-*Deletes an entity from the EntityManager.*
+	*Deletes an entity from the EntityManager.*
 
 	```rust
 	entity_manager.delete_entity(entity);
@@ -32,14 +32,14 @@ The EntityManager is responsible for creating, managing, and deleting entities. 
 <br>
 
 3. copy_entity
-*Creates a copy of an existing entity, including all of its attributes. The new entity has a unique ID and independent attributes.*
+	*Creates a copy of an existing entity, including all of its attributes. The new entity has a unique ID and independent attributes.*
 	```rust
 	let copied_entity = entity_manager.copy_entity(&original_entity);
 	```
 <br>
 
 4. attribute_exists
-*Checks if a specific attribute exists for a given entity.*
+	*Checks if a specific attribute exists for a given entity.*
 
 	```rust
 	let exists = entity_manager.attribute_exists(&entity, &"Health".to_string());
@@ -53,7 +53,7 @@ Each entity can have multiple attributes, which are represented as a key-value p
 ##### Key Functions
 
 1. add_attribute_with_validation
-*Adds an attribute to an entity, ensuring that the provided value matches the expected type. The function validates the input based on the attribute type before storing it.*
+	*Adds an attribute to an entity, ensuring that the provided value matches the expected type. The function validates the input based on the attribute type before storing it.*
 
 	```rust
 	entity_manager.add_attribute_with_validation(
@@ -66,7 +66,7 @@ Each entity can have multiple attributes, which are represented as a key-value p
 <br>
 
 2. modify_attribute_with_validation
-*Modifies the value of an existing attribute, validating the new value against the expected type.*
+	*Modifies the value of an existing attribute, validating the new value against the expected type.*
 
 	```rust
 	entity_manager.modify_attribute_with_validation(
@@ -79,7 +79,7 @@ Each entity can have multiple attributes, which are represented as a key-value p
 <br>
 
 3. delete_attribute
-*Removes an attribute from an entity.*
+	*Removes an attribute from an entity.*
 
 	```rust
 	entity_manager.delete_attribute(&mut entity, &"Health".to_string());
@@ -87,7 +87,7 @@ Each entity can have multiple attributes, which are represented as a key-value p
 <br>
 
 4. validate_value
-*A helper function used internally to validate the type of an attribute value before storing or modifying it. It ensures that the provided value matches the expected type (e.g., an integer value for an integer type).*
+	*A helper function used internally to validate the type of an attribute value before storing or modifying it. It ensures that the provided value matches the expected type (e.g., an integer value for an integer type).*
 
 	```rust
 	entity_manager.validate_value(&"100".to_string(), AttributeValueType::Integer(0));
