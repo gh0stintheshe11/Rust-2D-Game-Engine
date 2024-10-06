@@ -46,8 +46,6 @@ The EntityManager is responsible for creating, managing, and deleting entities. 
 	```
 <br>
 
----
-
 ### Attribute Management
 
 Each entity can have multiple attributes, which are represented as a key-value pair where the key is the attribute’s name, and the value is stored as an Attribute. Attributes are typed using the AttributeValueType enum.
