@@ -13,6 +13,7 @@ The [Entity Component System (ECS)](/src/ECS.rs) in this project serves as the c
 The EntityManager is responsible for creating, managing, and deleting entities. Each entity is represented by an Entity struct, which holds an ID and a set of attributes. Entities can have multiple attributes, each associated with a specific type (e.g., integer, float, string, or boolean).
 
 ##### Key Functions
+<br>
 
 1. create_entity <br>
 	*Creates a new entity with a unique ID and stores it in the EntityManager. The entity is returned for further manipulation.*
@@ -51,6 +52,7 @@ The EntityManager is responsible for creating, managing, and deleting entities. 
 Each entity can have multiple attributes, which are represented as a key-value pair where the key is the attribute’s name, and the value is stored as an Attribute. Attributes are typed using the AttributeValueType enum.
 
 ##### Key Functions
+<br>
 
 1. add_attribute_with_validation <br>
 	*Adds an attribute to an entity, ensuring that the provided value matches the expected type. The function validates the input based on the attribute type before storing it.*
@@ -86,7 +88,7 @@ Each entity can have multiple attributes, which are represented as a key-value p
 	```
 <br>
 
-4. validate_value
+4. validate_value <br>
 	*A helper function used internally to validate the type of an attribute value before storing or modifying it. It ensures that the provided value matches the expected type (e.g., an integer value for an integer type).*
 
 	```rust
