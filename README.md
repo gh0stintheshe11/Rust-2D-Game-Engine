@@ -1,19 +1,18 @@
-# **Rust 2D Game Engine**
+# Rust 2D Game Engine
 
 ## Table of Contents
 
 - [ECS (Entity Component System)](#ecs-entity-component-system)
 
-### ECS (Entity Component System)
+## ECS (Entity Component System)
 
 The [Entity Component System (ECS)](/src/ECS.rs) in this project serves as the core for managing game entities and their associated attributes. This section describes how the ECS system works, introduces key functions, and explains the behavior tested by our comprehensive unit tests.
 
-#### Entity Manager
+### Entity Manager
 
 The EntityManager is responsible for creating, managing, and deleting entities. Each entity is represented by an Entity struct, which holds an ID and a set of attributes. Entities can have multiple attributes, each associated with a specific type (e.g., integer, float, string, or boolean).
 
-##### Key Functions
-<br>
+#### Key Functions
 
 1. create_entity <br>
 	*Creates a new entity with a unique ID and stores it in the EntityManager. The entity is returned for further manipulation.*
@@ -47,12 +46,13 @@ The EntityManager is responsible for creating, managing, and deleting entities. 
 	```
 <br>
 
-#### Attribute Management
+---
+
+### Attribute Management
 
 Each entity can have multiple attributes, which are represented as a key-value pair where the key is the attribute’s name, and the value is stored as an Attribute. Attributes are typed using the AttributeValueType enum.
 
-##### Key Functions
-<br>
+#### Key Functions
 
 1. add_attribute_with_validation <br>
 	*Adds an attribute to an entity, ensuring that the provided value matches the expected type. The function validates the input based on the attribute type before storing it.*
@@ -96,7 +96,7 @@ Each entity can have multiple attributes, which are represented as a key-value p
 	```
 <br>
 
-##### AttributeValueType Enum
+#### AttributeValueType Enum
 
 The AttributeValueType enum defines the possible types for an entity’s attributes. It currently supports four types:
 
@@ -107,7 +107,7 @@ String(String)
 Boolean(bool)
 ```
 
-#### [Unit Tests](/tests/ecs_test.rs)
+### [Unit Tests](/tests/ecs_test.rs)
 
 We’ve included comprehensive unit tests to ensure the correctness of the ECS system. Below is an overview of each test and what it verifies:
 
@@ -140,7 +140,7 @@ We’ve included comprehensive unit tests to ensure the correctness of the ECS s
 	- Verifies that copying an entity results in a new entity with the same attributes as the original.
 	- Ensures that modifying the copied entity does not affect the original and vice versa.
 
-##### Example Usage
+#### Example Usage
 
 Here’s a basic example of how to use the ECS system:
 
