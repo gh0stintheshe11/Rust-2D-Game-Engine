@@ -6,7 +6,7 @@
 
 ## ECS (Entity Component System)
 
-The [Entity Component System (ECS)](/src/ECS.rs) in this project serves as the core for managing game entities and their associated attributes. This section describes how the ECS system works, introduces key functions, and explains the behavior tested by our comprehensive unit tests.
+The [Entity Component System (ECS)](/src/ecs.rs) in this project serves as the core for managing game entities and their associated attributes. This section describes how the ECS system works, introduces key functions, and explains the behavior tested by our comprehensive unit tests.
 
 ### Entity Manager
 
