@@ -1,4 +1,4 @@
-# **Rust 2D Game Engine
+# **Rust 2D Game Engine**
 
 ## Table of Contents
 
