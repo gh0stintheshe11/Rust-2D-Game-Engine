@@ -1,6 +1,10 @@
 [package]
-name = "Rust-2D-Game-Engine"
+name = "rust-2d-game-engine"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+
+[lib]
+name = "rust_2d_game_engine"
+path = "src/lib.rs"
