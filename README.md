@@ -23,7 +23,7 @@ The EntityManager is responsible for creating, managing, and deleting entities. 
 	```
 <br>
 
-2. delete_entity
+2. delete_entity <br>
 	*Deletes an entity from the EntityManager.*
 
 	```rust
@@ -31,14 +31,14 @@ The EntityManager is responsible for creating, managing, and deleting entities. 
 	```
 <br>
 
-3. copy_entity
+3. copy_entity <br>
 	*Creates a copy of an existing entity, including all of its attributes. The new entity has a unique ID and independent attributes.*
 	```rust
 	let copied_entity = entity_manager.copy_entity(&original_entity);
 	```
 <br>
 
-4. attribute_exists
+4. attribute_exists <br>
 	*Checks if a specific attribute exists for a given entity.*
 
 	```rust
@@ -52,7 +52,7 @@ Each entity can have multiple attributes, which are represented as a key-value p
 
 ##### Key Functions
 
-1. add_attribute_with_validation
+1. add_attribute_with_validation <br>
 	*Adds an attribute to an entity, ensuring that the provided value matches the expected type. The function validates the input based on the attribute type before storing it.*
 
 	```rust
@@ -65,7 +65,7 @@ Each entity can have multiple attributes, which are represented as a key-value p
 	```
 <br>
 
-2. modify_attribute_with_validation
+2. modify_attribute_with_validation <br>
 	*Modifies the value of an existing attribute, validating the new value against the expected type.*
 
 	```rust
@@ -78,7 +78,7 @@ Each entity can have multiple attributes, which are represented as a key-value p
 	```
 <br>
 
-3. delete_attribute
+3. delete_attribute <br>
 	*Removes an attribute from an entity.*
 
 	```rust
