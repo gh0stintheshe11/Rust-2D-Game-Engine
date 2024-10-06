@@ -14,7 +14,7 @@ The EntityManager is responsible for creating, managing, and deleting entities. 
 
 ##### Key Functions
 
-1. create_entity
+1. create_entity <br>
 	*Creates a new entity with a unique ID and stores it in the EntityManager. The entity is returned for further manipulation.*
 
 	```rust
