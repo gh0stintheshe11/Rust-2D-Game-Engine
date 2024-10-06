@@ -1,0 +1,6 @@
+[package]
+name = "Rust-2D-Game-Engine"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
