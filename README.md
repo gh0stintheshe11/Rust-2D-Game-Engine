@@ -98,14 +98,8 @@ Each entity can have multiple attributes, which are represented as a key-value p
 
 #### AttributeValueType Enum
 
-The AttributeValueType enum defines the possible types for an entity’s attributes. It currently supports four types:
+The AttributeValueType enum defines the possible types for an entity’s attributes. It currently supports four types: ```Integer(i32)``` ```Float(f32)``` ```String(String)``` ```Boolean(bool)```
 
-```rust
-Integer(i32)
-Float(f32)
-String(String)
-Boolean(bool)
-```
 
 ### [Unit Tests](/tests/ecs_test.rs)
 
@@ -140,7 +134,7 @@ We’ve included comprehensive unit tests to ensure the correctness of the ECS s
 	- Verifies that copying an entity results in a new entity with the same attributes as the original.
 	- Ensures that modifying the copied entity does not affect the original and vice versa.
 
-#### Example Usage
+### Example Usage
 
 Here’s a basic example of how to use the ECS system:
 
