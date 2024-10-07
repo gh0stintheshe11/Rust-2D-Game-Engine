@@ -1,10 +1,15 @@
-mod gui; // Import the new gui module
+mod gui;
 
 fn main() -> Result<(), eframe::Error> {
-    let options = eframe::NativeOptions::default();
+    let options = eframe::NativeOptions {
+        initial_window_size: Some(eframe::egui::vec2(1280.0, 720.0)), // Set the initial window size
+        ..Default::default()
+    };
+    
+    // Use a closure to create an instance of EngineGui
     eframe::run_native(
-        "My Egui App",
+        "Rust 2D Game Engine",
         options,
-        Box::new(|_cc| Box::new(gui::MyApp::default())), // Update to use MyApp from gui module
+        Box::new(|_cc| Box::new(gui::EngineGui::default())),
     )
 }
