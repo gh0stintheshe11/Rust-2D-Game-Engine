@@ -1,4 +1,5 @@
 mod gui;
+mod project;
 
 fn main() -> Result<(), eframe::Error> {
     let options = eframe::NativeOptions {

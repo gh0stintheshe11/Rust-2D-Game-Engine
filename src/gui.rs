@@ -1,7 +1,12 @@
 use eframe::egui;
+use crate::project::FileManagement;
 
 #[derive(Default)]
-pub struct EngineGui;
+pub struct EngineGui {
+    show_new_project_popup: bool,   // Track if the pop-up should be shown
+    project_name: String,           // Store the project name input
+    project_path: String,           // Store the project path input
+}
 
 impl eframe::App for EngineGui {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
@@ -12,15 +17,46 @@ impl eframe::App for EngineGui {
         // Display the main menu bar
         self.show_main_menu_bar(ctx, window_width);
 
+        // Display the pop-up for creating a new project (without shade)
+        if self.show_new_project_popup {
+            egui::Window::new("Create New Project")
+                .resizable(false)
+                .collapsible(false)
+                .show(ctx, |ui| {
+                    ui.label("Project Name:");
+                    ui.text_edit_singleline(&mut self.project_name);
+        
+                    ui.label("Project Path:");
+                    ui.text_edit_singleline(&mut self.project_path);
+        
+                    // Start horizontal layout for buttons
+                    ui.horizontal(|ui| {
+                        if ui.button("Create").clicked() {
+                            if !self.project_name.is_empty() && !self.project_path.is_empty() {
+                                // Call FileManagement to create the project
+                                FileManagement::create_project(&self.project_name, &self.project_path);
+                                self.show_new_project_popup = false; // Close the popup after creation
+                            } else {
+                                ui.label("Both fields are required.");
+                            }
+                        }
+        
+                        if ui.button("Cancel").clicked() {
+                            self.show_new_project_popup = false; // Close the popup on cancel
+                        }
+                    });
+                });
+        }
+
         // Display the three-panel layout
         self.show_three_panel_layout(ctx, window_width, window_height);
     }
 }
 
 impl EngineGui {
-
     // Main menu bar at the top
-    fn show_main_menu_bar(&self, ctx: &egui::Context, window_width: f32) {
+    fn show_main_menu_bar(&mut self, ctx: &egui::Context, window_width: f32) {
+
         egui::TopBottomPanel::top("main_menu_bar")
             .resizable(false)
             .min_height(20.0)
@@ -32,7 +68,7 @@ impl EngineGui {
                     // File menu
                     ui.menu_button("File", |ui| {
                         if ui.button("New").clicked() {
-                            println!("New file");
+                            self.show_new_project_popup = true; // Open the pop-up when "New" is clicked
                         }
                         if ui.button("Open").clicked() {
                             println!("Open file");
@@ -62,16 +98,16 @@ impl EngineGui {
 
                 // Split the left panel into top and bottom using TopBottomPanel
                 egui::TopBottomPanel::top("asset_inspector")
-                .resizable(false)
-                .min_height((window_height-20.0)* 0.5)
-                .show_inside(ui, |ui| {
-                    ui.heading("Asset Inspector");
-                    ui.label("Inspect and modify the attributes of the asset");
-                });
+                    .resizable(false)
+                    .min_height((window_height - 20.0) * 0.5)
+                    .show_inside(ui, |ui| {
+                        ui.heading("Asset Inspector");
+                        ui.label("Inspect and modify the attributes of the asset");
+                    });
 
                 egui::TopBottomPanel::bottom("asset_browser")
                     .resizable(false)
-                    .min_height((window_height-20.0)* 0.5)
+                    .min_height((window_height - 20.0) * 0.5)
                     .show_inside(ui, |ui| {
                         ui.heading("Asset Browser");
                         ui.label("Browse and select the asset");
