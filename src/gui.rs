@@ -124,92 +124,104 @@ impl EngineGui {
 
     // Three-panel layout with left, right, and central panels
     fn show_three_panel_layout(&self, ctx: &egui::Context, window_width: f32, window_height: f32) {
+
+        // Calculate available height for the left panel
+        let available_height = window_height - 20.0; // Adjust for any fixed height elements
+        let item_spacing = ctx.style().spacing.item_spacing; // Get the vertical spacing between elements
+        let top_height = available_height * 0.5;
+        let bottom_height = available_height - top_height - item_spacing.y;
+
         // Left panel (split into top and bottom)
         egui::SidePanel::left("asset")
-            .resizable(false)
-            .min_width(window_width*0.15)
-            .max_width(window_width*0.15)
+            .resizable(true)
+            .default_width(window_width * 0.15)
+            .width_range((window_width * 0.15)..=(window_width * 0.3))
             .show(ctx, |ui| {
-                
-                // Split the left panel into top and bottom using TopBottomPanel
+
+                // Top section
                 egui::TopBottomPanel::top("entity_inspector")
                     .resizable(false)
-                    .min_height((window_height - 20.0) * 0.5)
-                    .max_height((window_height - 20.0) * 0.5)
+                    .exact_height(top_height)
+                    .frame(egui::Frame::none().inner_margin(egui::style::Margin::same(0.0)))
                     .show_inside(ui, |ui| {
                         ui.heading("Entity Inspector");
                         ui.label("Inspect and modify the attributes of the entity");
                     });
-
-                
-                // Load the project_path + ./entities
+               
+                // Bottom section
                 let entity_folder_path = format!("{}/entities", self.project_path);
-                egui::TopBottomPanel::bottom("entity_browser")
+                egui::TopBottomPanel::bottom("entity")
                     .resizable(false)
-                    .min_height((window_height - 20.0) * 0.5)
-                    .max_height((window_height - 20.0) * 0.5)
+                    .exact_height(bottom_height)
+                    .show_separator_line(false)
+                    .frame(egui::Frame::none().inner_margin(egui::style::Margin::same(0.0)))
                     .show_inside(ui, |ui| {
-                        ui.heading("Entities");
+
+                        let heading_response = ui.heading("Entities");
+                        let heading_height = heading_response.rect.height(); // Get the height of the heading
+
                         // Wrapping the entire list of buttons in the scroll area
                         if self.load_project {
-                        egui::ScrollArea::vertical()
-                            .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded)
-                            .max_height((window_height - 100.0) * 0.5)
-                            .max_width(window_width*0.15)
-                            .auto_shrink([false; 2]) // Prevent shrinking when there is less content
-                            .show(ui, |ui| {
-                                let files = FileManagement::list_files_in_folder(&entity_folder_path);
-                                for file in files {
-                                    if ui.button(&file).clicked() {
-                                        println!("Clicked on file: {}", file);
+                            egui::ScrollArea::vertical()
+                                .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded)
+                                .max_height(bottom_height - heading_height - 4.0*item_spacing.y)
+                                .auto_shrink([false; 2]) // Prevent shrinking when there is less content
+                                .show(ui, |ui| {
+                                    let files = FileManagement::list_files_in_folder(&entity_folder_path);
+                                    for file in files {
+                                        if ui.button(&file).clicked() {
+                                            println!("Clicked on file: {}", file);
+                                        }
                                     }
-                                }
-                            });
+                                });
                         }
                     });
+
             });
 
         // Right panel (split into top and bottom)
         egui::SidePanel::right("script")
-            .resizable(false)
-            .min_width(window_width*0.15)
-            .max_width(window_width*0.15)
+            .resizable(true)
+            .default_width(window_width*0.15)
+            .width_range((window_width*0.15)..=(window_width*0.3))
             .show(ctx, |ui| {
 
-                // Split the right panel into top and bottom using TopBottomPanel
+                // Top section
                 egui::TopBottomPanel::top("script_inspector")
                     .resizable(false)
-                    .frame(egui::Frame::none()) // Set to no frame
-                    .min_height((window_height-20.0) * 0.5)
+                    .exact_height(top_height)
+                    .frame(egui::Frame::none().inner_margin(egui::style::Margin::same(0.0)))
                     .show_inside(ui, |ui| {
                         ui.heading("Script Inspector");
                         ui.label("Inspect and modify the attributes of the script");
                     });
-
-
-                // Load the project_path + ./scripts
-                let entity_folder_path = format!("{}/scripts", self.project_path);
-                egui::TopBottomPanel::bottom("script_browser")
+               
+                // Bottom section
+                let script_folder_path = format!("{}/scripts", self.project_path);
+                egui::TopBottomPanel::bottom("script")
                     .resizable(false)
-                    .min_height((window_height - 20.0) * 0.5)
-                    .max_height((window_height - 20.0) * 0.5)
+                    .exact_height(bottom_height)
+                    .show_separator_line(false)
+                    .frame(egui::Frame::none().inner_margin(egui::style::Margin::same(0.0)))
                     .show_inside(ui, |ui| {
-                        ui.heading("Scripts");
+
+                        let heading_response = ui.heading("Scripts");
+                        let heading_height = heading_response.rect.height(); // Get the height of the heading
+
                         // Wrapping the entire list of buttons in the scroll area
                         if self.load_project {
-                        egui::ScrollArea::vertical()
-                            .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded)
-                            .max_height((window_height - 100.0) * 0.5)
-                            .max_width(window_width*0.15)
-                            .auto_shrink([false; 2]) // Prevent shrinking when there is less content
-                            .show(ui, |ui| {
-                                let files = FileManagement::list_files_in_folder(&entity_folder_path);
-                                for file in files {
-                                    if ui.button(&file).clicked() {
-                                        println!("Clicked on file: {}", file);
+                            egui::ScrollArea::vertical()
+                                .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded)
+                                .max_height(bottom_height - heading_height - 4.0*item_spacing.y)
+                                .auto_shrink([false; 2]) // Prevent shrinking when there is less content
+                                .show(ui, |ui| {
+                                    let files = FileManagement::list_files_in_folder(&script_folder_path);
+                                    for file in files {
+                                        if ui.button(&file).clicked() {
+                                            println!("Clicked on file: {}", file);
+                                        }
                                     }
-                                }
-                            });
+                                });
                         }
                     });
 
@@ -223,11 +235,10 @@ impl EngineGui {
 
         // Bottom panel for terminal
         egui::TopBottomPanel::bottom("terminal")
-            .resizable(false)
-            .min_height(window_height * 0.15)
+            .resizable(true)
+            .default_height((window_height-20.0)*0.25)
+            .height_range(((window_height-20.0)*0.1)..=((window_height-20.0)*0.5))
             .show(ctx, |ui| {
-                let bottom_panel_width = ui.available_width();
-                ui.set_width(bottom_panel_width);
                 ui.heading("Terminal");
                 ui.label("Display the system output of the engine");
             });
