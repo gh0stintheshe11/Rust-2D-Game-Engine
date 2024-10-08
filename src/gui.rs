@@ -128,8 +128,6 @@ impl EngineGui {
         // Calculate available height for the left panel
         let available_height = window_height - 20.0; // Adjust for any fixed height elements
         let item_spacing = ctx.style().spacing.item_spacing; // Get the vertical spacing between elements
-        let top_height = available_height * 0.5;
-        let bottom_height = available_height - top_height - item_spacing.y;
 
         // Left panel (split into top and bottom)
         egui::SidePanel::left("asset")
@@ -138,10 +136,12 @@ impl EngineGui {
             .width_range((window_width * 0.15)..=(window_width * 0.3))
             .show(ctx, |ui| {
 
+                let secondary_panel_height = ui.available_height()*0.5;
+
                 // Top section
                 egui::TopBottomPanel::top("entity_inspector")
                     .resizable(false)
-                    .exact_height(top_height)
+                    .exact_height(secondary_panel_height)
                     .frame(egui::Frame::none().inner_margin(egui::style::Margin::same(0.0)))
                     .show_inside(ui, |ui| {
                         ui.heading("Entity Inspector");
@@ -152,7 +152,7 @@ impl EngineGui {
                 let entity_folder_path = format!("{}/entities", self.project_path);
                 egui::TopBottomPanel::bottom("entity")
                     .resizable(false)
-                    .exact_height(bottom_height)
+                    .exact_height(secondary_panel_height)
                     .show_separator_line(false)
                     .frame(egui::Frame::none().inner_margin(egui::style::Margin::same(0.0)))
                     .show_inside(ui, |ui| {
@@ -164,7 +164,7 @@ impl EngineGui {
                         if self.load_project {
                             egui::ScrollArea::vertical()
                                 .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded)
-                                .max_height(bottom_height - heading_height - 4.0*item_spacing.y)
+                                .max_height(secondary_panel_height - heading_height - 3.0*item_spacing.y)
                                 .auto_shrink([false; 2]) // Prevent shrinking when there is less content
                                 .show(ui, |ui| {
                                     let files = FileManagement::list_files_in_folder(&entity_folder_path);
@@ -186,10 +186,12 @@ impl EngineGui {
             .width_range((window_width*0.15)..=(window_width*0.3))
             .show(ctx, |ui| {
 
+                let secondary_panel_height = ui.available_height()*0.5;
+
                 // Top section
                 egui::TopBottomPanel::top("script_inspector")
                     .resizable(false)
-                    .exact_height(top_height)
+                    .exact_height(secondary_panel_height)
                     .frame(egui::Frame::none().inner_margin(egui::style::Margin::same(0.0)))
                     .show_inside(ui, |ui| {
                         ui.heading("Script Inspector");
@@ -200,7 +202,7 @@ impl EngineGui {
                 let script_folder_path = format!("{}/scripts", self.project_path);
                 egui::TopBottomPanel::bottom("script")
                     .resizable(false)
-                    .exact_height(bottom_height)
+                    .exact_height(secondary_panel_height)
                     .show_separator_line(false)
                     .frame(egui::Frame::none().inner_margin(egui::style::Margin::same(0.0)))
                     .show_inside(ui, |ui| {
@@ -212,7 +214,7 @@ impl EngineGui {
                         if self.load_project {
                             egui::ScrollArea::vertical()
                                 .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded)
-                                .max_height(bottom_height - heading_height - 4.0*item_spacing.y)
+                                .max_height(secondary_panel_height - heading_height - 3.0*item_spacing.y)
                                 .auto_shrink([false; 2]) // Prevent shrinking when there is less content
                                 .show(ui, |ui| {
                                     let files = FileManagement::list_files_in_folder(&script_folder_path);
@@ -236,8 +238,8 @@ impl EngineGui {
         // Bottom panel for terminal
         egui::TopBottomPanel::bottom("terminal")
             .resizable(true)
-            .default_height((window_height-20.0)*0.25)
-            .height_range(((window_height-20.0)*0.1)..=((window_height-20.0)*0.5))
+            .min_height(available_height*0.1)
+            .max_height(available_height*0.5)
             .show(ctx, |ui| {
                 ui.heading("Terminal");
                 ui.label("Display the system output of the engine");
