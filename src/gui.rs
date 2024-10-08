@@ -11,20 +11,19 @@ pub struct EngineGui {
 }
 
 impl eframe::App for EngineGui {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn update(&mut self, window: &egui::Context, _frame: &mut eframe::Frame) {
         // Calculate window width and height once at the start
-        let window_width = ctx.screen_rect().width();
-        let window_height = ctx.screen_rect().height();
+        let window_width = window.screen_rect().width();
 
         // Display the main menu bar
-        self.show_main_menu_bar(ctx, window_width);
+        self.show_main_menu_bar(window, window_width);
 
         // Display the pop-up for creating a new project (without shade)
         if self.show_new_project_popup {
             egui::Window::new("Create New Project")
                 .resizable(false)
                 .collapsible(false)
-                .show(ctx, |ui| {
+                .show(window, |ui| {
                     ui.label("Project Name:");
                     ui.text_edit_singleline(&mut self.project_name);
         
@@ -53,7 +52,7 @@ impl eframe::App for EngineGui {
             egui::Window::new("Open Project")
                 .resizable(false)
                 .collapsible(false)
-                .show(ctx, |ui| {
+                .show(window, |ui| {
                     ui.label("Project Path:");
                     ui.text_edit_singleline(&mut self.project_path);
 
@@ -82,19 +81,19 @@ impl eframe::App for EngineGui {
         }
 
         // Display the three-panel layout
-        self.show_three_panel_layout(ctx, window_width, window_height);
+        self.show_three_panel_layout(window, window_width);
     }
 }
 
 impl EngineGui {
 
     // Main menu bar at the top
-    fn show_main_menu_bar(&mut self, ctx: &egui::Context, window_width: f32) {
+    fn show_main_menu_bar(&mut self, window: &egui::Context, window_width: f32) {
 
         egui::TopBottomPanel::top("main_menu_bar")
             .resizable(false)
             .min_height(20.0)
-            .show(ctx, |ui| {
+            .show(window, |ui| {
                 ui.set_width(window_width);
 
                 // Horizontal layout for File and Edit menus
@@ -123,18 +122,16 @@ impl EngineGui {
     }
 
     // Three-panel layout with left, right, and central panels
-    fn show_three_panel_layout(&self, ctx: &egui::Context, window_width: f32, window_height: f32) {
+    fn show_three_panel_layout(&self, window: &egui::Context, window_width: f32) {
 
-        // Calculate available height for the left panel
-        let available_height = window_height - 20.0; // Adjust for any fixed height elements
-        let item_spacing = ctx.style().spacing.item_spacing; // Get the vertical spacing between elements
+        let item_spacing = window.style().spacing.item_spacing; // Get the vertical spacing between elements
 
         // Left panel (split into top and bottom)
         egui::SidePanel::left("asset")
             .resizable(true)
             .default_width(window_width * 0.15)
             .width_range((window_width * 0.15)..=(window_width * 0.3))
-            .show(ctx, |ui| {
+            .show(window, |ui| {
 
                 let secondary_panel_height = ui.available_height()*0.5;
 
@@ -184,7 +181,7 @@ impl EngineGui {
             .resizable(true)
             .default_width(window_width*0.15)
             .width_range((window_width*0.15)..=(window_width*0.3))
-            .show(ctx, |ui| {
+            .show(window, |ui| {
 
                 let secondary_panel_height = ui.available_height()*0.5;
 
@@ -230,17 +227,17 @@ impl EngineGui {
             });
 
         // Central panel
-        egui::CentralPanel::default().show(ctx, |ui| {
+        egui::CentralPanel::default().show(window, |ui| {
             ui.heading("Scene");
             ui.label("Scene Viewer");
         });
 
         // Bottom panel for terminal
         egui::TopBottomPanel::bottom("terminal")
-            .resizable(true)
-            .min_height(available_height*0.1)
-            .max_height(available_height*0.5)
-            .show(ctx, |ui| {
+            .resizable(true)    
+            .min_height((window.screen_rect().height()-20.0)*0.2)
+            .max_height((window.screen_rect().height()-20.0)*0.5)
+            .show(window, |ui| {
                 ui.heading("Terminal");
                 ui.label("Display the system output of the engine");
             });
