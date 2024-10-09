@@ -8,6 +8,7 @@ pub struct EngineGui {
     load_project: bool,            // Track if the project should be loaded
     project_name: String,           // Store the project name input
     project_path: String,           // Store the project path input
+    terminal_output: String,         // Store the terminal output
 }
 
 impl eframe::App for EngineGui {
@@ -122,7 +123,7 @@ impl EngineGui {
     }
 
     // Three-panel layout with left, right, and central panels
-    fn show_three_panel_layout(&self, window: &egui::Context, window_width: f32) {
+    fn show_three_panel_layout(&mut self, window: &egui::Context, window_width: f32) {
 
         let item_spacing = window.style().spacing.item_spacing; // Get the vertical spacing between elements
 
@@ -167,7 +168,7 @@ impl EngineGui {
                                     let files = FileManagement::list_files_in_folder(&entity_folder_path);
                                     for file in files {
                                         if ui.button(&file).clicked() {
-                                            println!("Clicked on file: {}", file);
+                                            self.add_terminal_output(&format!("Clicked on file: {}", file));
                                         }
                                     }
                                 });
@@ -217,7 +218,7 @@ impl EngineGui {
                                     let files = FileManagement::list_files_in_folder(&script_folder_path);
                                     for file in files {
                                         if ui.button(&file).clicked() {
-                                            println!("Clicked on file: {}", file);
+                                            self.add_terminal_output(&format!("Clicked on file: {}", file));
                                         }
                                     }
                                 });
@@ -238,8 +239,23 @@ impl EngineGui {
             .min_height((window.screen_rect().height()-20.0)*0.2)
             .max_height((window.screen_rect().height()-20.0)*0.5)
             .show(window, |ui| {
+
                 ui.heading("Terminal");
-                ui.label("Display the system output of the engine");
+                
+                // Wrap the terminal output in a scroll area
+                egui::ScrollArea::vertical()
+                    .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded)
+                    .auto_shrink([false; 2])
+                    .max_height(ui.available_height() - item_spacing.y)
+                    .show(ui, |ui| {
+                        ui.label(&self.terminal_output); // Display the terminal output
+                    });
             });
+    }
+
+    // Example method to add output to the terminal
+    fn add_terminal_output(&mut self, output: &str) {
+        self.terminal_output.push_str(output);
+        self.terminal_output.push_str("\n"); // Add a newline for better formatting
     }
 }
