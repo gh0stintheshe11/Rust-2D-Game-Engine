@@ -2,9 +2,6 @@ use std::fs::{self, File};
 use std::io::Write;
 use std::path::Path;
 use serde::{Serialize, Deserialize};
-use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
-use std::sync::mpsc::channel;
-use std::thread;
 
 // Project metadata structure for project.json
 #[derive(Serialize, Deserialize, Debug)]
@@ -96,28 +93,5 @@ impl FileManagement {
             println!("Folder does not exist: {}", folder_path);
             vec![] // Return empty vector if folder does not exist
         }
-    }
-
-    // Function to watch for file changes in a folder
-    pub fn watch_folder(folder_path: &str) {
-        let (tx, rx) = channel();
-
-        // Create a file system watcher
-        let mut watcher: RecommendedWatcher = Watcher::new(tx, Config::default()).unwrap();
-
-        // Start watching the folder recursively
-        watcher.watch(Path::new(folder_path), RecursiveMode::Recursive).unwrap();
-
-        // Spawn a thread to handle the events
-        thread::spawn(move || {
-            loop {
-                match rx.recv() {
-                    Ok(event) => {
-                        println!("File system event: {:?}", event);  // Handle the event, like reloading the file list
-                    }
-                    Err(e) => println!("Watch error: {:?}", e),
-                }
-            }
-        });
     }
 }
