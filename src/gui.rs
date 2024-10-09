@@ -19,8 +19,11 @@ impl eframe::App for EngineGui {
         // Display the main menu bar
         self.show_main_menu_bar(window, window_width);
 
-        // Display the pop-up for creating a new project (without shade)
+        // Display the pop-up for creating a new project
         if self.show_new_project_popup {
+            // Ensure the open project popup is closed
+            self.show_open_project_popup = false;
+
             egui::Window::new("Create New Project")
                 .resizable(false)
                 .collapsible(false)
@@ -34,9 +37,16 @@ impl eframe::App for EngineGui {
                     // Start horizontal layout for buttons
                     ui.horizontal(|ui| {
                         if ui.button("Create").clicked() {
+                            // first clear all the values
+                            self.project_name.clear();
+                            self.project_path.clear();
+                            self.terminal_output.clear();
+                            // Check if the project name and path are not empty
                             if !self.project_name.is_empty() && !self.project_path.is_empty() {
                                 // Call FileManagement to create the project
                                 FileManagement::create_project(&self.project_name, &self.project_path);
+                                // if the project is created successfully, set the load_project to true
+                                self.load_project = true;
                                 self.show_new_project_popup = false; // Close the popup after creation
                             } else {
                                 ui.label("Both fields are required.");
@@ -50,6 +60,9 @@ impl eframe::App for EngineGui {
         }
 
         if self.show_open_project_popup {
+            // Ensure the new project popup is closed
+            self.show_new_project_popup = false;
+
             egui::Window::new("Open Project")
                 .resizable(false)
                 .collapsible(false)
@@ -61,16 +74,24 @@ impl eframe::App for EngineGui {
                     ui.horizontal(|ui| {
                         if ui.button("Open").clicked() {
                             if !self.project_path.is_empty() {
-                                //check if the path is valid and is a project
+                                // Check if the path is valid and is a project
                                 if FileManagement::is_valid_project_path(&self.project_path) {
-                                    //change the load_project to true
+                                    // first clear all the values
+                                    self.project_name.clear();
+                                    self.project_path.clear();
+                                    self.terminal_output.clear();
+                                    // Change the load_project to true
                                     self.load_project = true;
-                                    self.show_open_project_popup = false; // Close the popup after creation
+                                    // Get the project name and path from the project.json file
+                                    let project_metadata = FileManagement::read_project_metadata(&self.project_path);
+                                    self.project_name = project_metadata.project_name; 
+                                    self.project_path = project_metadata.project_path; 
+                                    self.show_open_project_popup = false; // Close the popup after opening
                                 } else {
                                     ui.label("Invalid project path.");
                                 }
                             } else {
-                                ui.label("Both fields are required.");
+                                ui.label("Project path is required.");
                             }
                         }
                         if ui.button("Cancel").clicked() {
@@ -103,9 +124,11 @@ impl EngineGui {
                     ui.menu_button("File", |ui| {
                         if ui.button("New").clicked() {
                             self.show_new_project_popup = true; // Open the pop-up when "New" is clicked
+                            self.show_open_project_popup = false; // Ensure open project popup is closed
                         }
                         if ui.button("Open").clicked() {
                             self.show_open_project_popup = true; // Open the pop-up when "Open" is clicked
+                            self.show_new_project_popup = false; // Ensure new project popup is closed
                         }
                     });
 

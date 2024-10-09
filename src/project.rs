@@ -5,10 +5,10 @@ use serde::{Serialize, Deserialize};
 
 // Project metadata structure for project.json
 #[derive(Serialize, Deserialize, Debug)]
-struct ProjectMetadata {
-    project_name: String,
-    version: String,
-    project_path: String,
+pub struct ProjectMetadata {
+    pub project_name: String,
+    pub version: String,
+    pub project_path: String,
 }
 
 impl ProjectMetadata {
@@ -43,7 +43,7 @@ impl FileManagement {
         let metadata = ProjectMetadata {
             project_name: project_name.to_string(),
             version: "1.0.0".to_string(),
-            project_path: project_path.to_string(),
+            project_path: base_path.to_string(),
         };
 
         FileManagement::create_project_file(&base_path, &metadata);
@@ -93,5 +93,13 @@ impl FileManagement {
             println!("Folder does not exist: {}", folder_path);
             vec![] // Return empty vector if folder does not exist
         }
+    }
+
+    pub fn read_project_metadata(project_path: &str) -> ProjectMetadata {
+        // load the project.json file to the ProjectMetadata struct
+        let file_path = format!("{}/project.json", project_path);
+        let file = File::open(file_path).expect("Failed to open project.json.");
+        let metadata = serde_json::from_reader(file).expect("Failed to read project.json.");
+        return metadata;
     }
 }
