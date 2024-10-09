@@ -37,19 +37,18 @@ impl eframe::App for EngineGui {
                     // Start horizontal layout for buttons
                     ui.horizontal(|ui| {
                         if ui.button("Create").clicked() {
-                            // first clear all the values
-                            self.project_name.clear();
-                            self.project_path.clear();
-                            self.terminal_output.clear();
                             // Check if the project name and path are not empty
                             if !self.project_name.is_empty() && !self.project_path.is_empty() {
                                 // Call FileManagement to create the project
                                 FileManagement::create_project(&self.project_name, &self.project_path);
+                                // format the project path to be a valid path
+                                self.project_path = format!("{}/{}", self.project_path, self.project_name);
                                 // if the project is created successfully, set the load_project to true
                                 self.load_project = true;
+                                self.print_to_terminal(&format!("Project name: {} in {} created", self.project_name, self.project_path));
                                 self.show_new_project_popup = false; // Close the popup after creation
                             } else {
-                                ui.label("Both fields are required.");
+                                self.print_to_terminal("Project name and path are required.");
                             }
                         }
                         if ui.button("Cancel").clicked() {
@@ -76,16 +75,14 @@ impl eframe::App for EngineGui {
                             if !self.project_path.is_empty() {
                                 // Check if the path is valid and is a project
                                 if FileManagement::is_valid_project_path(&self.project_path) {
-                                    // first clear all the values
-                                    self.project_name.clear();
-                                    self.project_path.clear();
-                                    self.terminal_output.clear();
                                     // Change the load_project to true
                                     self.load_project = true;
                                     // Get the project name and path from the project.json file
                                     let project_metadata = FileManagement::read_project_metadata(&self.project_path);
                                     self.project_name = project_metadata.project_name; 
                                     self.project_path = project_metadata.project_path; 
+                                    // print out
+                                    self.print_to_terminal(&format!("Project name: {} in {} loaded", self.project_name, self.project_path));
                                     self.show_open_project_popup = false; // Close the popup after opening
                                 } else {
                                     ui.label("Invalid project path.");
@@ -135,10 +132,10 @@ impl EngineGui {
                     // Edit menu
                     ui.menu_button("Edit", |ui| {
                         if ui.button("Undo").clicked() {
-                            println!("Undo");
+                            self.print_to_terminal("Undo");
                         }
                         if ui.button("Redo").clicked() {
-                            println!("Redo");
+                            self.print_to_terminal("Redo");
                         }
                     });
                 });
@@ -191,7 +188,7 @@ impl EngineGui {
                                     let files = FileManagement::list_files_in_folder(&entity_folder_path);
                                     for file in files {
                                         if ui.button(&file).clicked() {
-                                            self.add_terminal_output(&format!("Clicked on file: {}", file));
+                                            self.print_to_terminal(&format!("Clicked on file: {}", file));
                                         }
                                     }
                                 });
@@ -221,6 +218,7 @@ impl EngineGui {
                
                 // Bottom section
                 let script_folder_path = format!("{}/scripts", self.project_path);
+                println!("project_path: {}", self.project_path);
                 egui::TopBottomPanel::bottom("script")
                     .resizable(false)
                     .exact_height(secondary_panel_height)
@@ -241,7 +239,7 @@ impl EngineGui {
                                     let files = FileManagement::list_files_in_folder(&script_folder_path);
                                     for file in files {
                                         if ui.button(&file).clicked() {
-                                            self.add_terminal_output(&format!("Clicked on file: {}", file));
+                                            self.print_to_terminal(&format!("Clicked on file: {}", file));
                                         }
                                     }
                                 });
@@ -277,7 +275,7 @@ impl EngineGui {
     }
 
     // Example method to add output to the terminal
-    fn add_terminal_output(&mut self, output: &str) {
+    fn print_to_terminal(&mut self, output: &str) {
         self.terminal_output.push_str(output);
         self.terminal_output.push_str("\n"); // Add a newline for better formatting
     }
