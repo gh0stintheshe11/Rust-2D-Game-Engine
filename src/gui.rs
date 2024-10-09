@@ -218,7 +218,6 @@ impl EngineGui {
                
                 // Bottom section
                 let script_folder_path = format!("{}/scripts", self.project_path);
-                println!("project_path: {}", self.project_path);
                 egui::TopBottomPanel::bottom("script")
                     .resizable(false)
                     .exact_height(secondary_panel_height)
