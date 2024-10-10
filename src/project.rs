@@ -2,6 +2,7 @@ use std::fs::{self, File};
 use std::io::Write;
 use std::path::Path;
 use serde::{Serialize, Deserialize};
+use crate::gui::EngineGui;
 
 // Project metadata structure for project.json
 #[derive(Serialize, Deserialize, Debug)]
@@ -23,21 +24,21 @@ pub struct FileManagement;
 
 impl FileManagement {
     // Function to create a new project at the specified path
-    pub fn create_project(project_name: &str, project_path: &str) {
+    pub fn create_project(project_name: &str, project_path: &str, engine_gui: &mut EngineGui) {
         let base_path = format!("{}/{}", project_path, project_name);
 
         // Create main project folder
-        FileManagement::create_folder(&base_path);
+        FileManagement::create_folder(&base_path, engine_gui);
 
         // Create subfolders
-        FileManagement::create_folder(&format!("{}/assets", base_path));
-        FileManagement::create_folder(&format!("{}/assets/images", base_path));
-        FileManagement::create_folder(&format!("{}/assets/sounds", base_path));
-        FileManagement::create_folder(&format!("{}/assets/fonts", base_path));
-        FileManagement::create_folder(&format!("{}/assets/videos", base_path));
-        FileManagement::create_folder(&format!("{}/entities", base_path));
-        FileManagement::create_folder(&format!("{}/scripts", base_path));
-        FileManagement::create_folder(&format!("{}/scenes", base_path));
+        FileManagement::create_folder(&format!("{}/assets", base_path), engine_gui);
+        FileManagement::create_folder(&format!("{}/assets/images", base_path), engine_gui);
+        FileManagement::create_folder(&format!("{}/assets/sounds", base_path), engine_gui);
+        FileManagement::create_folder(&format!("{}/assets/fonts", base_path), engine_gui);
+        FileManagement::create_folder(&format!("{}/assets/videos", base_path), engine_gui);
+        FileManagement::create_folder(&format!("{}/entities", base_path), engine_gui);
+        FileManagement::create_folder(&format!("{}/scripts", base_path), engine_gui);
+        FileManagement::create_folder(&format!("{}/scenes", base_path), engine_gui);
 
         // Create project.json
         let metadata = ProjectMetadata {
@@ -46,25 +47,25 @@ impl FileManagement {
             project_path: base_path.to_string(),
         };
 
-        FileManagement::create_project_file(&base_path, &metadata);
-        println!("Project '{}' created successfully at {}!", project_name, project_path);
+        FileManagement::create_project_file(&base_path, &metadata, engine_gui);
+        engine_gui.print_to_terminal(&format!("Project '{}' created successfully at {}!", project_name, project_path));
     }
 
     // Helper function to create folders
-    fn create_folder(path: &str) {
+    fn create_folder(path: &str, engine_gui: &mut EngineGui) {
         if !Path::new(path).exists() {
             fs::create_dir_all(path).expect("Failed to create folder.");
-            println!("Created folder: {}", path);
+            engine_gui.print_to_terminal(&format!("Created folder: {}", path));
         }
     }
 
     // Create project.json file
-    fn create_project_file(base_path: &str, metadata: &ProjectMetadata) {
+    fn create_project_file(base_path: &str, metadata: &ProjectMetadata, engine_gui: &mut EngineGui) {
         let file_path = format!("{}/project.json", base_path);
         let mut file = File::create(&file_path).expect("Failed to create project.json.");
         file.write_all(metadata.to_json().as_bytes())
             .expect("Failed to write to project.json.");
-        println!("Created project.json with metadata.");
+        engine_gui.print_to_terminal("Created project.json with metadata.");
     }
 
     // Function to check if the project path is valid
@@ -76,7 +77,7 @@ impl FileManagement {
         return false;
     }
 
-    pub fn list_files_in_folder(folder_path: &str) -> Vec<String> {
+    pub fn list_files_in_folder(folder_path: &str, engine_gui: &mut EngineGui) -> Vec<String> {
         if Path::new(folder_path).exists() {
             match fs::read_dir(folder_path) {
                 Ok(read_dir) => {
@@ -85,12 +86,12 @@ impl FileManagement {
                         .collect()
                 }
                 Err(_) => {
-                    println!("Failed to read folder: {}", folder_path);
+                    engine_gui.print_to_terminal(&format!("Failed to read folder: {}", folder_path));
                     vec![] // Return an empty vector in case of error
                 }
             }
         } else {
-            println!("Folder does not exist: {}", folder_path);
+            engine_gui.print_to_terminal(&format!("Folder does not exist: {}", folder_path));
             vec![] // Return empty vector if folder does not exist
         }
     }

@@ -8,7 +8,7 @@ pub struct EngineGui {
     load_project: bool,            // Track if the project should be loaded
     project_name: String,           // Store the project name input
     project_path: String,           // Store the project path input
-    terminal_output: String,         // Store the terminal output
+    pub terminal_output: String,         // Store the terminal output
 }
 
 impl eframe::App for EngineGui {
@@ -39,13 +39,17 @@ impl eframe::App for EngineGui {
                         if ui.button("Create").clicked() {
                             // Check if the project name and path are not empty
                             if !self.project_name.is_empty() && !self.project_path.is_empty() {
-                                // Call FileManagement to create the project
-                                FileManagement::create_project(&self.project_name, &self.project_path);
-                                // format the project path to be a valid path
+                                // Store the project name and path in temporary variables
+                                let project_name = self.project_name.clone();
+                                let project_path = self.project_path.clone();
+
+                                // Call FileManagement to create the project, passing self
+                                FileManagement::create_project(&project_name, &project_path, self);
+                                
+                                // Format the project path to be a valid path
                                 self.project_path = format!("{}/{}", self.project_path, self.project_name);
-                                // if the project is created successfully, set the load_project to true
+                                // If the project is created successfully, set the load_project to true
                                 self.load_project = true;
-                                self.print_to_terminal(&format!("Project name: {} in {} created", self.project_name, self.project_path));
                                 self.show_new_project_popup = false; // Close the popup after creation
                             } else {
                                 self.print_to_terminal("Project name and path are required.");
@@ -85,10 +89,10 @@ impl eframe::App for EngineGui {
                                     self.print_to_terminal(&format!("Project name: {} in {} loaded", self.project_name, self.project_path));
                                     self.show_open_project_popup = false; // Close the popup after opening
                                 } else {
-                                    ui.label("Invalid project path.");
+                                    self.print_to_terminal(&format!("Invalid project path: {}", self.project_path));
                                 }
                             } else {
-                                ui.label("Project path is required.");
+                                self.print_to_terminal("Project path is required.");
                             }
                         }
                         if ui.button("Cancel").clicked() {
@@ -185,7 +189,7 @@ impl EngineGui {
                                 .max_height(secondary_panel_height - heading_height - 3.0*item_spacing.y)
                                 .auto_shrink([false; 2]) // Prevent shrinking when there is less content
                                 .show(ui, |ui| {
-                                    let files = FileManagement::list_files_in_folder(&entity_folder_path);
+                                    let files = FileManagement::list_files_in_folder(&entity_folder_path, self);
                                     for file in files {
                                         if ui.button(&file).clicked() {
                                             self.print_to_terminal(&format!("Clicked on file: {}", file));
@@ -235,7 +239,7 @@ impl EngineGui {
                                 .max_height(secondary_panel_height - heading_height - 3.0*item_spacing.y)
                                 .auto_shrink([false; 2]) // Prevent shrinking when there is less content
                                 .show(ui, |ui| {
-                                    let files = FileManagement::list_files_in_folder(&script_folder_path);
+                                    let files = FileManagement::list_files_in_folder(&script_folder_path, self);
                                     for file in files {
                                         if ui.button(&file).clicked() {
                                             self.print_to_terminal(&format!("Clicked on file: {}", file));
@@ -274,7 +278,7 @@ impl EngineGui {
     }
 
     // Example method to add output to the terminal
-    fn print_to_terminal(&mut self, output: &str) {
+    pub fn print_to_terminal(&mut self, output: &str) {
         self.terminal_output.push_str(output);
         self.terminal_output.push_str("\n"); // Add a newline for better formatting
     }
