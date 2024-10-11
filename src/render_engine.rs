@@ -1,10 +1,10 @@
-pub struct Renderer {
+pub struct RenderEngine {
     pub texture_view: wgpu::TextureView,
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
 }
 
-impl Renderer {
+impl RenderEngine {
     pub fn new() -> Self {
         // Initialize wgpu using InstanceDescriptor
         let instance_desc = wgpu::InstanceDescriptor {

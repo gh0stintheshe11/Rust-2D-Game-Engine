@@ -1,18 +1,18 @@
 #[cfg(test)]
 mod tests {
-    use rust_2d_game_engine::render_engine::Renderer;
+    use rust_2d_game_engine::render_engine::RenderEngine;
     use wgpu::ShaderModuleDescriptor;
     use futures::executor::block_on;
 
     #[test]
     fn test_renderer_initialization() {
-        let _renderer = Renderer::new();  // Initialize renderer
+        let _renderer = RenderEngine::new();  // Initialize renderer
         assert!(true, "Renderer initialized successfully");
     }
 
     #[test]
     fn test_texture_creation() {
-        let _renderer = Renderer::new();
+        let _renderer = RenderEngine::new();
 
         let texture_extent = wgpu::Extent3d {
             width: 1024,
@@ -27,7 +27,7 @@ mod tests {
 
     #[test]
     fn test_render_scene_executes() {
-        let mut renderer = Renderer::new();
+        let mut renderer = RenderEngine::new();
         renderer.render_scene();
         assert!(true, "render_scene should execute without errors");
     }
@@ -76,7 +76,7 @@ mod tests {
     #[test]
     fn test_error_handling_in_renderer() {
         let result = std::panic::catch_unwind(|| {
-            let mut renderer = Renderer::new();
+            let mut renderer = RenderEngine::new();
             renderer.render_scene();
         });
 
@@ -85,7 +85,7 @@ mod tests {
 
     #[test]
     fn test_shader_compilation() {
-        let renderer = Renderer::new();
+        let renderer = RenderEngine::new();
         let shader_source = r#"
             struct VertexOutput {
                 @builtin(position) pos: vec4<f32>,
@@ -114,7 +114,7 @@ mod tests {
 
     #[test]
     fn test_high_load_rendering() {
-        let mut renderer = Renderer::new();
+        let mut renderer = RenderEngine::new();
         for _ in 0..10000 {
             renderer.render_scene();
         }

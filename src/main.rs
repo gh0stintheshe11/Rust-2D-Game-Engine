@@ -1,6 +1,7 @@
 mod engine_gui;
 mod project_file_manager;
 use eframe::NativeOptions;
+mod physics_engine;
 
 fn main() {
     // Set the native options for the window
