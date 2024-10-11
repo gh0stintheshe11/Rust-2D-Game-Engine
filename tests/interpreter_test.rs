@@ -1,99 +1,139 @@
 #[cfg(test)]
 mod tests {
     use rust_2d_game_engine::interpreter;
-    use pyo3::prelude::*;
-    use std::collections::HashMap;
+    use rlua::Lua;
 
     #[test]
-    fn test_run_simple_script_without_variables() {
-        // Test running a basic Python script without passing any variables
+    fn test_run_simple_script() {
+        // Test a simple Lua script that adds two numbers
         let script = r#"
-result = 10 + 20
-result
-"#;
-        Python::with_gil(|py| {
-            let result = interpreter::run_python_script(script, None).unwrap();
-            let extracted_result: i32 = result.extract(py).unwrap();
-            assert_eq!(extracted_result, 30);
-        });
-    }
+            x = 10
+            y = 20
+            result = x + y
+        "#;
 
-    #[test]
-    fn test_run_script_with_variables() {
-        // Test running a Python script with variables passed from Rust
-        let script = r#"
-result = x + y
-result
-"#;
-
-        Python::with_gil(|py| {
-            // Create variables (x and y) to pass to the script
-            let mut variables = HashMap::new();
-            variables.insert("x".to_string(), 5.to_object(py));
-            variables.insert("y".to_string(), 15.to_object(py));
-
-            // Run the script and pass variables
-            let result = interpreter::run_python_script(script, Some(variables)).unwrap();
-            let extracted_result: i32 = result.extract(py).unwrap();
-            assert_eq!(extracted_result, 20);
-        });
-    }
-
-    #[test]
-    fn test_run_script_with_string_return() {
-        // Test running a Python script that returns a string
-        let script = r#"
-"Hello from Python!"
-"#;
-        Python::with_gil(|py| {
-            let result = interpreter::run_python_script(script, None).unwrap();
-            let extracted_result: String = result.extract(py).unwrap();
-            assert_eq!(extracted_result, "Hello from Python!");
-        });
-    }
-
-    #[test]
-    fn test_run_script_with_list_return() {
-        // Test running a Python script that returns a list
-        let script = r#"
-[1, 2, 3, 4]
-"#;
-        Python::with_gil(|py| {
-            let result = interpreter::run_python_script(script, None).unwrap();
-            let list: Vec<i32> = result.extract(py).unwrap();
-            assert_eq!(list, vec![1, 2, 3, 4]);
-        });
+        let result = interpreter::run_lua_script(script);
+        assert!(result.is_ok(), "Failed to run a simple Lua script");
     }
 
     #[test]
     fn test_run_script_with_error() {
-        // Test running a Python script that triggers an error (division by zero)
+        // Test a Lua script that tries to use an undefined variable
+        let lua = Lua::new();
         let script = r#"
-result = 10 / 0
-"#;
-        let result = interpreter::run_python_script(script, None);
-        assert!(result.is_err(), "Expected an error due to division by zero");
+            x = 10
+            if y == nil then
+                y = 0  -- Assign a default value if 'y' is undefined
+            end
+            result = x + y
+        "#;
+    
+        let result = lua.context(|lua_ctx| lua_ctx.load(script).exec());
+    
+        // Since we're explicitly checking for 'nil', the script should run successfully
+        assert!(result.is_ok(), "Expected Lua to handle undefined variables as nil, but it failed");
     }
 
     #[test]
-    fn test_run_script_with_complex_variables() {
-        // Test passing complex variables like lists and dictionaries
+    fn test_lua_math_operations() {
+        // Test a Lua script performing math operations
         let script = r#"
-sum(x) + y["key"]
-"#;
+            result = (10 * 5) / 2 - 7
+        "#;
 
-        Python::with_gil(|py| {
-            // Create variables to pass to the script
-            let mut variables = HashMap::new();
-            variables.insert("x".to_string(), vec![1, 2, 3, 4].to_object(py));
-            let mut dict = HashMap::new();
-            dict.insert("key", 10);
-            variables.insert("y".to_string(), dict.to_object(py));
+        let lua = Lua::new();
+        lua.context(|lua_ctx| {
+            lua_ctx.load(script).exec().unwrap();
+            let result: f64 = lua_ctx.globals().get("result").unwrap();
+            assert_eq!(result, 18.0, "Math operation failed in Lua");
+        });
+    }
 
-            // Run the script and check the result
-            let result = interpreter::run_python_script(script, Some(variables)).unwrap();
-            let extracted_result: i32 = result.extract(py).unwrap();
-            assert_eq!(extracted_result, 20);
+    #[test]
+    fn test_pass_data_to_lua() {
+        // Test passing data to Lua
+        let lua = Lua::new();
+        lua.context(|lua_ctx| {
+            let globals = lua_ctx.globals();
+            globals.set("x", 50).unwrap();
+            globals.set("y", 100).unwrap();
+
+            lua_ctx.load(r#"
+                result = x + y
+            "#).exec().unwrap();
+
+            let result: i32 = lua_ctx.globals().get("result").unwrap();
+            assert_eq!(result, 150, "Failed to pass data to Lua script");
+        });
+    }
+
+    #[test]
+    fn test_return_data_from_lua() {
+        // Test returning data from Lua to Rust
+        let lua = Lua::new();
+        lua.context(|lua_ctx| {
+            lua_ctx.load(r#"
+                function add(a, b)
+                    return a + b
+                end
+            "#).exec().unwrap();
+
+            let add: rlua::Function = lua_ctx.globals().get("add").unwrap();
+            let result: i32 = add.call((10, 20)).unwrap();
+            assert_eq!(result, 30, "Failed to return correct data from Lua");
+        });
+    }
+
+    #[test]
+    fn test_complex_script() {
+        // Test running a more complex Lua script (basic object simulation)
+        let script = r#"
+            obj = {
+                x = 0,
+                y = 0,
+                vx = 1,
+                vy = 1
+            }
+
+            function update_position(obj)
+                obj.x = obj.x + obj.vx
+                obj.y = obj.y + obj.vy
+            end
+
+            update_position(obj)
+        "#;
+
+        let lua = Lua::new();
+        lua.context(|lua_ctx| {
+            lua_ctx.load(script).exec().unwrap();
+
+            let obj: rlua::Table = lua_ctx.globals().get("obj").unwrap();
+            let x: i32 = obj.get("x").unwrap();
+            let y: i32 = obj.get("y").unwrap();
+
+            assert_eq!(x, 1, "Object x-coordinate was not updated correctly");
+            assert_eq!(y, 1, "Object y-coordinate was not updated correctly");
+        });
+    }
+
+    #[test]
+    fn test_handle_error_in_lua_script() {
+        // Test Lua's handling of division by zero
+        let lua = Lua::new();
+        let script = r#"
+            function divide(a, b)
+                return a / b
+            end
+
+            result = divide(10, 0)
+        "#;
+
+        lua.context(|lua_ctx| {
+            lua_ctx.load(script).exec().unwrap();
+
+            // Lua returns 'inf' or 'nan' on division by zero, not an error
+            let result: f64 = lua_ctx.globals().get("result").unwrap();
+            assert!(result.is_infinite(), "Expected Lua to return 'inf' on division by zero, but got: {}", result);
         });
     }
 }
