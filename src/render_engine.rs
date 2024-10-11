@@ -9,11 +9,12 @@ impl Renderer {
         // Initialize wgpu using InstanceDescriptor
         let instance_desc = wgpu::InstanceDescriptor {
             backends: wgpu::Backends::all(),
-            dx12_shader_compiler: wgpu::Dx12Compiler::Fxc, // Default value; you can change if needed
+            dx12_shader_compiler: wgpu::Dx12Compiler::Fxc,
+            flags: wgpu::InstanceFlags::empty(),
+            gles_minor_version: wgpu::Gles3MinorVersion::default(),
         };
         let instance = wgpu::Instance::new(instance_desc);
 
-        // For simplicity, these are placeholders for the device and queue setup process.
         let (device, queue) = futures::executor::block_on(async {
             let adapter = instance.request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::HighPerformance,
@@ -23,8 +24,9 @@ impl Renderer {
 
             adapter.request_device(&wgpu::DeviceDescriptor {
                 label: None,
-                features: wgpu::Features::empty(),
-                limits: wgpu::Limits::default(),
+                required_features: wgpu::Features::empty(),
+                required_limits: wgpu::Limits::default(),
+                memory_hints: wgpu::MemoryHints::default(),
             }, None).await.unwrap()
         });
 
@@ -42,7 +44,7 @@ impl Renderer {
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::Bgra8UnormSrgb,
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
-            view_formats: &[], // Add this field for view formats
+            view_formats: &[],
         };
         let texture = device.create_texture(&texture_desc);
         let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());

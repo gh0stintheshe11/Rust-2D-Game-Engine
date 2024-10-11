@@ -1,16 +1,18 @@
 mod engine_gui;
 mod project_file_manager;
+use eframe::NativeOptions;
 
-fn main() -> Result<(), eframe::Error> {
-    let options = eframe::NativeOptions {
-        initial_window_size: Some(eframe::egui::vec2(1280.0, 720.0)), // Set the initial window size
-        ..Default::default()
+fn main() {
+    // Set the native options for the window
+    let native_options: NativeOptions = NativeOptions {
+        vsync: true, // Enable vertical sync
+        ..Default::default() // Use default values for other fields
     };
-    
-    // Use a closure to create an instance of EngineGui
+
+    // Run the app with the window title and options
     eframe::run_native(
         "Rust 2D Game Engine",
-        options,
-        Box::new(|_cc| Box::new(engine_gui::EngineGui::default())),
-    )
+        native_options,
+        Box::new(|_cc| Ok(Box::new(engine_gui::EngineGui::default()))), // Wrap in Ok
+    );
 }

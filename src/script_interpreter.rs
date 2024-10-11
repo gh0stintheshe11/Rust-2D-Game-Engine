@@ -4,9 +4,7 @@ use rlua::{Lua, Result};
 pub fn run_lua_script(script: &str) -> Result<()> {
     let lua = Lua::new();  // Initialize Lua
 
-    lua.context(|lua_ctx| {
-        // Execute the provided Lua script
-        lua_ctx.load(script).exec()?;
-        Ok(())
-    })
+    // Execute the provided Lua script
+    lua.load(script).exec()?;
+    Ok(())
 }

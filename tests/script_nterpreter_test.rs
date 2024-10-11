@@ -28,9 +28,7 @@ mod tests {
             result = x + y
         "#;
     
-        let result = lua.context(|lua_ctx| lua_ctx.load(script).exec());
-    
-        // Since we're explicitly checking for 'nil', the script should run successfully
+        let result = lua.load(script).exec();
         assert!(result.is_ok(), "Expected Lua to handle undefined variables as nil, but it failed");
     }
 
@@ -42,46 +40,40 @@ mod tests {
         "#;
 
         let lua = Lua::new();
-        lua.context(|lua_ctx| {
-            lua_ctx.load(script).exec().unwrap();
-            let result: f64 = lua_ctx.globals().get("result").unwrap();
-            assert_eq!(result, 18.0, "Math operation failed in Lua");
-        });
+        lua.load(script).exec().unwrap();
+        let result: f64 = lua.globals().get("result").unwrap();
+        assert_eq!(result, 18.0, "Math operation failed in Lua");
     }
 
     #[test]
     fn test_pass_data_to_lua() {
         // Test passing data to Lua
         let lua = Lua::new();
-        lua.context(|lua_ctx| {
-            let globals = lua_ctx.globals();
-            globals.set("x", 50).unwrap();
-            globals.set("y", 100).unwrap();
+        let globals = lua.globals();
+        globals.set("x", 50).unwrap();
+        globals.set("y", 100).unwrap();
 
-            lua_ctx.load(r#"
-                result = x + y
-            "#).exec().unwrap();
+        lua.load(r#"
+            result = x + y
+        "#).exec().unwrap();
 
-            let result: i32 = lua_ctx.globals().get("result").unwrap();
-            assert_eq!(result, 150, "Failed to pass data to Lua script");
-        });
+        let result: i32 = lua.globals().get("result").unwrap();
+        assert_eq!(result, 150, "Failed to pass data to Lua script");
     }
 
     #[test]
     fn test_return_data_from_lua() {
         // Test returning data from Lua to Rust
         let lua = Lua::new();
-        lua.context(|lua_ctx| {
-            lua_ctx.load(r#"
-                function add(a, b)
-                    return a + b
-                end
-            "#).exec().unwrap();
+        lua.load(r#"
+            function add(a, b)
+                return a + b
+            end
+        "#).exec().unwrap();
 
-            let add: rlua::Function = lua_ctx.globals().get("add").unwrap();
-            let result: i32 = add.call((10, 20)).unwrap();
-            assert_eq!(result, 30, "Failed to return correct data from Lua");
-        });
+        let add: rlua::Function = lua.globals().get("add").unwrap();
+        let result: i32 = add.call((10, 20)).unwrap();
+        assert_eq!(result, 30, "Failed to return correct data from Lua");
     }
 
     #[test]
@@ -104,16 +96,14 @@ mod tests {
         "#;
 
         let lua = Lua::new();
-        lua.context(|lua_ctx| {
-            lua_ctx.load(script).exec().unwrap();
+        lua.load(script).exec().unwrap();
 
-            let obj: rlua::Table = lua_ctx.globals().get("obj").unwrap();
-            let x: i32 = obj.get("x").unwrap();
-            let y: i32 = obj.get("y").unwrap();
+        let obj: rlua::Table = lua.globals().get("obj").unwrap();
+        let x: i32 = obj.get("x").unwrap();
+        let y: i32 = obj.get("y").unwrap();
 
-            assert_eq!(x, 1, "Object x-coordinate was not updated correctly");
-            assert_eq!(y, 1, "Object y-coordinate was not updated correctly");
-        });
+        assert_eq!(x, 1, "Object x-coordinate was not updated correctly");
+        assert_eq!(y, 1, "Object y-coordinate was not updated correctly");
     }
 
     #[test]
@@ -128,12 +118,8 @@ mod tests {
             result = divide(10, 0)
         "#;
 
-        lua.context(|lua_ctx| {
-            lua_ctx.load(script).exec().unwrap();
-
-            // Lua returns 'inf' or 'nan' on division by zero, not an error
-            let result: f64 = lua_ctx.globals().get("result").unwrap();
-            assert!(result.is_infinite(), "Expected Lua to return 'inf' on division by zero, but got: {}", result);
-        });
+        lua.load(script).exec().unwrap();
+        let result: f64 = lua.globals().get("result").unwrap();
+        assert!(result.is_infinite(), "Expected Lua to return 'inf' on division by zero, but got: {}", result);
     }
 }

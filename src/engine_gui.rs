@@ -27,6 +27,15 @@ impl eframe::App for EngineGui {
             egui::Window::new("Create New Project")
                 .resizable(false)
                 .collapsible(false)
+                .frame(
+                    egui::Frame::window(&egui::Style::default())
+                        .shadow(egui::epaint::Shadow {
+                            offset: egui::Vec2::new(0.0, 0.0), // Adjust the shadow offset
+                            blur: 0.0, // Adjust the shadow blur
+                            spread: 2.0, // Adjust the shadow spread
+                            color: egui::Color32::DARK_GRAY, // Add the shadow colors
+                        })
+                )
                 .show(window, |ui| {
                     ui.label("Project Name:");
                     ui.text_edit_singleline(&mut self.project_name);
@@ -69,6 +78,15 @@ impl eframe::App for EngineGui {
             egui::Window::new("Open Project")
                 .resizable(false)
                 .collapsible(false)
+                .frame(
+                    egui::Frame::window(&egui::Style::default())
+                        .shadow(egui::epaint::Shadow {
+                            offset: egui::Vec2::new(0.0, 0.0), // Adjust the shadow offset
+                            blur: 0.0, // Adjust the shadow blur
+                            spread: 2.0, // Adjust the shadow spread
+                            color: egui::Color32::DARK_GRAY, // Add the shadow colors
+                        })
+                )
                 .show(window, |ui| {
                     ui.label("Project Path:");
                     ui.text_edit_singleline(&mut self.project_path);
@@ -164,7 +182,7 @@ impl EngineGui {
                 egui::TopBottomPanel::top("entity_inspector")
                     .resizable(false)
                     .exact_height(secondary_panel_height)
-                    .frame(egui::Frame::none().inner_margin(egui::style::Margin::same(0.0)))
+                    .frame(egui::Frame::none().inner_margin(egui::Margin::same(0.0)))
                     .show_inside(ui, |ui| {
                         ui.heading("Entity Inspector");
                         ui.label("Inspect and modify the attributes of the entity");
@@ -176,7 +194,7 @@ impl EngineGui {
                     .resizable(false)
                     .exact_height(secondary_panel_height)
                     .show_separator_line(false)
-                    .frame(egui::Frame::none().inner_margin(egui::style::Margin::same(0.0)))
+                    .frame(egui::Frame::none().inner_margin(egui::Margin::same(0.0)))
                     .show_inside(ui, |ui| {
 
                         let heading_response = ui.heading("Entities");
@@ -214,7 +232,7 @@ impl EngineGui {
                 egui::TopBottomPanel::top("script_inspector")
                     .resizable(false)
                     .exact_height(secondary_panel_height)
-                    .frame(egui::Frame::none().inner_margin(egui::style::Margin::same(0.0)))
+                    .frame(egui::Frame::none().inner_margin(egui::Margin::same(0.0)))
                     .show_inside(ui, |ui| {
                         ui.heading("Script Inspector");
                         ui.label("Inspect and modify the attributes of the script");
@@ -226,7 +244,7 @@ impl EngineGui {
                     .resizable(false)
                     .exact_height(secondary_panel_height)
                     .show_separator_line(false)
-                    .frame(egui::Frame::none().inner_margin(egui::style::Margin::same(0.0)))
+                    .frame(egui::Frame::none().inner_margin(egui::Margin::same(0.0)))
                     .show_inside(ui, |ui| {
 
                         let heading_response = ui.heading("Scripts");
