@@ -5,11 +5,13 @@ edition = "2021"
 
 [dependencies]
 egui = "0.23"
-eframe = "0.23"
+eframe = "0.23" # renderer of the engine UI
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-notify = "5.0"
-rlua = "0.19"  # This replaces pyo3 with Lua support
+rlua = "0.19"  # Lua support
+wgpu = "0.16"   # renderer for game rendering
+winit = "0.28"
+futures = "0.3"  # Required for wgpu async tasks
 
 [lib]
 name = "rust_2d_game_engine"
