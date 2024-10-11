@@ -65,7 +65,7 @@ impl PhysicsEngine {
         }
     }
     
-    pub fn add_rigid_body(&mut self, position: [f32; 2], is_dynamic: bool) -> Option<RigidBodyHandle> {
+    pub fn add_rigid_body(&mut self, position: [f32; 2], is_dynamic: bool,) -> Option<(RigidBodyHandle, ColliderHandle)> {
         if position[0].is_nan() || position[1].is_nan() {
             return None; // Do not add invalid rigid body
         }
@@ -80,11 +80,19 @@ impl PhysicsEngine {
                 .translation(vector![position[0], position[1]])
                 .build()
         };
-    
-        // Insert the rigid body and return the handle
-        Some(self.rigid_body_set.insert(rigid_body))
-    }
 
+        // Insert the rigid body and get its handle
+        let rb_handle = self.rigid_body_set.insert(rigid_body);
+
+        // Create a collider and attach it to the rigid body
+        let collider = ColliderBuilder::ball(0.5).build();
+        let collider_handle = self
+            .collider_set
+            .insert_with_parent(collider, rb_handle, &mut self.rigid_body_set);
+
+        Some((rb_handle, collider_handle))
+    }
+    
     // Detect collisions and handle events
     pub fn handle_collisions(&self) {
         for contact_pair in self.narrow_phase.contact_pairs() {
