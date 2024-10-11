@@ -264,16 +264,17 @@ impl EngineGui {
             .max_height((window.screen_rect().height()-20.0)*0.5)
             .show(window, |ui| {
 
-                ui.heading("Terminal");
-                
-                // Wrap the terminal output in a scroll area
-                egui::ScrollArea::vertical()
-                    .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded)
-                    .auto_shrink([false; 2])
-                    .max_height(ui.available_height() - item_spacing.y)
-                    .show(ui, |ui| {
-                        ui.label(&self.terminal_output); // Display the terminal output
-                    });
+            ui.heading("Terminal");
+            
+            // Wrap the terminal output in a scroll area
+            egui::ScrollArea::vertical()
+                .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded)
+                .auto_shrink([false; 2])
+                .max_height(ui.available_height() - item_spacing.y)
+                .stick_to_bottom(true) // Ensure the scroll area always scrolls to the bottom
+                .show(ui, |ui| {
+                ui.label(&self.terminal_output); // Display the terminal output
+                });
             });
     }
 
