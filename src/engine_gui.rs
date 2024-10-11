@@ -1,5 +1,5 @@
 use eframe::egui;
-use crate::project::FileManagement;
+use crate::project_file_manager::FileManagement;
 
 #[derive(Default)]
 pub struct EngineGui {

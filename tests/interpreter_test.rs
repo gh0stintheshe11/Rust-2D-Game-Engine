@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use rust_2d_game_engine::interpreter;
+    use rust_2d_game_engine::script_interpreter;
     use rlua::Lua;
 
     #[test]
@@ -12,7 +12,7 @@ mod tests {
             result = x + y
         "#;
 
-        let result = interpreter::run_lua_script(script);
+        let result = script_interpreter::run_lua_script(script);
         assert!(result.is_ok(), "Failed to run a simple Lua script");
     }
 

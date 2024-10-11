@@ -2,7 +2,7 @@ use std::fs::{self, File};
 use std::io::Write;
 use std::path::Path;
 use serde::{Serialize, Deserialize};
-use crate::gui::EngineGui;
+use crate::engine_gui::EngineGui;
 
 // Project metadata structure for project.json
 #[derive(Serialize, Deserialize, Debug)]

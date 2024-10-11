@@ -1,5 +1,5 @@
-mod gui;
-mod project;
+mod engine_gui;
+mod project_file_manager;
 
 fn main() -> Result<(), eframe::Error> {
     let options = eframe::NativeOptions {
@@ -11,6 +11,6 @@ fn main() -> Result<(), eframe::Error> {
     eframe::run_native(
         "Rust 2D Game Engine",
         options,
-        Box::new(|_cc| Box::new(gui::EngineGui::default())),
+        Box::new(|_cc| Box::new(engine_gui::EngineGui::default())),
     )
 }

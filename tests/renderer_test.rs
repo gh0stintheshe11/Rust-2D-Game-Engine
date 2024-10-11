@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use rust_2d_game_engine::renderer::Renderer;
+    use rust_2d_game_engine::render_engine::Renderer;
     use wgpu::ShaderModuleDescriptor;
     use futures::executor::block_on;
 
