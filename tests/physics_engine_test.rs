@@ -56,20 +56,21 @@ mod tests {
     #[test]
     fn test_simulation_step() {
         let mut physics_engine = PhysicsEngine::new();
-     
+    
         // Add a dynamic body at a non-zero height
         let handle = physics_engine.add_rigid_body([0.0, 10.0], true).unwrap();
-     
-        // Run the simulation for multiple steps to observe the body's movement
-        for i in 0..10 {
+    
+        // Run the simulation for multiple steps
+        for i in 0..100 {  // Increase the number of simulation steps
             physics_engine.step();
             let body = physics_engine.rigid_body_set.get(handle).unwrap();
             println!("Step {}: Body y position = {}", i, body.translation().y);
+    
+            // Ensure that after some steps, the body falls below its starting point
+            if i > 10 {
+                assert!(body.translation().y < 10.0, "Body did not fall after simulation steps.");
+            }
         }
-     
-        // Check that the body's y position decreased due to gravity
-        let body = physics_engine.rigid_body_set.get(handle).unwrap();
-        assert!(body.translation().y < 10.0, "Body did not fall after simulation steps.");
     }
 
     #[test]

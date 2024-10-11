@@ -41,38 +41,45 @@ impl PhysicsEngine {
     pub fn step(&mut self) {
         let physics_hooks = ();
         let event_handler = ();
-
-        // Step the physics simulation
+    
         self.physics_pipeline.step(
             &self.gravity,
             &self.integration_parameters,
             &mut self.island_manager,
-            &mut *self.broad_phase,  // Dereference the Box
+            &mut *self.broad_phase,
             &mut self.narrow_phase,
             &mut self.rigid_body_set,
             &mut self.collider_set,
             &mut self.impulse_joint_set,
             &mut self.multibody_joint_set,
             &mut self.ccd_solver,
-            Some(&mut self.query_pipeline), // Add the missing QueryPipeline argument
+            Some(&mut self.query_pipeline),
             &physics_hooks,
             &event_handler,
         );
+    
+        // Debugging output to see if bodies are moving
+        for (handle, body) in self.rigid_body_set.iter() {
+            let position = body.translation();
+            println!("Body handle: {:?}, Position: {:?}", handle, position);
+        }
     }
     
     pub fn add_rigid_body(&mut self, position: [f32; 2], is_dynamic: bool) -> Option<RigidBodyHandle> {
-        // Check for NaN or other invalid values
         if position[0].is_nan() || position[1].is_nan() {
             return None; // Do not add invalid rigid body
         }
     
         let rigid_body = if is_dynamic {
             RigidBodyBuilder::dynamic()
+                .translation(vector![position[0], position[1]])
+                .can_sleep(false) // Ensure the body stays awake
+                .build()
         } else {
             RigidBodyBuilder::fixed()
-        }
-        .translation(vector![position[0], position[1]])
-        .build();
+                .translation(vector![position[0], position[1]])
+                .build()
+        };
     
         // Insert the rigid body and return the handle
         Some(self.rigid_body_set.insert(rigid_body))
