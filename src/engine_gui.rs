@@ -8,7 +8,7 @@ pub struct EngineGui {
     load_project: bool,            // Track if the project should be loaded
     project_name: String,          // Store the project name input
     project_path: String,          // Store the project path input
-    pub terminal_output: String,   // Store the terminal output
+    terminal_output: String,   // Store the terminal output
 }
 
 impl eframe::App for EngineGui {
