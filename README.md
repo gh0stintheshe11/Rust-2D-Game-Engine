@@ -40,6 +40,6 @@ A game engine should be able to display and manage the game project files.
 > [!NOTE]
 > Not sure if project files need to be saved manually for now, since the project is directly modified in the engine.
 
-## [Engine GUI](/src/gui.rs)
+## [Engine GUI](/src/engine_gui.rs)
 Using [egui](https://github.com/emilk/egui) for the engine GUI.
 - [x] initial implementation
