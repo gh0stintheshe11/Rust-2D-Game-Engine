@@ -29,7 +29,7 @@ Using [rlua](https://github.com/Kampfkarren/rlua) for the game script interprete
 > [!NOTE]
 > Will add more script languages in the future if have time, such as C# and python.
 
-## [Game Project File Management](/src/file_system.rs)
+## [Game Project File Management](/src/project_manager.rs)
 A game engine should be able to display and manage the game project files.
 
 - [x] create a new project
