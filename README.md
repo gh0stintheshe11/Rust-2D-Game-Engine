@@ -5,6 +5,8 @@
 - [Entity Component System](#ecs-entity-component-system)
 - [Render Engine](#render-engine)
 - [Physics Engine](#physics-engine)
+- [Input Handler](#input-handling)
+- [Audio Engine](#audio-engine)
 - [Script Interpreter](#script_interpreter)
 - [Game Project File Management](#file_system)
 - [Engine GUI](#gui)
@@ -25,6 +27,14 @@ To be implemented...
 For the game logic language, ```lua``` is a simple and popular choice in the game industry.
 Using [rlua](https://github.com/Kampfkarren/rlua) for the game script interpreter.
 - [x] initial implementation
+
+## [Audio Engine](/src/audio_engine.rs)
+Using [rodio](https://github.com/RustAudio/rodio) for the game audio engine.
+- [ ] initial implementation
+
+## [Input Handling](/src/input_handler.rs)
+Using [winit](https://github.com/rust-windowing/winit) for the game input handling.
+- [ ] initial implementation
 
 > [!NOTE]
 > Will add more script languages in the future if have time, such as C# and python.
