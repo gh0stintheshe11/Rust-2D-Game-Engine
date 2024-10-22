@@ -15,6 +15,9 @@ futures = "0.3.31"  # Required for wgpu async tasks
 rapier2d = "0.22.0"
 rodio = "0.19.0"
 
+[dev-dependencies]
+mockall = "0.11"
+
 [lib]
 name = "rust_2d_game_engine"
 path = "src/lib.rs"

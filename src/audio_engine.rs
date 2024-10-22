@@ -1,6 +1,7 @@
 use rodio::{OutputStream, OutputStreamHandle, Sink, Decoder};
 use std::fs::File;
 use std::io::BufReader;
+use std::path::Path;
 
 pub struct AudioEngine {
     stream: OutputStream,
@@ -20,13 +21,27 @@ impl AudioEngine {
         }
     }
 
-    pub fn play_sound(&self, file_path: &str) {
-        let file = BufReader::new(File::open(file_path).unwrap());
-        let source = Decoder::new(file).unwrap();
+    pub fn play_sound(&self, file_path: &str) -> Result<(), String> {
+        let path = Path::new(file_path);
+        if !path.exists() {
+            return Err(format!("File not found: {}", file_path));
+        }
+
+        let file = BufReader::new(File::open(path).map_err(|e| e.to_string())?);
+        let source = Decoder::new(file).map_err(|e| e.to_string())?;
         self.sink.append(source);
+        Ok(())
     }
 
     pub fn is_playing(&self) -> bool {
-        !self.sink.empty()
+        !self.sink.empty() && !self.sink.is_paused()
+    }
+
+    pub fn pause(&self) {
+        self.sink.pause();
+    }
+
+    pub fn resume(&self) {
+        self.sink.play();
     }
 }
