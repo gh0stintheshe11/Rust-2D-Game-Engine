@@ -30,11 +30,11 @@ Using [rlua](https://github.com/Kampfkarren/rlua) for the game script interprete
 
 ## [Audio Engine](/src/audio_engine.rs)
 Using [rodio](https://github.com/RustAudio/rodio) for the game audio engine.
-- [ ] initial implementation
+- [x] initial implementation
 
 ## [Input Handling](/src/input_handler.rs)
 Using [winit](https://github.com/rust-windowing/winit) for the game input handling.
-- [ ] initial implementation
+- [x] initial implementation
 
 > [!NOTE]
 > Will add more script languages in the future if have time, such as C# and python.
