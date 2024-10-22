@@ -19,9 +19,89 @@ Using [wgpu](https://github.com/gfx-rs/wgpu) for the game rendering engine.
 
 ## [Physics Engine](/src/physics_engine.rs)
 
-Using [rapier2d](https://github.com/dimforge/rapier) for the game physics engine.
+The Physics Engine is a core component of our 2D game engine, providing realistic physical simulations for game objects. It utilizes the [rapier2d](https://github.com/dimforge/rapier), a powerful 2D physics engine for Rust, to handle complex physics calculations and interactions.
 
-- [x] initial implementation
+### Features
+
+- Gravity simulation
+- Dynamic and static rigid body creation
+- Collision detection and handling
+- Custom physical properties for objects (mass, friction, restitution)
+- Support for various collider shapes (ball, cuboid, capsule)
+
+### Implementation Details
+
+The `PhysicsEngine` struct encapsulates all necessary components for physics simulation:
+
+- `PhysicsPipeline`: Manages the overall physics simulation process
+- `RigidBodySet` and `ColliderSet`: Store rigid bodies and their colliders
+- `IslandManager`, `BroadPhase`, and `NarrowPhase`: Handle collision detection
+- `ImpulseJointSet` and `MultibodyJointSet`: Manage object constraints
+- `CCDSolver`: Handles continuous collision detection
+- `QueryPipeline`: Allows for spatial queries
+
+Key methods include:
+
+- `new()`: Initializes the physics engine with default settings
+- `step()`: Advances the physics simulation by one time step
+- `add_rigid_body()`: Adds a new rigid body to the simulation
+- `handle_collisions()`: Detects and processes collisions between objects
+
+### Unit Tests
+
+The test suite in [`physics_engine_test.rs`](tests/physics_engine_test.rs) verifies various aspects of the physics simulation:
+
+1. **Initialization** - `test_initialization`:
+   - Checks correct gravity setting and empty initial state
+
+2. **Rigid Body Addition**:
+   - `test_add_dynamic_rigid_body_with_collider`: Verifies dynamic body creation
+   - `test_add_static_rigid_body_with_collider`: Checks static body creation
+   - `test_add_invalid_rigid_body`: Ensures invalid bodies are not added
+
+3. **Gravity Simulation** - `test_simulation_under_gravity`:
+   - Confirms objects fall under gravity
+
+4. **Collision Detection** - `test_collision_detection`:
+   - Verifies collisions between dynamic and static bodies
+
+5. **Multiple Body Simulation** - `test_multiple_bodies_falling`:
+   - Tests behavior of multiple dynamic bodies
+
+6. **Collider Shapes** - `test_different_collider_shapes`:
+   - Checks various collider shapes (ball, cuboid, capsule)
+
+7. **Custom Properties** - `test_rigid_body_with_custom_properties`:
+   - Tests bodies with custom mass and restitution
+
+8. **Collision Events** - `test_collision_events`:
+   - Ensures collision events are properly detected and reported
+
+### Usage
+
+To use the Physics Engine:
+
+1. Create an instance of `PhysicsEngine` using `PhysicsEngine::new()`.
+2. Add rigid bodies to the simulation with `add_rigid_body()`.
+3. Call `step()` in your game loop to advance the physics simulation.
+4. Use `handle_collisions()` to detect and respond to collisions.
+
+Example:
+```rust
+use rust_2d_game_engine::physics_engine::PhysicsEngine;
+
+let mut physics_engine = PhysicsEngine::new();
+
+// Add a dynamic body
+physics_engine.add_rigid_body([0.0, 5.0], true);
+
+// In the game loop
+physics_engine.step();
+physics_engine.handle_collisions();
+```
+
+> [!WARNING]
+> Need to handle potential errors, as adding bodies or stepping the simulation may fail in certain conditions.
 
 ## [ECS Entity Component System](/src/ecs.rs)
 
