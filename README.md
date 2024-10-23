@@ -13,9 +13,153 @@
 
 ## [Render Engine](/src/render_engine.rs)
 
-Using [wgpu](https://github.com/gfx-rs/wgpu) for the game rendering engine.
+The Rendering Engine is a crucial component of our 2D game engine, responsible for handling all graphical output. It utilizes [`wgpu`](https://github.com/gfx-rs/wgpu), a cross-platform, safe, and modern graphics API, to provide efficient and flexible rendering capabilities.
 
-- [x] initial implementation
+### Features
+
+- Hardware-accelerated rendering using `wgpu`
+- Support for multiple graphics backends (Vulkan, Metal, DX12, WebGPU)
+- 2D sprite rendering
+- Texture creation and management
+- Shader compilation and usage
+- High-performance rendering pipeline
+
+### Implementation Details
+
+The `RenderEngine` struct encapsulates the core rendering functionality:
+
+- `texture_view`: A view into the render texture
+- `device`: The logical graphics and compute device
+- `queue`: The command queue for the device
+- `pipeline`: The render pipeline for 2D sprites
+- `vertex_buffer`: Buffer for sprite vertices
+- `index_buffer`: Buffer for sprite indices
+
+Key methods include:
+
+- `new()`: Initializes the rendering engine, setting up the device, queue, and render pipeline
+- `render_frame(&mut self, sprites: &[Sprite])`: Renders a frame with the given sprites
+
+The engine uses `wgpu` to:
+- Create an instance with support for all available backends
+- Request a high-performance adapter
+- Set up a device and command queue
+- Create buffers and pipeline for sprite rendering
+- Manage shader compilation and execution
+
+### Unit Tests
+
+The unit test suite in [`render_engine_test.rs`](tests/render_engine_test.rs) verifies various aspects of the rendering engine:
+
+1. **Initialization** - `test_renderer_initialization`:
+   - Ensures the renderer can be created without errors
+
+2. **Texture Creation** - `test_texture_creation`:
+   - Verifies correct texture dimensions
+
+3. **Render Frame Execution** - `test_render_frame_executes`:
+   - Checks that the `render_frame` method runs without errors with sprites
+
+4. **Instance Initialization** - `test_instance_initialization`:
+   - Tests the creation of a `wgpu` instance
+
+5. **Device Request** - `test_request_device`:
+   - Verifies the ability to request a graphics device
+
+6. **Error Handling** - `test_error_handling_in_renderer`:
+   - Ensures the renderer handles errors gracefully
+
+7. **Shader Compilation** - `test_shader_compilation`:
+   - Tests the ability to compile WGSL shaders
+
+8. **High Load Rendering** - `test_high_load_rendering`:
+   - Stress tests the renderer with multiple render calls
+
+9. **Sprite Creation** - `test_sprite_creation`:
+   - Verifies sprite creation and properties
+
+10. **Multiple Sprites** - `test_multiple_sprites_rendering`:
+    - Tests rendering multiple sprites in a single frame
+
+### Usage
+
+To use the Rendering Engine in your game:
+
+```rust
+use rust_2d_game_engine::render_engine::{RenderEngine, Sprite};
+
+// Create renderer
+let mut renderer = RenderEngine::new();
+
+// Create sprites
+let sprites = vec![
+    Sprite {
+        position: (100.0, 100.0),
+        size: (50.0, 50.0),
+        rotation: 0.0,
+        texture_coords: (0.0, 0.0, 1.0, 1.0),
+    },
+    // Add more sprites as needed
+];
+
+// In the game loop
+renderer.render_frame(&sprites).expect("Failed to render frame");
+```
+
+### Development Roadmap
+
+#### ✅ Phase 0: Core Rendering Foundation (Completed)
+- [x] Basic WGPU setup
+  - Instance and device initialization
+  - Pipeline creation
+  - Basic shader implementation
+- [x] Basic sprite rendering
+  - Vertex and index buffer management
+  - Basic sprite structure (position, size, rotation)
+  - Simple white rectangle rendering
+
+#### Phase 1: Core Rendering Enhancements
+- [ ] Add texture loading and management
+  - Load image files (PNG, JPEG)
+  - Texture atlas support
+  - Resource management system
+- [ ] Implement basic camera system
+  - 2D viewport management
+  - Basic transformations (pan, zoom)
+  - Screen-to-world coordinate conversion
+
+#### Phase 2: Animation and Visual Effects
+- [ ] Implement sprite sheets and animations
+  - Frame-based animation system
+  - Animation state management
+  - Support for multiple animation sequences
+- [ ] Add sprite batching for performance
+  - Batch similar sprites together
+  - Reduce draw calls
+  - GPU memory optimization
+
+#### Phase 3: Advanced Features
+- [ ] Implement z-ordering/layers
+  - Multiple render layers
+  - Depth management
+  - Layer-based rendering
+- [ ] Add text rendering
+  - Font loading and management
+  - Unicode support
+  - Text styling options
+
+#### Phase 4: Polish and Effects
+- [ ] Add particle system
+  - Particle emitters
+  - Particle life cycle management
+  - Particle rendering optimizations
+- [ ] Advanced camera features
+  - Camera shake
+  - Smooth following
+  - Screen effects (fade, flash)
+
+> [!IMPORTANT]
+> While the basic sprite rendering is implemented, features like textures, batching, and advanced transformations are still to be added.
 
 ## [Physics Engine](/src/physics_engine.rs)
 
@@ -268,3 +412,4 @@ A game engine should be able to display and manage the game project files.
 Using [egui](https://github.com/emilk/egui) for the engine GUI.
 
 - [x] initial implementation
+

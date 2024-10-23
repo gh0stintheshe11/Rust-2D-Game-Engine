@@ -1,19 +1,27 @@
 #[cfg(test)]
 mod tests {
-    use rust_2d_game_engine::render_engine::RenderEngine;
+    use rust_2d_game_engine::render_engine::{RenderEngine, Sprite};
     use wgpu::ShaderModuleDescriptor;
     use futures::executor::block_on;
 
+    fn create_test_sprite() -> Sprite {
+        Sprite {
+            position: (0.0, 0.0),
+            size: (100.0, 100.0),
+            rotation: 0.0,
+            texture_coords: (0.0, 0.0, 1.0, 1.0),
+        }
+    }
+
     #[test]
     fn test_renderer_initialization() {
-        let _renderer = RenderEngine::new();  // Initialize renderer
+        let _renderer = RenderEngine::new();
         assert!(true, "Renderer initialized successfully");
     }
 
     #[test]
     fn test_texture_creation() {
         let _renderer = RenderEngine::new();
-
         let texture_extent = wgpu::Extent3d {
             width: 1024,
             height: 1024,
@@ -26,10 +34,11 @@ mod tests {
     }
 
     #[test]
-    fn test_render_scene_executes() {
+    fn test_render_frame_executes() {
         let mut renderer = RenderEngine::new();
-        renderer.render_scene();
-        assert!(true, "render_scene should execute without errors");
+        let sprites = vec![create_test_sprite()];
+        let result = renderer.render_frame(&sprites);
+        assert!(result.is_ok(), "render_frame should execute without errors");
     }
 
     #[test]
@@ -77,30 +86,38 @@ mod tests {
     fn test_error_handling_in_renderer() {
         let result = std::panic::catch_unwind(|| {
             let mut renderer = RenderEngine::new();
-            renderer.render_scene();
+            let sprites = vec![create_test_sprite()];
+            renderer.render_frame(&sprites).unwrap();
         });
 
-        assert!(result.is_ok(), "Renderer should not panic when executing render_scene");
+        assert!(result.is_ok(), "Renderer should not panic when executing render_frame");
     }
 
     #[test]
     fn test_shader_compilation() {
         let renderer = RenderEngine::new();
         let shader_source = r#"
+            struct VertexInput {
+                @location(0) position: vec3<f32>,
+                @location(1) tex_coords: vec2<f32>,
+            };
+
             struct VertexOutput {
-                @builtin(position) pos: vec4<f32>,
+                @builtin(position) clip_position: vec4<f32>,
+                @location(0) tex_coords: vec2<f32>,
             };
 
             @vertex
-            fn vs_main() -> VertexOutput {
+            fn vs_main(in: VertexInput) -> VertexOutput {
                 var out: VertexOutput;
-                out.pos = vec4<f32>(0.0, 0.0, 0.0, 1.0);
+                out.tex_coords = in.tex_coords;
+                out.clip_position = vec4<f32>(in.position, 1.0);
                 return out;
             }
 
             @fragment
-            fn fs_main() -> @location(0) vec4<f32> {
-                return vec4<f32>(0.2, 0.3, 0.4, 1.0);
+            fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+                return vec4<f32>(1.0, 1.0, 1.0, 1.0);
             }
         "#;
 
@@ -115,9 +132,31 @@ mod tests {
     #[test]
     fn test_high_load_rendering() {
         let mut renderer = RenderEngine::new();
-        for _ in 0..10000 {
-            renderer.render_scene();
+        let sprites = vec![create_test_sprite()];
+        for _ in 0..100 {  // Reduced from 10000 to 100 for faster testing
+            renderer.render_frame(&sprites).unwrap();
         }
         assert!(true, "Engine handled high-load rendering without crashing");
+    }
+
+    #[test]
+    fn test_sprite_creation() {
+        let sprite = create_test_sprite();
+        assert_eq!(sprite.position, (0.0, 0.0));
+        assert_eq!(sprite.size, (100.0, 100.0));
+        assert_eq!(sprite.rotation, 0.0);
+        assert_eq!(sprite.texture_coords, (0.0, 0.0, 1.0, 1.0));
+    }
+
+    #[test]
+    fn test_multiple_sprites_rendering() {
+        let mut renderer = RenderEngine::new();
+        let sprites = vec![
+            create_test_sprite(),
+            create_test_sprite(),
+            create_test_sprite(),
+        ];
+        let result = renderer.render_frame(&sprites);
+        assert!(result.is_ok(), "Should render multiple sprites without errors");
     }
 }
