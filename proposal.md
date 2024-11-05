@@ -9,7 +9,7 @@
 > [!NOTE]
 > The order of team members is based on the chronological order of joining the team.
 
-**Project GitHub Repository**: [Rust-2D-Game-Engine](https://github.com/gh0stintheshe11/Rust-2D-Game-Engine)
+⭐ **Project GitHub Repository**: [Rust-2D-Game-Engine](https://github.com/gh0stintheshe11/Rust-2D-Game-Engine)
 
 ## Table of Contents
 - [Team Members](#team-members)
