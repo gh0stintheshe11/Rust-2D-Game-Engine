@@ -7,7 +7,7 @@
 - [Jie Peng(Frank) Chen - 997532861](https://github.com/frankjc2022)
 
 > [!NOTE]
-> The order of team members is not based on the experience or ability of the members, but the chronological order of joining the team.
+> The order of team members is based on the chronological order of joining the team.
 
 **Project GitHub Repository**: [Rust-2D-Game-Engine](https://github.com/gh0stintheshe11/Rust-2D-Game-Engine)
 
