@@ -22,7 +22,7 @@
 
 In the world of indie game development, a dedicated, cross-platform 2D game engine can be transformative, especially one that balances simplicity with powerful features. A simple, easy-to-use, and cross-platform 2D game engine is essential for indie developers and small studios focused on 2D games. However, the current Rust ecosystem lacks a dedicated engine specifically designed for 2D game development. Rust’s strong performance and memory safety make it ideal for building high-efficiency applications like game engines.
 
-While Rust has game engines like Bevy and Amethyst, there's a notable gap for a lightweight, dedicated 2D game engine that prioritizes simplicity and cross-platform support. Existing solutions often combine 2D and 3D capabilities, resulting in unnecessary complexity for developers focused solely on 2D game development. This project aims to fill this gap by creating a specialized 2D engine that leverages Rust's memory safety and performance while maintaining a focused, user-friendly approach that's particularly suitable for indie developers and small studios.
+While Rust has game engines like Bevy and Amethyst, there's a notable gap for a lightweight, dedicated 2D game engine that prioritizes simplicity and cross-platform support. Existing solutions often combine 2D and 3D capabilities, resulting in unnecessary complexity for developers focused solely on 2D game development. This project aims to fill this gap by creating a specialized (**dummy-can-use** 😉) 2D engine that leverages Rust's memory safety and performance while maintaining a focused, user-friendly approach that's particularly suitable for indie developers and small studios.
 
 ## Objective and Key Features
 
