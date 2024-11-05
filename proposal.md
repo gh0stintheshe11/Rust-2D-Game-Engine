@@ -20,33 +20,11 @@
 
 ## Motivation
 
-<!--
-What motivated your team to spend time on this project? An excellent project idea is satisfying and fun to work on, and fills a gap that may not be easily found in the Rust ecosystem.
-
-Motivation: 30% (out of 10 Points)
-
-The motivation is sufficiently convincing, showing that the team has thought about the project thoroughly (10 Points)
-The motivation is lackluster and not convincing. (6 Points)
-The motivation is not mentioned in the proposal. (0 Point)
--->
-
 In the world of indie game development, a dedicated, cross-platform 2D game engine can be transformative, especially one that balances simplicity with powerful features. A simple, easy-to-use, and cross-platform 2D game engine is essential for indie developers and small studios focused on 2D games. However, the current Rust ecosystem lacks a dedicated engine specifically designed for 2D game development. Rust’s strong performance and memory safety make it ideal for building high-efficiency applications like game engines.
 
 While Rust has game engines like Bevy and Amethyst, there's a notable gap for a lightweight, dedicated 2D game engine that prioritizes simplicity and cross-platform support. Existing solutions often combine 2D and 3D capabilities, resulting in unnecessary complexity for developers focused solely on 2D game development. This project aims to fill this gap by creating a specialized 2D engine that leverages Rust's memory safety and performance while maintaining a focused, user-friendly approach that's particularly suitable for indie developers and small studios.
 
 ## Objective and Key Features
-
-<!--
-What is the objective of this project? What are the key features to be built in the project to achieve this objective? In other words, what is the idea that the completed project is trying to implement? It would be excellent if the idea has some novelty, but it is also important that it is feasible to be implemented within the timeframe of this course. Novelty is represented by the fact that the project, while small in scale, may be filling a gap in the current Rust ecosystem.
-
-Objective and key features: 30% (out of 10 Points)
-
-The objective and key features of the proposal may be filling a gap in the current Rust ecosystem. (3 Bonus Points)
-The objective and key features of the proposal are clearly defined, with a reasonable amount of work for each team member. (10 Points)
-The objective and key features of the proposal, are not clearly defined; or the amount of work for each team member is not well defined or insufficient. (6 Points)
-The objective of the proposal is not mentioned in the proposal. (0 Point)
-
--->
 
 The objective of this Rust 2D Game Engine project is to build a versatile, cross-platform engine that delivers the essential tools and core functionalities required for 2D game development. Designed for simplicity and efficiency, the engine will be lightweight, modular, and built with an indie developer-friendly focus, making it easy to integrate into a wide range of projects. 
 Below are the main features that define this project:
@@ -112,16 +90,6 @@ simulations, suitable for arcade-style physics.
 - This graphical interface enhances accessibility, making it easier for developers to experiment with and fine-tune elements directly from the GUI, ultimately speeding up iteration cycles.
 
 ## Project Plan
-
-<!--
-Briefly and concisely, describe how your team plans to achieve the project objective in a matter of weeks, with clear descriptions of responsibilities for each team member in the team. As the duration of the project is quite short, there is no need to include milestones and tentative dates.
-
-Tentative plan: 40% (out of 10 Points)
-
-The proposed plan is concise and clear, includes responsibilities for each team member, and a casual reader can be convinced that the project can be reasonably completed by the project due date. (10 Points)
-The proposed plan has been included, but not clear to a casual reader. (6 Points)
-The proposed plan is not comprehensible. (0 Point)
--->
 
 To achieve the project objective within the course timeframe, this team will divide responsibilities based on feature requirements and each member's focus areas and integrate the features together. following is the development plan:
 
