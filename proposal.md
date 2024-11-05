@@ -141,16 +141,18 @@ To achieve the project objective within the course timeframe, this team will div
 - [Game Project File Management](#game-project-file-management)
 - [Engine GUI](#engine-gui)
 
+> [!NOTE]
+> This project is started very early of the course (way before the project proposal), so the framework setup already covers many of the features and related functionalities of the engine. The rest of the development can be well managed and strictly followed the plan as proposed.
+
 ### Project Timeline
 
 | date     | Week | Task |
 | ---      | ---  | ---  |
 | Previous | 0    | Project framework setup |
-| 11/01 - 11/07     | 1    | feature development |
+| 11/01 - 11/07    | 1    | feature development |
 | 11/08 - 11/14    | 2    | feature development |
 | 11/15 - 11/21    | 3    | adjustment for integration and actual integration |
 | 11/22 - 11/28    | 4    | integration |
 | 11/29 - 12/05    | 5    | testing and bug fixing |
 | 12/06 - 12/15    | 6    | buffer for documentation and miscellaneous |
 | 12/16 | 7    | Final Deliverable |
-
