@@ -129,4 +129,4 @@ To achieve the project objective within the course timeframe, this team will div
 | 12/16 | 7    | Final Deliverable |
 
 > [!IMPORTANT]
-> This project is started very early of the course (way before the project proposal), so the framework setup already covers many of the features and related functionalities of the engine. The rest of the development can be well managed and strictly followed the plan as proposed below.
+> This project is started very early of the course (way before the project proposal), so the framework setup already covers many of the features and related functionalities of the engine. The rest of the development can be well managed and strictly followed the plan as proposed.
