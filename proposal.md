@@ -30,17 +30,14 @@ The objective of this Rust 2D Game Engine project is to build a versatile, cross
 Below are the main features that define this project:
 
 #### Rendering Engine:
-
-- Core component responsible for all graphical output, utilizing [wgpu](https://crates.io/crates/wgpu) crate, a cross-platform, modern graphics API for efficient rendering.
+_Core component responsible for all graphical output, utilizing [wgpu](https://crates.io/crates/wgpu) crate, a cross-platform, modern graphics API for efficient rendering._
 
 - Features hardware-accelerated rendering, multiple graphics backend support (Vulkan, Metal, DX12, WebGPU), and 2D sprite rendering.
 
 - Includes texture creation and management, shader compilation, and a high-performance rendering pipeline.
 
 #### Physics Engine:
-
-- Core component providing basic 2D collision detection, response, and realistic physical 
-simulations, suitable for arcade-style physics.
+_Core component providing basic 2D collision detection, response, and realistic physical simulations, suitable for arcade-style physics._
 
 - Utilizes [rapier2d](https://crates.io/crates/rapier2d) crate, a powerful Rust physics engine, for complex physics calculations and interactions.
 
@@ -49,42 +46,36 @@ simulations, suitable for arcade-style physics.
 - Supports various collider shapes such as ball, cuboid, and capsule.
 
 #### Entity Component System (ECS):
-
-- Implements a flexible Entity Component System (ECS) pattern, allowing efficient creation, management, and updating of game entities and their states.
+_Implements a flexible Entity Component System (ECS) pattern, allowing efficient creation, management, and updating of game entities and their states._
 
 - This structure makes it easy to add new game features and behaviors without significant restructuring, promoting modularity and scalability.
 
 - The ECS also optimizes memory usage and processing efficiency, ensuring that even large numbers of entities can be managed seamlessly.
 
 #### Script Interpreter:
-
-- Embeds a scripting interpreter for custom game logic, enabling developers to extend behavior without modifying the core engine.
+_Embeds a scripting interpreter for custom game logic, enabling developers to extend behavior without modifying the core engine._
 
 - Uses Lua, a popular choice in the game industry, via the [rlua](https://crates.io/crates/rlua) crate to seamlessly integrate scripting within Rust.
 
 - Supports running Lua scripts, data exchange between Rust and Lua, and effective error handling.
 
 #### Audio Engine:
-
-- Enables low-latency playback of sound effects and background music using the [rodio](https://crates.io/crates/rodio) crate to manage audio streams and control sound output.
+_Enables low-latency playback of sound effects and background music using the [rodio](https://crates.io/crates/rodio) crate to manage audio streams and control sound output._
 
 - Designed to support various audio formats and streaming capabilities, it caters to the needs of both casual and immersive game sound design.
 
 #### Input Handling:
+_A responsive input handling system that processes player inputs (keyboard, mouse, game controllers) with low latency, providing a smooth and intuitive player experience._
 
-- A responsive input handling system that processes player inputs (keyboard, mouse, game controllers) with low latency, providing a smooth and intuitive player experience.
-
-- Built with the winit crate, this feature ensures compatibility with a range of devices across platforms, handling core input types like clicks, keystrokes, and joystick movements.
+- Built with the [winit](https://crates.io/crates/winit) crate, this feature ensures compatibility with a range of devices across platforms, handling core input types like clicks, keystrokes, and joystick movements.
 
 #### Game Project File Management:
-
-- Provides a file management system for handling game assets, configuration files, and saved states.
+_Provides a file management system for handling game assets, configuration files, and saved states._
 
 - Supports essential project management functions: creating, opening, saving, and building projects.
 
 #### Engine GUI:
-
-- The engine’s GUI provides a user-friendly interface, built with egui, allowing developers to interact with and manage game properties in real time.
+_The engine’s GUI provides a user-friendly interface, built with [egui](https://crates.io/crates/egui), allowing developers to interact with and manage game properties in real time._
 
 - Features include the ability to inspect, modify, and save changes to game components and settings without needing to write additional code, streamlining the development process.
 
