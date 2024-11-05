@@ -27,7 +27,9 @@ The motivation is lackluster and not convincing. (6 Points)
 The motivation is not mentioned in the proposal. (0 Point)
 -->
 
-In the world of indie game development, a dedicated, cross-platform 2D game engine can be transformative, especially one that balances simplicity with powerful features. A simple, easy-to-use, and cross-platform 2D game engine is essential for indie developers and small studios focused on 2D games. However, the current Rust ecosystem lacks a dedicated engine specifically designed for 2D game development. Rust’s strong performance and memory safety make it ideal for building high-efficiency applications like game engines. This project aims to fill this gap by leveraging Rust’s unique benefits to create a lightweight and modular engine tailored exclusively for 2D games, empowering developers to focus on creativity and productivity with cross-platform support.
+In the world of indie game development, a dedicated, cross-platform 2D game engine can be transformative, especially one that balances simplicity with powerful features. A simple, easy-to-use, and cross-platform 2D game engine is essential for indie developers and small studios focused on 2D games. However, the current Rust ecosystem lacks a dedicated engine specifically designed for 2D game development. Rust’s strong performance and memory safety make it ideal for building high-efficiency applications like game engines.
+
+While Rust has game engines like Bevy and Amethyst, there's a notable gap for a lightweight, dedicated 2D game engine that prioritizes simplicity and cross-platform support. Existing solutions often combine 2D and 3D capabilities, resulting in unnecessary complexity for developers focused solely on 2D game development. This project aims to fill this gap by creating a specialized 2D engine that leverages Rust's memory safety and performance while maintaining a focused, user-friendly approach that's particularly suitable for indie developers and small studios.
 
 ## Objective and Key Features
 
@@ -43,10 +45,10 @@ The objective of the proposal is not mentioned in the proposal. (0 Point)
 
 -->
 
-The objective of the Rust 2D Game Engine project is to build a versatile, cross-platform engine that delivers the essential tools and core functionalities required for 2D game development. Designed for simplicity and efficiency, the engine will be lightweight, modular, and built with an indie developer-friendly focus, making it easy to integrate into a wide range of projects. 
+The objective of this Rust 2D Game Engine project is to build a versatile, cross-platform engine that delivers the essential tools and core functionalities required for 2D game development. Designed for simplicity and efficiency, the engine will be lightweight, modular, and built with an indie developer-friendly focus, making it easy to integrate into a wide range of projects. 
 Below are the main features that define this project:
 
-**Rendering Engine:**
+#### Rendering Engine:
 
 - Core component responsible for all graphical output, utilizing [wgpu](https://crates.io/crates/wgpu) crate, a cross-platform, modern graphics API for efficient rendering.
 <br>
@@ -54,7 +56,7 @@ Below are the main features that define this project:
 <br>
 - Includes texture creation and management, shader compilation, and a high-performance rendering pipeline.
 
-**Physics Engine:**
+#### Physics Engine:
 
 - Core component providing basic 2D collision detection, response, and realistic physical 
 simulations, suitable for arcade-style physics.
@@ -64,7 +66,7 @@ simulations, suitable for arcade-style physics.
 - Features include gravity simulation, dynamic and static rigid body creation, collision handling, and custom physical properties (mass, friction, restitution).
 - Supports various collider shapes such as ball, cuboid, and capsule.
 
-**Entity Component System (ECS):**
+#### Entity Component System (ECS):
 
 - Implements a flexible Entity Component System (ECS) pattern, allowing efficient creation, management, and updating of game entities and their states.
 <br>
@@ -72,7 +74,7 @@ simulations, suitable for arcade-style physics.
 <br>
 - The ECS also optimizes memory usage and processing efficiency, ensuring that even large numbers of entities can be managed seamlessly.
 
-**Script Interpreter:**
+#### Script Interpreter:
 
 - Embeds a scripting interpreter for custom game logic, enabling developers to extend behavior without modifying the core engine.
 <br>
@@ -80,25 +82,25 @@ simulations, suitable for arcade-style physics.
 <br>
 - Supports running Lua scripts, data exchange between Rust and Lua, and effective error handling.
 
-**Audio Engine:**
+#### Audio Engine:
 
 - Enables low-latency playback of sound effects and background music using the [rodio](https://crates.io/crates/rodio) crate to manage audio streams and control sound output.
 <br>
 - Designed to support various audio formats and streaming capabilities, it caters to the needs of both casual and immersive game sound design.
 
-**Input Handling:**
+#### Input Handling:
 
 - A responsive input handling system that processes player inputs (keyboard, mouse, game controllers) with low latency, providing a smooth and intuitive player experience.
 <br>
 - Built with the winit crate, this feature ensures compatibility with a range of devices across platforms, handling core input types like clicks, keystrokes, and joystick movements.
 
-**Game Project File Management:**
+#### Game Project File Management:
 
 - Provides a file management system for handling game assets, configuration files, and saved states.
 <br>
 - Supports essential project management functions: creating, opening, saving, and building projects.
 
-**Engine GUI:**
+#### Engine GUI:
 
 - The engine’s GUI provides a user-friendly interface, built with egui, allowing developers to interact with and manage game properties in real time.
 <br>
@@ -124,31 +126,20 @@ To achieve the project objective within the course timeframe, this team will div
 
 **Lang Sun**:
 
-- **Rendering Engine**: Develop the render engine struct using the [wgpu](https://crates.io/crates/wgpu) crate to handle 2D sprite rendering, texture management, shader compilation, and a high-performance rendering pipeline. 
-<br>
-
-- **Physics Engine**: Build the physics engine with basic 2D collision detection, gravity simulation, and collision handling using the  [rapier2d](https://crates.io/crates/rapier2d) crate, including dynamic and static rigid body creation with custom physical properties.
-<br>
-
-- **Input Handling**: Code the input handling system to support keyboard and mouse inputs across platforms, using the [winit](https://crates.io/crates/winit) crate.
+- [Rendering Engine](#rendering-engine)
+- [Physics Engine](#physics-engine)
+- [Input Handling](#input-handling)
 
 **Feiyang Fan**: 
 
-- **Entity Component System (ECS)**: Set up the ECS for flexible entity creation and efficient game-state management.
-<br>
-
-- **Audio Engine**: Develop the AudioEngine for low-latency playback of sound effects and background music, managing audio streams with the [rodio](https://crates.io/crates/rodio) crate.
+- [Entity Component System (ECS)](#ecs)
+- [Audio Engine](#audio-engine)
 
 **Frank Chen**:
 
-- **Script Interpreter**: Integrate a Lua scripting interpreter to support custom game logic, utilizing the [rlua](https://crates.io/crates/rlua) crate for running Lua scripts, data exchange, and error handling.
-<br>
-
-- **Game Project File Management**: Implement a file management system for handling game assets, configuration files, and saved states, including functions to create, open, save, and build projects.
-<br>
-
-- **Engine GUI**: Implement a GUI for developers to inspect and edit game properties in real time, using the [egui](https://crates.io/crates/egui) crate.
-
+- [Script Interpreter](#script-interpreter)
+- [Game Project File Management](#game-project-file-management)
+- [Engine GUI](#engine-gui)
 
 ### Project Timeline
 
