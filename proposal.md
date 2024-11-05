@@ -1,6 +1,6 @@
 # ECE 1724 Project Proposal: Rust 2D Game Engine
 
-## Team Members
+## Team Members (chronological join order)
 
 - [Lang Sun - 1003584971](https://github.com/gh0stintheshe11)
 - [Feiyang Fan - 1005146913](https://github.com/feiyangfan)
