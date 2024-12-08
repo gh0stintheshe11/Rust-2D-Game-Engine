@@ -649,6 +649,34 @@ impl EngineGui {
         // Central panel
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Scene");
+
+            // Total width of buttons (hardcoded)
+            let total_buttons_width = 167.0;
+
+            // Calculate the padding for centering buttons
+            let panel_width = ui.available_width();
+            let padding = (panel_width - total_buttons_width) / 2.0;
+
+            ui.horizontal(|ui| {
+                ui.add_space(padding.max(0.0));
+
+                // Play button
+                if ui.button("▶ Play").clicked() {
+                    self.print_to_terminal("Play button clicked.");
+                }
+
+                // Pause button
+                if ui.button("⏸ Pause").clicked() {
+                    self.print_to_terminal("Pause button clicked.");
+                }
+
+                // Step button
+                if ui.button("⏭ Step").clicked() {
+                    self.print_to_terminal("Step button clicked.");
+                }
+            });
+
+            ui.add_space(20.0);
             ui.label("Scene Viewer");
         });
 
