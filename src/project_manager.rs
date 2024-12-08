@@ -156,4 +156,22 @@ impl FileManagement {
             )
         })
     }
+
+    /// Import asset into project (copy asset to corresponding folder)
+    pub fn import_asset(original_path: &str, dest_folder: &str) -> Result<String, String> {
+        // Get the file name
+        let file_path = Path::new(original_path);
+        if let Some(file_name) = file_path.file_name() {
+
+            let dest_path = Path::new(dest_folder).join(file_name);
+
+            // Copy the file to the destination
+            fs::copy(&file_path, &dest_path)
+                .map(|_| format!("File imported successfully to '{}'.", dest_path.display()))
+                .map_err(|err| format!("Failed to copy file to '{}': {}", dest_path.display(), err))
+        } else {
+            Err("Failed to get the file name.".to_string())
+        }
+    }
+
 }

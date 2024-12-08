@@ -2,6 +2,8 @@ use crate::audio_engine::AudioEngine;
 use crate::ecs::AttributeValueType;
 use crate::ecs::Entity;
 use crate::ecs::EntityManager;
+use rfd::FileDialog;
+
 
 use crate::physics_engine::PhysicsEngine;
 use crate::project_manager::FileManagement;
@@ -205,6 +207,7 @@ impl EngineGui {
                             self.show_open_project_popup = true; // Open the pop-up when "Open" is clicked
                             self.show_new_project_popup = false; // Ensure new project popup is closed
                         }
+                        self.show_import_menu(ui); // Add "Import..." submenu
                     });
 
                     // Edit menu
@@ -871,5 +874,35 @@ impl EngineGui {
                 self.print_to_terminal(&format!("Failed to delete script file: {}", e));
             }
         }
+    }
+
+    /// Add the import menu in UI
+    fn show_import_menu(&mut self, ui: &mut egui::Ui) {
+        let asset_types = [
+            ("Font", &["ttf", "otf"][..], "assets/fonts"),
+            ("Image", &["png", "jpg", "jpeg", "bmp"][..], "assets/images"),
+            ("Sound", &["mp3", "wav", "ogg"][..], "assets/sounds"),
+            ("Video", &["mp4", "avi", "mkv", "webm"][..], "assets/videos"),
+        ];
+
+        ui.menu_button("Import...", |ui| {
+
+            ui.add_enabled_ui(self.load_project, |ui| {
+                for (name, extensions, folder) in &asset_types {
+                    if ui.button(*name).clicked() {
+                        if let Some(file_path) = FileDialog::new().add_filter((*name).to_string(), *extensions).pick_file() {
+                            match FileManagement::import_asset(
+                                file_path.to_str().unwrap_or(""),
+                                &format!("{}/{}", self.project_path, folder),
+                            ) {
+                                Ok(msg) => self.print_to_terminal(&msg),
+                                Err(err) => self.print_to_terminal(&err),
+                            }
+                        }
+                        ui.close_menu();
+                    }
+                }
+            });
+        });
     }
 }
