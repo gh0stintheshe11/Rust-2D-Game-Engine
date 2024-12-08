@@ -1,14 +1,61 @@
-use crate::project_manager::FileManagement;
-use eframe::egui;
+use crate::audio_engine::AudioEngine;
+use crate::ecs::AttributeValueType;
+use crate::ecs::Entity;
+use crate::ecs::EntityManager;
 
-#[derive(Default)]
+use crate::physics_engine::PhysicsEngine;
+use crate::project_manager::FileManagement;
+use crate::render_engine::RenderEngine;
+use eframe::egui;
+use eframe::glow::SET;
+
+// #[derive(Default)]
 pub struct EngineGui {
+    ecs: EntityManager,
+    render_engine: RenderEngine,
+    physics_engine: PhysicsEngine,
+    audio_engine: AudioEngine,
     show_new_project_popup: bool,  // Track if the pop-up should be shown
     show_open_project_popup: bool, // Track if the pop-up should be shown
     load_project: bool,            // Track if the project should be loaded
     project_name: String,          // Store the project name input
     project_path: String,          // Store the project path input
-    terminal_output: String,   // Store the terminal output
+    terminal_output: String,       // Store the terminal output
+    // entities panel
+    show_entity_context_menu: bool,
+    context_menu_position: Option<egui::Pos2>,
+    highlighted_entity: Option<usize>,
+    // entity inspector panel
+    show_add_attribute_popup: bool,
+    selected_attribute_type: AttributeValueType,
+    new_attribute_name: String,
+    new_attribute_value: String,
+}
+
+impl Default for EngineGui {
+    fn default() -> Self {
+        Self {
+            ecs: EntityManager::new(),
+            render_engine: RenderEngine::new(),
+            physics_engine: PhysicsEngine::new(),
+            audio_engine: AudioEngine::new(),
+            show_new_project_popup: false,
+            show_open_project_popup: false,
+            load_project: false,
+            project_name: String::new(),
+            project_path: String::new(),
+            terminal_output: String::new(),
+            // entities panel
+            show_entity_context_menu: false,
+            context_menu_position: None,
+            highlighted_entity: None,
+            // entity inspector panel
+            show_add_attribute_popup: false,
+            selected_attribute_type: AttributeValueType::String(String::new()),
+            new_attribute_name: String::new(),
+            new_attribute_value: String::new(),
+        }
+    }
 }
 
 impl eframe::App for EngineGui {
@@ -164,6 +211,19 @@ impl EngineGui {
                         if ui.button("Redo").clicked() {
                             self.print_to_terminal("Redo");
                         }
+
+                        // Add submenu "Add..." inside edit menu
+                        ui.menu_button("Add...", |ui| {
+                            if ui.button("new scene").clicked() {
+                                self.print_to_terminal("New scene added.");
+                            }
+                            if ui.button("new entity").clicked() {
+                                if self.load_project {
+                                    self.add_entity();
+                                    self.print_to_terminal("New entity added.");
+                                }
+                            }
+                        });
                     });
                 });
             });
@@ -188,7 +248,133 @@ impl EngineGui {
                     .frame(egui::Frame::none().inner_margin(egui::Margin::same(0.0)))
                     .show_inside(ui, |ui| {
                         ui.heading("Entity Inspector");
-                        ui.label("Inspect and modify the attributes of the entity");
+
+                        if self.highlighted_entity.is_some() {
+                            // Add Attribute Button
+                            if ui.button("Add Attribute").clicked() {
+                                self.show_add_attribute_popup = true;
+                            }
+                        }
+
+                        if let Some(selected_id) = self.highlighted_entity {
+
+                            ui.label(format!("Entity ID: {}", selected_id));
+                            ui.label("Attributes:");
+
+                            // Display attributes of the Entity
+                            if let Some(attributes) =
+                                self.ecs.get_attributes_by_entity_id(selected_id)
+                            {
+                                for (key, attribute) in attributes {
+                                    ui.horizontal(|ui| {
+                                        ui.label(format!("{}: {:?}", key, attribute.value_type));
+                                        if ui.button("Delete").clicked() {
+                                            self.ecs
+                                                .delete_attribute_by_entity_id(selected_id, &key);
+                                            self.update_entity(selected_id);
+                                            self.print_to_terminal(&format!(
+                                                "Deleted attribute '{}'.",
+                                                key
+                                            ));
+                                        }
+                                    });
+                                }
+                            } else {
+                                ui.label("Selected entity not found.");
+                            }
+                        } else {
+                            ui.label("Inspect and modify the attributes of the entity");
+                        }
+
+                        // Add Attribute Popup
+                        if self.show_add_attribute_popup {
+                            egui::Window::new("Add Attribute")
+                                .resizable(false)
+                                .collapsible(false)
+                                .show(ctx, |ui| {
+                                    ui.label("Attribute Name:");
+                                    ui.text_edit_singleline(&mut self.new_attribute_name);
+
+                                    ui.label("Attribute Type:");
+                                    egui::ComboBox::from_label("Type")
+                                        .selected_text(format!(
+                                            "{:?}",
+                                            self.selected_attribute_type
+                                        ))
+                                        .show_ui(ui, |ui| {
+                                            ui.selectable_value(
+                                                &mut self.selected_attribute_type,
+                                                AttributeValueType::Integer(0),
+                                                "Integer",
+                                            );
+                                            ui.selectable_value(
+                                                &mut self.selected_attribute_type,
+                                                AttributeValueType::Float(0.0),
+                                                "Float",
+                                            );
+                                            ui.selectable_value(
+                                                &mut self.selected_attribute_type,
+                                                AttributeValueType::String(String::new()),
+                                                "String",
+                                            );
+                                            ui.selectable_value(
+                                                &mut self.selected_attribute_type,
+                                                AttributeValueType::Boolean(false),
+                                                "Boolean",
+                                            );
+                                        });
+
+                                    ui.label("Value:");
+                                    ui.text_edit_singleline(&mut self.new_attribute_value);
+
+                                    ui.horizontal(|ui| {
+                                        if ui.button("OK").clicked() {
+                                            if let Some(selected_id) = self.highlighted_entity {
+                                                let attribute_name =
+                                                    self.new_attribute_name.trim().to_string();
+                                                let attribute_value =
+                                                    self.new_attribute_value.trim().to_string();
+
+                                                if attribute_name.is_empty() {
+                                                    self.print_to_terminal(
+                                                        "Attribute name cannot be empty.",
+                                                    );
+                                                    return;
+                                                }
+
+                                                match self.ecs.add_attribute_by_entity_id(
+                                                    selected_id,
+                                                    attribute_name.clone(),
+                                                    self.selected_attribute_type.clone(),
+                                                    attribute_value.clone(),
+                                                ) {
+                                                    Ok(_) => {
+                                                        self.update_entity(selected_id);
+                                                        self.print_to_terminal(
+                                                            "Attribute added successfully.",
+                                                        );
+                                                        self.new_attribute_name.clear();
+                                                        self.new_attribute_value.clear();
+                                                        self.show_add_attribute_popup = false;
+                                                    }
+                                                    Err(err) => {
+                                                        self.print_to_terminal(&format!(
+                                                            "Error adding attribute: {}",
+                                                            err
+                                                        ));
+                                                    }
+                                                }
+                                            } else {
+                                                self.print_to_terminal("No entity selected.");
+                                            }
+                                        }
+
+                                        if ui.button("Cancel").clicked() {
+                                            self.show_add_attribute_popup = false;
+                                        }
+                                    });
+                                });
+                        }
                     });
 
                 // Bottom section
@@ -217,14 +403,64 @@ impl EngineGui {
                                         &entity_folder_path,
                                         self,
                                     );
-                                    for file in files {
-                                        if ui.button(&file).clicked() {
-                                            self.print_to_terminal(&format!(
-                                                "Clicked on file: {}",
-                                                file
-                                            ));
+
+                                    // Filter files to include only those starting with "entity_" json files
+                                    let mut entity_files: Vec<String> = files
+                                        .into_iter()
+                                        .filter(|file| {
+                                            file.starts_with("entity_") && file.ends_with(".json")
+                                        })
+                                        .collect();
+
+                                    entity_files.sort_by_key(|file| {
+                                        FileManagement::extract_id_from_file(file)
+                                    });
+
+                                    for file in entity_files {
+                                        if let Some(entity_id) =
+                                            FileManagement::extract_id_from_file(&file)
+                                        {
+                                            // Check if it's already in the ecs
+                                            if !self.ecs.entity_exists_by_id(entity_id) {
+                                                // Create the entity with the given ID if it doesn't exist
+                                                // self.ecs.create_entity_by_id(entity_id);
+                                                // Load the entity with the given ID from json file
+                                                if let Err(err) = self.load_entity(entity_id) {
+                                                    self.print_to_terminal(&err);
+                                                }
+                                            }
+
+                                            let is_highlighted = self.highlighted_entity == Some(entity_id);
+
+                                            let button =
+                                                egui::Button::new(format!("Entity {}", entity_id))
+                                                    .fill(if is_highlighted {
+                                                        egui::Color32::from_rgb(200, 200, 255)
+                                                    } else {
+                                                        egui::Color32::from_rgb(240, 240, 240)
+                                                    });
+
+                                            let button_response = ui.add(button);
+
+                                            // Handle right-click on button
+                                            button_response.context_menu(|ui| {
+                                                if ui.button("Delete").clicked() {
+                                                    self.delete_entity_by_file(&file);
+                                                    ui.close_menu();
+                                                }
+                                            });
+
+                                            if button_response.clicked() {
+                                                self.highlighted_entity = Some(entity_id);
+                                                self.print_to_terminal(&format!(
+                                                    "Clicked on entity ID: {}",
+                                                    entity_id
+                                                ));
+                                            }
                                         }
                                     }
+
+                                    // self.print_sorted_entity_ids_to_terminal();
                                 });
                         }
                     });
@@ -319,5 +555,134 @@ impl EngineGui {
     pub fn print_to_terminal(&mut self, output: &str) {
         self.terminal_output.push_str(output);
         self.terminal_output.push_str("\n"); // Add a newline for better formatting
+    }
+
+    /// Add a new entity to ecs and create the corresponding json file
+    pub fn add_entity(&mut self) {
+
+        let entity = self.ecs.create_entity();
+        let serialized_entity = entity.to_json();
+
+        // File path for the entity json file
+        let entity_file_path = format!("{}/entities/entity_{}.json", self.project_path, entity.id);
+
+        // Save the json to file
+        if let Err(err) = FileManagement::save_to_file(&serialized_entity, &entity_file_path) {
+            self.print_to_terminal(&format!("Failed to save entity {}: {}", entity.id, err));
+        } else {
+            self.print_to_terminal(&format!(
+                "Entity {} saved successfully at {}",
+                entity.id, entity_file_path
+            ));
+        }
+    }
+
+    /// Delete an entity by removing it from ecs and deleting the corresponding json file
+    pub fn delete_entity_by_file(&mut self, file_name: &str) {
+        if let Some(entity_id) = FileManagement::extract_id_from_file(file_name) {
+            if let Some(entity) = self.ecs.entities.get(&entity_id).cloned() {
+                // Remove the entity from ecs
+                self.ecs.delete_entity(entity);
+
+                // File path of the entity
+                let file_path = format!("{}/entities/{}", self.project_path, file_name);
+
+                // Delete the file
+                match FileManagement::delete_file(&file_path) {
+                    Ok(_) => {
+                        self.print_to_terminal(&format!("Deleted entity and file: {}", file_name));
+                    }
+                    Err(e) => {
+                        self.print_to_terminal(&format!("Failed to delete entity file: {}", e));
+                    }
+                }
+            } else {
+                self.print_to_terminal(&format!(
+                    "Entity with ID {} does not exist in ECS",
+                    entity_id
+                ));
+            }
+        } else {
+            self.print_to_terminal(&format!("Invalid entity file name: {}", file_name));
+        }
+    }
+
+    /// Print the list of sorted entity IDs to the terminal
+    pub fn print_sorted_entity_ids_to_terminal(&mut self) {
+        let mut entity_ids: Vec<usize> = self.ecs.entities.keys().cloned().collect();
+        entity_ids.sort(); // Sort the IDs as numbers
+        let message = format!(
+            "Entity IDs: [{}]",
+            entity_ids
+                .iter()
+                .map(|id| id.to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+        self.print_to_terminal(&message);
+    }
+
+        /// Save the entity to its corresponding json file
+    pub fn update_entity(&mut self, entity_id: usize) {
+        if let Some(entity) = self.ecs.get_entity_by_id(entity_id) {
+
+            let serialized_entity = entity.to_json();
+
+            // File path for the entity json file
+            let entity_file_path =
+                format!("{}/entities/entity_{}.json", self.project_path, entity.id);
+
+            // Save the updated json to file
+            match FileManagement::save_to_file(&serialized_entity, &entity_file_path) {
+                Ok(_) => {
+                    self.print_to_terminal(&format!(
+                        "Entity {} updated successfully at {}",
+                        entity.id, entity_file_path
+                    ));
+                }
+                Err(err) => {
+                    self.print_to_terminal(&format!(
+                        "Failed to update entity {}: {}",
+                        entity.id, err
+                    ));
+                }
+            }
+        } else {
+            self.print_to_terminal(&format!(
+                "Failed to update: Entity with ID {} not found.",
+                entity_id
+            ));
+        }
+    }
+
+    /// Load an entity by its ID from the corresponding json file
+    pub fn load_entity(&mut self, entity_id: usize) -> Result<(), String> {
+
+        let entity_file_path = format!("{}/entities/entity_{}.json", self.project_path, entity_id);
+
+        let file_content = std::fs::read_to_string(&entity_file_path)
+            .map_err(|err| format!("Failed to read file '{}': {}", entity_file_path, err))?;
+
+        // Deserialize the json into an Entity object
+        let entity: Entity = serde_json::from_str(&file_content).map_err(|err| {
+            format!(
+                "Failed to parse JSON from file '{}': {}",
+                entity_file_path, err
+            )
+        })?;
+
+        // Check if the entity already exists in ecs
+        if self.ecs.entity_exists_by_id(entity_id) {
+            return Err(format!(
+                "Entity with ID {} already exists in ECS.",
+                entity_id
+            ));
+        }
+
+        // Add the entity to ecs by id
+        self.ecs.insert_entity_by_id(entity_id, entity);
+
+        self.print_to_terminal(&format!("Entity {} loaded successfully.", entity_id));
+        Ok(())
     }
 }
