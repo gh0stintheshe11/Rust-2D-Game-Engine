@@ -22,14 +22,16 @@ pub struct EngineGui {
     project_path: String,          // Store the project path input
     terminal_output: String,       // Store the terminal output
     // entities panel
-    show_entity_context_menu: bool,
-    context_menu_position: Option<egui::Pos2>,
     highlighted_entity: Option<usize>,
     // entity inspector panel
     show_add_attribute_popup: bool,
     selected_attribute_type: AttributeValueType,
     new_attribute_name: String,
     new_attribute_value: String,
+    // scripts panel
+    highlighted_script: Option<usize>,
+    next_script_id: usize,
+    current_script_content: String,
 }
 
 impl Default for EngineGui {
@@ -46,14 +48,16 @@ impl Default for EngineGui {
             project_path: String::new(),
             terminal_output: String::new(),
             // entities panel
-            show_entity_context_menu: false,
-            context_menu_position: None,
             highlighted_entity: None,
             // entity inspector panel
             show_add_attribute_popup: false,
             selected_attribute_type: AttributeValueType::String(String::new()),
             new_attribute_name: String::new(),
             new_attribute_value: String::new(),
+            // scripts panel
+            highlighted_script: None,
+            next_script_id: 0,
+            current_script_content: String::new(),
         }
     }
 }
@@ -221,6 +225,12 @@ impl EngineGui {
                                 if self.load_project {
                                     self.add_entity();
                                     self.print_to_terminal("New entity added.");
+                                }
+                            }
+                            if ui.button("new script").clicked() {
+                                if self.load_project {
+                                    self.add_script();
+                                    self.print_to_terminal("New script added.");
                                 }
                             }
                         });
@@ -481,7 +491,61 @@ impl EngineGui {
                     .frame(egui::Frame::none().inner_margin(egui::Margin::same(0.0)))
                     .show_inside(ui, |ui| {
                         ui.heading("Script Inspector");
-                        ui.label("Inspect and modify the attributes of the script");
+
+                        if let Some(script_id) = self.highlighted_script {
+                            ui.label(format!("Script ID: {}", script_id));
+
+                            // Text editor for the script content
+                            egui::ScrollArea::vertical()
+                                .auto_shrink([false; 2])
+                                .show(ui, |ui| {
+                                    ui.text_edit_multiline(&mut self.current_script_content);
+
+
+                                // Save and reload buttons
+                                ui.horizontal(|ui| {
+                                    // Save content to file
+                                    if ui.button("Save").clicked() {
+                                        let script_file_path = format!("{}/scripts/script_{}.lua", self.project_path, script_id);
+                                        match FileManagement::save_to_file(&self.current_script_content, &script_file_path) {
+                                            Ok(_) => {
+                                                self.print_to_terminal(&format!("Script {} saved successfully.", script_id));
+                                            }
+                                            Err(err) => {
+                                                self.print_to_terminal(&format!(
+                                                    "Failed to save script {}: {}",
+                                                    script_id, err
+                                                ));
+                                            }
+                                        }
+                                    }
+
+                                    // Reload content from file
+                                    if ui.button("Reload").clicked() {
+                                        let script_file_path = format!("{}/scripts/script_{}.lua", self.project_path, script_id);
+                                        match FileManagement::load_file_content(&script_file_path) {
+                                            Ok(content) => {
+                                                self.current_script_content = content;
+                                                self.print_to_terminal(&format!(
+                                                    "Reloaded script {} successfully.",
+                                                    script_id
+                                                ));
+                                            }
+                                            Err(err) => {
+                                                self.print_to_terminal(&format!(
+                                                    "Failed to reload script {}: {}",
+                                                    script_id, err
+                                                ));
+                                            }
+                                        }
+                                    }
+                                });
+                            });
+
+                        } else {
+                            ui.label("Inspect and modify the attributes of the script");
+                        }
+
                     });
 
                 // Bottom section
@@ -510,12 +574,71 @@ impl EngineGui {
                                         &script_folder_path,
                                         self,
                                     );
-                                    for file in files {
-                                        if ui.button(&file).clicked() {
-                                            self.print_to_terminal(&format!(
-                                                "Clicked on file: {}",
-                                                file
-                                            ));
+
+                                    // Filter files to include only those starting with "script_" lua files
+                                    let mut script_files: Vec<String> = files
+                                        .into_iter()
+                                        .filter(|file| {
+                                            file.starts_with("script_") && file.ends_with(".lua")
+                                        })
+                                        .collect();
+
+                                    // Sort files by ID
+                                    script_files.sort_by_key(|file| {
+                                        FileManagement::extract_id_from_file(file)
+                                    });
+
+                                    for file in script_files {
+                                        if let Some(script_id) = FileManagement::extract_id_from_file(&file)
+                                        {
+
+                                            if script_id >= self.next_script_id {
+                                                self.next_script_id = script_id + 1;
+                                            }
+
+                                            let is_highlighted = self.highlighted_script == Some(script_id);
+
+                                            let button =
+                                                egui::Button::new(format!("Script {}", script_id))
+                                                    .fill(if is_highlighted {
+                                                        egui::Color32::from_rgb(200, 200, 255)
+                                                    } else {
+                                                        egui::Color32::from_rgb(240, 240, 240)
+                                                    });
+
+                                            let button_response = ui.add(button);
+
+                                            // Handle right-click on button
+                                            button_response.context_menu(|ui| {
+                                                if ui.button("Delete").clicked() {
+                                                    self.delete_script_by_file(&file);
+                                                    ui.close_menu();
+                                                }
+                                            });
+
+                                            if button_response.clicked() {
+                                                self.highlighted_script = Some(script_id);
+
+                                                // Load script content from file
+                                                let script_file_path = format!("{}/scripts/script_{}.lua", self.project_path, script_id);
+                                                match FileManagement::load_file_content(&script_file_path) {
+                                                    Ok(content) => {
+                                                        self.current_script_content = content;
+                                                    }
+                                                    Err(err) => {
+                                                        self.print_to_terminal(&format!(
+                                                            "Failed to load script content for ID {}: {}",
+                                                            script_id, err
+                                                        ));
+                                                    }
+                                                }
+
+                                                self.print_to_terminal(&format!(
+                                                    "Clicked on script ID: {}",
+                                                    script_id
+                                                ));
+
+                                            }
                                         }
                                     }
                                 });
@@ -684,5 +807,41 @@ impl EngineGui {
 
         self.print_to_terminal(&format!("Entity {} loaded successfully.", entity_id));
         Ok(())
+    }
+
+    /// Add a new script json file
+    pub fn add_script(&mut self) {
+
+        let script_id = self.next_script_id;
+
+        // File path for the script json file
+        let script_file_path = format!("{}/scripts/script_{}.lua", self.project_path, script_id);
+
+        // Save the json to file
+        if let Err(err) = FileManagement::save_to_file("", &script_file_path) {
+            self.print_to_terminal(&format!("Failed to save script {}: {}", script_id, err));
+        } else {
+            self.print_to_terminal(&format!(
+                "Script {} saved successfully at {}",
+                script_id, script_file_path
+            ));
+
+            self.next_script_id += 1;
+        }
+    }
+
+    /// Delete a script file
+    pub fn delete_script_by_file(&mut self, file_name: &str) {
+        let file_path = format!("{}/scripts/{}", self.project_path, file_name);
+
+        match FileManagement::delete_file(&file_path) {
+            Ok(_) => {
+                self.print_to_terminal(&format!("Deleted script file: {}", file_name));
+                self.highlighted_script = None;
+            }
+            Err(e) => {
+                self.print_to_terminal(&format!("Failed to delete script file: {}", e));
+            }
+        }
     }
 }

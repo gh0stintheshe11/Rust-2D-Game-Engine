@@ -146,4 +146,14 @@ impl FileManagement {
             None
         }
     }
+
+    // Load content from file
+    pub fn load_file_content(file_path: &str) -> Result<String, String> {
+        fs::read_to_string(file_path).map_err(|err| {
+            format!(
+                "Failed to load content from file '{}': {}",
+                file_path, err
+            )
+        })
+    }
 }
