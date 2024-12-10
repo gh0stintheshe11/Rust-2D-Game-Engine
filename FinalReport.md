@@ -1,6 +1,8 @@
-A README.md file that contains the final report, in the form of a Markdown document, of no more than 5000 words in total length23. If you wish to include images (such as screenshots) in the final report, make sure that it can be visible when the instructor visits your GitHub repository with a web browser. The final report should include the following logistical and technical aspects of the project, described clearly and concisely:
+> A README.md file that contains the final report, in the form of a Markdown document, of no more than 5000 words in total length23. If you wish to include images (such as screenshots) in the final report, make sure that it can be visible when the instructor visits your GitHub repository with a web browser. The final report should include the following logistical and technical aspects of the project, described clearly and concisely:
 
 ## Team Members
+
+> #TODO: write preferred emails
 
 - [Lang Sun - 1003584971 - ](https://github.com/gh0stintheshe11)
 - [Feiyang Fan - 1005146913 - feiyang.fan@mail.utoronto.ca](https://github.com/feiyangfan)
