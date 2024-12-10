@@ -1,14 +1,81 @@
-use crate::project_manager::FileManagement;
-use eframe::egui;
+use crate::audio_engine::AudioEngine;
+use crate::ecs::AttributeValueType;
+use crate::ecs::Entity;
+use crate::ecs::EntityManager;
+use rfd::FileDialog;
 
-#[derive(Default)]
+use image::ImageReader as ImageReader;
+
+
+use crate::physics_engine::PhysicsEngine;
+use crate::project_manager::FileManagement;
+use crate::render_engine::RenderEngine;
+
+use crate::render_engine::Sprite;
+
+use eframe::egui;
+use eframe::glow::SET;
+
+use egui_wgpu::wgpu;
+use egui_wgpu::{Renderer as EguiRenderer};
+
+// #[derive(Default)]
 pub struct EngineGui {
+    ecs: EntityManager,
+    render_engine: RenderEngine,
+    physics_engine: PhysicsEngine,
+    audio_engine: AudioEngine,
     show_new_project_popup: bool,  // Track if the pop-up should be shown
     show_open_project_popup: bool, // Track if the pop-up should be shown
     load_project: bool,            // Track if the project should be loaded
     project_name: String,          // Store the project name input
     project_path: String,          // Store the project path input
-    terminal_output: String,   // Store the terminal output
+    terminal_output: String,       // Store the terminal output
+    // entities panel
+    highlighted_entity: Option<usize>,
+    // entity inspector panel
+    show_add_attribute_popup: bool,
+    selected_attribute_type: AttributeValueType,
+    new_attribute_name: String,
+    new_attribute_value: String,
+    // scripts panel
+    highlighted_script: Option<usize>,
+    next_script_id: usize,
+    current_script_content: String,
+    // scene panel
+    running: bool,
+    egui_renderer: Option<EguiRenderer>,
+}
+
+impl Default for EngineGui {
+    fn default() -> Self {
+        Self {
+            ecs: EntityManager::new(),
+            render_engine: RenderEngine::new(),
+            physics_engine: PhysicsEngine::new(),
+            audio_engine: AudioEngine::new(),
+            show_new_project_popup: false,
+            show_open_project_popup: false,
+            load_project: false,
+            project_name: String::new(),
+            project_path: String::new(),
+            terminal_output: String::new(),
+            // entities panel
+            highlighted_entity: None,
+            // entity inspector panel
+            show_add_attribute_popup: false,
+            selected_attribute_type: AttributeValueType::String(String::new()),
+            new_attribute_name: String::new(),
+            new_attribute_value: String::new(),
+            // scripts panel
+            highlighted_script: None,
+            next_script_id: 0,
+            current_script_content: String::new(),
+            // scene panel
+            running: false,
+            egui_renderer: None,
+        }
+    }
 }
 
 impl eframe::App for EngineGui {
@@ -130,6 +197,10 @@ impl eframe::App for EngineGui {
 
         // Display the three-panel layout
         self.show_three_panel_layout(ctx, ctx_width);
+
+        if self.load_project && self.running {
+            self.run_game(ctx);
+        }
     }
 }
 
@@ -154,6 +225,7 @@ impl EngineGui {
                             self.show_open_project_popup = true; // Open the pop-up when "Open" is clicked
                             self.show_new_project_popup = false; // Ensure new project popup is closed
                         }
+                        self.show_import_menu(ui); // Add "Import..." submenu
                     });
 
                     // Edit menu
@@ -164,6 +236,25 @@ impl EngineGui {
                         if ui.button("Redo").clicked() {
                             self.print_to_terminal("Redo");
                         }
+
+                        // Add submenu "Add..." inside edit menu
+                        ui.menu_button("Add...", |ui| {
+                            if ui.button("new scene").clicked() {
+                                self.print_to_terminal("New scene added.");
+                            }
+                            if ui.button("new entity").clicked() {
+                                if self.load_project {
+                                    self.add_entity();
+                                    self.print_to_terminal("New entity added.");
+                                }
+                            }
+                            if ui.button("new script").clicked() {
+                                if self.load_project {
+                                    self.add_script();
+                                    self.print_to_terminal("New script added.");
+                                }
+                            }
+                        });
                     });
                 });
             });
@@ -188,7 +279,133 @@ impl EngineGui {
                     .frame(egui::Frame::none().inner_margin(egui::Margin::same(0.0)))
                     .show_inside(ui, |ui| {
                         ui.heading("Entity Inspector");
-                        ui.label("Inspect and modify the attributes of the entity");
+
+                        if self.highlighted_entity.is_some() {
+                            // Add Attribute Button
+                            if ui.button("Add Attribute").clicked() {
+                                self.show_add_attribute_popup = true;
+                            }
+                        }
+
+                        if let Some(selected_id) = self.highlighted_entity {
+
+                            ui.label(format!("Entity ID: {}", selected_id));
+                            ui.label("Attributes:");
+
+                            // Display attributes of the Entity
+                            if let Some(attributes) =
+                                self.ecs.get_attributes_by_entity_id(selected_id)
+                            {
+                                for (key, attribute) in attributes {
+                                    ui.horizontal(|ui| {
+                                        ui.label(format!("{}: {:?}", key, attribute.value_type));
+                                        if ui.button("Delete").clicked() {
+                                            self.ecs
+                                                .delete_attribute_by_entity_id(selected_id, &key);
+                                            self.update_entity(selected_id);
+                                            self.print_to_terminal(&format!(
+                                                "Deleted attribute '{}'.",
+                                                key
+                                            ));
+                                        }
+                                    });
+                                }
+                            } else {
+                                ui.label("Selected entity not found.");
+                            }
+                        } else {
+                            ui.label("Inspect and modify the attributes of the entity");
+                        }
+
+                        // Add Attribute Popup
+                        if self.show_add_attribute_popup {
+                            egui::Window::new("Add Attribute")
+                                .resizable(false)
+                                .collapsible(false)
+                                .show(ctx, |ui| {
+                                    ui.label("Attribute Name:");
+                                    ui.text_edit_singleline(&mut self.new_attribute_name);
+
+                                    ui.label("Attribute Type:");
+                                    egui::ComboBox::from_label("Type")
+                                        .selected_text(format!(
+                                            "{:?}",
+                                            self.selected_attribute_type
+                                        ))
+                                        .show_ui(ui, |ui| {
+                                            ui.selectable_value(
+                                                &mut self.selected_attribute_type,
+                                                AttributeValueType::Integer(0),
+                                                "Integer",
+                                            );
+                                            ui.selectable_value(
+                                                &mut self.selected_attribute_type,
+                                                AttributeValueType::Float(0.0),
+                                                "Float",
+                                            );
+                                            ui.selectable_value(
+                                                &mut self.selected_attribute_type,
+                                                AttributeValueType::String(String::new()),
+                                                "String",
+                                            );
+                                            ui.selectable_value(
+                                                &mut self.selected_attribute_type,
+                                                AttributeValueType::Boolean(false),
+                                                "Boolean",
+                                            );
+                                        });
+
+                                    ui.label("Value:");
+                                    ui.text_edit_singleline(&mut self.new_attribute_value);
+
+                                    ui.horizontal(|ui| {
+                                        if ui.button("OK").clicked() {
+                                            if let Some(selected_id) = self.highlighted_entity {
+                                                let attribute_name =
+                                                    self.new_attribute_name.trim().to_string();
+                                                let attribute_value =
+                                                    self.new_attribute_value.trim().to_string();
+
+                                                if attribute_name.is_empty() {
+                                                    self.print_to_terminal(
+                                                        "Attribute name cannot be empty.",
+                                                    );
+                                                    return;
+                                                }
+
+                                                match self.ecs.add_attribute_by_entity_id(
+                                                    selected_id,
+                                                    attribute_name.clone(),
+                                                    self.selected_attribute_type.clone(),
+                                                    attribute_value.clone(),
+                                                ) {
+                                                    Ok(_) => {
+                                                        self.update_entity(selected_id);
+                                                        self.print_to_terminal(
+                                                            "Attribute added successfully.",
+                                                        );
+                                                        self.new_attribute_name.clear();
+                                                        self.new_attribute_value.clear();
+                                                        self.show_add_attribute_popup = false;
+                                                    }
+                                                    Err(err) => {
+                                                        self.print_to_terminal(&format!(
+                                                            "Error adding attribute: {}",
+                                                            err
+                                                        ));
+                                                    }
+                                                }
+                                            } else {
+                                                self.print_to_terminal("No entity selected.");
+                                            }
+                                        }
+
+                                        if ui.button("Cancel").clicked() {
+                                            self.show_add_attribute_popup = false;
+                                        }
+                                    });
+                                });
+                        }
                     });
 
                 // Bottom section
@@ -217,14 +434,64 @@ impl EngineGui {
                                         &entity_folder_path,
                                         self,
                                     );
-                                    for file in files {
-                                        if ui.button(&file).clicked() {
-                                            self.print_to_terminal(&format!(
-                                                "Clicked on file: {}",
-                                                file
-                                            ));
+
+                                    // Filter files to include only those starting with "entity_" json files
+                                    let mut entity_files: Vec<String> = files
+                                        .into_iter()
+                                        .filter(|file| {
+                                            file.starts_with("entity_") && file.ends_with(".json")
+                                        })
+                                        .collect();
+
+                                    entity_files.sort_by_key(|file| {
+                                        FileManagement::extract_id_from_file(file)
+                                    });
+
+                                    for file in entity_files {
+                                        if let Some(entity_id) =
+                                            FileManagement::extract_id_from_file(&file)
+                                        {
+                                            // Check if it's already in the ecs
+                                            if !self.ecs.entity_exists_by_id(entity_id) {
+                                                // Create the entity with the given ID if it doesn't exist
+                                                // self.ecs.create_entity_by_id(entity_id);
+                                                // Load the entity with the given ID from json file
+                                                if let Err(err) = self.load_entity(entity_id) {
+                                                    self.print_to_terminal(&err);
+                                                }
+                                            }
+
+                                            let is_highlighted = self.highlighted_entity == Some(entity_id);
+
+                                            let button =
+                                                egui::Button::new(format!("Entity {}", entity_id))
+                                                    .fill(if is_highlighted {
+                                                        egui::Color32::from_rgb(200, 200, 255)
+                                                    } else {
+                                                        egui::Color32::from_rgb(240, 240, 240)
+                                                    });
+
+                                            let button_response = ui.add(button);
+
+                                            // Handle right-click on button
+                                            button_response.context_menu(|ui| {
+                                                if ui.button("Delete").clicked() {
+                                                    self.delete_entity_by_file(&file);
+                                                    ui.close_menu();
+                                                }
+                                            });
+
+                                            if button_response.clicked() {
+                                                self.highlighted_entity = Some(entity_id);
+                                                self.print_to_terminal(&format!(
+                                                    "Clicked on entity ID: {}",
+                                                    entity_id
+                                                ));
+                                            }
                                         }
                                     }
+
+                                    // self.print_sorted_entity_ids_to_terminal();
                                 });
                         }
                     });
@@ -245,7 +512,61 @@ impl EngineGui {
                     .frame(egui::Frame::none().inner_margin(egui::Margin::same(0.0)))
                     .show_inside(ui, |ui| {
                         ui.heading("Script Inspector");
-                        ui.label("Inspect and modify the attributes of the script");
+
+                        if let Some(script_id) = self.highlighted_script {
+                            ui.label(format!("Script ID: {}", script_id));
+
+                            // Text editor for the script content
+                            egui::ScrollArea::vertical()
+                                .auto_shrink([false; 2])
+                                .show(ui, |ui| {
+                                    ui.text_edit_multiline(&mut self.current_script_content);
+
+
+                                // Save and reload buttons
+                                ui.horizontal(|ui| {
+                                    // Save content to file
+                                    if ui.button("Save").clicked() {
+                                        let script_file_path = format!("{}/scripts/script_{}.lua", self.project_path, script_id);
+                                        match FileManagement::save_to_file(&self.current_script_content, &script_file_path) {
+                                            Ok(_) => {
+                                                self.print_to_terminal(&format!("Script {} saved successfully.", script_id));
+                                            }
+                                            Err(err) => {
+                                                self.print_to_terminal(&format!(
+                                                    "Failed to save script {}: {}",
+                                                    script_id, err
+                                                ));
+                                            }
+                                        }
+                                    }
+
+                                    // Reload content from file
+                                    if ui.button("Reload").clicked() {
+                                        let script_file_path = format!("{}/scripts/script_{}.lua", self.project_path, script_id);
+                                        match FileManagement::load_file_content(&script_file_path) {
+                                            Ok(content) => {
+                                                self.current_script_content = content;
+                                                self.print_to_terminal(&format!(
+                                                    "Reloaded script {} successfully.",
+                                                    script_id
+                                                ));
+                                            }
+                                            Err(err) => {
+                                                self.print_to_terminal(&format!(
+                                                    "Failed to reload script {}: {}",
+                                                    script_id, err
+                                                ));
+                                            }
+                                        }
+                                    }
+                                });
+                            });
+
+                        } else {
+                            ui.label("Inspect and modify the attributes of the script");
+                        }
+
                     });
 
                 // Bottom section
@@ -274,12 +595,71 @@ impl EngineGui {
                                         &script_folder_path,
                                         self,
                                     );
-                                    for file in files {
-                                        if ui.button(&file).clicked() {
-                                            self.print_to_terminal(&format!(
-                                                "Clicked on file: {}",
-                                                file
-                                            ));
+
+                                    // Filter files to include only those starting with "script_" lua files
+                                    let mut script_files: Vec<String> = files
+                                        .into_iter()
+                                        .filter(|file| {
+                                            file.starts_with("script_") && file.ends_with(".lua")
+                                        })
+                                        .collect();
+
+                                    // Sort files by ID
+                                    script_files.sort_by_key(|file| {
+                                        FileManagement::extract_id_from_file(file)
+                                    });
+
+                                    for file in script_files {
+                                        if let Some(script_id) = FileManagement::extract_id_from_file(&file)
+                                        {
+
+                                            if script_id >= self.next_script_id {
+                                                self.next_script_id = script_id + 1;
+                                            }
+
+                                            let is_highlighted = self.highlighted_script == Some(script_id);
+
+                                            let button =
+                                                egui::Button::new(format!("Script {}", script_id))
+                                                    .fill(if is_highlighted {
+                                                        egui::Color32::from_rgb(200, 200, 255)
+                                                    } else {
+                                                        egui::Color32::from_rgb(240, 240, 240)
+                                                    });
+
+                                            let button_response = ui.add(button);
+
+                                            // Handle right-click on button
+                                            button_response.context_menu(|ui| {
+                                                if ui.button("Delete").clicked() {
+                                                    self.delete_script_by_file(&file);
+                                                    ui.close_menu();
+                                                }
+                                            });
+
+                                            if button_response.clicked() {
+                                                self.highlighted_script = Some(script_id);
+
+                                                // Load script content from file
+                                                let script_file_path = format!("{}/scripts/script_{}.lua", self.project_path, script_id);
+                                                match FileManagement::load_file_content(&script_file_path) {
+                                                    Ok(content) => {
+                                                        self.current_script_content = content;
+                                                    }
+                                                    Err(err) => {
+                                                        self.print_to_terminal(&format!(
+                                                            "Failed to load script content for ID {}: {}",
+                                                            script_id, err
+                                                        ));
+                                                    }
+                                                }
+
+                                                self.print_to_terminal(&format!(
+                                                    "Clicked on script ID: {}",
+                                                    script_id
+                                                ));
+
+                                            }
                                         }
                                     }
                                 });
@@ -290,7 +670,76 @@ impl EngineGui {
         // Central panel
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Scene");
+
+            // Total width of buttons (hardcoded)
+            let total_buttons_width = 167.0;
+
+            // Calculate the padding for centering buttons
+            let panel_width = ui.available_width();
+            let padding = (panel_width - total_buttons_width) / 2.0;
+
+            ui.horizontal(|ui| {
+                ui.add_space(padding.max(0.0));
+
+                // Play button
+                if ui.button("▶ Play").clicked() {
+                    self.running = true;
+                    self.print_to_terminal("Play button clicked.");
+                }
+
+                // Pause button
+                if ui.button("⏸ Pause").clicked() {
+                    self.running = false;
+                    self.print_to_terminal("Pause button clicked.");
+                }
+
+                // Step button
+                if ui.button("⏭ Step").clicked() {
+                    self.running = false;
+                    self.run_game(ctx);
+                    self.print_to_terminal("Step button clicked.");
+                }
+            });
+
+            ui.add_space(20.0);
             ui.label("Scene Viewer");
+
+            if self.running {
+                if let Some(texture_id) = self.register_texture_with_egui(ctx) {
+
+                    let image_path = "tests/hello.jpg";
+                    let image = match ImageReader::open(image_path) {
+                        Ok(reader) => match reader.decode() {
+                            Ok(decoded) => decoded.to_rgba8(),
+                            Err(err) => panic!("Failed to decode image: {}", err),
+                        },
+                        Err(err) => panic!("Failed to open image: {}", err),
+                    };
+
+                    let (width, height) = image.dimensions();
+                    let pixels = image.into_raw();
+
+                    let color_image = egui::ColorImage::from_rgba_unmultiplied([width as usize, height as usize], &pixels);
+                    let texture = ctx.load_texture("my image", color_image, Default::default());
+                    // ui.image(egui::ImageSource::Texture((&texture).into()));
+
+                    let remaining_space = ui.available_rect_before_wrap();
+                    let scene_origin = remaining_space.min;
+
+                    let rect = egui::Rect{
+                            min: scene_origin,
+                            max: egui::pos2(
+                                remaining_space.max.x, // Full width of the panel
+                                scene_origin.y + remaining_space.height() * 0.9, // 90% of the remaining height
+                            )
+                        };
+                    let uv = egui::Rect{ min:egui::pos2(0.0, 0.0), max:egui::pos2(1.0, 1.0)};
+                    ui.painter().image(texture.id(), rect, uv, egui::Color32::WHITE);
+                    ui.painter().image(texture_id, rect, uv, egui::Color32::WHITE);
+
+                    ctx.request_repaint();
+                }
+           }
         });
 
         // Bottom panel for terminal
@@ -320,4 +769,272 @@ impl EngineGui {
         self.terminal_output.push_str(output);
         self.terminal_output.push_str("\n"); // Add a newline for better formatting
     }
+
+    /// Add a new entity to ecs and create the corresponding json file
+    pub fn add_entity(&mut self) {
+
+        let entity = self.ecs.create_entity();
+        let serialized_entity = entity.to_json();
+
+        // File path for the entity json file
+        let entity_file_path = format!("{}/entities/entity_{}.json", self.project_path, entity.id);
+
+        // Save the json to file
+        if let Err(err) = FileManagement::save_to_file(&serialized_entity, &entity_file_path) {
+            self.print_to_terminal(&format!("Failed to save entity {}: {}", entity.id, err));
+        } else {
+            self.print_to_terminal(&format!(
+                "Entity {} saved successfully at {}",
+                entity.id, entity_file_path
+            ));
+        }
+    }
+
+    /// Delete an entity by removing it from ecs and deleting the corresponding json file
+    pub fn delete_entity_by_file(&mut self, file_name: &str) {
+        if let Some(entity_id) = FileManagement::extract_id_from_file(file_name) {
+            if let Some(entity) = self.ecs.entities.get(&entity_id).cloned() {
+                // Remove the entity from ecs
+                self.ecs.delete_entity(entity);
+
+                // File path of the entity
+                let file_path = format!("{}/entities/{}", self.project_path, file_name);
+
+                // Delete the file
+                match FileManagement::delete_file(&file_path) {
+                    Ok(_) => {
+                        self.print_to_terminal(&format!("Deleted entity and file: {}", file_name));
+                    }
+                    Err(e) => {
+                        self.print_to_terminal(&format!("Failed to delete entity file: {}", e));
+                    }
+                }
+            } else {
+                self.print_to_terminal(&format!(
+                    "Entity with ID {} does not exist in ECS",
+                    entity_id
+                ));
+            }
+        } else {
+            self.print_to_terminal(&format!("Invalid entity file name: {}", file_name));
+        }
+    }
+
+    /// Print the list of sorted entity IDs to the terminal
+    pub fn print_sorted_entity_ids_to_terminal(&mut self) {
+        let mut entity_ids: Vec<usize> = self.ecs.entities.keys().cloned().collect();
+        entity_ids.sort(); // Sort the IDs as numbers
+        let message = format!(
+            "Entity IDs: [{}]",
+            entity_ids
+                .iter()
+                .map(|id| id.to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+        self.print_to_terminal(&message);
+    }
+
+        /// Save the entity to its corresponding json file
+    pub fn update_entity(&mut self, entity_id: usize) {
+        if let Some(entity) = self.ecs.get_entity_by_id(entity_id) {
+
+            let serialized_entity = entity.to_json();
+
+            // File path for the entity json file
+            let entity_file_path =
+                format!("{}/entities/entity_{}.json", self.project_path, entity.id);
+
+            // Save the updated json to file
+            match FileManagement::save_to_file(&serialized_entity, &entity_file_path) {
+                Ok(_) => {
+                    self.print_to_terminal(&format!(
+                        "Entity {} updated successfully at {}",
+                        entity.id, entity_file_path
+                    ));
+                }
+                Err(err) => {
+                    self.print_to_terminal(&format!(
+                        "Failed to update entity {}: {}",
+                        entity.id, err
+                    ));
+                }
+            }
+        } else {
+            self.print_to_terminal(&format!(
+                "Failed to update: Entity with ID {} not found.",
+                entity_id
+            ));
+        }
+    }
+
+    /// Load an entity by its ID from the corresponding json file
+    pub fn load_entity(&mut self, entity_id: usize) -> Result<(), String> {
+
+        let entity_file_path = format!("{}/entities/entity_{}.json", self.project_path, entity_id);
+
+        let file_content = std::fs::read_to_string(&entity_file_path)
+            .map_err(|err| format!("Failed to read file '{}': {}", entity_file_path, err))?;
+
+        // Deserialize the json into an Entity object
+        let entity: Entity = serde_json::from_str(&file_content).map_err(|err| {
+            format!(
+                "Failed to parse JSON from file '{}': {}",
+                entity_file_path, err
+            )
+        })?;
+
+        // Check if the entity already exists in ecs
+        if self.ecs.entity_exists_by_id(entity_id) {
+            return Err(format!(
+                "Entity with ID {} already exists in ECS.",
+                entity_id
+            ));
+        }
+
+        // Add the entity to ecs by id
+        self.ecs.insert_entity_by_id(entity_id, entity);
+
+        self.print_to_terminal(&format!("Entity {} loaded successfully.", entity_id));
+        Ok(())
+    }
+
+    /// Add a new script json file
+    pub fn add_script(&mut self) {
+
+        let script_id = self.next_script_id;
+
+        // File path for the script json file
+        let script_file_path = format!("{}/scripts/script_{}.lua", self.project_path, script_id);
+
+        // Save the json to file
+        if let Err(err) = FileManagement::save_to_file("", &script_file_path) {
+            self.print_to_terminal(&format!("Failed to save script {}: {}", script_id, err));
+        } else {
+            self.print_to_terminal(&format!(
+                "Script {} saved successfully at {}",
+                script_id, script_file_path
+            ));
+
+            self.next_script_id += 1;
+        }
+    }
+
+    /// Delete a script file
+    pub fn delete_script_by_file(&mut self, file_name: &str) {
+        let file_path = format!("{}/scripts/{}", self.project_path, file_name);
+
+        match FileManagement::delete_file(&file_path) {
+            Ok(_) => {
+                self.print_to_terminal(&format!("Deleted script file: {}", file_name));
+                self.highlighted_script = None;
+            }
+            Err(e) => {
+                self.print_to_terminal(&format!("Failed to delete script file: {}", e));
+            }
+        }
+    }
+
+    /// Add the import menu in UI
+    fn show_import_menu(&mut self, ui: &mut egui::Ui) {
+        let asset_types = [
+            ("Font", &["ttf", "otf"][..], "assets/fonts"),
+            ("Image", &["png", "jpg", "jpeg", "bmp"][..], "assets/images"),
+            ("Sound", &["mp3", "wav", "ogg"][..], "assets/sounds"),
+            ("Video", &["mp4", "avi", "mkv", "webm"][..], "assets/videos"),
+        ];
+
+        ui.menu_button("Import...", |ui| {
+
+            ui.add_enabled_ui(self.load_project, |ui| {
+                for (name, extensions, folder) in &asset_types {
+                    if ui.button(*name).clicked() {
+                        if let Some(file_path) = FileDialog::new().add_filter((*name).to_string(), *extensions).pick_file() {
+                            match FileManagement::import_asset(
+                                file_path.to_str().unwrap_or(""),
+                                &format!("{}/{}", self.project_path, folder),
+                            ) {
+                                Ok(msg) => self.print_to_terminal(&msg),
+                                Err(err) => self.print_to_terminal(&err),
+                            }
+                        }
+                        ui.close_menu();
+                    }
+                }
+            });
+        });
+    }
+
+    pub fn run_game(&mut self, ctx: &egui::Context) {
+
+        self.print_to_terminal("run_game called");
+
+        // Step the physics engine
+        self.physics_engine.step();
+
+        // Fetch entities from ecs to render
+        let sprites = self.ecs.entities.values().filter_map(|entity| {
+            // println!("sprites");
+            let mut x = 200.0;
+            let mut y = 200.0;
+            let mut width = 300.0;
+            let mut height = 300.0;
+
+            // for (key, attribute) in &entity.attributes {
+            //     match (key.as_str(), &attribute.value_type) {
+            //         ("x", AttributeValueType::Float(value)) => x = *value,
+            //         ("y", AttributeValueType::Float(value)) => y = *value,
+            //         ("width", AttributeValueType::Float(value)) => width = *value,
+            //         ("height", AttributeValueType::Float(value)) => height = *value,
+            //         _ => {}
+            //     }
+            // }
+
+            Some(Sprite {
+                position: (x as f32, y as f32),
+                size: (width as f32, height as f32),
+                rotation: 0.0,
+                texture_coords: (0.0, 0.0, 1.0, 1.0),
+            })
+        }).collect::<Vec<_>>();
+        // println!("{:?}", sprites);
+        // if let Err(err) = self.render_engine.render_frame(&sprites) {
+        //     self.print_to_terminal(&format!("Render error: {}", err));
+        //     self.running = false;
+        // }
+
+        // Force GUI to repaint
+        ctx.request_repaint();
+
+    }
+
+    pub fn register_texture_with_egui(&mut self, ctx: &egui::Context) -> Option<egui::TextureId> {
+
+        if self.egui_renderer.is_none() {
+            self.egui_renderer = Some(EguiRenderer::new(
+                &self.render_engine.device,
+                // wgpu::TextureFormat::Bgra8Unorm,
+                wgpu::TextureFormat::Bgra8UnormSrgb,
+                None,
+                1,
+                false,
+            ));
+        }
+
+        if let Some(renderer) = &mut self.egui_renderer {
+
+            let texture_view = &self.render_engine.texture_view;
+            let texture_id = renderer.register_native_texture(&self.render_engine.device, texture_view, wgpu::FilterMode::Linear);
+
+            // println!("Texture ID: {:?}", texture_id);
+            // println!("Registering texture view: {:?}", texture_view);
+
+            return Some(texture_id);
+        }
+        println!("Failed to register texture.");
+        None
+    }
+
+
+
 }

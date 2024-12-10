@@ -1,7 +1,10 @@
 mod engine_gui;
 mod project_manager;
 use eframe::*;
+mod audio_engine;
+mod ecs;
 mod physics_engine;
+mod render_engine;
 
 fn main() {
     // Set the native options for the window

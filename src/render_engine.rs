@@ -66,7 +66,7 @@ impl RenderEngine {
         // Create empty vertex buffer
         let vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Vertex Buffer"),
-            size: 1024, // Some initial size
+            size: 2048, // Some initial size
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
