@@ -4,12 +4,20 @@ use crate::ecs::Entity;
 use crate::ecs::EntityManager;
 use rfd::FileDialog;
 
+use image::ImageReader as ImageReader;
+
 
 use crate::physics_engine::PhysicsEngine;
 use crate::project_manager::FileManagement;
 use crate::render_engine::RenderEngine;
+
+use crate::render_engine::Sprite;
+
 use eframe::egui;
 use eframe::glow::SET;
+
+use egui_wgpu::wgpu;
+use egui_wgpu::{Renderer as EguiRenderer};
 
 // #[derive(Default)]
 pub struct EngineGui {
@@ -34,6 +42,9 @@ pub struct EngineGui {
     highlighted_script: Option<usize>,
     next_script_id: usize,
     current_script_content: String,
+    // scene panel
+    running: bool,
+    egui_renderer: Option<EguiRenderer>,
 }
 
 impl Default for EngineGui {
@@ -60,6 +71,9 @@ impl Default for EngineGui {
             highlighted_script: None,
             next_script_id: 0,
             current_script_content: String::new(),
+            // scene panel
+            running: false,
+            egui_renderer: None,
         }
     }
 }
@@ -183,6 +197,10 @@ impl eframe::App for EngineGui {
 
         // Display the three-panel layout
         self.show_three_panel_layout(ctx, ctx_width);
+
+        if self.load_project && self.running {
+            self.run_game(ctx);
+        }
     }
 }
 
@@ -665,22 +683,63 @@ impl EngineGui {
 
                 // Play button
                 if ui.button("▶ Play").clicked() {
+                    self.running = true;
                     self.print_to_terminal("Play button clicked.");
                 }
 
                 // Pause button
                 if ui.button("⏸ Pause").clicked() {
+                    self.running = false;
                     self.print_to_terminal("Pause button clicked.");
                 }
 
                 // Step button
                 if ui.button("⏭ Step").clicked() {
+                    self.running = false;
+                    self.run_game(ctx);
                     self.print_to_terminal("Step button clicked.");
                 }
             });
 
             ui.add_space(20.0);
             ui.label("Scene Viewer");
+
+            if self.running {
+                if let Some(texture_id) = self.register_texture_with_egui(ctx) {
+
+                    let image_path = "tests/hello.jpg";
+                    let image = match ImageReader::open(image_path) {
+                        Ok(reader) => match reader.decode() {
+                            Ok(decoded) => decoded.to_rgba8(),
+                            Err(err) => panic!("Failed to decode image: {}", err),
+                        },
+                        Err(err) => panic!("Failed to open image: {}", err),
+                    };
+
+                    let (width, height) = image.dimensions();
+                    let pixels = image.into_raw();
+
+                    let color_image = egui::ColorImage::from_rgba_unmultiplied([width as usize, height as usize], &pixels);
+                    let texture = ctx.load_texture("my image", color_image, Default::default());
+                    // ui.image(egui::ImageSource::Texture((&texture).into()));
+
+                    let remaining_space = ui.available_rect_before_wrap();
+                    let scene_origin = remaining_space.min;
+
+                    let rect = egui::Rect{
+                            min: scene_origin,
+                            max: egui::pos2(
+                                remaining_space.max.x, // Full width of the panel
+                                scene_origin.y + remaining_space.height() * 0.9, // 90% of the remaining height
+                            )
+                        };
+                    let uv = egui::Rect{ min:egui::pos2(0.0, 0.0), max:egui::pos2(1.0, 1.0)};
+                    ui.painter().image(texture.id(), rect, uv, egui::Color32::WHITE);
+                    ui.painter().image(texture_id, rect, uv, egui::Color32::WHITE);
+
+                    ctx.request_repaint();
+                }
+           }
         });
 
         // Bottom panel for terminal
@@ -905,4 +964,77 @@ impl EngineGui {
             });
         });
     }
+
+    pub fn run_game(&mut self, ctx: &egui::Context) {
+
+        self.print_to_terminal("run_game called");
+
+        // Step the physics engine
+        self.physics_engine.step();
+
+        // Fetch entities from ecs to render
+        let sprites = self.ecs.entities.values().filter_map(|entity| {
+            // println!("sprites");
+            let mut x = 200.0;
+            let mut y = 200.0;
+            let mut width = 300.0;
+            let mut height = 300.0;
+
+            // for (key, attribute) in &entity.attributes {
+            //     match (key.as_str(), &attribute.value_type) {
+            //         ("x", AttributeValueType::Float(value)) => x = *value,
+            //         ("y", AttributeValueType::Float(value)) => y = *value,
+            //         ("width", AttributeValueType::Float(value)) => width = *value,
+            //         ("height", AttributeValueType::Float(value)) => height = *value,
+            //         _ => {}
+            //     }
+            // }
+
+            Some(Sprite {
+                position: (x as f32, y as f32),
+                size: (width as f32, height as f32),
+                rotation: 0.0,
+                texture_coords: (0.0, 0.0, 1.0, 1.0),
+            })
+        }).collect::<Vec<_>>();
+        // println!("{:?}", sprites);
+        // if let Err(err) = self.render_engine.render_frame(&sprites) {
+        //     self.print_to_terminal(&format!("Render error: {}", err));
+        //     self.running = false;
+        // }
+
+        // Force GUI to repaint
+        ctx.request_repaint();
+
+    }
+
+    pub fn register_texture_with_egui(&mut self, ctx: &egui::Context) -> Option<egui::TextureId> {
+
+        if self.egui_renderer.is_none() {
+            self.egui_renderer = Some(EguiRenderer::new(
+                &self.render_engine.device,
+                // wgpu::TextureFormat::Bgra8Unorm,
+                wgpu::TextureFormat::Bgra8UnormSrgb,
+                None,
+                1,
+                false,
+            ));
+        }
+
+        if let Some(renderer) = &mut self.egui_renderer {
+
+            let texture_view = &self.render_engine.texture_view;
+            let texture_id = renderer.register_native_texture(&self.render_engine.device, texture_view, wgpu::FilterMode::Linear);
+
+            // println!("Texture ID: {:?}", texture_id);
+            // println!("Registering texture view: {:?}", texture_view);
+
+            return Some(texture_id);
+        }
+        println!("Failed to register texture.");
+        None
+    }
+
+
+
 }
