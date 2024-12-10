@@ -103,4 +103,75 @@ impl FileManagement {
         let metadata = serde_json::from_reader(file).expect("Failed to read project.json.");
         return metadata;
     }
+
+    pub fn save_to_file(content: &str, file_path: &str) -> Result<(), String> {
+        // Check if the directory exists
+        let path = Path::new(file_path);
+        if let Some(parent) = path.parent() {
+            if !parent.exists() {
+                std::fs::create_dir_all(parent).map_err(|e| {
+                    format!(
+                        "Failed to create directory for file: {}. Error: {}",
+                        file_path, e
+                    )
+                })?;
+            }
+        }
+
+
+        let mut file = File::create(path)
+            .map_err(|e| format!("Failed to create file: {}. Error: {}", file_path, e))?;
+        file.write_all(content.as_bytes())
+            .map_err(|e| format!("Failed to write to file: {}. Error: {}", file_path, e))?;
+
+        Ok(())
+    }
+
+    pub fn delete_file(file_path: &str) -> Result<(), String> {
+        match std::fs::remove_file(file_path) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(format!("Failed to delete file '{}': {}", file_path, e)),
+        }
+    }
+
+    // Extract ID from file name, assuming file name has pattern "xxx_<id>.json
+    pub fn extract_id_from_file(file_name: &str) -> Option<usize> {
+        // Split the file name by `_` and parse the last part as an ID
+        if let Some(last_part) = file_name.rsplit('_').next() {
+            last_part
+                .split('.')
+                .next() // In case of extension like ".json", remove it
+                .and_then(|id_str| id_str.parse::<usize>().ok())
+        } else {
+            None
+        }
+    }
+
+    // Load content from file
+    pub fn load_file_content(file_path: &str) -> Result<String, String> {
+        fs::read_to_string(file_path).map_err(|err| {
+            format!(
+                "Failed to load content from file '{}': {}",
+                file_path, err
+            )
+        })
+    }
+
+    /// Import asset into project (copy asset to corresponding folder)
+    pub fn import_asset(original_path: &str, dest_folder: &str) -> Result<String, String> {
+        // Get the file name
+        let file_path = Path::new(original_path);
+        if let Some(file_name) = file_path.file_name() {
+
+            let dest_path = Path::new(dest_folder).join(file_name);
+
+            // Copy the file to the destination
+            fs::copy(&file_path, &dest_path)
+                .map(|_| format!("File imported successfully to '{}'.", dest_path.display()))
+                .map_err(|err| format!("Failed to copy file to '{}': {}", dest_path.display(), err))
+        } else {
+            Err("Failed to get the file name.".to_string())
+        }
+    }
+
 }
