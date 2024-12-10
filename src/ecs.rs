@@ -209,6 +209,11 @@ impl EntityManager {
         value_type: AttributeValueType,
         value: String,
     ) -> Result<(), String> {
+        // Check if the attribute already exists
+        if self.attribute_exists_by_entity_id(entity_id, &name) {
+            return Err(format!("Attribute '{}' already exists for entity with ID {}.", name, entity_id));
+        }
+        
         if let Some(entity) = self.entities.get_mut(&entity_id) {
             match Self::validate_value(value_type, value) {
                 Ok(valid_value) => {
