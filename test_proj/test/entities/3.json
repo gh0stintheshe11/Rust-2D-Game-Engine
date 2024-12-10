@@ -1,0 +1,11 @@
+{
+  "id": 0,
+  "attributes": {
+    "name": {
+      "name": "name",
+      "value_type": {
+        "String": "HELLO!"
+      }
+    }
+  }
+}

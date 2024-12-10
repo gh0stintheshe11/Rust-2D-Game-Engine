@@ -1,0 +1,11 @@
+{
+  "id": 2,
+  "attributes": {
+    "name": {
+      "name": "name",
+      "value_type": {
+        "String": "test"
+      }
+    }
+  }
+}
