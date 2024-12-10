@@ -226,6 +226,18 @@ impl EngineGui {
                             self.show_new_project_popup = false; // Ensure new project popup is closed
                         }
                         self.show_import_menu(ui); // Add "Import..." submenu
+
+
+                        ui.add_enabled(self.load_project, egui::Button::new("Build And Run"))
+                            .clicked()
+                            .then(|| {
+                                let project_path = self.project_path.clone();
+                                match FileManagement::build_and_run_project(&project_path, self) {
+                                    Ok(_) => self.print_to_terminal("Build and run succeeded!"),
+                                    Err(e) => self.print_to_terminal(&format!("Error: {}", e)),
+                                }
+                            });
+
                     });
 
                     // Edit menu
