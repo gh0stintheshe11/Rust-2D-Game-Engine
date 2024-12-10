@@ -1,3 +1,4 @@
+use crate::ecs::*;
 use crate::project_manager::FileManagement;
 use eframe::egui;
 
@@ -5,10 +6,14 @@ use eframe::egui;
 pub struct EngineGui {
     show_new_project_popup: bool,  // Track if the pop-up should be shown
     show_open_project_popup: bool, // Track if the pop-up should be shown
-    load_project: bool,            // Track if the project should be loaded
-    project_name: String,          // Store the project name input
-    project_path: String,          // Store the project path input
-    terminal_output: String,   // Store the terminal output
+    show_new_entity_popup: bool,
+    show_delete_entity_popup: bool,
+    load_project: bool,      // Track if the project should be loaded
+    project_name: String,    // Store the project name input
+    project_path: String,    // Store the project path input
+    terminal_output: String, // Store the terminal output
+    entity_name: String,
+    entity_id_to_delete: String,
 }
 
 impl eframe::App for EngineGui {
@@ -128,6 +133,119 @@ impl eframe::App for EngineGui {
                 });
         }
 
+        // Display the pop-up for creating a new entity
+        if self.show_new_entity_popup {
+            egui::Window::new("Create New Entity")
+                .resizable(false)
+                .collapsible(false)
+                .fade_in(true)
+                .frame(
+                    egui::Frame::window(&egui::Style::default()).shadow(egui::epaint::Shadow {
+                        offset: egui::Vec2::new(0.0, 0.0),
+                        blur: 0.0,
+                        spread: 2.0,
+                        color: egui::Color32::DARK_GRAY,
+                    }),
+                )
+                .show(ctx, |ui| {
+                    ui.label("Entity Name:");
+                    ui.text_edit_singleline(&mut self.entity_name); // Reuse the project_name field or add a new field for entity name.
+
+                    // Start horizontal layout for buttons
+                    ui.horizontal(|ui| {
+                        if ui.button("Create").clicked() {
+                            // Check if the entity name is not empty
+                            if !self.project_name.is_empty() {
+                                let entity_name = self.entity_name.clone();
+                                let entity_path = format!("{}/entities", self.project_path);
+
+                                // Instantiate EntityManager only here
+                                let mut entity_manager = EntityManager::new(); // Assuming EntityManager has a new() function
+
+                                // Use entity manager to handle creation
+                                match entity_manager.create_entity_path(&entity_path, &entity_name)
+                                {
+                                    Ok(entity) => {
+                                        self.print_to_terminal(&format!(
+                                            "Entity '{}' created at '{}'.",
+                                            entity_name, entity_path
+                                        ));
+                                        self.show_new_entity_popup = false; // Close the pop-up
+                                    }
+                                    Err(err) => {
+                                        self.print_to_terminal(&format!(
+                                            "Failed to create entity: {}",
+                                            err
+                                        ));
+                                    }
+                                }
+                            } else {
+                                self.print_to_terminal("Entity name is required.");
+                            }
+                        }
+                        if ui.button("Cancel").clicked() {
+                            self.show_new_entity_popup = false; // Close the pop-up on cancel
+                        }
+                    });
+                });
+        }
+
+        // Display the pop-up for deleting an entity
+        if self.show_delete_entity_popup {
+            egui::Window::new("Delete Entity")
+                .resizable(false)
+                .collapsible(false)
+                .fade_in(true)
+                .frame(
+                    egui::Frame::window(&egui::Style::default()).shadow(egui::epaint::Shadow {
+                        offset: egui::Vec2::new(0.0, 0.0),
+                        blur: 0.0,
+                        spread: 2.0,
+                        color: egui::Color32::DARK_GRAY,
+                    }),
+                )
+                .show(ctx, |ui| {
+                    ui.label("Enter Entity ID to Delete:");
+                    ui.text_edit_singleline(&mut self.entity_id_to_delete); // Input for entity ID
+
+                    // Start horizontal layout for buttons
+                    ui.horizontal(|ui| {
+                        if ui.button("Delete").clicked() {
+                            // Ensure the entity ID is not empty and is a valid number
+                            if let Ok(entity_id) = self.entity_id_to_delete.parse::<usize>() {
+                                let entity_path = format!("{}/entities", self.project_path);
+
+                                // Instantiate EntityManager only here
+                                let mut entity_manager = EntityManager::new();
+
+                                // Use entity manager to handle deletion
+                                match entity_manager.delete_entity_by_number(entity_id, &entity_path) {
+                                    Ok(_) => {
+                                        self.print_to_terminal(&format!(
+                                            "Entity with ID '{}' deleted from '{}'.",
+                                            entity_id, entity_path
+                                        ));
+                                        self.show_delete_entity_popup = false; // Close the pop-up
+                                    }
+                                    Err(err) => {
+                                        self.print_to_terminal(&format!(
+                                            "Failed to delete entity with ID {}: {}",
+                                            entity_id, err
+                                        ));
+                                    }
+                                }
+                            } else {
+                                self.print_to_terminal("Invalid Entity ID.");
+                            }
+                        }
+
+                        if ui.button("Cancel").clicked() {
+                            self.show_delete_entity_popup = false; // Close the pop-up on cancel
+                        }
+                    });
+                });
+        }
+
         // Display the three-panel layout
         self.show_three_panel_layout(ctx, ctx_width);
     }
@@ -163,6 +281,18 @@ impl EngineGui {
                         }
                         if ui.button("Redo").clicked() {
                             self.print_to_terminal("Redo");
+                        }
+                    });
+
+                    // Edit menu
+                    ui.menu_button("Entity", |ui| {
+                        if ui.button("New").clicked() {
+                            self.print_to_terminal("New Entity");
+                            self.show_new_entity_popup = true; // Open the pop-up when "New" is clicked
+                        }
+                        if ui.button("Delete").clicked() {
+                            self.print_to_terminal("Delete Entity");
+                            self.show_delete_entity_popup = true;
                         }
                     });
                 });
