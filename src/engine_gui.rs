@@ -679,79 +679,74 @@ impl EngineGui {
                     });
             });
 
-        // Central panel
+        // Main scene panel
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("Scene");
-
-            // Total width of buttons (hardcoded)
-            let total_buttons_width = 167.0;
-
-            // Calculate the padding for centering buttons
-            let panel_width = ui.available_width();
-            let padding = (panel_width - total_buttons_width) / 2.0;
-
-            ui.horizontal(|ui| {
-                ui.add_space(padding.max(0.0));
-
-                // Play button
-                if ui.button("▶ Play").clicked() {
-                    self.running = true;
-                    self.print_to_terminal("Play button clicked.");
-                }
-
-                // Pause button
-                if ui.button("⏸ Pause").clicked() {
-                    self.running = false;
-                    self.print_to_terminal("Pause button clicked.");
-                }
-
-                // Step button
-                if ui.button("⏭ Step").clicked() {
-                    self.running = false;
-                    self.run_game(ctx);
-                    self.print_to_terminal("Step button clicked.");
-                }
-            });
-
-            ui.add_space(20.0);
-            ui.label("Scene Viewer");
-
-            if self.running {
-                if let Some(texture_id) = self.register_texture_with_egui(ctx) {
-
-                    let image_path = "tests/hello.jpg";
-                    let image = match ImageReader::open(image_path) {
-                        Ok(reader) => match reader.decode() {
-                            Ok(decoded) => decoded.to_rgba8(),
-                            Err(err) => panic!("Failed to decode image: {}", err),
-                        },
-                        Err(err) => panic!("Failed to open image: {}", err),
-                    };
-
-                    let (width, height) = image.dimensions();
-                    let pixels = image.into_raw();
-
-                    let color_image = egui::ColorImage::from_rgba_unmultiplied([width as usize, height as usize], &pixels);
-                    let texture = ctx.load_texture("my image", color_image, Default::default());
-                    // ui.image(egui::ImageSource::Texture((&texture).into()));
-
-                    let remaining_space = ui.available_rect_before_wrap();
-                    let scene_origin = remaining_space.min;
-
-                    let rect = egui::Rect{
-                            min: scene_origin,
-                            max: egui::pos2(
-                                remaining_space.max.x, // Full width of the panel
-                                scene_origin.y + remaining_space.height() * 0.9, // 90% of the remaining height
-                            )
-                        };
-                    let uv = egui::Rect{ min:egui::pos2(0.0, 0.0), max:egui::pos2(1.0, 1.0)};
-                    ui.painter().image(texture.id(), rect, uv, egui::Color32::WHITE);
-                    ui.painter().image(texture_id, rect, uv, egui::Color32::WHITE);
-
-                    ctx.request_repaint();
-                }
-           }
+            let viewport_rect = ui.available_rect_before_wrap();
+            
+            let button_width = 60.0;  // Make this wider to accommodate all text
+            let button_height = 20.0;
+            let button_group_width = (button_width * 3.0) + 10.0;
+            let center_x = viewport_rect.center().x - (button_group_width / 2.0);
+            
+            // Floating buttons overlay
+            egui::Area::new("floating_buttons".into())
+                .fixed_pos(egui::pos2(center_x, viewport_rect.min.y + 10.0))
+                .show(ctx, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.set_width(button_group_width);
+                        
+                        // Make all buttons the exact same size
+                        ui.add_sized(
+                            [button_width, button_height],
+                            egui::Button::new("▶ Play")
+                        ).clicked().then(|| {
+                            self.running = true;
+                            self.print_to_terminal("Play button clicked.");
+                        });
+                        
+                        ui.add_sized(
+                            [button_width, button_height],
+                            egui::Button::new("⏸ Pause")
+                        ).clicked().then(|| {
+                            self.running = false;
+                            self.print_to_terminal("Pause button clicked.");
+                        });
+                        
+                        ui.add_sized(
+                            [button_width, button_height],
+                            egui::Button::new("⏹ Reset")
+                        ).clicked().then(|| {
+                            self.running = false;
+                            self.run_game(ctx);
+                            self.print_to_terminal("Reset button clicked.");
+                        });
+                    });
+                });
+            
+            // Main viewport - remove any frame decorations
+            egui::Frame::canvas(ui.style())
+                .fill(egui::Color32::from_gray(20))
+                .stroke(egui::Stroke::NONE)
+                .show(ui, |ui| {
+                    let painter = ui.painter();
+                    let center = viewport_rect.center();
+                    
+                    // Position the test objects directly under the buttons
+                    let offset_y = button_height + 20.0; // Add some space below the buttons
+                    let test_object_center = egui::pos2(center.x, viewport_rect.min.y + offset_y);
+                    
+                    painter.circle_filled(
+                        test_object_center,
+                        50.0,
+                        egui::Color32::RED,
+                    );
+                    
+                    let rect = egui::Rect::from_center_size(
+                        test_object_center + egui::vec2(100.0, 0.0),
+                        egui::vec2(80.0, 80.0),
+                    );
+                    painter.rect_filled(rect, 0.0, egui::Color32::BLUE);
+                });
         });
 
         // Bottom panel for terminal
