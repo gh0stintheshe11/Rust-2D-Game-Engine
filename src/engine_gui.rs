@@ -2,10 +2,12 @@ use crate::audio_engine::AudioEngine;
 use crate::ecs::{AttributeValueType, Entity, EntityManager};
 use crate::physics_engine::PhysicsEngine;
 use crate::project_manager::FileManagement;
-use crate::render_engine::RenderEngine;
+use crate::render_engine::{RenderEngine, Animation, RenderObject, Scene, RenderLayer, Transform};
+use crate::input_handler::{InputHandler, InputContext};
 use eframe::egui;
 use egui_wgpu::{Renderer as EguiRenderer, wgpu};
 use rfd::FileDialog;
+use winit::keyboard::KeyCode;
 
 pub struct EngineGui {
     ecs: EntityManager,
@@ -33,6 +35,10 @@ pub struct EngineGui {
     running: bool,
     egui_renderer: Option<EguiRenderer>,
     texture_handle: Option<egui::TextureHandle>,
+    current_animation: Option<Animation>,
+    delta_time: f32,
+    scene: Option<Scene>,
+    input_handler: InputHandler,
 }
 
 impl Default for EngineGui {
@@ -63,6 +69,10 @@ impl Default for EngineGui {
             running: false,
             egui_renderer: None,
             texture_handle: None,
+            current_animation: None,
+            delta_time: 0.0,
+            scene: None,
+            input_handler: InputHandler::new(),
         }
     }
 }
@@ -958,33 +968,189 @@ impl EngineGui {
         Some(texture.id())
     }
 
+    // Main game loop
     pub fn run_game(&mut self, ctx: &egui::Context) {
         if self.running {
-            if self.texture_handle.is_none() {
-                self.texture_handle = self.create_test_object(ctx);
+            println!("Game is running"); // Debug
+            self.input_handler.set_context(InputContext::Game);
+            
+            // Update input using egui context
+            self.input_handler.update_game(ctx);
+            
+            // Rest of the game loop...
+            let now = std::time::Instant::now();
+            self.delta_time = now.duration_since(self.render_engine.last_frame_time).as_secs_f32();
+            self.render_engine.last_frame_time = now;
+
+            if self.scene.is_none() {
+                self.initialize_game(ctx);
             }
 
-            egui::CentralPanel::default().show(ctx, |ui| {
-                if let Some(handle) = &self.texture_handle {
-                    // Use the actual pixel dimensions of the texture
-                    let size = egui::vec2(
-                        handle.size()[0] as f32,  // Width in pixels
-                        handle.size()[1] as f32   // Height in pixels
-                    );
-
-                    ui.centered_and_justified(|ui| {
-                        ui.image((handle.id(), size));
-                    });
-                }
-            });
+            self.handle_input();
+            self.update_game_state();
+            self.render(ctx);
 
             ctx.request_repaint();
+        } else {
+            println!("Game is not running"); // Debug
+            self.input_handler.set_context(InputContext::Editor);
         }
+    }
+
+    // Initialize game resources
+    fn initialize_game(&mut self, ctx: &egui::Context) {
+        let mut scene = Scene::new();
+        
+        // Add test animation
+        if let Some(animation) = self.create_test_animation(ctx) {
+            scene.add_object(
+                RenderObject::Animated {
+                    animation,
+                    transform: Transform::new((300.0, 300.0)),
+                },
+                RenderLayer::Game  // Specify the layer
+            );
+            self.print_to_terminal("Added rotating rectangle to scene");
+        }
+
+        // Add test static object
+        if let Some(texture) = self.create_test_object(ctx) {
+            scene.add_object(
+                RenderObject::Static {
+                    texture,
+                    transform: Transform::new((300.0, 100.0)),
+                },
+                RenderLayer::Game  // Specify the layer
+            );
+            self.print_to_terminal("Added static checker pattern to scene");
+        }
+
+        self.scene = Some(scene);
+    }
+
+    // Handle user input
+    fn handle_input(&mut self) {
+        if let Some(scene) = &mut self.scene {
+            let camera_speed = 5.0 * self.delta_time;
+            
+            // Only handle game input when running
+            if self.running {
+                println!("Checking input..."); // Debug output
+                
+                if self.input_handler.is_key_pressed(KeyCode::KeyW) {
+                    println!("W pressed, moving camera up"); // Debug output
+                    scene.move_camera((0.0, -camera_speed));
+                }
+                if self.input_handler.is_key_pressed(KeyCode::KeyS) {
+                    println!("S pressed, moving camera down"); // Debug output
+                    scene.move_camera((0.0, camera_speed));
+                }
+                if self.input_handler.is_key_pressed(KeyCode::KeyA) {
+                    println!("A pressed, moving camera left"); // Debug output
+                    scene.move_camera((-camera_speed, 0.0));
+                }
+                if self.input_handler.is_key_pressed(KeyCode::KeyD) {
+                    println!("D pressed, moving camera right"); // Debug output
+                    scene.move_camera((camera_speed, 0.0));
+                }
+
+                let zoom_speed = 1.0 * self.delta_time;
+                if self.input_handler.is_key_pressed(KeyCode::KeyQ) {
+                    scene.zoom_camera(-zoom_speed);
+                }
+                if self.input_handler.is_key_pressed(KeyCode::KeyE) {
+                    scene.zoom_camera(zoom_speed);
+                }
+
+                let rotation_speed = 1.0 * self.delta_time;
+                if self.input_handler.is_key_pressed(KeyCode::KeyR) {
+                    scene.rotate_camera(-rotation_speed);
+                }
+                if self.input_handler.is_key_pressed(KeyCode::KeyF) {
+                    scene.rotate_camera(rotation_speed);
+                }
+            }
+        }
+    }
+
+    // Update physics
+    fn update_physics(&mut self) {
+        // TODO: Collision detection, movement, etc.
+    }
+
+    // Update game state
+    fn update_game_state(&mut self) {
+        if let Some(scene) = &mut self.scene {
+            scene.update(self.delta_time);
+        }
+    }
+
+    // Render everything
+    fn render(&self, ctx: &egui::Context) {
+        egui::CentralPanel::default().show(ctx, |ui| {
+            if let Some(scene) = &self.scene {
+                // Render each layer in order
+                for layer in [RenderLayer::Background, RenderLayer::Game, RenderLayer::UI, RenderLayer::Debug] {
+                    if let Some(objects) = scene.layers.get(&layer) {
+                        for object in objects {
+                            match object {
+                                RenderObject::Static { texture, transform } => {
+                                    let size = egui::vec2(
+                                        texture.size()[0] as f32 * transform.scale.0,
+                                        texture.size()[1] as f32 * transform.scale.1
+                                    );
+                                    let (x, y) = scene.camera.transform_point(transform.position);
+                                    let pos = egui::pos2(x, y);
+                                    
+                                    ui.put(
+                                        egui::Rect::from_min_size(pos, size),
+                                        egui::Image::new((texture.id(), size))
+                                            .rotate(transform.rotation, egui::vec2(0.5, 0.5))
+                                    );
+                                },
+                                RenderObject::Animated { animation, transform } => {
+                                    if let Some(texture) = animation.current_frame() {
+                                        let size = egui::vec2(
+                                            texture.size()[0] as f32 * transform.scale.0,
+                                            texture.size()[1] as f32 * transform.scale.1
+                                        );
+                                        let (x, y) = scene.camera.transform_point(transform.position);
+                                        let pos = egui::pos2(x, y);
+                                        
+                                        ui.put(
+                                            egui::Rect::from_min_size(pos, size),
+                                            egui::Image::new((texture.id(), size))
+                                                .rotate(transform.rotation, egui::vec2(0.5, 0.5))
+                                        );
+                                    }
+                                },
+                                RenderObject::Sprite { sprite_sheet, current_frame, transform } => {
+                                    let frame_rect = sprite_sheet.frames[*current_frame];
+                                    let size = egui::vec2(
+                                        sprite_sheet.frame_size.0 as f32 * transform.scale.0,
+                                        sprite_sheet.frame_size.1 as f32 * transform.scale.1
+                                    );
+                                    let (x, y) = scene.camera.transform_point(transform.position);
+                                    let pos = egui::pos2(x, y);
+                                    
+                                    ui.put(
+                                        egui::Rect::from_min_size(pos, size),
+                                        egui::Image::new((sprite_sheet.texture.id(), size))
+                                            .uv(frame_rect)
+                                            .rotate(transform.rotation, egui::vec2(0.5, 0.5))
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
     }
 
     pub fn create_test_object(&mut self, ctx: &egui::Context) -> Option<egui::TextureHandle> {
         let square_size = 10;  // Size of each checker square in pixels
-        let squares = 50;       // Number of squares in each row/column
+        let squares = 5;       // Number of squares in each row/column
         let width = square_size * squares;   // Total width in pixels
         let height = square_size * squares;  // Total height in pixels
         
@@ -1041,5 +1207,63 @@ impl EngineGui {
             color_image,
             egui::TextureOptions::NEAREST
         ))
+    }
+
+    pub fn create_test_animation(&mut self, ctx: &egui::Context) -> Option<Animation> {
+        let frames_count = 120;  // 120 frames for very smooth rotation (3° per frame)
+        let mut frames = Vec::new();
+        
+        // Rectangle dimensions
+        let width = 100;
+        let height = 50;
+        let canvas_size = 120;  // Square canvas to allow rotation
+        
+        for i in 0..frames_count {
+            let mut pixels = vec![0u8; canvas_size * canvas_size * 4];
+            
+            // Calculate rotation angle for this frame (360° / 60 frames = 6° per frame)
+            let angle = (i as f32 * (360.0/frames_count as f32)).to_radians();
+            let cos_a = angle.cos();
+            let sin_a = angle.sin();
+            
+            // Draw rotated rectangle
+            for y in 0..canvas_size {
+                for x in 0..canvas_size {
+                    // Center coordinates
+                    let cx = x as f32 - canvas_size as f32 / 2.0;
+                    let cy = y as f32 - canvas_size as f32 / 2.0;
+                    
+                    // Rotate point
+                    let rx = cx * cos_a - cy * sin_a;
+                    let ry = cx * sin_a + cy * cos_a;
+                    
+                    // Check if point is inside rectangle
+                    let is_inside = rx.abs() < width as f32 / 2.0 && 
+                                  ry.abs() < height as f32 / 2.0;
+                    
+                    let pixel_idx = (y * canvas_size + x) * 4;
+                    if is_inside {
+                        pixels[pixel_idx] = 255;     // R
+                        pixels[pixel_idx + 1] = 0;   // G
+                        pixels[pixel_idx + 2] = 0;   // B
+                        pixels[pixel_idx + 3] = 255; // A
+                    }
+                }
+            }
+
+            let color_image = egui::ColorImage::from_rgba_unmultiplied(
+                [canvas_size, canvas_size],
+                &pixels
+            );
+            
+            frames.push(ctx.load_texture(
+                &format!("rotation_frame_{}", i),
+                color_image,
+                egui::TextureOptions::NEAREST
+            ));
+        }
+
+        // Set frame duration for 60 FPS (1/60 ≈ 0.0167 seconds per frame)
+        Some(Animation::new(frames, 1.0/60.0))  // One complete rotation per second
     }
 }
