@@ -701,6 +701,7 @@ impl EngineGui {
                             egui::Button::new("▶ Play")
                         ).clicked().then(|| {
                             self.running = true;
+                            self.run_game(ctx);
                             self.print_to_terminal("Play button clicked.");
                         });
                         
@@ -717,7 +718,6 @@ impl EngineGui {
                             egui::Button::new("⏹ Reset")
                         ).clicked().then(|| {
                             self.running = false;
-                            self.run_game(ctx);
                             self.print_to_terminal("Reset button clicked.");
                         });
                     });
@@ -973,75 +973,6 @@ impl EngineGui {
     }
 
     pub fn run_game(&mut self, ctx: &egui::Context) {
-
         self.print_to_terminal("run_game called");
-
-        // Step the physics engine
-        self.physics_engine.step();
-
-        // Fetch entities from ecs to render
-        let sprites = self.ecs.entities.values().filter_map(|entity| {
-            // println!("sprites");
-            let mut x = 200.0;
-            let mut y = 200.0;
-            let mut width = 300.0;
-            let mut height = 300.0;
-
-            // for (key, attribute) in &entity.attributes {
-            //     match (key.as_str(), &attribute.value_type) {
-            //         ("x", AttributeValueType::Float(value)) => x = *value,
-            //         ("y", AttributeValueType::Float(value)) => y = *value,
-            //         ("width", AttributeValueType::Float(value)) => width = *value,
-            //         ("height", AttributeValueType::Float(value)) => height = *value,
-            //         _ => {}
-            //     }
-            // }
-
-            Some(Sprite {
-                position: (x as f32, y as f32),
-                size: (width as f32, height as f32),
-                rotation: 0.0,
-                texture_coords: (0.0, 0.0, 1.0, 1.0),
-            })
-        }).collect::<Vec<_>>();
-        // println!("{:?}", sprites);
-        // if let Err(err) = self.render_engine.render_frame(&sprites) {
-        //     self.print_to_terminal(&format!("Render error: {}", err));
-        //     self.running = false;
-        // }
-
-        // Force GUI to repaint
-        ctx.request_repaint();
-
     }
-
-    pub fn register_texture_with_egui(&mut self, ctx: &egui::Context) -> Option<egui::TextureId> {
-
-        if self.egui_renderer.is_none() {
-            self.egui_renderer = Some(EguiRenderer::new(
-                &self.render_engine.device,
-                // wgpu::TextureFormat::Bgra8Unorm,
-                wgpu::TextureFormat::Bgra8UnormSrgb,
-                None,
-                1,
-                false,
-            ));
-        }
-
-        if let Some(renderer) = &mut self.egui_renderer {
-
-            let texture_view = &self.render_engine.texture_view;
-            let texture_id = renderer.register_native_texture(&self.render_engine.device, texture_view, wgpu::FilterMode::Linear);
-
-            // println!("Texture ID: {:?}", texture_id);
-            // println!("Registering texture view: {:?}", texture_view);
-
-            return Some(texture_id);
-        }
-        println!("Failed to register texture.");
-        None
-    }
-
-
-
 }
