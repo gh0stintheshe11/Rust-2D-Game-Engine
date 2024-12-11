@@ -1,4 +1,4 @@
-use crate::ecs::{AttributeValueType, Entity, EntityManager};
+use crate::ecs::{Attribute, AttributeValueType, Entity, EntityManager};
 use crate::project_manager::FileManagement;
 use crate::render_engine::{RenderEngine, Animation, RenderObject, Scene, RenderLayer, Transform};
 use crate::input_handler::{InputHandler, InputContext};
@@ -18,6 +18,7 @@ pub struct EngineGui {
     highlighted_entity: Option<usize>,
     // entity inspector panel
     show_add_attribute_popup: bool,
+    add_attribute_popup_error_msg: String,
     selected_attribute_type: AttributeValueType,
     new_attribute_name: String,
     new_attribute_value: String,
@@ -48,6 +49,7 @@ impl Default for EngineGui {
             highlighted_entity: None,
             // entity inspector panel
             show_add_attribute_popup: false,
+            add_attribute_popup_error_msg: String::new(),
             selected_attribute_type: AttributeValueType::String(String::new()),
             new_attribute_name: String::new(),
             new_attribute_value: String::new(),
@@ -192,27 +194,27 @@ impl eframe::App for EngineGui {
         // Update the central panel to use egui-wgpu rendering
         egui::CentralPanel::default().show(ctx, |ui| {
             let viewport_rect = ui.available_rect_before_wrap();
-            
+
             // Play/Pause/Reset buttons
             let button_width = 60.0;
             let button_height = 20.0;
             let button_group_width = (button_width * 3.0) + 10.0;
             let center_x = viewport_rect.center().x - (button_group_width / 2.0);
-            
+
             egui::Area::new("floating_buttons".into())
                 .fixed_pos(egui::pos2(center_x, viewport_rect.min.y + 10.0))
                 .show(ctx, |ui| {
                     ui.horizontal(|ui| {
                         ui.set_width(button_group_width);
-                        
+
                         if ui.add_sized([button_width, button_height], egui::Button::new("▶ Play")).clicked() {
                             self.running = true;
                         }
-                        
+
                         if ui.add_sized([button_width, button_height], egui::Button::new("⏸ Pause")).clicked() {
                             self.running = false;
                         }
-                        
+
                         if ui.add_sized([button_width, button_height], egui::Button::new("⏹ Reset")).clicked() {
                             self.running = false;
                         }
@@ -329,140 +331,7 @@ impl EngineGui {
                 let secondary_panel_height = ui.available_height() * 0.5;
 
                 // Top section
-                egui::TopBottomPanel::top("entity_inspector")
-                    .resizable(false)
-                    .exact_height(secondary_panel_height)
-                    .frame(egui::Frame::none().inner_margin(egui::Margin::same(0.0)))
-                    .show_inside(ui, |ui| {
-                        ui.heading("Entity Inspector");
-
-                        if self.highlighted_entity.is_some() {
-                            // Add Attribute Button
-                            if ui.button("Add Attribute").clicked() {
-                                self.show_add_attribute_popup = true;
-                            }
-                        }
-
-                        if let Some(selected_id) = self.highlighted_entity {
-
-                            ui.label(format!("Entity ID: {}", selected_id));
-                            ui.label("Attributes:");
-
-                            // Display attributes of the Entity
-                            if let Some(attributes) =
-                                self.ecs.get_attributes_by_entity_id(selected_id)
-                            {
-                                for (key, attribute) in attributes {
-                                    ui.horizontal(|ui| {
-                                        ui.label(format!("{}: {:?}", key, attribute.value_type));
-                                        if ui.button("Delete").clicked() {
-                                            self.ecs
-                                                .delete_attribute_by_entity_id(selected_id, &key);
-                                            self.update_entity(selected_id);
-                                            self.print_to_terminal(&format!(
-                                                "Deleted attribute '{}'.",
-                                                key
-                                            ));
-                                        }
-                                    });
-                                }
-                            } else {
-                                ui.label("Selected entity not found.");
-                            }
-                        } else {
-                            ui.label("Inspect and modify the attributes of the entity");
-                        }
-
-                        // Add Attribute Popup
-                        if self.show_add_attribute_popup {
-                            egui::Window::new("Add Attribute")
-                                .resizable(false)
-                                .collapsible(false)
-                                .show(ctx, |ui| {
-                                    ui.label("Attribute Name:");
-                                    ui.text_edit_singleline(&mut self.new_attribute_name);
-
-                                    ui.label("Attribute Type:");
-                                    egui::ComboBox::from_label("Type")
-                                        .selected_text(format!(
-                                            "{:?}",
-                                            self.selected_attribute_type
-                                        ))
-                                        .show_ui(ui, |ui| {
-                                            ui.selectable_value(
-                                                &mut self.selected_attribute_type,
-                                                AttributeValueType::Integer(0),
-                                                "Integer",
-                                            );
-                                            ui.selectable_value(
-                                                &mut self.selected_attribute_type,
-                                                AttributeValueType::Float(0.0),
-                                                "Float",
-                                            );
-                                            ui.selectable_value(
-                                                &mut self.selected_attribute_type,
-                                                AttributeValueType::String(String::new()),
-                                                "String",
-                                            );
-                                            ui.selectable_value(
-                                                &mut self.selected_attribute_type,
-                                                AttributeValueType::Boolean(false),
-                                                "Boolean",
-                                            );
-                                        });
-
-                                    ui.label("Value:");
-                                    ui.text_edit_singleline(&mut self.new_attribute_value);
-
-                                    ui.horizontal(|ui| {
-                                        if ui.button("OK").clicked() {
-                                            if let Some(selected_id) = self.highlighted_entity {
-                                                let attribute_name =
-                                                    self.new_attribute_name.trim().to_string();
-                                                let attribute_value =
-                                                    self.new_attribute_value.trim().to_string();
-
-                                                if attribute_name.is_empty() {
-                                                    self.print_to_terminal(
-                                                        "Attribute name cannot be empty.",
-                                                    );
-                                                    return;
-                                                }
-
-                                                match self.ecs.add_attribute_by_entity_id(
-                                                    selected_id,
-                                                    attribute_name.clone(),
-                                                    self.selected_attribute_type.clone(),
-                                                    attribute_value.clone(),
-                                                ) {
-                                                    Ok(_) => {
-                                                        self.update_entity(selected_id);
-                                                        self.print_to_terminal(
-                                                            "Attribute added successfully.",
-                                                        );
-                                                        self.new_attribute_name.clear();
-                                                        self.new_attribute_value.clear();
-                                                        self.show_add_attribute_popup = false;
-                                                    }
-                                                    Err(err) => {
-                                                        self.print_to_terminal(&format!(
-                                                            "Error adding attribute: {}",
-                                                            err
-                                                        ));
-                                                    }
-                                                }
-                                            } else {
-                                                self.print_to_terminal("No entity selected.");
-                                            }
-                                        }
-
-                                        if ui.button("Cancel").clicked() {
-                                            self.show_add_attribute_popup = false;
-                                        }
-                                    });
-                                });
-                        }
-                    });
+                self.show_entity_inspector(ctx, ui, secondary_panel_height);
 
                 // Bottom section
                 let entity_folder_path = format!("{}/entities", self.project_path);
@@ -470,7 +339,7 @@ impl EngineGui {
                     .resizable(false)
                     .exact_height(secondary_panel_height)
                     .show_separator_line(false)
-                    .frame(egui::Frame::none().inner_margin(egui::Margin::same(0.0)))
+                    .frame(egui::Frame::none().inner_margin(egui::Margin::same(5.0)))
                     .show_inside(ui, |ui| {
                         let heading_response = ui.heading("Entities");
                         let heading_height = heading_response.rect.height(); // Get the height of the heading
@@ -565,7 +434,7 @@ impl EngineGui {
                 egui::TopBottomPanel::top("script_inspector")
                     .resizable(false)
                     .exact_height(secondary_panel_height)
-                    .frame(egui::Frame::none().inner_margin(egui::Margin::same(0.0)))
+                    .frame(egui::Frame::none().inner_margin(egui::Margin::same(5.0)))
                     .show_inside(ui, |ui| {
                         ui.heading("Script Inspector");
 
@@ -631,7 +500,7 @@ impl EngineGui {
                     .resizable(false)
                     .exact_height(secondary_panel_height)
                     .show_separator_line(false)
-                    .frame(egui::Frame::none().inner_margin(egui::Margin::same(0.0)))
+                    .frame(egui::Frame::none().inner_margin(egui::Margin::same(5.0)))
                     .show_inside(ui, |ui| {
                         let heading_response = ui.heading("Scripts");
                         let heading_height = heading_response.rect.height(); // Get the height of the heading
@@ -930,7 +799,7 @@ impl EngineGui {
         let width = 100;
         let height = 100;
         let mut pixels = vec![0u8; width * height * 4];
-        
+
         // Fill with red
         for pixel in pixels.chunks_mut(4) {
             pixel[0] = 255; // R
@@ -960,7 +829,7 @@ impl EngineGui {
     pub fn run_game(&mut self, ctx: &egui::Context) {
         if self.running {
             self.input_handler.set_context(InputContext::Game);
-            
+
             // Calculate delta time
             let now = std::time::Instant::now();
             self.delta_time = now.duration_since(self.render_engine.last_frame_time).as_secs_f32();
@@ -996,7 +865,7 @@ impl EngineGui {
     // Initialize game resources
     fn initialize_game(&mut self, ctx: &egui::Context) {
         let mut scene = Scene::new();
-        
+
         // Add test animation
         if let Some(animation) = self.create_test_animation(ctx) {
             scene.add_object(
@@ -1029,7 +898,7 @@ impl EngineGui {
         if let Some(scene) = &mut self.scene {
             // Increase camera movement speed significantly
             let camera_speed = 200.0 * self.delta_time;  // Increased from 5.0 to 200.0
-            
+
             // Only handle game input when running
             if self.running {
                 if self.input_handler.is_key_pressed(egui::Key::W) {
@@ -1084,7 +953,7 @@ impl EngineGui {
                 // Get batches sorted by layer
                 let mut batches = scene.prepare_batches();
                 batches.sort_by_key(|batch| batch.layer);
-                
+
                 // Render each batch
                 for batch in batches {
                     for instance in &batch.instances {
@@ -1092,10 +961,10 @@ impl EngineGui {
                             batch.texture.size()[0] as f32 * instance.transform.scale.0 * scene.camera.zoom,
                             batch.texture.size()[1] as f32 * instance.transform.scale.1 * scene.camera.zoom
                         );
-                        
+
                         let (x, y) = scene.camera.transform_point(instance.transform.position);
                         let pos = egui::pos2(x, y);
-                        
+
                         ui.put(
                             egui::Rect::from_min_size(pos, size),
                             egui::Image::new((batch.texture.id(), size))
@@ -1119,9 +988,9 @@ impl EngineGui {
         let squares = 5;       // Number of squares in each row/column
         let width = square_size * squares;   // Total width in pixels
         let height = square_size * squares;  // Total height in pixels
-        
+
         let mut pixels = vec![0u8; width * height * 4];
-        
+
         // Fill the pixels first
         for y in 0..height {
             for x in 0..width {
@@ -1130,7 +999,7 @@ impl EngineGui {
                 let square_x = x / square_size;
                 let square_y = y / square_size;
                 let is_checker = (square_x + square_y) % 2 == 0;
-                
+
                 if is_checker {
                     pixels[i] = 255;     // R
                     pixels[i + 1] = 0;   // G
@@ -1167,7 +1036,7 @@ impl EngineGui {
             [width, height],
             &pixels
         );
-        
+
         Some(ctx.load_texture(
             "test_pattern",
             color_image,
@@ -1178,35 +1047,35 @@ impl EngineGui {
     pub fn create_test_animation(&mut self, ctx: &egui::Context) -> Option<Animation> {
         let frames_count = 120;  // 120 frames for very smooth rotation (3° per frame)
         let mut frames = Vec::new();
-        
+
         // Rectangle dimensions
         let width = 100;
         let height = 50;
         let canvas_size = 120;  // Square canvas to allow rotation
-        
+
         for i in 0..frames_count {
             let mut pixels = vec![0u8; canvas_size * canvas_size * 4];
-            
+
             // Calculate rotation angle for this frame (360° / 60 frames = 6° per frame)
             let angle = (i as f32 * (360.0/frames_count as f32)).to_radians();
             let cos_a = angle.cos();
             let sin_a = angle.sin();
-            
+
             // Draw rotated rectangle
             for y in 0..canvas_size {
                 for x in 0..canvas_size {
                     // Center coordinates
                     let cx = x as f32 - canvas_size as f32 / 2.0;
                     let cy = y as f32 - canvas_size as f32 / 2.0;
-                    
+
                     // Rotate point
                     let rx = cx * cos_a - cy * sin_a;
                     let ry = cx * sin_a + cy * cos_a;
-                    
+
                     // Check if point is inside rectangle
-                    let is_inside = rx.abs() < width as f32 / 2.0 && 
+                    let is_inside = rx.abs() < width as f32 / 2.0 &&
                                   ry.abs() < height as f32 / 2.0;
-                    
+
                     let pixel_idx = (y * canvas_size + x) * 4;
                     if is_inside {
                         pixels[pixel_idx] = 255;     // R
@@ -1221,7 +1090,7 @@ impl EngineGui {
                 [canvas_size, canvas_size],
                 &pixels
             );
-            
+
             frames.push(ctx.load_texture(
                 &format!("rotation_frame_{}", i),
                 color_image,
@@ -1232,4 +1101,236 @@ impl EngineGui {
         // Set frame duration for 60 FPS (1/60 ≈ 0.0167 seconds per frame)
         Some(Animation::new(frames, 1.0/60.0))  // One complete rotation per second
     }
+
+    /// Entity Inspector Panel
+    pub fn show_entity_inspector(&mut self, ctx: &egui::Context, ui: &mut egui::Ui, secondary_panel_height: f32) {
+        egui::TopBottomPanel::top("entity_inspector")
+            .resizable(false)
+            .exact_height(secondary_panel_height)
+            .frame(egui::Frame::none().inner_margin(egui::Margin::same(5.0)))
+            .show_inside(ui, |ui| {
+                ui.heading("Entity Inspector");
+
+                if let Some(selected_id) = self.highlighted_entity {
+                    self.show_entity_subheading(ui, selected_id);
+
+                    ui.separator();
+
+                    if let Some(attributes) = self.ecs.get_attributes_by_entity_id(selected_id) {
+                        self.show_entity_attributes(ui, selected_id, &attributes);
+                    } else {
+                        ui.label("Selected entity not found.");
+                    }
+                } else {
+                    ui.label("Inspect and modify the attributes of the entity");
+                }
+
+                if self.show_add_attribute_popup {
+                    self.show_add_attribute_popup(ctx);
+                }
+            });
+    }
+
+    /// Show the id and add attribute button as subheading
+    fn show_entity_subheading(&mut self, ui: &mut egui::Ui, selected_id: usize) {
+        egui::Grid::new("entity_inspector_subheading_grid")
+            .num_columns(2)
+            .spacing([40.0, 4.0])
+            .striped(false)
+            .show(ui, |ui| {
+                ui.label(format!("Entity ID: {}", selected_id));
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
+                    if ui.button("Add Attribute").clicked() {
+                        self.show_add_attribute_popup = true;
+                    }
+                });
+                ui.end_row();
+            });
+    }
+
+    /// Show entity attributes in two columns
+    fn show_entity_attributes(
+        &mut self,
+        ui: &mut egui::Ui,
+        selected_id: usize,
+        attributes: &std::collections::HashMap<String, Attribute>,
+    ) {
+
+        egui::Grid::new("entity_inspector_attributes_grid")
+            .num_columns(2)
+            .striped(true)
+            .show(ui, |ui| {
+                for (key, attribute) in attributes {
+                    self.show_attribute_key(ui, key, selected_id, 10); // Max 10 characters for truncation
+                    self.show_attribute_value(ui, attribute);
+                    ui.end_row();
+                }
+            });
+    }
+
+    /// Show attribute key with truncation and tooltip if the key is too long.
+    /// Can't use ui.add_sized function, which forces the text center. We want it aligns right.
+    fn show_attribute_key(&mut self, ui: &mut egui::Ui, key: &str, selected_id: usize, max_chars: usize) {
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
+            let full_text = format!("{}:", key);
+            let display_text = if full_text.len() > max_chars {
+                format!("{}...:", &full_text[..max_chars])
+            } else {
+                full_text.clone()
+            };
+
+            // Make the label has hyperlink style
+            let hyperlink_style = egui::RichText::new(&display_text)
+                .underline()
+                .color(egui::Color32::from_rgb(0, 0, 255));
+
+            let label = ui.add(egui::Label::new(hyperlink_style).sense(egui::Sense::click()));
+
+            if label.hovered() {
+                ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+            }
+
+            if label.hovered() && full_text.len() > max_chars {
+                label.show_tooltip_ui(|ui| {
+                    ui.label(full_text);
+                });
+            }
+
+            // Handle right-click on button
+            label.context_menu(|ui| {
+                if ui.button("Delete").clicked() {
+                    self.ecs
+                        .delete_attribute_by_entity_id(selected_id, &key.to_string());
+                    self.update_entity(selected_id);
+                    self.print_to_terminal(&format!(
+                        "Deleted attribute '{}' for entity {}.",
+                        key, selected_id
+                    ));
+                    ui.close_menu();
+                }
+            });
+
+            if label.clicked() {
+                // Open popup for editing the attribute
+                // self.show_edit_attribute_popup = true;
+            }
+        });
+    }
+
+    /// Show attribute key with truncation and tooltip if the key is too long.
+    /// Using ui.add_sized function, which forces the text center.
+    fn show_attribute_value(&self, ui: &mut egui::Ui, attribute: &Attribute) {
+        ui.add_sized(
+            [ui.available_width(), ui.available_height()],
+            egui::Label::new(format!("{}", attribute.value_type)).truncate(),
+        );
+    }
+
+    /// Displays a popup to add a new attribute to the selected entity.
+    /// The attribute type is validated before being added.
+    fn show_add_attribute_popup(&mut self, ctx: &egui::Context) {
+
+        egui::Window::new("Add Attribute")
+            .resizable(false)
+            .collapsible(false)
+            .show(ctx, |ui| {
+                ui.label("Attribute Name:");
+                ui.text_edit_singleline(&mut self.new_attribute_name);
+
+                ui.label("Attribute Type:");
+                egui::ComboBox::from_label("Type")
+                    .selected_text(format!("{:?}", self.selected_attribute_type))
+                    .show_ui(ui, |ui| {
+                        ui.selectable_value(
+                            &mut self.selected_attribute_type,
+                            AttributeValueType::Integer(0),
+                            "Integer",
+                        );
+                        ui.selectable_value(
+                            &mut self.selected_attribute_type,
+                            AttributeValueType::Float(0.0),
+                            "Float",
+                        );
+                        ui.selectable_value(
+                            &mut self.selected_attribute_type,
+                            AttributeValueType::String(String::new()),
+                            "String",
+                        );
+                        ui.selectable_value(
+                            &mut self.selected_attribute_type,
+                            AttributeValueType::Boolean(false),
+                            "Boolean",
+                        );
+                    });
+
+                ui.label("Value:");
+                ui.text_edit_singleline(&mut self.new_attribute_value);
+
+                ui.horizontal(|ui| {
+                    if ui.button("OK").clicked() {
+                        if let Some(selected_id) = self.highlighted_entity {
+                            let attribute_name = self.new_attribute_name.trim().to_string();
+                            let attribute_value = self.new_attribute_value.trim().to_string();
+
+                            // check if the attribute name is empty
+                            if attribute_name.is_empty() {
+                                // self.print_to_terminal("Attribute name cannot be empty.");
+                                self.add_attribute_popup_error_msg = "Attribute name cannot be empty.".to_string();
+                                return;
+                            }
+
+                            // check if the attribute name exists
+                            if let Some(entity) = self.ecs.get_entity_by_id(selected_id) {
+                                if self.ecs.attribute_exists(entity, &attribute_name) {
+                                    // self.print_to_terminal("Attribute name already exists.");
+                                    self.add_attribute_popup_error_msg = "Attribute name already exists.".to_string();
+                                    return;
+                                }
+                            } else {
+                                // self.print_to_terminal("Selected entity not found.");
+                                self.add_attribute_popup_error_msg = "Selected entity not found.".to_string();
+                                return;
+                            }
+
+                            match self.ecs.add_attribute_by_entity_id(
+                                selected_id,
+                                attribute_name.clone(),
+                                self.selected_attribute_type.clone(),
+                                attribute_value.clone(),
+                            ) {
+                                Ok(_) => {
+                                    self.update_entity(selected_id);
+                                    self.print_to_terminal("Attribute added successfully.");
+                                    self.new_attribute_name.clear();
+                                    self.new_attribute_value.clear();
+                                    self.show_add_attribute_popup = false;
+                                    self.add_attribute_popup_error_msg.clear();
+                                }
+                                Err(err) => {
+                                    // self.print_to_terminal(&format!("Error adding attribute: {}", err));
+                                    self.add_attribute_popup_error_msg = format!("Error adding attribute: {}", err);
+                                }
+                            }
+                        } else {
+                            // self.print_to_terminal("No entity selected.");
+                            self.add_attribute_popup_error_msg = "No entity selected.".to_string();
+                        }
+                    }
+
+                    if ui.button("Cancel").clicked() {
+                        self.show_add_attribute_popup = false;
+                        self.add_attribute_popup_error_msg.clear();
+                    }
+                });
+
+                // Display error message at the bottom of the popup
+                if !self.add_attribute_popup_error_msg.is_empty() {
+                    ui.add_space(10.0);
+                    ui.colored_label(egui::Color32::RED, &self.add_attribute_popup_error_msg);
+                }
+
+            });
+    }
+
+
 }

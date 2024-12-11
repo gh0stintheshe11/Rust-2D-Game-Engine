@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fmt;
 
 /// Enum to represent different types of attribute values
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -22,6 +23,18 @@ pub struct Attribute {
 pub struct Entity {
     pub id: usize,
     pub attributes: HashMap<String, Attribute>,  // Stores attributes with name and value type
+}
+
+
+impl fmt::Display for AttributeValueType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            AttributeValueType::String(value) => write!(f, "{}", value),
+            AttributeValueType::Float(value) => write!(f, "{}", value),
+            AttributeValueType::Integer(value) => write!(f, "{}", value),
+            AttributeValueType::Boolean(value) => write!(f, "{}", value),
+        }
+    }
 }
 
 impl Entity {
