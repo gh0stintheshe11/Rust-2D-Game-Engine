@@ -124,13 +124,90 @@ _An intuitive, real-time development interface powered by [egui](https://crates.
 
 -   Provides customizable views and layouts, allowing developers to tailor the interface to their specific project needs and preferences.
 
+#### Comprehensive Unit Testing
+
+_A rigorous testing framework ensuring the reliability, performance, and correctness of each engine component._
+
+-   Implements an extensive test suite covering critical aspects of the game engine, with dedicated test modules for each major subsystem.
+
+-   The rendering engine tests ([`render_engine_test.rs`](tests/render_engine_test.rs)) provide comprehensive validation, including:
+    -   Renderer initialization and device request
+    -   Texture and sprite creation
+    -   Shader compilation
+    -   Error handling
+    -   Performance under high rendering loads
+
+-   Leverages Rust's built-in testing framework to provide automated, repeatable tests that can be run during continuous integration.
+
+-   Covers edge cases and potential failure modes to ensure robust and predictable engine behavior across different hardware and configurations.
+
 ## User's Guide
 
 > User’s (or Developer’s) Guide: How does a user — or developer, if the project is a crate — use each of the main features in the project deliverable?
 
+In Rust, to integrate our Rendering Engine in your game:
+
+```rust
+use rust_2d_game_engine::render_engine::{RenderEngine, Sprite};
+
+// Create renderer
+let mut renderer = RenderEngine::new();
+
+// Create sprites
+let sprites = vec![
+    Sprite {
+        position: (100.0, 100.0),
+        size: (50.0, 50.0),
+        rotation: 0.0,
+        texture_coords: (0.0, 0.0, 1.0, 1.0),
+    },
+    // Add more sprites as needed
+];
+
+// In the game loop
+renderer.render_frame(&sprites).expect("Failed to render frame");
+```
+
+#### Create new project
+
+To create a new project, click on `File`->`New`->enter your project name and path you wish to save it in->press `Create`.
+![alt text](final_report_assets/project_create_open.png)
+
+#### Open project
+To open a project, click on `File`->`Open`->enter your project path.
+
+#### Create new entity
+`Edit`->`Add...`->`New entity`
+![alt text](final_report_assets/new_entity.png)
+
+#### Delete entity
+Right click on the entity you wish to delete, then click on `Delete`.
+![alt text](final_report_assets/delete_entity.png)
+
+#### Add attributes to entity
+Select an entity, then click on `Add attribute` at the top left panel.
+Enter attribute name, select attribute types, and enter attribute value. Click on `Save`
+![alt text](final_report_assets/entity_attr.png)
+
+#### Create new script
+`Edit`->`Add...`->`New script`. Select the script you just created at the bottom right panel. Then at the top right panel, input your Lua script.
+![alt text](final_report_assets/new_script.png)
+
+#### Delete new script
+Similar to delete an entity, right click the script you wish to delete and click on `Delete`
+
+#### Import font, scene, audio, and video
+`File`->`Import...`
+![alt text](final_report_assets/import.png)
+
+#### Build and Run your game
+`File`->`Build and Run`
+
 ## Reproducibility Guide
 
 > Reproducibility Guide: What are the commands needed to set up the runtime environment, if any, and to build the project, so that its features can be used by a user or a developer? Note: The instructor will follow the steps you have included in this section, step-by-step, with no deviation. The instructor has access to a Ubuntu Linux server and a macOS Sonoma laptop computer.
+
+Run `cargo run` in the terminal at the root directory of our project if you wish to use the debug version. Otherwise, run `cargo build --release` and execute the generated `target/release/rust-2d-game-engine` executable.
 
 ## Contributions
 
@@ -151,9 +228,35 @@ _An intuitive, real-time development interface powered by [egui](https://crates.
 -   [Game Project File Management](#game-project-file-management)
 -   [Engine GUI](#engine-gui)
 
-## Lessons Learned
+## Lessons Learned and Concluding Remarks
 
-> Lessons learned and concluding remarks: Write about any lessons the team has learned throughout the project and concluding remarks, if any.
+#### Lesson One: The Importance of Testing Suite
+- Our extensive unit testing framework revealed critical insights into engine reliability and performance.
+- We learned that thorough testing across different scenarios is crucial for creating a robust game development tool.
+- The test suite not only caught potential issues but also served as a living documentation of the engine's capabilities.
 
+#### Lesson Two: Collaboration
+- The project was as much about technical development as it was about team collaboration and shared passion.
+- We discovered the power of combining individual skills towards a common, innovative goal.
+- The journey of creating the engine was as valuable as the end product itself.
 
+#### Lesson Three: Modularity
+- Our modular approach to the engine's architecture proved critical in maintaining flexibility and extensibility.
+- We learned that well-designed, loosely coupled components allow for easier maintenance, testing, and future enhancements.
+
+#### Concluding Remarks
+
+Our Rust 2D Game Engine represents a promising first step into the world of specialized game development tools in Rust. While currently in its early prototype stage, the project has already demonstrated some good potential in addressing the unique needs of 2D game developers within the Rust ecosystem.
+
+We have successfully laid a robust foundation, implementing core systems like the rendering engine, physics simulation, entity component system, and scripting support. The modular architecture and focus on performance and usability set the groundwork for a tool that could genuinely empower indie developers and small studios.
+
+However, we recognize that this is just the beginning of our journey. The current iteration, while functional, is a proof of concept that requires continued refinement, expansion, and community feedback. Our roadmap includes:
+
+- Expanding the feature set to support more complex game development scenarios
+- Further implement the `Undo` and `Redo` functionality with state management
+- Improving documentation and developer tools
+- Increasing cross-platform compatibility
+- Continuously optimizing performance and reliability
+
+We are excited about the potential of this project and view it as an evolving platform. Our passion for game development, Rust, and creating accessible tools drives us to continue improving and expanding the engine.
 
