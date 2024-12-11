@@ -1,18 +1,13 @@
-use crate::audio_engine::AudioEngine;
 use crate::ecs::{AttributeValueType, Entity, EntityManager};
-use crate::physics_engine::PhysicsEngine;
 use crate::project_manager::FileManagement;
 use crate::render_engine::{RenderEngine, Animation, RenderObject, Scene, RenderLayer, Transform};
 use crate::input_handler::{InputHandler, InputContext};
 use eframe::egui;
-use egui_wgpu::Renderer as EguiRenderer;
 use rfd::FileDialog;
 
 pub struct EngineGui {
     ecs: EntityManager,
     render_engine: RenderEngine,
-    physics_engine: PhysicsEngine,
-    audio_engine: AudioEngine,
     show_new_project_popup: bool,  // Track if the pop-up should be shown
     show_open_project_popup: bool, // Track if the pop-up should be shown
     load_project: bool,            // Track if the project should be loaded
@@ -32,9 +27,7 @@ pub struct EngineGui {
     current_script_content: String,
     // scene panel
     running: bool,
-    egui_renderer: Option<EguiRenderer>,
-    texture_handle: Option<egui::TextureHandle>,
-    current_animation: Option<Animation>,
+    paused: bool,
     delta_time: f32,
     scene: Option<Scene>,
     input_handler: InputHandler,
@@ -45,8 +38,6 @@ impl Default for EngineGui {
         Self {
             ecs: EntityManager::new(),
             render_engine: RenderEngine::new(),
-            physics_engine: PhysicsEngine::new(),
-            audio_engine: AudioEngine::new(),
             show_new_project_popup: false,
             show_open_project_popup: false,
             load_project: false,
@@ -66,9 +57,7 @@ impl Default for EngineGui {
             current_script_content: String::new(),
             // scene panel
             running: false,
-            egui_renderer: None,
-            texture_handle: None,
-            current_animation: None,
+            paused: false,
             delta_time: 0.0,
             scene: None,
             input_handler: InputHandler::new(),
