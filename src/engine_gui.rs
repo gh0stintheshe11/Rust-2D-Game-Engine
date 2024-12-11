@@ -32,6 +32,7 @@ pub struct EngineGui {
     // scene panel
     running: bool,
     egui_renderer: Option<EguiRenderer>,
+    texture_handle: Option<egui::TextureHandle>,
 }
 
 impl Default for EngineGui {
@@ -61,6 +62,7 @@ impl Default for EngineGui {
             // scene panel
             running: false,
             egui_renderer: None,
+            texture_handle: None,
         }
     }
 }
@@ -925,58 +927,110 @@ impl EngineGui {
         });
     }
 
+    pub fn register_texture_with_egui(&mut self, ctx: &egui::Context) -> Option<egui::TextureId> {
+        // Create a test image - solid red 100x100 pixels
+        let width = 100;
+        let height = 100;
+        let mut pixels = vec![0u8; width * height * 4];
+        
+        // Fill with red
+        for pixel in pixels.chunks_mut(4) {
+            pixel[0] = 255; // R
+            pixel[1] = 0;   // G
+            pixel[2] = 0;   // B
+            pixel[3] = 255; // A
+        }
+
+        // Create the color image
+        let color_image = egui::ColorImage::from_rgba_unmultiplied(
+            [width, height],
+            &pixels
+        );
+
+        // Load the texture
+        let texture = ctx.load_texture(
+            "test_texture",
+            color_image,
+            egui::TextureOptions::NEAREST
+        );
+
+        self.print_to_terminal("Created new egui texture");
+        Some(texture.id())
+    }
+
     pub fn run_game(&mut self, ctx: &egui::Context) {
-        // Only draw if we're running
         if self.running {
+            if self.texture_handle.is_none() {
+                self.texture_handle = self.create_test_object(ctx);
+            }
+
             egui::CentralPanel::default().show(ctx, |ui| {
-                let rect = ui.available_rect_before_wrap();
-                
-                // Draw our test rectangle
-                ui.painter().rect_filled(
-                    rect,
-                    0.0,
-                    egui::Color32::from_rgb(100, 150, 200)
-                );
+                if let Some(handle) = &self.texture_handle {
+                    let size = egui::vec2(200.0, 200.0);
+                    ui.centered_and_justified(|ui| {
+                        ui.image((handle.id(), size));
+                    });
+                }
             });
 
-            // Keep requesting repaints while running
             ctx.request_repaint();
         }
     }
 
-    pub fn register_texture_with_egui(&mut self, _ctx: &egui::Context) -> Option<egui::TextureId> {
-        // Fixed unused variable warning by adding underscore
-        if self.egui_renderer.is_none() {
-            self.egui_renderer = Some(egui_wgpu::Renderer::new(
-                &self.render_engine.device,
-                wgpu::TextureFormat::Bgra8UnormSrgb,
-                None,
-                1,
-                false,
-            ));
+    pub fn create_test_object(&mut self, ctx: &egui::Context) -> Option<egui::TextureHandle> {
+        let width = 100;
+        let height = 100;
+        let mut pixels = vec![0u8; width * height * 4];
+        
+        // Fill the pixels first
+        for y in 0..height {
+            for x in 0..width {
+                let i = (y * width + x) * 4;
+                let is_checker = ((x / 20) + (y / 20)) % 2 == 0;
+                
+                if is_checker {
+                    pixels[i] = 255;     // R
+                    pixels[i + 1] = 0;   // G
+                    pixels[i + 2] = 0;   // B
+                    pixels[i + 3] = 255; // A
+
+                    // Debug print for red squares
+                    if x < 2 && y < 2 {
+                        self.print_to_terminal(&format!(
+                            "Red Pixel ({}, {}): rgba=[{},{},{},{}]",
+                            x, y,
+                            pixels[i], pixels[i+1], pixels[i+2], pixels[i+3]
+                        ));
+                    }
+                } else {
+                    pixels[i] = 0;       // R
+                    pixels[i + 1] = 0;   // G
+                    pixels[i + 2] = 255; // B
+                    pixels[i + 3] = 255; // A
+
+                    // Debug print for blue squares
+                    if x >= 20 && x < 22 && y < 2 {
+                        self.print_to_terminal(&format!(
+                            "Blue Pixel ({}, {}): rgba=[{},{},{},{}]",
+                            x, y,
+                            pixels[i], pixels[i+1], pixels[i+2], pixels[i+3]
+                        ));
+                    }
+                }
+            }
         }
 
-        if let Some(renderer) = &mut self.egui_renderer {
-            Some(renderer.register_native_texture(
-                &self.render_engine.device,
-                &self.render_engine.texture_view,
-                wgpu::FilterMode::Linear,
-            ))
-        } else {
-            None
-        }
-    }
-
-    // Fix the terminal panel code
-    fn show_terminal_panel(&mut self, ui: &mut egui::Ui) {
-        egui::ScrollArea::vertical()
-            .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded)
-            .auto_shrink([false; 2])
-            .stick_to_bottom(true)
-            .show(ui, |ui| {
-                let available_height = ui.available_height() - ui.spacing().item_spacing.y;
-                ui.set_max_height(available_height);
-                ui.label(&self.terminal_output);
-            });
+        // Create the color image
+        let color_image = egui::ColorImage::from_rgba_unmultiplied(
+            [width, height],
+            &pixels
+        );
+        
+        // Create and return the texture handle
+        Some(ctx.load_texture(
+            "test_pattern",
+            color_image,
+            egui::TextureOptions::NEAREST
+        ))
     }
 }
