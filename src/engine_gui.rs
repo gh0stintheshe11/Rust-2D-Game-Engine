@@ -16,6 +16,8 @@ pub struct EngineGui {
     terminal_output: String,       // Store the terminal output
     // entities panel
     highlighted_entity: Option<usize>,
+    highlighted_attribute: Option<(usize, String)>,
+    editing_attribute: Option<String>,
     // entity inspector panel
     show_add_attribute_popup: bool,
     add_attribute_popup_error_msg: String,
@@ -47,6 +49,8 @@ impl Default for EngineGui {
             terminal_output: String::new(),
             // entities panel
             highlighted_entity: None,
+            highlighted_attribute: None,
+            editing_attribute: None,
             // entity inspector panel
             show_add_attribute_popup: false,
             add_attribute_popup_error_msg: String::new(),
@@ -1162,7 +1166,67 @@ impl EngineGui {
             .show(ui, |ui| {
                 for (key, attribute) in attributes {
                     self.show_attribute_key(ui, key, selected_id, 10); // Max 10 characters for truncation
-                    self.show_attribute_value(ui, attribute);
+
+                    // Show attribute value with editable field
+                    if let Some((editing_entity, editing_key)) = &self.highlighted_attribute {
+                        if *editing_entity == selected_id && *editing_key == *key {
+                            // Display text input for editing
+                            let mut new_value = if let Some(editing_value) = &self.editing_attribute {
+                                if editing_value.is_empty() {
+                                    format!("{}", attribute.value_type)
+                                } else {
+                                    editing_value.clone()
+                                }
+                            } else {
+                                format!("{}", attribute.value_type)
+                            };
+
+                            let field_response = ui.text_edit_singleline(&mut new_value);
+
+                            if field_response.changed() {
+                                self.editing_attribute = Some(new_value.clone());
+                            }
+                            if field_response.lost_focus() {
+                                if ui.ctx().input(|i| i.key_pressed(egui::Key::Enter)) {
+                                    // Modify attribute
+                                    match self.ecs.modify_attribute_by_entity_id(
+                                        selected_id,
+                                        key.clone(),
+                                        attribute.value_type.clone(),
+                                        new_value.clone(),
+                                    ) {
+                                        Ok(_) => {
+                                            self.update_entity(selected_id);
+                                            self.print_to_terminal(&format!(
+                                                "Updated attribute '{}' for entity {}.",
+                                                key, selected_id
+                                            ));
+                                            self.highlighted_attribute = None;
+                                            self.editing_attribute = None;
+                                        }
+                                        Err(err_msg) => {
+                                            self.print_to_terminal(&format!(
+                                                "Error updating attribute '{}': {}",
+                                                key, err_msg
+                                            ));
+                                            self.highlighted_attribute = None;
+                                            self.editing_attribute = None;
+                                        }
+                                    }
+                                } else if ui.ctx().input(|i| i.key_pressed(egui::Key::Escape)) {
+                                    self.highlighted_attribute = None;
+                                    self.editing_attribute = None;
+                                } else {
+                                    self.highlighted_attribute = None;
+                                    self.editing_attribute = None;
+                                }
+                            }
+                        } else {
+                            self.show_editable_value(ui, key, attribute, selected_id);
+                        }
+                    } else {
+                        self.show_editable_value(ui, key, attribute, selected_id);
+                    }
                     ui.end_row();
                 }
             });
@@ -1192,7 +1256,7 @@ impl EngineGui {
 
             if label.hovered() && full_text.len() > max_chars {
                 label.show_tooltip_ui(|ui| {
-                    ui.label(full_text);
+                    ui.label(key);
                 });
             }
 
@@ -1224,6 +1288,28 @@ impl EngineGui {
             [ui.available_width(), ui.available_height()],
             egui::Label::new(format!("{}", attribute.value_type)).truncate(),
         );
+    }
+
+    /// Show attribute key with truncation and tooltip if the key is too long.
+    /// Using ui.add_sized function, which forces the text center.
+    /// The field is editable when double-clicked.
+    fn show_editable_value(
+        &mut self,
+        ui: &mut egui::Ui,
+        key: &str,
+        attribute: &Attribute,
+        selected_id: usize,
+    ) {
+        let label = ui.add_sized(
+            [ui.available_width(), ui.available_height()],
+            egui::Label::new(format!("{}", attribute.value_type)).truncate()
+                .sense(egui::Sense::click()),
+        );
+
+        if label.double_clicked() {
+            self.highlighted_attribute = Some((selected_id, key.to_string()));
+            self.editing_attribute = Some(format!("{}", attribute.value_type));
+        }
     }
 
     /// Displays a popup to add a new attribute to the selected entity.
@@ -1331,6 +1417,4 @@ impl EngineGui {
 
             });
     }
-
-
 }
