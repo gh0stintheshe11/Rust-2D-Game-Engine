@@ -4,7 +4,7 @@ use wgpu;
 use egui;
 
 // Layer System
-#[derive(Hash, Eq, PartialEq, Clone, Copy)]
+#[derive(Hash, Eq, PartialEq, Clone, Copy, PartialOrd, Ord)]
 pub enum RenderLayer {
     Background,
     Game,
@@ -13,6 +13,7 @@ pub enum RenderLayer {
 }
 
 // Transform System
+#[derive(Clone)]
 pub struct Transform {
     pub position: (f32, f32),
     pub scale: (f32, f32),
@@ -32,38 +33,40 @@ impl Transform {
 // Camera System
 pub struct Camera {
     pub position: (f32, f32),
-    pub zoom: f32,
     pub rotation: f32,
+    pub zoom: f32,  // 1.0 is normal size, > 1.0 zooms in, < 1.0 zooms out
 }
 
 impl Camera {
     pub fn new() -> Self {
         Self {
             position: (0.0, 0.0),
-            zoom: 1.0,
             rotation: 0.0,
+            zoom: 1.0,  // Start at normal size
         }
     }
 
+    pub fn zoom(&mut self, delta: f32) {
+        // Ensure zoom never goes negative
+        self.zoom = (self.zoom + delta).max(0.1);
+    }
+
     pub fn transform_point(&self, point: (f32, f32)) -> (f32, f32) {
-        // Apply camera transformations to a world point
+        // Apply camera transformations in order: zoom, rotate, translate
         let (x, y) = point;
-        let (cam_x, cam_y) = self.position;
         
-        // Translate
-        let x = (x - cam_x) * self.zoom;
-        let y = (y - cam_y) * self.zoom;
+        // Apply zoom
+        let x = x * self.zoom;
+        let y = y * self.zoom;
         
-        // Rotate (if needed)
-        if self.rotation != 0.0 {
-            let cos_r = self.rotation.cos();
-            let sin_r = self.rotation.sin();
-            let rx = x * cos_r - y * sin_r;
-            let ry = x * sin_r + y * cos_r;
-            (rx, ry)
-        } else {
-            (x, y)
-        }
+        // Apply rotation
+        let cos_r = self.rotation.cos();
+        let sin_r = self.rotation.sin();
+        let rx = x * cos_r - y * sin_r;
+        let ry = x * sin_r + y * cos_r;
+        
+        // Apply translation
+        (rx - self.position.0, ry - self.position.1)
     }
 }
 
@@ -102,12 +105,35 @@ impl SpriteSheet {
 pub struct RenderBatch {
     pub texture: egui::TextureHandle,
     pub instances: Vec<InstanceData>,
+    pub layer: RenderLayer,
 }
 
 pub struct InstanceData {
     pub transform: Transform,
     pub color: [f32; 4],
     pub uv_rect: egui::Rect,
+}
+
+impl RenderBatch {
+    pub fn new(texture: egui::TextureHandle, layer: RenderLayer) -> Self {
+        Self {
+            texture,
+            instances: Vec::new(),
+            layer,
+        }
+    }
+
+    pub fn add_instance(&mut self, transform: Transform, color: [f32; 4], uv_rect: egui::Rect) {
+        self.instances.push(InstanceData {
+            transform,
+            color,
+            uv_rect,
+        });
+    }
+
+    pub fn clear(&mut self) {
+        self.instances.clear();
+    }
 }
 
 // Updated RenderObject to use new systems
@@ -175,6 +201,58 @@ impl Scene {
 
     pub fn rotate_camera(&mut self, angle: f32) {
         self.camera.rotation += angle;
+    }
+
+    pub fn prepare_batches(&self) -> Vec<RenderBatch> {
+        let mut batches: HashMap<(egui::TextureId, RenderLayer), RenderBatch> = HashMap::new();
+        
+        // Group objects by texture and layer
+        for (layer, objects) in &self.layers {
+            for object in objects {
+                match object {
+                    RenderObject::Static { texture, transform } => {
+                        let batch = batches.entry((texture.id(), *layer))
+                            .or_insert_with(|| RenderBatch::new(texture.clone(), *layer));
+                        
+                        batch.add_instance(
+                            transform.clone(),
+                            [1.0, 1.0, 1.0, 1.0],
+                            egui::Rect::from_min_max(
+                                egui::pos2(0.0, 0.0),
+                                egui::pos2(1.0, 1.0)
+                            )
+                        );
+                    },
+                    RenderObject::Animated { animation, transform } => {
+                        if let Some(texture) = animation.current_frame() {
+                            let batch = batches.entry((texture.id(), *layer))
+                                .or_insert_with(|| RenderBatch::new(texture.clone(), *layer));
+                            
+                            batch.add_instance(
+                                transform.clone(),
+                                [1.0, 1.0, 1.0, 1.0],
+                                egui::Rect::from_min_max(
+                                    egui::pos2(0.0, 0.0),
+                                    egui::pos2(1.0, 1.0)
+                                )
+                            );
+                        }
+                    },
+                    RenderObject::Sprite { sprite_sheet, current_frame, transform } => {
+                        let batch = batches.entry((sprite_sheet.texture.id(), *layer))
+                            .or_insert_with(|| RenderBatch::new(sprite_sheet.texture.clone(), *layer));
+                        
+                        batch.add_instance(
+                            transform.clone(),
+                            [1.0, 1.0, 1.0, 1.0],
+                            sprite_sheet.frames[*current_frame]
+                        );
+                    }
+                }
+            }
+        }
+        
+        batches.into_values().collect()
     }
 }
 

@@ -5,9 +5,8 @@ use crate::project_manager::FileManagement;
 use crate::render_engine::{RenderEngine, Animation, RenderObject, Scene, RenderLayer, Transform};
 use crate::input_handler::{InputHandler, InputContext};
 use eframe::egui;
-use egui_wgpu::{Renderer as EguiRenderer, wgpu};
+use egui_wgpu::Renderer as EguiRenderer;
 use rfd::FileDialog;
-use winit::keyboard::KeyCode;
 
 pub struct EngineGui {
     ecs: EntityManager,
@@ -971,28 +970,36 @@ impl EngineGui {
     // Main game loop
     pub fn run_game(&mut self, ctx: &egui::Context) {
         if self.running {
-            println!("Game is running"); // Debug
             self.input_handler.set_context(InputContext::Game);
             
-            // Update input using egui context
-            self.input_handler.update_game(ctx);
-            
-            // Rest of the game loop...
+            // Calculate delta time
             let now = std::time::Instant::now();
             self.delta_time = now.duration_since(self.render_engine.last_frame_time).as_secs_f32();
             self.render_engine.last_frame_time = now;
 
+            // Initialize game if needed
             if self.scene.is_none() {
                 self.initialize_game(ctx);
             }
 
+            // Update input state
+            ctx.input(|input| {
+                self.input_handler.handle_input(input);
+            });
+
+            // Handle input - This is where our camera controls happen
             self.handle_input();
-            self.update_game_state();
+
+            // Update game state
+            if let Some(scene) = &mut self.scene {
+                scene.update(self.delta_time);
+            }
+
+            // Render
             self.render(ctx);
 
             ctx.request_repaint();
         } else {
-            println!("Game is not running"); // Debug
             self.input_handler.set_context(InputContext::Editor);
         }
     }
@@ -1031,42 +1038,38 @@ impl EngineGui {
     // Handle user input
     fn handle_input(&mut self) {
         if let Some(scene) = &mut self.scene {
-            let camera_speed = 5.0 * self.delta_time;
+            // Increase camera movement speed significantly
+            let camera_speed = 200.0 * self.delta_time;  // Increased from 5.0 to 200.0
             
             // Only handle game input when running
             if self.running {
-                println!("Checking input..."); // Debug output
-                
-                if self.input_handler.is_key_pressed(KeyCode::KeyW) {
-                    println!("W pressed, moving camera up"); // Debug output
+                if self.input_handler.is_key_pressed(egui::Key::W) {
                     scene.move_camera((0.0, -camera_speed));
                 }
-                if self.input_handler.is_key_pressed(KeyCode::KeyS) {
-                    println!("S pressed, moving camera down"); // Debug output
+                if self.input_handler.is_key_pressed(egui::Key::S) {
                     scene.move_camera((0.0, camera_speed));
                 }
-                if self.input_handler.is_key_pressed(KeyCode::KeyA) {
-                    println!("A pressed, moving camera left"); // Debug output
+                if self.input_handler.is_key_pressed(egui::Key::A) {
                     scene.move_camera((-camera_speed, 0.0));
                 }
-                if self.input_handler.is_key_pressed(KeyCode::KeyD) {
-                    println!("D pressed, moving camera right"); // Debug output
+                if self.input_handler.is_key_pressed(egui::Key::D) {
                     scene.move_camera((camera_speed, 0.0));
                 }
 
-                let zoom_speed = 1.0 * self.delta_time;
-                if self.input_handler.is_key_pressed(KeyCode::KeyQ) {
-                    scene.zoom_camera(-zoom_speed);
+                // Adjust zoom speed and invert the zoom direction
+                let zoom_speed = 2.0 * self.delta_time;  // Increased from 1.0 to 2.0
+                if self.input_handler.is_key_pressed(egui::Key::Q) {
+                    scene.zoom_camera(zoom_speed);  // Zoom out makes things smaller (positive scale)
                 }
-                if self.input_handler.is_key_pressed(KeyCode::KeyE) {
-                    scene.zoom_camera(zoom_speed);
+                if self.input_handler.is_key_pressed(egui::Key::E) {
+                    scene.zoom_camera(-zoom_speed);  // Zoom in makes things bigger (negative scale)
                 }
 
-                let rotation_speed = 1.0 * self.delta_time;
-                if self.input_handler.is_key_pressed(KeyCode::KeyR) {
+                let rotation_speed = 2.0 * self.delta_time;  // Increased rotation speed too
+                if self.input_handler.is_key_pressed(egui::Key::R) {
                     scene.rotate_camera(-rotation_speed);
                 }
-                if self.input_handler.is_key_pressed(KeyCode::KeyF) {
+                if self.input_handler.is_key_pressed(egui::Key::F) {
                     scene.rotate_camera(rotation_speed);
                 }
             }
@@ -1089,59 +1092,33 @@ impl EngineGui {
     fn render(&self, ctx: &egui::Context) {
         egui::CentralPanel::default().show(ctx, |ui| {
             if let Some(scene) = &self.scene {
-                // Render each layer in order
-                for layer in [RenderLayer::Background, RenderLayer::Game, RenderLayer::UI, RenderLayer::Debug] {
-                    if let Some(objects) = scene.layers.get(&layer) {
-                        for object in objects {
-                            match object {
-                                RenderObject::Static { texture, transform } => {
-                                    let size = egui::vec2(
-                                        texture.size()[0] as f32 * transform.scale.0,
-                                        texture.size()[1] as f32 * transform.scale.1
-                                    );
-                                    let (x, y) = scene.camera.transform_point(transform.position);
-                                    let pos = egui::pos2(x, y);
-                                    
-                                    ui.put(
-                                        egui::Rect::from_min_size(pos, size),
-                                        egui::Image::new((texture.id(), size))
-                                            .rotate(transform.rotation, egui::vec2(0.5, 0.5))
-                                    );
-                                },
-                                RenderObject::Animated { animation, transform } => {
-                                    if let Some(texture) = animation.current_frame() {
-                                        let size = egui::vec2(
-                                            texture.size()[0] as f32 * transform.scale.0,
-                                            texture.size()[1] as f32 * transform.scale.1
-                                        );
-                                        let (x, y) = scene.camera.transform_point(transform.position);
-                                        let pos = egui::pos2(x, y);
-                                        
-                                        ui.put(
-                                            egui::Rect::from_min_size(pos, size),
-                                            egui::Image::new((texture.id(), size))
-                                                .rotate(transform.rotation, egui::vec2(0.5, 0.5))
-                                        );
-                                    }
-                                },
-                                RenderObject::Sprite { sprite_sheet, current_frame, transform } => {
-                                    let frame_rect = sprite_sheet.frames[*current_frame];
-                                    let size = egui::vec2(
-                                        sprite_sheet.frame_size.0 as f32 * transform.scale.0,
-                                        sprite_sheet.frame_size.1 as f32 * transform.scale.1
-                                    );
-                                    let (x, y) = scene.camera.transform_point(transform.position);
-                                    let pos = egui::pos2(x, y);
-                                    
-                                    ui.put(
-                                        egui::Rect::from_min_size(pos, size),
-                                        egui::Image::new((sprite_sheet.texture.id(), size))
-                                            .uv(frame_rect)
-                                            .rotate(transform.rotation, egui::vec2(0.5, 0.5))
-                                    );
-                                }
-                            }
-                        }
+                // Get batches sorted by layer
+                let mut batches = scene.prepare_batches();
+                batches.sort_by_key(|batch| batch.layer);
+                
+                // Render each batch
+                for batch in batches {
+                    for instance in &batch.instances {
+                        let size = egui::vec2(
+                            batch.texture.size()[0] as f32 * instance.transform.scale.0 * scene.camera.zoom,
+                            batch.texture.size()[1] as f32 * instance.transform.scale.1 * scene.camera.zoom
+                        );
+                        
+                        let (x, y) = scene.camera.transform_point(instance.transform.position);
+                        let pos = egui::pos2(x, y);
+                        
+                        ui.put(
+                            egui::Rect::from_min_size(pos, size),
+                            egui::Image::new((batch.texture.id(), size))
+                                .uv(instance.uv_rect)
+                                .rotate(instance.transform.rotation, egui::vec2(0.5, 0.5))
+                                .tint(egui::Color32::from_rgba_unmultiplied(
+                                    (instance.color[0] * 255.0) as u8,
+                                    (instance.color[1] * 255.0) as u8,
+                                    (instance.color[2] * 255.0) as u8,
+                                    (instance.color[3] * 255.0) as u8,
+                                ))
+                        );
                     }
                 }
             }
