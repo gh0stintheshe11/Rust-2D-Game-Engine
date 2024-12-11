@@ -1,25 +1,12 @@
 use crate::audio_engine::AudioEngine;
-use crate::ecs::AttributeValueType;
-use crate::ecs::Entity;
-use crate::ecs::EntityManager;
-use rfd::FileDialog;
-
-use image::ImageReader as ImageReader;
-
-
+use crate::ecs::{AttributeValueType, Entity, EntityManager};
 use crate::physics_engine::PhysicsEngine;
 use crate::project_manager::FileManagement;
 use crate::render_engine::RenderEngine;
-
-use crate::render_engine::Sprite;
-
 use eframe::egui;
-use eframe::glow::SET;
+use egui_wgpu::{Renderer as EguiRenderer, wgpu};
+use rfd::FileDialog;
 
-use egui_wgpu::wgpu;
-use egui_wgpu::{Renderer as EguiRenderer};
-
-// #[derive(Default)]
 pub struct EngineGui {
     ecs: EntityManager,
     render_engine: RenderEngine,
@@ -201,6 +188,63 @@ impl eframe::App for EngineGui {
         if self.load_project && self.running {
             self.run_game(ctx);
         }
+
+        // Update the central panel to use egui-wgpu rendering
+        egui::CentralPanel::default().show(ctx, |ui| {
+            let viewport_rect = ui.available_rect_before_wrap();
+            
+            // Play/Pause/Reset buttons
+            let button_width = 60.0;
+            let button_height = 20.0;
+            let button_group_width = (button_width * 3.0) + 10.0;
+            let center_x = viewport_rect.center().x - (button_group_width / 2.0);
+            
+            egui::Area::new("floating_buttons".into())
+                .fixed_pos(egui::pos2(center_x, viewport_rect.min.y + 10.0))
+                .show(ctx, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.set_width(button_group_width);
+                        
+                        if ui.add_sized([button_width, button_height], egui::Button::new("▶ Play")).clicked() {
+                            self.running = true;
+                        }
+                        
+                        if ui.add_sized([button_width, button_height], egui::Button::new("⏸ Pause")).clicked() {
+                            self.running = false;
+                        }
+                        
+                        if ui.add_sized([button_width, button_height], egui::Button::new("⏹ Reset")).clicked() {
+                            self.running = false;
+                        }
+                    });
+                });
+
+            // Run the game if we're in running state
+            if self.running {
+                self.run_game(ctx);
+            }
+        });
+
+        // Bottom panel for terminal
+        egui::TopBottomPanel::bottom("terminal")
+            .resizable(true)
+            .min_height((ctx.screen_rect().height() - 20.0) * 0.2)
+            .max_height((ctx.screen_rect().height() - 20.0) * 0.5)
+            .show(ctx, |ui| {
+                ui.heading("Terminal");
+
+                // Wrap the terminal output in a scroll area
+                egui::ScrollArea::vertical()
+                    .scroll_bar_visibility(
+                        egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded,
+                    )
+                    .auto_shrink([false; 2])
+                    .max_height(ui.available_height() - ui.spacing().item_spacing.y)
+                    .stick_to_bottom(true)
+                    .show(ui, |ui| {
+                        ui.label(&self.terminal_output);
+                    });
+            });
     }
 }
 
@@ -678,97 +722,6 @@ impl EngineGui {
                         }
                     });
             });
-
-        // Main scene panel
-        egui::CentralPanel::default().show(ctx, |ui| {
-            let viewport_rect = ui.available_rect_before_wrap();
-            
-            let button_width = 60.0;  // Make this wider to accommodate all text
-            let button_height = 20.0;
-            let button_group_width = (button_width * 3.0) + 10.0;
-            let center_x = viewport_rect.center().x - (button_group_width / 2.0);
-            
-            // Floating buttons overlay
-            egui::Area::new("floating_buttons".into())
-                .fixed_pos(egui::pos2(center_x, viewport_rect.min.y + 10.0))
-                .show(ctx, |ui| {
-                    ui.horizontal(|ui| {
-                        ui.set_width(button_group_width);
-                        
-                        // Make all buttons the exact same size
-                        ui.add_sized(
-                            [button_width, button_height],
-                            egui::Button::new("▶ Play")
-                        ).clicked().then(|| {
-                            self.running = true;
-                            self.run_game(ctx);
-                            self.print_to_terminal("Play button clicked.");
-                        });
-                        
-                        ui.add_sized(
-                            [button_width, button_height],
-                            egui::Button::new("⏸ Pause")
-                        ).clicked().then(|| {
-                            self.running = false;
-                            self.print_to_terminal("Pause button clicked.");
-                        });
-                        
-                        ui.add_sized(
-                            [button_width, button_height],
-                            egui::Button::new("⏹ Reset")
-                        ).clicked().then(|| {
-                            self.running = false;
-                            self.print_to_terminal("Reset button clicked.");
-                        });
-                    });
-                });
-            
-            // Main viewport - remove any frame decorations
-            egui::Frame::canvas(ui.style())
-                .fill(egui::Color32::from_gray(20))
-                .stroke(egui::Stroke::NONE)
-                .show(ui, |ui| {
-                    let painter = ui.painter();
-                    let center = viewport_rect.center();
-                    
-                    // Position the test objects directly under the buttons
-                    let offset_y = button_height + 20.0; // Add some space below the buttons
-                    let test_object_center = egui::pos2(center.x, viewport_rect.min.y + offset_y);
-                    
-                    painter.circle_filled(
-                        test_object_center,
-                        50.0,
-                        egui::Color32::RED,
-                    );
-                    
-                    let rect = egui::Rect::from_center_size(
-                        test_object_center + egui::vec2(100.0, 0.0),
-                        egui::vec2(80.0, 80.0),
-                    );
-                    painter.rect_filled(rect, 0.0, egui::Color32::BLUE);
-                });
-        });
-
-        // Bottom panel for terminal
-        egui::TopBottomPanel::bottom("terminal")
-            .resizable(true)
-            .min_height((ctx.screen_rect().height() - 20.0) * 0.2)
-            .max_height((ctx.screen_rect().height() - 20.0) * 0.5)
-            .show(ctx, |ui| {
-                ui.heading("Terminal");
-
-                // Wrap the terminal output in a scroll area
-                egui::ScrollArea::vertical()
-                    .scroll_bar_visibility(
-                        egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded,
-                    )
-                    .auto_shrink([false; 2])
-                    .max_height(ui.available_height() - item_spacing.y)
-                    .stick_to_bottom(true) // Ensure the scroll area always scrolls to the bottom
-                    .show(ui, |ui| {
-                        ui.label(&self.terminal_output); // Display the terminal output
-                    });
-            });
     }
 
     // Example method to add output to the terminal
@@ -973,6 +926,57 @@ impl EngineGui {
     }
 
     pub fn run_game(&mut self, ctx: &egui::Context) {
-        self.print_to_terminal("run_game called");
+        // Only draw if we're running
+        if self.running {
+            egui::CentralPanel::default().show(ctx, |ui| {
+                let rect = ui.available_rect_before_wrap();
+                
+                // Draw our test rectangle
+                ui.painter().rect_filled(
+                    rect,
+                    0.0,
+                    egui::Color32::from_rgb(100, 150, 200)
+                );
+            });
+
+            // Keep requesting repaints while running
+            ctx.request_repaint();
+        }
+    }
+
+    pub fn register_texture_with_egui(&mut self, _ctx: &egui::Context) -> Option<egui::TextureId> {
+        // Fixed unused variable warning by adding underscore
+        if self.egui_renderer.is_none() {
+            self.egui_renderer = Some(egui_wgpu::Renderer::new(
+                &self.render_engine.device,
+                wgpu::TextureFormat::Bgra8UnormSrgb,
+                None,
+                1,
+                false,
+            ));
+        }
+
+        if let Some(renderer) = &mut self.egui_renderer {
+            Some(renderer.register_native_texture(
+                &self.render_engine.device,
+                &self.render_engine.texture_view,
+                wgpu::FilterMode::Linear,
+            ))
+        } else {
+            None
+        }
+    }
+
+    // Fix the terminal panel code
+    fn show_terminal_panel(&mut self, ui: &mut egui::Ui) {
+        egui::ScrollArea::vertical()
+            .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded)
+            .auto_shrink([false; 2])
+            .stick_to_bottom(true)
+            .show(ui, |ui| {
+                let available_height = ui.available_height() - ui.spacing().item_spacing.y;
+                ui.set_max_height(available_height);
+                ui.label(&self.terminal_output);
+            });
     }
 }
