@@ -966,7 +966,12 @@ impl EngineGui {
 
             egui::CentralPanel::default().show(ctx, |ui| {
                 if let Some(handle) = &self.texture_handle {
-                    let size = egui::vec2(200.0, 200.0);
+                    // Use the actual pixel dimensions of the texture
+                    let size = egui::vec2(
+                        handle.size()[0] as f32,  // Width in pixels
+                        handle.size()[1] as f32   // Height in pixels
+                    );
+
                     ui.centered_and_justified(|ui| {
                         ui.image((handle.id(), size));
                     });
@@ -978,15 +983,21 @@ impl EngineGui {
     }
 
     pub fn create_test_object(&mut self, ctx: &egui::Context) -> Option<egui::TextureHandle> {
-        let width = 100;
-        let height = 100;
+        let square_size = 10;  // Size of each checker square in pixels
+        let squares = 50;       // Number of squares in each row/column
+        let width = square_size * squares;   // Total width in pixels
+        let height = square_size * squares;  // Total height in pixels
+        
         let mut pixels = vec![0u8; width * height * 4];
         
         // Fill the pixels first
         for y in 0..height {
             for x in 0..width {
                 let i = (y * width + x) * 4;
-                let is_checker = ((x / 20) + (y / 20)) % 2 == 0;
+                // Determine which square this pixel belongs to
+                let square_x = x / square_size;
+                let square_y = y / square_size;
+                let is_checker = (square_x + square_y) % 2 == 0;
                 
                 if is_checker {
                     pixels[i] = 255;     // R
@@ -994,10 +1005,10 @@ impl EngineGui {
                     pixels[i + 2] = 0;   // B
                     pixels[i + 3] = 255; // A
 
-                    // Debug print for red squares
-                    if x < 2 && y < 2 {
+                    // Debug print for first square
+                    if square_x == 0 && square_y == 0 && x < 2 && y < 2 {
                         self.print_to_terminal(&format!(
-                            "Red Pixel ({}, {}): rgba=[{},{},{},{}]",
+                            "Red Square (0,0) Pixel ({}, {}): rgba=[{},{},{},{}]",
                             x, y,
                             pixels[i], pixels[i+1], pixels[i+2], pixels[i+3]
                         ));
@@ -1008,10 +1019,10 @@ impl EngineGui {
                     pixels[i + 2] = 255; // B
                     pixels[i + 3] = 255; // A
 
-                    // Debug print for blue squares
-                    if x >= 20 && x < 22 && y < 2 {
+                    // Debug print for second square
+                    if square_x == 1 && square_y == 0 && x >= square_size && x < square_size + 2 {
                         self.print_to_terminal(&format!(
-                            "Blue Pixel ({}, {}): rgba=[{},{},{},{}]",
+                            "Blue Square (1,0) Pixel ({}, {}): rgba=[{},{},{},{}]",
                             x, y,
                             pixels[i], pixels[i+1], pixels[i+2], pixels[i+3]
                         ));
@@ -1020,13 +1031,11 @@ impl EngineGui {
             }
         }
 
-        // Create the color image
         let color_image = egui::ColorImage::from_rgba_unmultiplied(
             [width, height],
             &pixels
         );
         
-        // Create and return the texture handle
         Some(ctx.load_texture(
             "test_pattern",
             color_image,
