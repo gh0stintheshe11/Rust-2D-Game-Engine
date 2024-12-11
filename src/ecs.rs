@@ -30,7 +30,14 @@ impl fmt::Display for AttributeValueType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             AttributeValueType::String(value) => write!(f, "{}", value),
-            AttributeValueType::Float(value) => write!(f, "{}", value),
+            AttributeValueType::Float(value) => {
+                // Show .0 if it doesnt have decimal
+                if value.fract() == 0.0 {
+                    write!(f, "{:.1}", value)
+                } else {
+                    write!(f, "{}", value)
+                }
+            },
             AttributeValueType::Integer(value) => write!(f, "{}", value),
             AttributeValueType::Boolean(value) => write!(f, "{}", value),
         }

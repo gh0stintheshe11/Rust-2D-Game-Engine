@@ -1121,7 +1121,12 @@ impl EngineGui {
                     ui.separator();
 
                     if let Some(attributes) = self.ecs.get_attributes_by_entity_id(selected_id) {
-                        self.show_entity_attributes(ui, selected_id, &attributes);
+                        egui::ScrollArea::vertical()
+                            .auto_shrink([false; 2])
+                            .max_height(secondary_panel_height -  - ui.spacing().item_spacing.y)
+                            .show(ui, |ui| {
+                                self.show_entity_attributes(ui, selected_id, &attributes);
+                            });
                     } else {
                         ui.label("Selected entity not found.");
                     }
