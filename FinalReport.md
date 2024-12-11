@@ -1,4 +1,40 @@
 ## Table of Content
+- [Table of Content](#table-of-content)
+- [Team Members](#team-members)
+- [Motivation](#motivation)
+- [Objective](#objective)
+    - [Simplicity and Usability](#simplicity-and-usability)
+    - [Performance and Scalability](#performance-and-scalability)
+    - [Modularity and Customization](#modularity-and-customization)
+    - [Cross-Platform Compatibility](#cross-platform-compatibility)
+    - [Developer Empowerment](#developer-empowerment)
+- [Features](#features)
+    - [Rendering Engine](#rendering-engine)
+    - [Physics Engine](#physics-engine)
+    - [Entity Component System (ECS)](#entity-component-system-ecs)
+    - [Script Interpreter](#script-interpreter)
+    - [Audio Engine](#audio-engine)
+    - [Input Handling](#input-handling)
+    - [Game Project File Management](#game-project-file-management)
+    - [Engine GUI](#engine-gui)
+    - [Comprehensive Unit Testing](#comprehensive-unit-testing)
+- [User's Guide](#users-guide)
+    - [Create new project](#create-new-project)
+    - [Open project](#open-project)
+    - [Create new entity](#create-new-entity)
+    - [Delete entity](#delete-entity)
+    - [Add attributes to entity](#add-attributes-to-entity)
+    - [Create new script](#create-new-script)
+    - [Delete new script](#delete-new-script)
+    - [Import font, scene, audio, and video](#import-font-scene-audio-and-video)
+    - [Build and Run your game](#build-and-run-your-game)
+- [Reproducibility Guide](#reproducibility-guide)
+- [Contributions](#contributions)
+- [Lessons Learned and Concluding Remarks](#lessons-learned-and-concluding-remarks)
+    - [Lesson One: The Importance of Testing Suite](#lesson-one-the-importance-of-testing-suite)
+    - [Lesson Two: Collaboration](#lesson-two-collaboration)
+    - [Lesson Three: Modularity](#lesson-three-modularity)
+    - [Concluding Remarks](#concluding-remarks)
 
 
 
@@ -26,7 +62,7 @@ In essence, this project isn't just about building a game engine; it's about cre
 
 The primary objective of our Rust 2D Game Engine project is to create a lightweight, cross-platform engine that empowers developers to build 2D games with simplicity and efficiency. By focusing on modularity, performance, and an indie developer-friendly approach, the engine aims to provide an accessible and robust foundation for game development.
 
-Our project will emphasize:
+Our project emphasize:
 #### Simplicity and Usability
 Designing a user-friendly engine that lowers the barrier to entry for beginner game developers while supporting advanced use cases for experienced developers.
 
@@ -43,8 +79,6 @@ Ensuring that games built with the engine can run seamlessly across multiple pla
 Streamlining the game development process by enabling rapid iteration and experimentation through intuitive tools, a Lua scripting system, and visual interfaces.
 
 ## Features
-
-> Features: What are the main features offered by the final project deliverable?
 
 #### Rendering Engine
 
@@ -142,8 +176,6 @@ _A rigorous testing framework ensuring the reliability, performance, and correct
 -   Covers edge cases and potential failure modes to ensure robust and predictable engine behavior across different hardware and configurations.
 
 ## User's Guide
-
-> User’s (or Developer’s) Guide: How does a user — or developer, if the project is a crate — use each of the main features in the project deliverable?
 
 In Rust, to integrate our Rendering Engine in your game:
 
