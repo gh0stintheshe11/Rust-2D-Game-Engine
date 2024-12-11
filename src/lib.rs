@@ -6,3 +6,4 @@ pub mod script_interpreter;
 pub mod physics_engine;
 pub mod input_handler;
 pub mod audio_engine;
+pub mod game_runtime;
