@@ -1,247 +1,445 @@
-// Add this at the top of the file
-use wgpu::util::DeviceExt;
+use std::time::Instant;
+use std::collections::HashMap;
+use wgpu;
+use egui;
 
-pub struct RenderEngine {
-    pub texture_view: wgpu::TextureView,
-    pub device: wgpu::Device,
-    pub queue: wgpu::Queue,
-    pipeline: wgpu::RenderPipeline,
-    vertex_buffer: wgpu::Buffer,
-    index_buffer: wgpu::Buffer,
+// Layer System
+#[derive(Hash, Eq, PartialEq, Clone, Copy, PartialOrd, Ord)]
+pub enum RenderLayer {
+    Background,
+    Game,
+    UI,
+    Debug,
 }
 
-// Define vertex structure for 2D sprites
-#[repr(C)]
-#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct Vertex {
-    position: [f32; 3],
-    tex_coords: [f32; 2],
+// Transform System
+#[derive(Clone)]
+pub struct Transform {
+    pub position: (f32, f32),
+    pub scale: (f32, f32),
+    pub rotation: f32,
+}
+
+impl Transform {
+    pub fn new(position: (f32, f32)) -> Self {
+        Self {
+            position,
+            scale: (1.0, 1.0),
+            rotation: 0.0,
+        }
+    }
+}
+
+// Camera System
+pub struct Camera {
+    pub position: (f32, f32),
+    pub rotation: f32,
+    pub zoom: f32,  // 1.0 is normal size, > 1.0 zooms in, < 1.0 zooms out
+}
+
+impl Camera {
+    pub fn new() -> Self {
+        Self {
+            position: (0.0, 0.0),
+            rotation: 0.0,
+            zoom: 1.0,  // Start at normal size
+        }
+    }
+
+    pub fn zoom(&mut self, delta: f32) {
+        // Ensure zoom never goes negative
+        self.zoom = (self.zoom + delta).max(0.1);
+    }
+
+    pub fn transform_point(&self, point: (f32, f32)) -> (f32, f32) {
+        // Apply camera transformations in order: zoom, rotate, translate
+        let (x, y) = point;
+        
+        // Apply zoom
+        let x = x * self.zoom;
+        let y = y * self.zoom;
+        
+        // Apply rotation
+        let cos_r = self.rotation.cos();
+        let sin_r = self.rotation.sin();
+        let rx = x * cos_r - y * sin_r;
+        let ry = x * sin_r + y * cos_r;
+        
+        // Apply translation
+        (rx - self.position.0, ry - self.position.1)
+    }
+}
+
+// Sprite Sheet System
+pub struct SpriteSheet {
+    pub texture: egui::TextureHandle,
+    pub frame_size: (u32, u32),
+    pub frames: Vec<egui::Rect>,
+}
+
+impl SpriteSheet {
+    pub fn new(texture: egui::TextureHandle, frame_size: (u32, u32), frames_count: usize) -> Self {
+        let mut frames = Vec::with_capacity(frames_count);
+        let (frame_width, frame_height) = frame_size;
+        let texture_width = texture.size()[0] as u32;
+        let frames_per_row = texture_width / frame_width;
+
+        for i in 0..frames_count {
+            let x = (i as u32 % frames_per_row) * frame_width;
+            let y = (i as u32 / frames_per_row) * frame_height;
+            frames.push(egui::Rect::from_min_size(
+                egui::pos2(x as f32, y as f32),
+                egui::vec2(frame_width as f32, frame_height as f32),
+            ));
+        }
+
+        Self {
+            texture,
+            frame_size,
+            frames,
+        }
+    }
+}
+
+// Batch Rendering System
+pub struct RenderBatch {
+    pub texture: egui::TextureHandle,
+    pub instances: Vec<InstanceData>,
+    pub layer: RenderLayer,
+}
+
+pub struct InstanceData {
+    pub transform: Transform,
+    pub color: [f32; 4],
+    pub uv_rect: egui::Rect,
+}
+
+impl RenderBatch {
+    pub fn new(texture: egui::TextureHandle, layer: RenderLayer) -> Self {
+        Self {
+            texture,
+            instances: Vec::new(),
+            layer,
+        }
+    }
+
+    pub fn add_instance(&mut self, transform: Transform, color: [f32; 4], uv_rect: egui::Rect) {
+        self.instances.push(InstanceData {
+            transform,
+            color,
+            uv_rect,
+        });
+    }
+
+    pub fn clear(&mut self) {
+        self.instances.clear();
+    }
+}
+
+// Updated RenderObject to use new systems
+pub enum RenderObject {
+    Static {
+        texture: egui::TextureHandle,
+        transform: Transform,
+    },
+    Animated {
+        animation: Animation,
+        transform: Transform,
+    },
+    Sprite {
+        sprite_sheet: SpriteSheet,
+        current_frame: usize,
+        transform: Transform,
+    },
+}
+
+// Updated Scene to use layers and batching
+pub struct Scene {
+    pub layers: HashMap<RenderLayer, Vec<RenderObject>>,
+    pub camera: Camera,
+}
+
+impl Scene {
+    pub fn new() -> Self {
+        let mut layers = HashMap::new();
+        layers.insert(RenderLayer::Background, Vec::new());
+        layers.insert(RenderLayer::Game, Vec::new());
+        layers.insert(RenderLayer::UI, Vec::new());
+        layers.insert(RenderLayer::Debug, Vec::new());
+
+        Self {
+            layers,
+            camera: Camera::new(),
+        }
+    }
+
+    pub fn add_object(&mut self, object: RenderObject, layer: RenderLayer) {
+        if let Some(objects) = self.layers.get_mut(&layer) {
+            objects.push(object);
+        }
+    }
+
+    pub fn update(&mut self, dt: f32) {
+        // Update all layers
+        for (_layer, objects) in self.layers.iter_mut() {
+            for object in objects {
+                if let RenderObject::Animated { animation, .. } = object {
+                    animation.update(dt);
+                }
+            }
+        }
+    }
+
+    pub fn move_camera(&mut self, delta: (f32, f32)) {
+        self.camera.position.0 += delta.0;
+        self.camera.position.1 += delta.1;
+    }
+
+    pub fn zoom_camera(&mut self, delta: f32) {
+        self.camera.zoom = (self.camera.zoom + delta).clamp(0.1, 10.0);
+    }
+
+    pub fn rotate_camera(&mut self, angle: f32) {
+        self.camera.rotation += angle;
+    }
+
+    pub fn prepare_batches(&self) -> Vec<RenderBatch> {
+        let mut batches: HashMap<(egui::TextureId, RenderLayer), RenderBatch> = HashMap::new();
+        
+        // Group objects by texture and layer
+        for (layer, objects) in &self.layers {
+            for object in objects {
+                match object {
+                    RenderObject::Static { texture, transform } => {
+                        let batch = batches.entry((texture.id(), *layer))
+                            .or_insert_with(|| RenderBatch::new(texture.clone(), *layer));
+                        
+                        batch.add_instance(
+                            transform.clone(),
+                            [1.0, 1.0, 1.0, 1.0],
+                            egui::Rect::from_min_max(
+                                egui::pos2(0.0, 0.0),
+                                egui::pos2(1.0, 1.0)
+                            )
+                        );
+                    },
+                    RenderObject::Animated { animation, transform } => {
+                        if let Some(texture) = animation.current_frame() {
+                            let batch = batches.entry((texture.id(), *layer))
+                                .or_insert_with(|| RenderBatch::new(texture.clone(), *layer));
+                            
+                            batch.add_instance(
+                                transform.clone(),
+                                [1.0, 1.0, 1.0, 1.0],
+                                egui::Rect::from_min_max(
+                                    egui::pos2(0.0, 0.0),
+                                    egui::pos2(1.0, 1.0)
+                                )
+                            );
+                        }
+                    },
+                    RenderObject::Sprite { sprite_sheet, current_frame, transform } => {
+                        let batch = batches.entry((sprite_sheet.texture.id(), *layer))
+                            .or_insert_with(|| RenderBatch::new(sprite_sheet.texture.clone(), *layer));
+                        
+                        batch.add_instance(
+                            transform.clone(),
+                            [1.0, 1.0, 1.0, 1.0],
+                            sprite_sheet.frames[*current_frame]
+                        );
+                    }
+                }
+            }
+        }
+        
+        batches.into_values().collect()
+    }
+}
+
+pub struct RenderEngine {
+    pub device: wgpu::Device,
+    pub queue: wgpu::Queue,
+    pub adapter: wgpu::Adapter,
+    pub texture: wgpu::Texture,
+    pub texture_view: wgpu::TextureView,
+    pub last_frame_time: Instant,
+    pub delta_time: f32,
+}
+
+pub struct Animation {
+    frames: Vec<egui::TextureHandle>,
+    frame_duration: f32,
+    pub current_frame: usize,
+    timer: f32,
+    is_playing: bool,
+    is_looping: bool,
+}
+
+impl Animation {
+    pub fn new(frames: Vec<egui::TextureHandle>, frame_duration: f32) -> Self {
+        Self {
+            frames,
+            frame_duration,
+            current_frame: 0,
+            timer: 0.0,
+            is_playing: true,
+            is_looping: true,
+        }
+    }
+
+    pub fn update(&mut self, dt: f32) {
+        if self.is_playing && !self.frames.is_empty() {
+            self.timer += dt;
+            if self.timer >= self.frame_duration {
+                self.timer = 0.0;
+                if self.current_frame + 1 < self.frames.len() {
+                    self.current_frame += 1;
+                } else if self.is_looping {
+                    self.current_frame = 0;
+                } else {
+                    self.is_playing = false;
+                }
+            }
+        }
+    }
+
+    pub fn current_frame(&self) -> Option<&egui::TextureHandle> {
+        self.frames.get(self.current_frame)
+    }
+
+    pub fn play(&mut self) {
+        self.is_playing = true;
+    }
+
+    pub fn pause(&mut self) {
+        self.is_playing = false;
+    }
+
+    pub fn reset(&mut self) {
+        self.current_frame = 0;
+        self.timer = 0.0;
+    }
 }
 
 impl RenderEngine {
     pub fn new() -> Self {
-        // Initialize wgpu using InstanceDescriptor
-        let instance_desc = wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::all(),
+        // Initialize wgpu
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+            backends: wgpu::Backends::METAL,
             dx12_shader_compiler: wgpu::Dx12Compiler::Fxc,
             flags: wgpu::InstanceFlags::empty(),
             gles_minor_version: wgpu::Gles3MinorVersion::default(),
-        };
-        let instance = wgpu::Instance::new(instance_desc);
+        });
 
-        let (device, queue) = futures::executor::block_on(async {
-            let adapter = instance.request_adapter(&wgpu::RequestAdapterOptions {
+        // Create adapter
+        let adapter = futures::executor::block_on(async {
+            instance.request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::HighPerformance,
                 compatible_surface: None,
                 force_fallback_adapter: false,
-            }).await.unwrap();
-
-            adapter.request_device(&wgpu::DeviceDescriptor {
-                label: None,
-                required_features: wgpu::Features::empty(),
-                required_limits: wgpu::Limits::default(),
-                memory_hints: wgpu::MemoryHints::default(),
-            }, None).await.unwrap()
+            })
+            .await
+            .unwrap()
         });
 
-        // Create a texture for rendering
-        let texture_extent = wgpu::Extent3d {
-            width: 1024,
-            height: 1024,
-            depth_or_array_layers: 1,
-        };
-        let texture_desc = wgpu::TextureDescriptor {
-            label: Some("Render Texture"),
-            size: texture_extent,
+        // Create device and queue
+        let (device, queue) = futures::executor::block_on(async {
+            adapter.request_device(
+                &wgpu::DeviceDescriptor {
+                    label: None,
+                    required_features: wgpu::Features::empty(),
+                    required_limits: wgpu::Limits::default(),
+                    memory_hints: wgpu::MemoryHints::default(),
+                },
+                None,
+            )
+            .await
+            .unwrap()
+        });
+
+        // Create a test texture with solid color
+        let texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("Test Texture"),
+            size: wgpu::Extent3d {
+                width: 100,
+                height: 100,
+                depth_or_array_layers: 1,
+            },
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Bgra8UnormSrgb,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING 
+                | wgpu::TextureUsages::COPY_DST 
+                | wgpu::TextureUsages::RENDER_ATTACHMENT,
             view_formats: &[],
-        };
-        let texture = device.create_texture(&texture_desc);
+        });
+
+        // Create solid red texture data
+        let texture_data = vec![255u8, 0, 0, 255].repeat(100 * 100);
+
+        queue.write_texture(
+            wgpu::ImageCopyTexture {
+                texture: &texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            &texture_data,
+            wgpu::ImageDataLayout {
+                offset: 0,
+                bytes_per_row: Some(4 * 100),
+                rows_per_image: Some(100),
+            },
+            wgpu::Extent3d {
+                width: 100,
+                height: 100,
+                depth_or_array_layers: 1,
+            },
+        );
+
         let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-        // Create empty vertex buffer
-        let vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Vertex Buffer"),
-            size: 2048, // Some initial size
-            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-
-        // Create index buffer with basic quad indices
-        let indices: &[u16] = &[
-            0, 1, 2,  // First triangle
-            2, 1, 3,  // Second triangle
-        ];
-        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Index Buffer"),
-            contents: bytemuck::cast_slice(indices),
-            usage: wgpu::BufferUsages::INDEX,
-        });
-
-        // Create a temporary pipeline
-        let pipeline = create_render_pipeline(&device);
-
-        // Return an instance of Renderer
         Self {
-            texture_view,
             device,
             queue,
-            pipeline,
-            vertex_buffer,
-            index_buffer,
+            adapter,
+            texture,
+            texture_view,
+            last_frame_time: Instant::now(),
+            delta_time: 0.0,
         }
     }
 
-    pub fn render_frame(&mut self, sprites: &[Sprite]) -> Result<(), wgpu::SurfaceError> {
-        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("Render Encoder"),
-        });
-
-        // Update vertex buffer with sprite data
-        let vertices = self.prepare_vertices(sprites);
-        self.queue.write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&vertices));
-
-        {
-            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("2D Render Pass"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &self.texture_view,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.0,
-                            g: 0.0,
-                            b: 0.0,
-                            a: 1.0,
-                        }),
-                        store: wgpu::StoreOp::Store,
-                    },
-                })],
-                depth_stencil_attachment: None,
-                timestamp_writes: None,
-                occlusion_query_set: None,
-            });
-
-            render_pass.set_pipeline(&self.pipeline);
-            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-
-            // Draw all sprites
-            render_pass.draw_indexed(0..6, 0, 0..sprites.len() as _);
-        }
-
-        self.queue.submit(std::iter::once(encoder.finish()));
-        Ok(())
+    // Add method to update timing and handle frame updates
+    pub fn update(&mut self) {
+        let current_time = Instant::now();
+        self.delta_time = current_time.duration_since(self.last_frame_time).as_secs_f32();
+        self.last_frame_time = current_time;
     }
 
-    fn prepare_vertices(&self, sprites: &[Sprite]) -> Vec<Vertex> {
-        // Convert sprites to vertices
-        let mut vertices = Vec::with_capacity(sprites.len() * 4);
-        for sprite in sprites {
-            // Add four vertices for each sprite (rectangle)
-            vertices.extend_from_slice(&sprite.to_vertices());
-        }
-        vertices
+    // Method to update texture with new frame data
+    pub fn update_texture(&mut self, frame_data: &[u8], width: u32, height: u32) {
+        self.queue.write_texture(
+            wgpu::ImageCopyTexture {
+                texture: &self.texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            frame_data,
+            wgpu::ImageDataLayout {
+                offset: 0,
+                bytes_per_row: Some(4 * width),
+                rows_per_image: Some(height),
+            },
+            wgpu::Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
+        );
     }
-}
 
-// You'll need to define a Sprite struct in your game engine
-#[derive(Debug, Clone)]
-pub struct Sprite {
-    pub position: (f32, f32),
-    pub size: (f32, f32),
-    pub rotation: f32,
-    pub texture_coords: (f32, f32, f32, f32), // (u1, v1, u2, v2)
-}
-
-impl Sprite {
-    pub fn to_vertices(&self) -> [Vertex; 4] {
-        // Convert sprite data to four vertices
-        // This is a simplified version - you'll want to add rotation handling
-        let (x, y) = self.position;
-        let (w, h) = self.size;
-        let (u1, v1, u2, v2) = self.texture_coords;
-
-        [
-            Vertex { position: [x, y, 0.0], tex_coords: [u1, v1] },
-            Vertex { position: [x + w, y, 0.0], tex_coords: [u2, v1] },
-            Vertex { position: [x, y + h, 0.0], tex_coords: [u1, v2] },
-            Vertex { position: [x + w, y + h, 0.0], tex_coords: [u2, v2] },
-        ]
-    }
-}
-
-fn create_render_pipeline(device: &wgpu::Device) -> wgpu::RenderPipeline {
-    let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-        label: Some("Shader"),
-        source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
-    });
-
-    let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-        label: Some("Render Pipeline Layout"),
-        bind_group_layouts: &[],
-        push_constant_ranges: &[],
-    });
-
-    device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-        label: Some("Render Pipeline"),
-        layout: Some(&pipeline_layout),
-        vertex: wgpu::VertexState {
-            module: &shader,
-            entry_point: "vs_main",
-            buffers: &[
-                wgpu::VertexBufferLayout {
-                    array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
-                    step_mode: wgpu::VertexStepMode::Vertex,
-                    attributes: &[
-                        wgpu::VertexAttribute {
-                            offset: 0,
-                            shader_location: 0,
-                            format: wgpu::VertexFormat::Float32x3,
-                        },
-                        wgpu::VertexAttribute {
-                            offset: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
-                            shader_location: 1,
-                            format: wgpu::VertexFormat::Float32x2,
-                        },
-                    ],
-                }
-            ],
-            compilation_options: wgpu::PipelineCompilationOptions::default(),
-        },
-        fragment: Some(wgpu::FragmentState {
-            module: &shader,
-            entry_point: "fs_main",
-            targets: &[Some(wgpu::ColorTargetState {
-                format: wgpu::TextureFormat::Bgra8UnormSrgb,
-                blend: Some(wgpu::BlendState {
-                    color: wgpu::BlendComponent::REPLACE,
-                    alpha: wgpu::BlendComponent::REPLACE,
-                }),
-                write_mask: wgpu::ColorWrites::ALL,
-            })],
-            compilation_options: wgpu::PipelineCompilationOptions::default(),
-        }),
-        primitive: wgpu::PrimitiveState {
-            topology: wgpu::PrimitiveTopology::TriangleList,
-            strip_index_format: None,
-            front_face: wgpu::FrontFace::Ccw,
-            cull_mode: Some(wgpu::Face::Back),
-            unclipped_depth: false,
-            polygon_mode: wgpu::PolygonMode::Fill,
-            conservative: false,
-        },
-        depth_stencil: None,
-        multisample: wgpu::MultisampleState {
-            count: 1,
-            mask: !0,
-            alpha_to_coverage_enabled: false,
-        },
-        multiview: None,
-        cache: None,
-    })
+    // We might add more methods here later for game-specific rendering
 }

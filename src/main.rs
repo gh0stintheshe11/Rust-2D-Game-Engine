@@ -5,19 +5,26 @@ mod audio_engine;
 mod ecs;
 mod physics_engine;
 mod render_engine;
+mod input_handler;
+use winit::event::Event;
 
-fn main() {
-    // Set the native options for the window
-    let native_options: NativeOptions = NativeOptions {
-        vsync: true, // Enable vertical sync
-        hardware_acceleration: HardwareAcceleration::Preferred, // Use default hardware acceleration
-        ..Default::default() // Use default values for other fields
+fn main() -> Result<(), eframe::Error> {
+    let options = eframe::NativeOptions {
+        ..Default::default()
     };
 
-    // Run the app with the window title and options
-    let _ = eframe::run_native(
+    // Create the app
+    eframe::run_native(
         "Rust 2D Game Engine",
-        native_options,
-        Box::new(|_cc| Ok(Box::new(engine_gui::EngineGui::default()))),
-    );
+        options,
+        Box::new(|cc| {
+            // Create the app
+            let app = Box::new(engine_gui::EngineGui::default());
+            
+            // Set up event handling
+            cc.egui_ctx.set_visuals(egui::Visuals::dark());
+            
+            Ok(app)
+        }),
+    )
 }

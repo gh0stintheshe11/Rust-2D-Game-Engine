@@ -3,6 +3,10 @@ use std::io::Write;
 use std::path::Path;
 use serde::{Serialize, Deserialize};
 use crate::engine_gui::EngineGui;
+use std::io;
+use std::process::{Command};
+use std::env;
+
 
 // Project metadata structure for project.json
 #[derive(Serialize, Deserialize, Debug)]
@@ -172,6 +176,238 @@ impl FileManagement {
         } else {
             Err("Failed to get the file name.".to_string())
         }
+    }
+
+
+    /// Copy directory recursively
+    pub fn copy_dir_recursive(src: &Path, dest: &Path) -> io::Result<()> {
+
+        if !dest.exists() {
+            fs::create_dir_all(dest)?;
+        }
+
+        println!("Copying {} -> {}", src.display(), dest.display());
+
+        for entry in fs::read_dir(src)? {
+            let entry = entry?;
+            let entry_path = entry.path();
+            let dest_path = dest.join(entry.file_name());
+
+            // Skip the destination folder (build) to prevent infinite recursion
+            if entry_path.starts_with(&dest) {
+                continue;
+            }
+
+            if entry_path.is_dir() {
+                // copy directory
+                FileManagement::copy_dir_recursive(&entry_path, &dest_path)?;
+            } else {
+                // copy file
+                fs::copy(&entry_path, &dest_path)?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Copy project folders and files
+    pub fn copy_project_files(
+        project_path: &str,
+        build_path: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let project_assets = Path::new(project_path).join("assets");
+        let project_entities = Path::new(project_path).join("entities");
+        let project_scripts = Path::new(project_path).join("scripts");
+        let project_scenes = Path::new(project_path).join("scenes");
+
+        let build_assets = Path::new(build_path).join("assets");
+        let build_entities = Path::new(build_path).join("entities");
+        let build_scripts = Path::new(build_path).join("scripts");
+        let build_scenes = Path::new(build_path).join("scenes");
+
+        if project_assets.exists() {
+            FileManagement::copy_dir_recursive(&project_assets, &build_assets)?;
+        }
+        if project_entities.exists() {
+            FileManagement::copy_dir_recursive(&project_entities, &build_entities)?;
+        }
+        if project_scripts.exists() {
+            FileManagement::copy_dir_recursive(&project_scripts, &build_scripts)?;
+        }
+        if project_scenes.exists() {
+            FileManagement::copy_dir_recursive(&project_scenes, &build_scenes)?;
+        }
+        Ok(())
+    }
+
+    /// Build project by copying folders and files to build folder in project path and run cargo build --release
+    pub fn build_and_run_project(project_path: &str, engine_gui: &mut EngineGui) -> Result<(), Box<dyn std::error::Error>> {
+
+        let build_path = format!("{}/build", project_path);
+
+        let metadata = FileManagement::read_project_metadata(project_path);
+        let project_name = metadata.project_name;
+        let project_version = metadata.version;
+
+        // Clear files in build folder
+        if Path::new(&build_path).exists() {
+            engine_gui.print_to_terminal(&format!("Removing existing build folder: {}", build_path));
+            fs::remove_dir_all(&build_path)?;
+        }
+
+        if !Path::new(&build_path).exists() {
+            fs::create_dir_all(&build_path)?;
+        }
+
+        fs::create_dir_all(&build_path)?;
+
+        // Copy toml file
+        let working_path = env::current_dir()?;
+        let toml_file = format!("{}/Cargo.toml", working_path.display());
+        engine_gui.print_to_terminal(&format!("Copying Cargo.toml from {} to {}", toml_file, build_path));
+        let copied_toml_path = format!("{}/Cargo.toml", build_path);
+        fs::copy(&toml_file, &copied_toml_path)?;
+
+        FileManagement::modify_cargo_toml(&copied_toml_path, &project_name, &project_version)?;
+
+        // copy required source files
+        let working_src_path = format!("{}/src", working_path.display());
+        let build_src_path = format!("{}/src", build_path);
+
+        engine_gui.print_to_terminal(&format!("Creating src folder in build path: {}", build_src_path));
+        fs::create_dir_all(&build_src_path)?;
+
+        let required_files = [
+            "ecs.rs",
+            "game_runtime.rs",
+            "audio_engine.rs",
+            "input_handler.rs",
+            "physics_engine.rs",
+            "render_engine.rs",
+            "project_manager.rs",
+            "engine_gui.rs",
+            "script_interpreter.rs",
+            "shader.wgsl",
+            "lib.rs",
+        ];
+
+        for file in required_files.iter() {
+            let src_file = format!("{}/{}", working_src_path, file);
+            let dest_file = format!("{}/{}", build_src_path, file);
+
+            engine_gui.print_to_terminal(&format!("Copying {} to {}", src_file, dest_file));
+
+            if Path::new(&src_file).exists() {
+                fs::copy(&src_file, &dest_file)?;
+            } else {
+                println!("File {} does not exist in source path.", src_file);
+            }
+        }
+
+        // Update `lib.rs` to exclude gui files
+        let lib_file = format!("{}/lib.rs", build_src_path);
+        if Path::new(&lib_file).exists() {
+            engine_gui.print_to_terminal(&format!("Updating lib.rs file to exclude files: {}", lib_file));
+            let lib_content = fs::read_to_string(&lib_file)?;
+            let filtered_content = FileManagement::filter_lib_file(&lib_content);
+            fs::write(&lib_file, filtered_content)?;
+        }
+
+        // Create main.rs for game project
+        FileManagement::create_main_file(&build_src_path, &project_name)?;
+
+        // Copy assets
+        engine_gui.print_to_terminal("Copying assets from project path to build path.");
+        FileManagement::copy_dir_recursive(&Path::new(&project_path), &Path::new(&build_path))?;
+
+        // Run `cargo build --release` in build folder
+        let status = Command::new("cargo")
+            .arg("build")
+            .arg("--release")
+            .current_dir(&build_path)
+            .status()?;
+
+        if !status.success() {
+            return Err("Project build failed".into());
+        }
+
+        // Move the executable file to the root of the build folder
+        let exe_path = format!("{}/target/release/{}", build_path, project_name);
+        let dest_exe_path = format!("{}/{}", build_path, project_name);
+        fs::rename(&exe_path, &dest_exe_path)?;
+
+        println!("Build completed successfully! Executable is in {}", dest_exe_path);
+
+        // Run the built executable
+        let status = Command::new(&dest_exe_path)
+            .current_dir(&build_path)
+            .status()?;
+
+        if !status.success() {
+            return Err("Failed to run the built executable".into());
+        }
+
+        Ok(())
+    }
+
+    /// Modify lib.rs file to exclude modules that are no need to build and run the game
+    fn filter_lib_file(original: &str) -> String {
+        // List of keywords or lines to exclude
+        let excluded_lines = [
+            "mod gui",
+        ];
+
+        original
+            .lines()
+            .filter(|line| {
+                !excluded_lines.iter().any(|exclude| line.contains(exclude))
+            })
+            .collect::<Vec<&str>>()
+            .join("\n")
+    }
+
+    /// Update the game project Cargo.toml file to the game project's name and version
+    fn modify_cargo_toml(
+        toml_path: &str,
+        project_name: &str,
+        project_version: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let content = fs::read_to_string(toml_path)?;
+        let mut lines: Vec<String> = content.lines().map(|line| line.to_string()).collect();
+
+        for line in &mut lines {
+            if line.starts_with("name =") {
+                *line = format!("name = \"{}\"", project_name);
+            } else if line.starts_with("version =") {
+                *line = format!("version = \"{}\"", project_version);
+            }
+        }
+
+        let updated_content = lines.join("\n");
+        fs::write(toml_path, updated_content)?;
+
+        Ok(())
+    }
+
+    /// Create main.rs file for game project
+    pub fn create_main_file(build_src_path: &str, project_name: &str) -> Result<(), Box<dyn std::error::Error>> {
+        let main_file_path = format!("{}/main.rs", build_src_path);
+
+        let main_content = format!(
+            r#"
+use {project_name}::game_runtime;
+
+fn main() {{
+    println!("Starting the game...");
+    game_runtime::run();
+}}
+"#,
+            project_name = project_name
+        );
+
+        fs::write(&main_file_path, main_content)?;
+        println!("Generated main.rs in {}", main_file_path);
+
+        Ok(())
     }
 
 }

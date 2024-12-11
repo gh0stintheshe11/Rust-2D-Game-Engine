@@ -1,33 +1,36 @@
-use winit::event::{ElementState, Event, WindowEvent};
-use winit::keyboard::{KeyCode, PhysicalKey};  // Use KeyCode for handling keyboard input
+use std::collections::HashSet;
+use egui::Key;
+
+pub enum InputContext {
+    Editor,
+    Game,
+}
 
 pub struct InputHandler {
-    pub key_pressed: Option<KeyCode>,  // Stores the last key pressed
+    context: InputContext,
+    keys_pressed: HashSet<Key>,
 }
 
 impl InputHandler {
     pub fn new() -> Self {
         InputHandler {
-            key_pressed: None,
+            context: InputContext::Editor,
+            keys_pressed: HashSet::new(),
         }
     }
 
-    pub fn handle_input(&mut self, event: &Event<()>) {
-        if let Event::WindowEvent {
-            event: WindowEvent::KeyboardInput { event, .. },
-            ..
-        } = event
-        {
-            match event.state {
-                ElementState::Pressed => {
-                    if let PhysicalKey::Code(keycode) = event.physical_key {
-                        self.key_pressed = Some(keycode);
-                    }
-                }
-                ElementState::Released => {
-                    self.key_pressed = None;
-                }
-            }
-        }
+    pub fn set_context(&mut self, context: InputContext) {
+        self.context = context;
+    }
+
+    pub fn handle_input(&mut self, input: &egui::InputState) {
+        self.keys_pressed.clear();
+        input.keys_down.iter().for_each(|key| {
+            self.keys_pressed.insert(*key);
+        });
+    }
+
+    pub fn is_key_pressed(&self, key: Key) -> bool {
+        self.keys_pressed.contains(&key)
     }
 }
