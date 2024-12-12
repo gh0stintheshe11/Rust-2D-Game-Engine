@@ -532,15 +532,91 @@ Using [winit](https://github.com/rust-windowing/winit) for the game input handli
 
 ## [Game Project File Management](/src/project_manager.rs)
 
-A game engine should be able to display and manage the game project files.
+## [Project Manager](/src/project_manager.rs)
 
-- [x] create a new project
-- [x] open a project
-- [ ] save a project
-- [ ] build a project
+The Project Manager handles game project creation, loading, saving, and building. It provides a structured way to manage game projects and their assets.
 
-> [!NOTE]
-> Not sure if project files need to be saved manually for now, since the project is directly modified in the engine.
+### Project Structure
+```
+game_project/
+├── assets/
+│   ├── images/
+│   ├── sounds/
+│   └── fonts/
+├── scenes/
+├── scripts/
+├── src/
+│   └── main.rs
+├── Cargo.toml
+└── project.json
+```
+
+### Core Features
+
+```mermaid
+classDiagram
+    class ProjectManager {
+        +create_project(project_path: &Path) Result<(), String>
+        +load_project(project_path: &Path) Result<ProjectMetadata, String>
+        +save_project(project_path: &Path, metadata: &ProjectMetadata) Result<(), String>
+        +build_project(project_path: &Path) Result<(), String>
+        -create_folder_structure(base_path: &Path) Result<(), String>
+        -create_metadata_file(base_path: &Path, metadata: &ProjectMetadata) Result<(), String>
+        -create_main_file(base_path: &Path, project_name: &str) Result<(), String>
+        -copy_directory_contents(src: &Path, dst: &Path) Result<(), ()>
+    }
+
+    class ProjectMetadata {
+        +project_name: String
+        +version: String
+        +project_path: String
+        +default_scene: String
+    }
+
+    ProjectManager ..> ProjectMetadata : creates/manages
+
+    note for ProjectManager "Static methods only\nNo instance state"
+    note for ProjectMetadata "Serializable structure\nStores project info"
+```
+
+#### Project Creation
+```rust
+// Create a new game project
+let project_path = Path::new("path/to/my_game");
+ProjectManager::create_project(project_path)?;
+```
+
+#### Project Loading/Saving
+```rust
+// Load existing project
+let metadata = ProjectManager::load_project(project_path)?;
+
+// Save project changes
+ProjectManager::save_project(project_path, &metadata)?;
+```
+
+#### Build System
+```rust
+// Build the project
+ProjectManager::build_project(project_path)?;
+```
+The build process:
+- Compiles Rust code with `cargo build --release`
+- Copies assets to the target directory
+- Creates a ready-to-run game executable
+
+### Project Metadata
+Stores essential project information in `project.json`:
+- Project name
+- Version
+- Project path
+- Default scene
+
+### Technical Details
+- Path-based file management
+- Structured asset organization
+- Integrated build system
+- Automatic resource copying
 
 ## [Engine GUI](/src/engine_gui.rs)
 
