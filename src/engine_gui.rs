@@ -12,6 +12,9 @@ pub struct EngineGui {
     // Window Sizes (as percentages of screen size)
     side_panel_width_percentage: f32,
     console_height_percentage: f32,
+
+    // GUI settings
+    dark_mode: bool,
 }
 
 impl EngineGui {
@@ -26,6 +29,9 @@ impl EngineGui {
 
             side_panel_width_percentage: 0.2, // 20% of screen width
             console_height_percentage: 0.2,    // 20% of screen height
+
+            // GUI settings
+            dark_mode: false,
         }
     }
 
@@ -43,13 +49,16 @@ impl EngineGui {
         let available_height = screen_rect.height() - menu_height - console_height + border_compensation;
         let half_height = (available_height - spacing) / 2.0;
 
+        // Frame color
+        let default_fill = self.get_background_color();
+
         // Create menu frame with dark background
         let menu_frame = egui::Frame {
             inner_margin: egui::Margin::symmetric(4.0, 4.0),
             outer_margin: egui::Margin::ZERO,
             rounding: egui::Rounding::ZERO,
             shadow: eframe::epaint::Shadow::NONE,
-            fill: egui::Color32::from_hex("#000000").unwrap(),
+            fill: default_fill,
             stroke: ctx.style().visuals.widgets.noninteractive.bg_stroke,
         };
 
@@ -63,7 +72,7 @@ impl EngineGui {
             outer_margin: egui::Margin::ZERO,
             rounding: egui::Rounding::ZERO,
             shadow: eframe::epaint::Shadow::NONE,
-            fill: egui::Color32::from_hex("#000000").unwrap(),
+            fill: default_fill,
             stroke: ctx.style().visuals.widgets.noninteractive.bg_stroke,
         };
 
@@ -72,7 +81,7 @@ impl EngineGui {
             outer_margin: egui::Margin::ZERO,
             rounding: egui::Rounding::ZERO,
             shadow: eframe::epaint::Shadow::NONE,
-            fill: egui::Color32::from_hex("#000000").unwrap(),
+            fill: default_fill,
             stroke: ctx.style().visuals.widgets.noninteractive.bg_stroke,
         };
 
@@ -81,7 +90,7 @@ impl EngineGui {
             outer_margin: egui::Margin::ZERO,
             rounding: egui::Rounding::ZERO,
             shadow: eframe::epaint::Shadow::NONE,
-            fill: egui::Color32::from_hex("#000000").unwrap(),
+            fill: default_fill,
             stroke: ctx.style().visuals.widgets.noninteractive.bg_stroke,
         };
 
@@ -106,6 +115,15 @@ impl EngineGui {
                     ui.menu_button("Edit", |ui| {
                         ui.button("Undo");
                         ui.button("Redo");
+                    });
+                    ui.menu_button("View", |ui| {
+                        let dark_mode_button = ui.selectable_label(self.dark_mode, "Dark Mode");
+
+                        // Handle dark mode button
+                        if dark_mode_button.clicked() {
+                            self.dark_mode = !self.dark_mode;
+                            self.update_theme(ctx);
+                        }
                     });
                     ui.menu_button("Import", |ui| {
                         ui.button("Import Sound");
@@ -216,10 +234,33 @@ impl EngineGui {
                 }
             });
     }
+
+    fn get_background_color(&self) -> egui::Color32 {
+        if self.dark_mode {
+            egui::Color32::from_gray(30) // Dark gray
+        } else {
+            egui::Color32::from_gray(240) // Light gray
+        }
+    }
+
+    fn update_theme(&mut self, ctx: &egui::Context) {
+        ctx.set_visuals(if self.dark_mode {
+            egui::Visuals::dark()
+        } else {
+            egui::Visuals::light()
+        });
+        ctx.request_repaint();
+    }
 }
 
 impl eframe::App for EngineGui {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        self.show_windows(ctx);
+
+        egui::CentralPanel::default().show(ctx, |ui| {
+            let rect = ui.max_rect();
+            ui.painter().rect_filled(rect, 0.0, self.get_background_color());
+
+            self.show_windows(ctx);
+        });
     }
 }
