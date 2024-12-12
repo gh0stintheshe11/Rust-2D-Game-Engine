@@ -249,8 +249,39 @@ physics_engine.handle_collisions();
 
 ## [ECS Entity Component System](/src/ecs.rs)
 
-Functions that can modify the atrribute of entity on the fly.
-To be implemented...
+ECS system diagram:
+
+```mermaid
+graph TD
+    resources["resources"]
+    sound["sound"]
+    image["image"]
+    script["script"]
+    Scene["Scene"]
+    Entity["Entity"]
+    Attribute["Attribute"]
+
+    sound --> resources
+    image --> resources
+    script --> resources
+
+    resources -->|add resource<br>delete resource<br>modify resource<br>get resource<br>list resource| Scene
+    resources -->|change resource name<br>change resource path<br>change resource type| resources
+
+    Scene -->|create scene<br>modify scene<br>delete scene<br>load scene<br>unload scene<br>get scene| Entity
+    Scene -->|add entity<br>remove entity<br>list entity| Scene
+
+    Entity -->|create entity<br>delete entity<br>modify entity<br>get entity| Attribute
+    Entity -->|change entity name<br>attach resource (add a resource to resource list)<br>detach resource (delete a resource from resource list)| Entity
+
+    Attribute -->|create attribute<br>delete attribute<br>modify attribute<br>list attribute<br>get attribute| Attribute
+    Attribute -->|change attribute name<br>change attribute data type<br>change attribute value| Attribute
+
+    %% GUI interactions
+    sound -->|use the audio engine:<br>play<br>pause<br>stop| sound
+    image -->|display:<br>use GUI popup to display| image
+    script -->|edit:<br>use GUI code editor| script
+```
 
 ## [Script Interpreter](/src/script_interpreter.rs)
 
