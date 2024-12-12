@@ -22,6 +22,7 @@ pub struct Attribute {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Entity {
     pub id: usize,
+    pub name: String,
     pub attributes: HashMap<String, Attribute>,  // Stores attributes with name and value type
     pub attribute_order: Vec<String>,
 }
@@ -50,6 +51,7 @@ impl Entity {
     pub fn new(id: usize) -> Self {
         Entity {
             id,
+            name: String::new(),
             attributes: HashMap::new(),
             attribute_order: Vec::new(),
         }
@@ -186,6 +188,7 @@ impl EntityManager {
     pub fn copy_entity(&mut self, existing_entity: &Entity) -> Entity {
         let new_entity = Entity {
             id: self.next_id,
+            name: existing_entity.name.clone(),
             attributes: existing_entity.attributes.clone(),  // Copy all attributes
             attribute_order: existing_entity.attribute_order.clone(),
         };
@@ -321,6 +324,12 @@ impl EntityManager {
     pub fn update_entity_attribute_order(&mut self, entity_id: usize, new_order: Vec<String>) {
         if let Some(entity) = self.entities.get_mut(&entity_id) {
             entity.attribute_order = new_order;
+        }
+    }
+
+    pub fn update_entity_name(&mut self, entity_id: usize, name: String) {
+        if let Some(entity) = self.entities.get_mut(&entity_id) {
+            entity.name = name;
         }
     }
 }

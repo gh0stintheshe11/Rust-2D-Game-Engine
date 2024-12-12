@@ -18,6 +18,8 @@ pub struct EngineGui {
     highlighted_entity: Option<usize>,
     highlighted_attribute: Option<(usize, String)>,
     editing_attribute: Option<String>,
+    new_entity_name: String,
+    show_entity_rename_popup: bool,
     // entity inspector panel
     show_add_attribute_popup: bool,
     show_reorder_attribute_popup: bool,
@@ -39,19 +41,28 @@ pub struct EngineGui {
 
 impl Default for EngineGui {
     fn default() -> Self {
+
+        let project_path = "/Users/Frank/Documents/school_work/Rust-2D-Game-Engine/test_project/";
+        let project_name = "test_project";
+
         Self {
             ecs: EntityManager::new(),
             render_engine: RenderEngine::new(),
             show_new_project_popup: false,
             show_open_project_popup: false,
-            load_project: false,
-            project_name: String::new(),
-            project_path: String::new(),
+            // load_project: false,
+            // project_name: String::new(),
+            // project_path: String::new(),
+            load_project: true,
+            project_name: project_name.to_string(),
+            project_path: project_path.to_string(),
             terminal_output: String::new(),
             // entities panel
             highlighted_entity: None,
             highlighted_attribute: None,
             editing_attribute: None,
+            new_entity_name: String::new(),
+            show_entity_rename_popup: false,
             // entity inspector panel
             show_add_attribute_popup: false,
             show_reorder_attribute_popup: false,
@@ -337,95 +348,11 @@ impl EngineGui {
                 let secondary_panel_height = ui.available_height() * 0.5;
 
                 // Top section
-                self.show_entity_inspector(ctx, ui, secondary_panel_height);
+                self.show_entity_inspector_panel(ctx, ui, secondary_panel_height);
 
                 // Bottom section
-                let entity_folder_path = format!("{}/entities", self.project_path);
-                egui::TopBottomPanel::bottom("entity")
-                    .resizable(false)
-                    .exact_height(secondary_panel_height)
-                    .show_separator_line(false)
-                    .frame(egui::Frame::none().inner_margin(egui::Margin::same(5.0)))
-                    .show_inside(ui, |ui| {
-                        let heading_response = ui.heading("Entities");
-                        let heading_height = heading_response.rect.height(); // Get the height of the heading
+                self.show_entity_panel(ctx, ui, secondary_panel_height);
 
-                        // Wrapping the entire list of buttons in the scroll area
-                        if self.load_project {
-                            egui::ScrollArea::vertical()
-                                .scroll_bar_visibility(
-                                    egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded,
-                                )
-                                .max_height(
-                                    secondary_panel_height - heading_height - 3.0 * item_spacing.y,
-                                )
-                                .auto_shrink([false; 2]) // Prevent shrinking when there is less content
-                                .show(ui, |ui| {
-                                    let files = FileManagement::list_files_in_folder(
-                                        &entity_folder_path,
-                                        self,
-                                    );
-
-                                    // Filter files to include only those starting with "entity_" json files
-                                    let mut entity_files: Vec<String> = files
-                                        .into_iter()
-                                        .filter(|file| {
-                                            file.starts_with("entity_") && file.ends_with(".json")
-                                        })
-                                        .collect();
-
-                                    entity_files.sort_by_key(|file| {
-                                        FileManagement::extract_id_from_file(file)
-                                    });
-
-                                    for file in entity_files {
-                                        if let Some(entity_id) =
-                                            FileManagement::extract_id_from_file(&file)
-                                        {
-                                            // Check if it's already in the ecs
-                                            if !self.ecs.entity_exists_by_id(entity_id) {
-                                                // Create the entity with the given ID if it doesn't exist
-                                                // self.ecs.create_entity_by_id(entity_id);
-                                                // Load the entity with the given ID from json file
-                                                if let Err(err) = self.load_entity(entity_id) {
-                                                    self.print_to_terminal(&err);
-                                                }
-                                            }
-
-                                            let is_highlighted = self.highlighted_entity == Some(entity_id);
-
-                                            let button =
-                                                egui::Button::new(format!("Entity {}", entity_id))
-                                                    .fill(if is_highlighted {
-                                                        egui::Color32::from_rgb(200, 200, 255)
-                                                    } else {
-                                                        egui::Color32::from_rgb(240, 240, 240)
-                                                    });
-
-                                            let button_response = ui.add(button);
-
-                                            // Handle right-click on button
-                                            button_response.context_menu(|ui| {
-                                                if ui.button("Delete").clicked() {
-                                                    self.delete_entity_by_file(&file);
-                                                    ui.close_menu();
-                                                }
-                                            });
-
-                                            if button_response.clicked() {
-                                                self.highlighted_entity = Some(entity_id);
-                                                self.print_to_terminal(&format!(
-                                                    "Clicked on entity ID: {}",
-                                                    entity_id
-                                                ));
-                                            }
-                                        }
-                                    }
-
-                                    // self.print_sorted_entity_ids_to_terminal();
-                                });
-                        }
-                    });
             });
 
         // Right panel (split into top and bottom)
@@ -1109,7 +1036,7 @@ impl EngineGui {
     }
 
     /// Entity Inspector Panel
-    pub fn show_entity_inspector(&mut self, ctx: &egui::Context, ui: &mut egui::Ui, secondary_panel_height: f32) {
+    pub fn show_entity_inspector_panel(&mut self, ctx: &egui::Context, ui: &mut egui::Ui, secondary_panel_height: f32) {
         egui::TopBottomPanel::top("entity_inspector")
             .resizable(false)
             .exact_height(secondary_panel_height)
@@ -1531,5 +1458,157 @@ impl EngineGui {
             self.print_to_terminal("No entity selected for reordering.");
         }
     }
+
+
+
+    /// Entity panel
+    fn show_entity_panel(&mut self, ctx: &egui::Context, ui: &mut egui::Ui, secondary_panel_height: f32) {
+        let entity_folder_path = format!("{}/entities", self.project_path);
+        let item_spacing = ctx.style().spacing.item_spacing;
+        egui::TopBottomPanel::bottom("entity")
+            .resizable(false)
+            .exact_height(secondary_panel_height)
+            .show_separator_line(false)
+            .frame(egui::Frame::none().inner_margin(egui::Margin::same(5.0)))
+            .show_inside(ui, |ui| {
+                let heading_response = ui.heading("Entities");
+                let heading_height = heading_response.rect.height(); // Get the height of the heading
+
+                // Wrapping the entire list of buttons in the scroll area
+                if self.load_project {
+                    egui::ScrollArea::vertical()
+                        .scroll_bar_visibility(
+                            egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded,
+                        )
+                        .max_height(
+                            secondary_panel_height - heading_height - 3.0 * item_spacing.y,
+                        )
+                        .auto_shrink([false; 2]) // Prevent shrinking when there is less content
+                        .show(ui, |ui| {
+                            let files = FileManagement::list_files_in_folder(
+                                &entity_folder_path,
+                                self,
+                            );
+
+                            // Filter files to include only those starting with "entity_" json files
+                            let mut entity_files: Vec<String> = files
+                                .into_iter()
+                                .filter(|file| {
+                                    file.starts_with("entity_") && file.ends_with(".json")
+                                })
+                                .collect();
+
+                            entity_files.sort_by_key(|file| {
+                                FileManagement::extract_id_from_file(file)
+                            });
+
+                            for file in entity_files {
+                                if let Some(entity_id) =
+                                    FileManagement::extract_id_from_file(&file)
+                                {
+                                    // Check if it's already in the ecs
+                                    if !self.ecs.entity_exists_by_id(entity_id) {
+                                        // Create the entity with the given ID if it doesn't exist
+                                        // self.ecs.create_entity_by_id(entity_id);
+                                        // Load the entity with the given ID from json file
+                                        if let Err(err) = self.load_entity(entity_id) {
+                                            self.print_to_terminal(&err);
+                                        }
+                                    }
+
+                                    let is_highlighted = self.highlighted_entity == Some(entity_id);
+
+                                    let mut display_name:String = self.ecs.get_entity_by_id(entity_id).unwrap().name.clone();
+
+                                    if display_name.is_empty() {
+                                        display_name = format!("Entity {}", entity_id);
+                                    }
+
+                                    let button =
+                                        egui::Button::new(display_name)
+                                            .min_size(egui::vec2(80.0, ui.style().spacing.item_spacing.y))
+                                            .fill(if is_highlighted {
+                                                egui::Color32::from_rgb(200, 200, 255)
+                                            } else {
+                                                egui::Color32::from_rgb(240, 240, 240)
+                                            });
+
+                                    let button_response = ui.add(button);
+
+                                    // Handle right-click on button
+                                    button_response.context_menu(|ui| {
+
+                                        self.highlighted_entity = Some(entity_id);
+
+                                        if ui.button("Rename").clicked() {
+
+                                            self.show_entity_rename_popup = true;
+                                            ui.close_menu();
+                                        }
+                                        if ui.button("Delete").clicked() {
+                                            self.delete_entity_by_file(&file);
+                                            ui.close_menu();
+                                        }
+                                    });
+
+                                    if button_response.clicked() {
+                                        self.highlighted_entity = Some(entity_id);
+                                        self.print_to_terminal(&format!(
+                                            "Clicked on entity ID: {}",
+                                            entity_id
+                                        ));
+                                    }
+                                }
+                            }
+
+                            // self.print_sorted_entity_ids_to_terminal();
+                        });
+                }
+
+                if self.show_entity_rename_popup {
+                    self.show_entity_rename_popup(ctx);
+                }
+
+            });
+    }
+
+    /// Entity rename popup
+    fn show_entity_rename_popup(&mut self, ctx: &egui::Context) {
+
+        egui::Window::new("Rename Entity")
+            .resizable(false)
+            .collapsible(false)
+            .show(ctx, |ui| {
+                ui.label("Entity Name:");
+                ui.text_edit_singleline(&mut self.new_entity_name);
+
+                ui.horizontal(|ui| {
+                    if ui.button("OK").clicked() {
+                        if let Some(selected_id) = self.highlighted_entity {
+                            let entity_name = self.new_entity_name.trim().to_string();
+
+                            self.ecs.update_entity_name(
+                                selected_id,
+                                entity_name.clone(),
+                            );
+                            self.update_entity(selected_id);
+                            self.print_to_terminal("Entity renamed successfully.");
+                            self.new_entity_name.clear();
+                            self.show_entity_rename_popup = false;
+
+                        } else {
+                            self.print_to_terminal("No entity selected.");
+                        }
+                    }
+
+                    if ui.button("Cancel").clicked() {
+                        self.new_entity_name.clear();
+                        self.show_entity_rename_popup = false;
+                    }
+                });
+
+            });
+    }
+
 
 }
