@@ -330,8 +330,6 @@ impl EngineGui {
 
     // Three-panel layout with left, right, and central panels
     fn show_three_panel_layout(&mut self, ctx: &egui::Context, ctx_width: f32) {
-        let item_spacing = ctx.style().spacing.item_spacing; // Get the vertical spacing between elements
-
         // Left panel (split into top and bottom)
         egui::SidePanel::left("asset")
             .resizable(true)
@@ -357,165 +355,10 @@ impl EngineGui {
                 let secondary_panel_height = ui.available_height() * 0.5;
 
                 // Top section
-                egui::TopBottomPanel::top("script_inspector")
-                    .resizable(false)
-                    .exact_height(secondary_panel_height)
-                    .frame(egui::Frame::none().inner_margin(egui::Margin::same(5.0)))
-                    .show_inside(ui, |ui| {
-                        ui.heading("Script Inspector");
-
-                        if let Some(script_id) = self.highlighted_script {
-                            ui.label(format!("Script ID: {}", script_id));
-
-                            // Text editor for the script content
-                            egui::ScrollArea::vertical()
-                                .auto_shrink([false; 2])
-                                .show(ui, |ui| {
-                                    ui.text_edit_multiline(&mut self.current_script_content);
-
-
-                                // Save and reload buttons
-                                ui.horizontal(|ui| {
-                                    // Save content to file
-                                    if ui.button("Save").clicked() {
-                                        let script_file_path = format!("{}/scripts/script_{}.lua", self.project_path, script_id);
-                                        match FileManagement::save_to_file(&self.current_script_content, &script_file_path) {
-                                            Ok(_) => {
-                                                self.print_to_terminal(&format!("Script {} saved successfully.", script_id));
-                                            }
-                                            Err(err) => {
-                                                self.print_to_terminal(&format!(
-                                                    "Failed to save script {}: {}",
-                                                    script_id, err
-                                                ));
-                                            }
-                                        }
-                                    }
-
-                                    // Reload content from file
-                                    if ui.button("Reload").clicked() {
-                                        let script_file_path = format!("{}/scripts/script_{}.lua", self.project_path, script_id);
-                                        match FileManagement::load_file_content(&script_file_path) {
-                                            Ok(content) => {
-                                                self.current_script_content = content;
-                                                self.print_to_terminal(&format!(
-                                                    "Reloaded script {} successfully.",
-                                                    script_id
-                                                ));
-                                            }
-                                            Err(err) => {
-                                                self.print_to_terminal(&format!(
-                                                    "Failed to reload script {}: {}",
-                                                    script_id, err
-                                                ));
-                                            }
-                                        }
-                                    }
-                                });
-                            });
-
-                        } else {
-                            ui.label("Inspect and modify the attributes of the script");
-                        }
-
-                    });
+                self.show_script_inspector_panel(ctx, ui, secondary_panel_height);
 
                 // Bottom section
-                let script_folder_path = format!("{}/scripts", self.project_path);
-                egui::TopBottomPanel::bottom("script")
-                    .resizable(false)
-                    .exact_height(secondary_panel_height)
-                    .show_separator_line(false)
-                    .frame(egui::Frame::none().inner_margin(egui::Margin::same(5.0)))
-                    .show_inside(ui, |ui| {
-                        let heading_response = ui.heading("Scripts");
-                        let heading_height = heading_response.rect.height(); // Get the height of the heading
-
-                        // Wrapping the entire list of buttons in the scroll area
-                        if self.load_project {
-                            egui::ScrollArea::vertical()
-                                .scroll_bar_visibility(
-                                    egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded,
-                                )
-                                .max_height(
-                                    secondary_panel_height - heading_height - 3.0 * item_spacing.y,
-                                )
-                                .auto_shrink([false; 2]) // Prevent shrinking when there is less content
-                                .show(ui, |ui| {
-                                    let files = FileManagement::list_files_in_folder(
-                                        &script_folder_path,
-                                        self,
-                                    );
-
-                                    // Filter files to include only those starting with "script_" lua files
-                                    let mut script_files: Vec<String> = files
-                                        .into_iter()
-                                        .filter(|file| {
-                                            file.starts_with("script_") && file.ends_with(".lua")
-                                        })
-                                        .collect();
-
-                                    // Sort files by ID
-                                    script_files.sort_by_key(|file| {
-                                        FileManagement::extract_id_from_file(file)
-                                    });
-
-                                    for file in script_files {
-                                        if let Some(script_id) = FileManagement::extract_id_from_file(&file)
-                                        {
-
-                                            if script_id >= self.next_script_id {
-                                                self.next_script_id = script_id + 1;
-                                            }
-
-                                            let is_highlighted = self.highlighted_script == Some(script_id);
-
-                                            let button =
-                                                egui::Button::new(format!("Script {}", script_id))
-                                                    .fill(if is_highlighted {
-                                                        egui::Color32::from_rgb(200, 200, 255)
-                                                    } else {
-                                                        egui::Color32::from_rgb(240, 240, 240)
-                                                    });
-
-                                            let button_response = ui.add(button);
-
-                                            // Handle right-click on button
-                                            button_response.context_menu(|ui| {
-                                                if ui.button("Delete").clicked() {
-                                                    self.delete_script_by_file(&file);
-                                                    ui.close_menu();
-                                                }
-                                            });
-
-                                            if button_response.clicked() {
-                                                self.highlighted_script = Some(script_id);
-
-                                                // Load script content from file
-                                                let script_file_path = format!("{}/scripts/script_{}.lua", self.project_path, script_id);
-                                                match FileManagement::load_file_content(&script_file_path) {
-                                                    Ok(content) => {
-                                                        self.current_script_content = content;
-                                                    }
-                                                    Err(err) => {
-                                                        self.print_to_terminal(&format!(
-                                                            "Failed to load script content for ID {}: {}",
-                                                            script_id, err
-                                                        ));
-                                                    }
-                                                }
-
-                                                self.print_to_terminal(&format!(
-                                                    "Clicked on script ID: {}",
-                                                    script_id
-                                                ));
-
-                                            }
-                                        }
-                                    }
-                                });
-                        }
-                    });
+                self.show_script_panel(ctx, ui, secondary_panel_height);
             });
     }
 
@@ -1604,4 +1447,170 @@ impl EngineGui {
     }
 
 
+
+    /// Script Inspector panel
+    fn show_script_inspector_panel(&mut self, ctx: &egui::Context, ui: &mut egui::Ui, secondary_panel_height: f32) {
+        egui::TopBottomPanel::top("script_inspector")
+            .resizable(false)
+            .exact_height(secondary_panel_height)
+            .frame(egui::Frame::none().inner_margin(egui::Margin::same(5.0)))
+            .show_inside(ui, |ui| {
+                ui.heading("Script Inspector");
+
+                if let Some(script_id) = self.highlighted_script {
+                    ui.label(format!("Script ID: {}", script_id));
+
+                    // Text editor for the script content
+                    egui::ScrollArea::vertical()
+                        .auto_shrink([false; 2])
+                        .show(ui, |ui| {
+                            ui.text_edit_multiline(&mut self.current_script_content);
+
+
+                            // Save and reload buttons
+                            ui.horizontal(|ui| {
+                                // Save content to file
+                                if ui.button("Save").clicked() {
+                                    let script_file_path = format!("{}/scripts/script_{}.lua", self.project_path, script_id);
+                                    match FileManagement::save_to_file(&self.current_script_content, &script_file_path) {
+                                        Ok(_) => {
+                                            self.print_to_terminal(&format!("Script {} saved successfully.", script_id));
+                                        }
+                                        Err(err) => {
+                                            self.print_to_terminal(&format!(
+                                                "Failed to save script {}: {}",
+                                                script_id, err
+                                            ));
+                                        }
+                                    }
+                                }
+
+                                // Reload content from file
+                                if ui.button("Reload").clicked() {
+                                    let script_file_path = format!("{}/scripts/script_{}.lua", self.project_path, script_id);
+                                    match FileManagement::load_file_content(&script_file_path) {
+                                        Ok(content) => {
+                                            self.current_script_content = content;
+                                            self.print_to_terminal(&format!(
+                                                "Reloaded script {} successfully.",
+                                                script_id
+                                            ));
+                                        }
+                                        Err(err) => {
+                                            self.print_to_terminal(&format!(
+                                                "Failed to reload script {}: {}",
+                                                script_id, err
+                                            ));
+                                        }
+                                    }
+                                }
+                            });
+                        });
+
+                } else {
+                    ui.label("Inspect and modify the attributes of the script");
+                }
+
+            });
+    }
+
+    /// Script panel
+    fn show_script_panel(&mut self, ctx: &egui::Context, ui: &mut egui::Ui, secondary_panel_height: f32) {
+        let item_spacing = ctx.style().spacing.item_spacing;
+        let script_folder_path = format!("{}/scripts", self.project_path);
+        egui::TopBottomPanel::bottom("script")
+            .resizable(false)
+            .exact_height(secondary_panel_height)
+            .show_separator_line(false)
+            .frame(egui::Frame::none().inner_margin(egui::Margin::same(5.0)))
+            .show_inside(ui, |ui| {
+                let heading_response = ui.heading("Scripts");
+                let heading_height = heading_response.rect.height(); // Get the height of the heading
+
+                // Wrapping the entire list of buttons in the scroll area
+                if self.load_project {
+                    egui::ScrollArea::vertical()
+                        .scroll_bar_visibility(
+                            egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded,
+                        )
+                        .max_height(
+                            secondary_panel_height - heading_height - 3.0 * item_spacing.y,
+                        )
+                        .auto_shrink([false; 2]) // Prevent shrinking when there is less content
+                        .show(ui, |ui| {
+                            let files = FileManagement::list_files_in_folder(
+                                &script_folder_path,
+                                self,
+                            );
+
+                            // Filter files to include only those starting with "script_" lua files
+                            let mut script_files: Vec<String> = files
+                                .into_iter()
+                                .filter(|file| {
+                                    file.starts_with("script_") && file.ends_with(".lua")
+                                })
+                                .collect();
+
+                            // Sort files by ID
+                            script_files.sort_by_key(|file| {
+                                FileManagement::extract_id_from_file(file)
+                            });
+
+                            for file in script_files {
+                                if let Some(script_id) = FileManagement::extract_id_from_file(&file)
+                                {
+
+                                    if script_id >= self.next_script_id {
+                                        self.next_script_id = script_id + 1;
+                                    }
+
+                                    let is_highlighted = self.highlighted_script == Some(script_id);
+
+                                    let button =
+                                        egui::Button::new(format!("Script {}", script_id))
+                                            .fill(if is_highlighted {
+                                                egui::Color32::from_rgb(200, 200, 255)
+                                            } else {
+                                                egui::Color32::from_rgb(240, 240, 240)
+                                            });
+
+                                    let button_response = ui.add(button);
+
+                                    // Handle right-click on button
+                                    button_response.context_menu(|ui| {
+                                        if ui.button("Delete").clicked() {
+                                            self.delete_script_by_file(&file);
+                                            ui.close_menu();
+                                        }
+                                    });
+
+                                    if button_response.clicked() {
+                                        self.highlighted_script = Some(script_id);
+
+                                        // Load script content from file
+                                        let script_file_path = format!("{}/scripts/script_{}.lua", self.project_path, script_id);
+                                        match FileManagement::load_file_content(&script_file_path) {
+                                            Ok(content) => {
+                                                self.current_script_content = content;
+                                            }
+                                            Err(err) => {
+                                                self.print_to_terminal(&format!(
+                                                    "Failed to load script content for ID {}: {}",
+                                                    script_id, err
+                                                ));
+                                            }
+                                        }
+
+                                        self.print_to_terminal(&format!(
+                                            "Clicked on script ID: {}",
+                                            script_id
+                                        ));
+
+                                    }
+                                }
+                            }
+                        });
+                }
+            });
+    }
 }
