@@ -304,7 +304,9 @@ physics_engine.handle_collisions();
 
 ## [ECS Entity Component System](/src/ecs.rs)
 
-ECS system diagram:
+The Entity Component System (ECS) is the core architecture of our game engine, providing a flexible and efficient way to create and manage game objects. It follows a composition-over-inheritance pattern, making it easy to create complex game objects without deep inheritance hierarchies.
+
+### System Overview
 
 ```mermaid
 classDiagram
@@ -386,6 +388,120 @@ classDiagram
     Resource --> "1" ResourceType : has type
     Attribute --> "1" AttributeType : has type
 ```
+
+ECS implementation consists of four main parts:
+
+1. **Scene Manager**
+   - Top-level controller managing multiple scenes
+   - Handles scene creation, deletion, and switching
+   - Maintains a unique ID for each scene
+   - Example: Managing different levels, menus, or game states
+
+2. **Scene**
+   - Container for entities and resources
+   - Manages the game world state
+   - Handles entity and resource creation/deletion
+   - Example: A game level containing players, enemies, and items
+
+3. **Entity**
+   - Basic game object container
+   - Holds attributes and resource references
+   - Can represent anything from players to UI elements
+   - Example: A player character with position, health, and sprite
+
+4. **Components**
+   - **Attributes**: Data components (position, health, speed)
+   - **Resources**: External assets (images, sounds, scripts)
+
+### Key Features
+
+#### 1. Hierarchical Structure
+```
+SceneManager
+└── Scene 1 (e.g., "OpenWorld")
+    ├── Entity 1 (e.g., "Player")
+    │   ├── Attributes
+    │   │   ├── position: Vector2(100, 100)
+    │   │   └── health: Integer(100)
+    │   └── Resources
+    │       ├── sprite.png
+    │       └── jump_sound.wav
+    └── Entity 2 (e.g., "Enemy")
+        └── ...
+```
+
+#### 2. Flexible Component System
+- **Attributes**: Store entity-specific data
+  ```rust
+  // Position component
+  entity.create_attribute("position", AttributeType::Vector2, Vector2(0.0, 0.0));
+  
+  // Health component
+  entity.create_attribute("health", AttributeType::Integer, Integer(100));
+  ```
+
+#### 3. Resource Management
+- **Centralized Resource Handling**: Resources are managed at the scene level
+- **Reference System**: Entities reference resources by ID
+- **Type Safety**: Resources are typed (Image, Sound, Script)
+  ```rust
+  // Create and reference a resource
+  let texture_id = scene.create_resource("player", "player.png", ResourceType::Image);
+  player.attach_resource(texture_id);
+  ```
+
+### Common Use Cases
+
+#### Creating a Player Character
+```rust
+// Create entity
+let player_id = scene.create_entity("Player");
+let player = scene.get_entity_mut(player_id).unwrap();
+
+// Add components
+player.create_attribute("position", Vector2(0.0, 0.0));
+player.create_attribute("health", Integer(100));
+player.create_attribute("speed", Float(5.0));
+
+// Add resources
+let sprite_id = scene.create_resource("player_sprite", "player.png", ResourceType::Image);
+player.attach_resource(sprite_id);
+```
+
+#### Creating an Interactive Object
+```rust
+// Create a collectible item
+let coin_id = scene.create_entity("Coin");
+let coin = scene.get_entity_mut(coin_id).unwrap();
+
+// Add components
+coin.create_attribute("position", Vector2(100.0, 100.0));
+coin.create_attribute("is_collected", Boolean(false));
+coin.create_attribute("value", Integer(10));
+
+// Add resources
+let coin_sprite = scene.create_resource("coin_sprite", "coin.png", ResourceType::Image);
+let collect_sound = scene.create_resource("collect_sound", "collect.wav", ResourceType::Sound);
+coin.attach_resource(coin_sprite);
+coin.attach_resource(collect_sound);
+```
+
+### Best Practices and Tips
+
+1. **Entity Design**
+   - Keep entities focused and single-purpose
+   - Use meaningful names for entities and attributes
+   - Group related attributes logically
+
+2. **Resource Management**
+   - Share resources between entities when possible
+   - Clean up unused resources
+   - Use appropriate resource types
+
+3. **Scene Organization**
+   - Divide complex games into multiple scenes
+   - Use scene transitions for level management
+   - Keep scene hierarchies clean and logical
 
 ## [Script Interpreter](/src/script_interpreter.rs)
 
