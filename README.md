@@ -650,17 +650,17 @@ Using [winit](https://github.com/rust-windowing/winit) for the game input handli
 
 ## [Project Manager](/src/project_manager.rs)
 
-The Project Manager handles game project creation, loading, saving, and building. It provides a structured way to manage game projects and their assets.
+The Project Manager handles game project creation, loading, saving, building, and asset importing. It provides a structured way to manage game projects and their assets.
 
 ### Project Structure
 ```
 game_project/
 ├── assets/
-│   ├── images/
-│   ├── sounds/
-│   └── fonts/
+│   ├── images/    # PNG, JPG, JPEG, GIF
+│   ├── sounds/    # WAV, MP3, OGG
+│   └── fonts/     # TTF, OTF
 ├── scenes/
-├── scripts/
+├── scripts/       # LUA scripts
 ├── src/
 │   └── main.rs
 ├── Cargo.toml
@@ -676,10 +676,11 @@ classDiagram
         +load_project(project_path: &Path) Result<ProjectMetadata, String>
         +save_project(project_path: &Path, metadata: &ProjectMetadata) Result<(), String>
         +build_project(project_path: &Path) Result<(), String>
+        +import_asset(project_path: &Path, asset_path: &Path, asset_type: AssetType) Result<String, String>
         -create_folder_structure(base_path: &Path) Result<(), String>
         -create_metadata_file(base_path: &Path, metadata: &ProjectMetadata) Result<(), String>
         -create_main_file(base_path: &Path, project_name: &str) Result<(), String>
-        -copy_directory_contents(src: &Path, dst: &Path) Result<(), ()>
+        -copy_directory_contents(src: &Path, dst: &Path) std::io::Result<()>
     }
 
     class ProjectMetadata {
@@ -689,11 +690,23 @@ classDiagram
         +default_scene: String
     }
 
+    class AssetType {
+        <<enumeration>>
+        Image
+        Sound
+        Font
+        Script
+    }
+
     ProjectManager ..> ProjectMetadata : creates/manages
+    ProjectManager ..> AssetType : uses
 
     note for ProjectManager "Static methods only\nNo instance state"
     note for ProjectMetadata "Serializable structure\nStores project info"
+    note for AssetType "Defines supported\nasset types"
 ```
+
+### Usage Examples
 
 #### Project Creation
 ```rust
@@ -711,28 +724,79 @@ let metadata = ProjectManager::load_project(project_path)?;
 ProjectManager::save_project(project_path, &metadata)?;
 ```
 
+#### Asset Import
+```rust
+// Import an image
+let image_path = Path::new("path/to/sprite.png");
+let relative_path = ProjectManager::import_asset(
+    project_path,
+    image_path,
+    AssetType::Image
+)?;
+
+// Import a sound
+let sound_path = Path::new("path/to/effect.wav");
+let relative_path = ProjectManager::import_asset(
+    project_path,
+    sound_path,
+    AssetType::Sound
+)?;
+```
+
 #### Build System
 ```rust
 // Build the project
 ProjectManager::build_project(project_path)?;
 ```
-The build process:
-- Compiles Rust code with `cargo build --release`
-- Copies assets to the target directory
-- Creates a ready-to-run game executable
 
-### Project Metadata
+### Supported Asset Types
+
+#### Images
+- Formats: PNG, JPG, JPEG, GIF
+- Directory: `assets/images/`
+
+#### Sounds
+- Formats: WAV, MP3, OGG
+- Directory: `assets/sounds/`
+
+#### Fonts
+- Formats: TTF, OTF
+- Directory: `assets/fonts/`
+
+#### Scripts
+- Formats: LUA
+- Directory: `scripts/`
+
+### Technical Details
+
+#### Project Metadata
 Stores essential project information in `project.json`:
 - Project name
 - Version
 - Project path
 - Default scene
 
-### Technical Details
-- Path-based file management
-- Structured asset organization
-- Integrated build system
-- Automatic resource copying
+#### Asset Management
+- Automatic file type validation
+- Duplicate file detection
+- Organized asset directory structure
+- Clear error messages for invalid imports
+
+#### Build Process
+- Compiles Rust code with `cargo build --release`
+- Copies assets to the target directory
+- Creates a ready-to-run game executable
+
+### Best Practices
+1. **Asset Organization**
+   - Use appropriate file formats for each asset type
+   - Keep assets in their designated directories
+   - Avoid duplicate file names
+
+2. **Project Structure**
+   - Maintain clean directory hierarchy
+   - Follow the recommended file organization
+   - Handle asset import errors gracefully
 
 ## [Engine GUI](/src/engine_gui.rs)
 
