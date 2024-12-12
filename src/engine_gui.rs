@@ -1375,7 +1375,7 @@ impl EngineGui {
 
                         let frame = egui::Frame::default().inner_margin(4.0);
 
-                        let (_, dropped_payload) = ui.dnd_drop_zone::<usize, ()>(frame, |ui| {
+                        ui.dnd_drop_zone::<usize, ()>(frame, |ui| {
                             ui.set_min_size(egui::vec2(64.0, 100.0));
                             for (row_idx, item) in rows.iter().enumerate() {
                                 let item_id = egui::Id::new(("entity_attribute", row_idx));
@@ -1519,7 +1519,7 @@ impl EngineGui {
 
                                     let button =
                                         egui::Button::new(display_name)
-                                            .min_size(egui::vec2(80.0, ui.style().spacing.item_spacing.y))
+                                            .min_size(egui::vec2(ui.available_width(), ui.style().spacing.item_spacing.y))
                                             .fill(if is_highlighted {
                                                 egui::Color32::from_rgb(200, 200, 255)
                                             } else {
