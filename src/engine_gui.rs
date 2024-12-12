@@ -1,120 +1,205 @@
 use eframe::egui;
 
 pub struct EngineGui {
-    // Layout States
-    areas: Areas,
-    
-    // Panel States
-    show_output_tab: bool,
-    show_debug_tab: bool,
+    // Window States
+    show_hierarchy: bool,
+    show_filesystem: bool,
+    show_inspector: bool,
+    show_console: bool,
     show_editor: bool,
     show_debug: bool,
-}
 
-struct Areas {
-    left_panel_width: f32,
-    right_panel_width: f32,
-    bottom_panel_height: f32,
+    // Window Sizes (as percentages of screen size)
+    side_panel_width_percentage: f32,
+    console_height_percentage: f32,
 }
 
 impl EngineGui {
-    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+    pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
         Self {
-            areas: Areas {
-                left_panel_width: 250.0,
-                right_panel_width: 250.0,
-                bottom_panel_height: 200.0,
-            },
-            show_output_tab: true,
-            show_debug_tab: false,
+            show_hierarchy: true,
+            show_filesystem: true,
+            show_inspector: true,
+            show_console: true,
             show_editor: false,
             show_debug: false,
+
+            side_panel_width_percentage: 0.2, // 20% of screen width
+            console_height_percentage: 0.2,    // 20% of screen height
         }
     }
 
-    fn show_top_bar(&mut self, ui: &mut egui::Ui) {
-        egui::TopBottomPanel::top("top_bar").show_inside(ui, |ui| {
-            ui.horizontal(|ui| {
-                ui.menu_button("File", |ui| {
-                    ui.button("New Project");
-                    ui.button("Open Project");
-                    ui.button("Save Project");
-                    ui.separator();
-                    ui.button("Exit");
-                });
+    fn show_windows(&mut self, ctx: &egui::Context) {
+        let screen_rect = ctx.available_rect();
+        let side_panel_width = screen_rect.width() * self.side_panel_width_percentage;
+        let console_height = screen_rect.height() * self.console_height_percentage;
+        let menu_height = 32.0;
+        let spacing = 4.0;
 
-                ui.menu_button("Edit", |ui| {
-                    ui.button("Undo");
-                    ui.button("Redo");
-                });
+        // Compensate for window frame borders
+        let border_compensation = 1.0; // Adjust this value as needed
 
-                ui.menu_button("View", |ui| {
-                    ui.button("Reset Layout");
-                });
+        // Calculate available space after menu
+        let available_height = screen_rect.height() - menu_height - console_height + border_compensation;
+        let half_height = (available_height - spacing) / 2.0;
 
-                ui.menu_button("Project", |ui| {
-                    ui.button("Build");
-                    ui.button("Run");
-                });
+        // Create menu frame with dark background
+        let menu_frame = egui::Frame {
+            inner_margin: egui::Margin::symmetric(4.0, 4.0),
+            outer_margin: egui::Margin::ZERO,
+            rounding: egui::Rounding::ZERO,
+            shadow: eframe::epaint::Shadow::NONE,
+            fill: egui::Color32::from_hex("#000000").unwrap(),
+            stroke: ctx.style().visuals.widgets.noninteractive.bg_stroke,
+        };
 
-                ui.menu_button("Help", |ui| {
-                    ui.button("Documentation");
-                    ui.button("About");
+        let menu_height = menu_frame.inner_margin.top 
+            + menu_frame.inner_margin.bottom 
+            + 20.0;
+
+        // Create different frames for different window types
+        let panel_frame = egui::Frame {
+            inner_margin: egui::Margin::symmetric(4.0, 4.0),
+            outer_margin: egui::Margin::ZERO,
+            rounding: egui::Rounding::ZERO,
+            shadow: eframe::epaint::Shadow::NONE,
+            fill: egui::Color32::from_hex("#000000").unwrap(),
+            stroke: ctx.style().visuals.widgets.noninteractive.bg_stroke,
+        };
+
+        let viewport_frame = egui::Frame {
+            inner_margin: egui::Margin::symmetric(4.0, 4.0),
+            outer_margin: egui::Margin::ZERO,
+            rounding: egui::Rounding::ZERO,
+            shadow: eframe::epaint::Shadow::NONE,
+            fill: egui::Color32::from_hex("#000000").unwrap(),
+            stroke: ctx.style().visuals.widgets.noninteractive.bg_stroke,
+        };
+
+        let console_frame = egui::Frame {
+            inner_margin: egui::Margin::symmetric(4.0, 4.0),
+            outer_margin: egui::Margin::ZERO,
+            rounding: egui::Rounding::ZERO,
+            shadow: eframe::epaint::Shadow::NONE,
+            fill: egui::Color32::from_hex("#000000").unwrap(),
+            stroke: ctx.style().visuals.widgets.noninteractive.bg_stroke,
+        };
+
+        // Apply frames to windows...
+        egui::Window::new("Menu")
+            .frame(menu_frame)
+            .anchor(egui::Align2::LEFT_TOP, egui::vec2(0.0, 0.0))
+            .resizable(false)
+            .collapsible(false)
+            .movable(false)
+            .title_bar(false)
+            .fixed_size([screen_rect.width(), menu_height])
+            .show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    ui.menu_button("File", |ui| {
+                        ui.button("New Project");
+                        ui.button("Open Project");
+                        ui.button("Save Project");
+                        ui.separator();
+                        ui.button("Exit");
+                    });
+                    ui.menu_button("Edit", |ui| {
+                        ui.button("Undo");
+                        ui.button("Redo");
+                    });
+                    ui.menu_button("Import", |ui| {
+                        ui.button("Import Sound");
+                        ui.button("Import Image");
+                        ui.button("Import Script");
+                    });
+                    ui.menu_button("Project", |ui| {
+                        ui.button("Build Project");
+                    });
                 });
             });
-        });
-    }
 
-    fn show_left_panel(&mut self, ui: &mut egui::Ui) {
-        egui::SidePanel::left("left_panel")
-            .resizable(true)
-            .default_width(self.areas.left_panel_width)
-            .width_range(200.0..=400.0)
-            .show_inside(ui, |ui| {
-                // Calculate total available height and split point
-                let available_height = ui.available_height();
-                let split_height = available_height * 0.5;
-
-                // Top section - Scene Hierarchy
-                egui::TopBottomPanel::top("scene_hierarchy")
-                    .exact_height(split_height)
-                    .resizable(false)
-                    .show_inside(ui, |ui| {
-                        ui.heading("Scene Hierarchy");
-                        ui.separator();
-                        ui.label("Scene tree will go here");
-                });
-
-                // Bottom section - File System
-                egui::TopBottomPanel::bottom("file_system")
-                    .exact_height(split_height)
-                    .resizable(false)
-                    .show_inside(ui, |ui| {
-                        ui.heading("File System");
-                        ui.separator();
-                        ui.label("File browser will go here");
-                });
+        // Scene Hierarchy Window (Left Top)
+        egui::Window::new("Scene Hierarchy")
+            .frame(panel_frame)
+            .anchor(egui::Align2::LEFT_TOP, egui::vec2(0.0, menu_height))
+            .fixed_size([side_panel_width - border_compensation, half_height])
+            .show(ctx, |ui| {
+                ui.label("Scene tree will go here");
             });
-    }
 
-    fn show_right_panel(&mut self, ui: &mut egui::Ui) {
-        egui::SidePanel::right("right_panel")
-            .resizable(true)
-            .default_width(self.areas.right_panel_width)
-            .width_range(200.0..=400.0)
-            .show_inside(ui, |ui| {
-                ui.heading("Inspector");
+        // File System Window (Left Bottom)
+        egui::Window::new("File System")
+            .frame(panel_frame)
+            .anchor(egui::Align2::LEFT_BOTTOM, egui::vec2(0.0, 0.0))
+            .fixed_size([side_panel_width - border_compensation, half_height])
+            .show(ctx, |ui| {
+                ui.label("File browser will go here");
+            });
+
+        // Inspector Window (Right)
+        egui::Window::new("Inspector")
+            .frame(panel_frame)
+            .anchor(egui::Align2::RIGHT_TOP, egui::vec2(border_compensation, menu_height))
+            .fixed_size([side_panel_width - border_compensation, available_height])
+            .show(ctx, |ui| {
                 ui.label("Properties will go here");
             });
-    }
 
-    fn show_bottom_panel(&mut self, ui: &mut egui::Ui) {
-        egui::TopBottomPanel::bottom("bottom_panel")
-            .resizable(true)
-            .default_height(self.areas.bottom_panel_height)
-            .height_range(100.0..=300.0)
-            .show_inside(ui, |ui| {
-                // Tab selection
+        // Viewport (Center)
+        egui::Window::new("Viewport")
+            .frame(viewport_frame)
+            .anchor(egui::Align2::LEFT_TOP, egui::vec2(
+                side_panel_width + spacing - border_compensation,
+                menu_height
+            ))
+            .resizable(false)
+            .collapsible(false)
+            .movable(false)
+            .title_bar(false)
+            .fixed_size([
+                screen_rect.width() - (2.0 * side_panel_width) - (2.0 * spacing) + (2.0 * border_compensation),
+                available_height
+            ])
+            .show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    if ui.selectable_label(!self.show_editor, "🎮 Viewport").clicked() {
+                        self.show_editor = false;
+                    }
+                    if ui.selectable_label(self.show_editor, "📝 Editor").clicked() {
+                        self.show_editor = true;
+                    }
+                });
+                ui.separator();
+
+                if self.show_editor {
+                    let rect = ui.available_rect_before_wrap();
+                    ui.painter().rect_filled(rect, 0.0, egui::Color32::from_gray(40));
+                    ui.add_sized(rect.size(),
+                        egui::TextEdit::multiline(&mut String::new())
+                            .code_editor()
+                            .desired_width(f32::INFINITY)
+                    );
+                } else {
+                    let rect = ui.available_rect_before_wrap();
+                    ui.painter().rect_filled(rect, 0.0, egui::Color32::from_gray(32));
+                    ui.centered_and_justified(|ui| {
+                        ui.label("Game view will go here");
+                    });
+                }
+            });
+
+        // Console/Debug Window (Bottom)
+        egui::Window::new(if self.show_debug { "Debug" } else { "Console" })
+            .frame(console_frame)
+            .anchor(egui::Align2::LEFT_BOTTOM, egui::vec2(
+                side_panel_width + spacing - border_compensation,
+                border_compensation
+            ))
+            .fixed_size([
+                screen_rect.width() - (2.0 * side_panel_width) - (2.0 * spacing) + (2.0 * border_compensation),
+                console_height - border_compensation
+            ])
+            .show(ctx, |ui| {
                 ui.horizontal(|ui| {
                     if ui.selectable_label(!self.show_debug, "🖥 Output").clicked() {
                         self.show_debug = false;
@@ -124,8 +209,6 @@ impl EngineGui {
                     }
                 });
                 ui.separator();
-
-                // Content area
                 if self.show_debug {
                     ui.label("Debug info will go here");
                 } else {
@@ -133,59 +216,10 @@ impl EngineGui {
                 }
             });
     }
-
-    fn show_center_panel(&mut self, ui: &mut egui::Ui) {
-        egui::CentralPanel::default().show_inside(ui, |ui| {
-            // Top toolbar for view switching
-            ui.horizontal(|ui| {
-                if ui.selectable_label(!self.show_editor, "🎮 Viewport").clicked() {
-                    self.show_editor = false;
-                }
-                if ui.selectable_label(self.show_editor, "📝 Editor").clicked() {
-                    self.show_editor = true;
-                }
-            });
-            ui.separator();
-
-            // Content area
-            if self.show_editor {
-                // Code Editor View
-                let rect = ui.available_rect_before_wrap();
-                ui.painter().rect_filled(
-                    rect,
-                    0.0,
-                    egui::Color32::from_gray(40),
-                );
-                ui.add_sized(
-                    rect.size(),
-                    egui::TextEdit::multiline(&mut String::new())
-                        .code_editor()
-                        .desired_width(f32::INFINITY)
-                );
-            } else {
-                // Viewport View
-                let rect = ui.available_rect_before_wrap();
-                ui.painter().rect_filled(
-                    rect,
-                    0.0,
-                    egui::Color32::from_gray(32),
-                );
-                ui.centered_and_justified(|ui| {
-                    ui.label("Game view will go here");
-                });
-            }
-        });
-    }
 }
 
 impl eframe::App for EngineGui {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::CentralPanel::default().show(ctx, |ui| {
-            self.show_top_bar(ui);
-            self.show_left_panel(ui);
-            self.show_right_panel(ui);
-            self.show_bottom_panel(ui);
-            self.show_center_panel(ui);
-        });
+        self.show_windows(ctx);
     }
 }
