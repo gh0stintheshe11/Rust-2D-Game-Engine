@@ -1,4 +1,5 @@
 mod engine_gui;
+mod gui;
 mod project_manager;
 use eframe::*;
 mod audio_engine;

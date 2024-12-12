@@ -1,16 +1,15 @@
 use eframe::egui;
 use crate::gui::gui_state::GuiState;
 
-pub struct EditMenu;
+pub struct ProjectMenu;
 
-impl EditMenu {
+impl ProjectMenu {
     pub fn new() -> Self {
         Self {}
     }
 
     pub fn show(&mut self, ctx: &egui::Context, ui: &mut egui::Ui, gui_state: &mut GuiState) {
-        ui.button("Undo");
-        ui.button("Redo");
+        ui.button("Build Project");
     }
 
 }

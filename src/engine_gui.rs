@@ -1,4 +1,9 @@
 use eframe::egui;
+use crate::gui::scene_hierarchy::SceneHierarchy;
+use crate::gui::menu_bar::MenuBar;
+use crate::gui::gui_state::GuiState;
+
+
 
 pub struct EngineGui {
     // Window States
@@ -13,8 +18,12 @@ pub struct EngineGui {
     side_panel_width_percentage: f32,
     console_height_percentage: f32,
 
+    // Windows
+    pub scene_hierarchy: SceneHierarchy,
+    pub menu_bar: MenuBar,
+
     // GUI settings
-    dark_mode: bool,
+    pub gui_state: GuiState,
 }
 
 impl EngineGui {
@@ -30,8 +39,12 @@ impl EngineGui {
             side_panel_width_percentage: 0.2, // 20% of screen width
             console_height_percentage: 0.2,    // 20% of screen height
 
+            // Windows
+            scene_hierarchy: SceneHierarchy::new(),
+            menu_bar: MenuBar::new(),
+
             // GUI settings
-            dark_mode: false,
+            gui_state: GuiState::new(),
         }
     }
 
@@ -104,36 +117,7 @@ impl EngineGui {
             .title_bar(false)
             .fixed_size([screen_rect.width(), menu_height])
             .show(ctx, |ui| {
-                ui.horizontal(|ui| {
-                    ui.menu_button("File", |ui| {
-                        ui.button("New Project");
-                        ui.button("Open Project");
-                        ui.button("Save Project");
-                        ui.separator();
-                        ui.button("Exit");
-                    });
-                    ui.menu_button("Edit", |ui| {
-                        ui.button("Undo");
-                        ui.button("Redo");
-                    });
-                    ui.menu_button("View", |ui| {
-                        let dark_mode_button = ui.selectable_label(self.dark_mode, "Dark Mode");
-
-                        // Handle dark mode button
-                        if dark_mode_button.clicked() {
-                            self.dark_mode = !self.dark_mode;
-                            self.update_theme(ctx);
-                        }
-                    });
-                    ui.menu_button("Import", |ui| {
-                        ui.button("Import Sound");
-                        ui.button("Import Image");
-                        ui.button("Import Script");
-                    });
-                    ui.menu_button("Project", |ui| {
-                        ui.button("Build Project");
-                    });
-                });
+                self.menu_bar.show(ctx, ui, &mut self.gui_state);
             });
 
         // Scene Hierarchy Window (Left Top)
@@ -142,7 +126,7 @@ impl EngineGui {
             .anchor(egui::Align2::LEFT_TOP, egui::vec2(0.0, menu_height))
             .fixed_size([side_panel_width - border_compensation, half_height])
             .show(ctx, |ui| {
-                ui.label("Scene tree will go here");
+                self.scene_hierarchy.show(ui);
             });
 
         // File System Window (Left Bottom)
@@ -236,20 +220,11 @@ impl EngineGui {
     }
 
     fn get_background_color(&self) -> egui::Color32 {
-        if self.dark_mode {
+        if self.gui_state.dark_mode {
             egui::Color32::from_gray(30) // Dark gray
         } else {
             egui::Color32::from_gray(240) // Light gray
         }
-    }
-
-    fn update_theme(&mut self, ctx: &egui::Context) {
-        ctx.set_visuals(if self.dark_mode {
-            egui::Visuals::dark()
-        } else {
-            egui::Visuals::light()
-        });
-        ctx.request_repaint();
     }
 }
 
