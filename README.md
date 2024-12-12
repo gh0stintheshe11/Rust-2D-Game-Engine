@@ -265,22 +265,22 @@ graph TD
     image --> resources
     script --> resources
 
-    resources -->|add resource<br>delete resource<br>modify resource<br>get resource<br>list resource| Scene
-    resources -->|change resource name<br>change resource path<br>change resource type| resources
+    resources -->|"add resource\ndelete resource\nmodify resource\nget resource\nlist resource"| Scene
+    resources -->|"change resource name\nchange resource path\nchange resource type"| resources
 
-    Scene -->|create scene<br>modify scene<br>delete scene<br>load scene<br>unload scene<br>get scene| Entity
-    Scene -->|add entity<br>remove entity<br>list entity| Scene
+    Scene -->|"create scene\nmodify scene\ndelete scene\nload scene\nunload scene\nget scene"| Entity
+    Scene -->|"add entity\nremove entity\nlist entity"| Scene
 
-    Entity -->|create entity<br>delete entity<br>modify entity<br>get entity| Attribute
-    Entity -->|change entity name<br>attach resource (add a resource to resource list)<br>detach resource (delete a resource from resource list)| Entity
+    Entity -->|"create entity\ndelete entity\nmodify entity\nget entity"| Attribute
+    Entity -->|"change entity name\nattach resource (add to resource list)\ndetach resource (delete from resource list)"| Entity
 
-    Attribute -->|create attribute<br>delete attribute<br>modify attribute<br>list attribute<br>get attribute| Attribute
-    Attribute -->|change attribute name<br>change attribute data type<br>change attribute value| Attribute
+    Attribute -->|"create attribute\ndelete attribute\nmodify attribute\nlist attribute\nget attribute"| Attribute
+    Attribute -->|"change attribute name\nchange attribute data type\nchange attribute value"| Attribute
 
     %% GUI interactions
-    sound -->|use the audio engine:<br>play<br>pause<br>stop| sound
-    image -->|display:<br>use GUI popup to display| image
-    script -->|edit:<br>use GUI code editor| script
+    sound -->|"use the audio engine:\nplay\npause\nstop"| sound
+    image -->|"display:\nuse GUI popup to display"| image
+    script -->|"edit:\nuse GUI code editor"| script
 ```
 
 ## [Script Interpreter](/src/script_interpreter.rs)
