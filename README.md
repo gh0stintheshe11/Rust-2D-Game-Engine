@@ -252,35 +252,84 @@ physics_engine.handle_collisions();
 ECS system diagram:
 
 ```mermaid
-graph TD
-    resources["resources"]
-    sound["sound"]
-    image["image"]
-    script["script"]
-    Scene["Scene"]
-    Entity["Entity"]
-    Attribute["Attribute"]
+classDiagram
+    class SceneManager {
+        +scenes: HashMap<Uuid, Scene>
+        +new()
+        +create_scene(name: str)
+        +delete_scene(id: Uuid)
+        +list_scene()
+        +get_scene(id: Uuid)
+        +get_scene_by_name(name: str)
+    }
 
-    sound --> resources
-    image --> resources
-    script --> resources
+    class Scene {
+        +id: Uuid
+        +name: String
+        +entities: HashMap<Uuid, Entity>
+        +resources: HashMap<Uuid, Resource>
+        +new(name: str)
+        +modify_scene(new_name: str)
+        +create_entity(name: str)
+        +create_resource(name: str, path: str, type: ResourceType)
+        +load_scene()
+        +unload_scene()
+    }
 
-    resources -->|"add resource\ndelete resource\nmodify resource\nget resource\nlist resource"| Scene
-    resources -->|"change resource name\nchange resource path\nchange resource type"| resources
+    class Entity {
+        +id: Uuid
+        +name: String
+        +attributes: HashMap<Uuid, Attribute>
+        +resource_list: Vec<Uuid>
+        +new(id: Uuid, name: str)
+        +change_entity_name(new_name: str)
+        +attach_resource(resource_id: Uuid)
+        +detach_resource(resource_id: Uuid)
+        +create_attribute(name: str, type: AttributeType, value: AttributeValue)
+    }
 
-    Scene -->|"create scene\nmodify scene\ndelete scene\nload scene\nunload scene\nget scene"| Entity
-    Scene -->|"add entity\nremove entity\nlist entity"| Scene
+    class Resource {
+        +id: Uuid
+        +name: String
+        +file_path: String
+        +resource_type: ResourceType
+        +display()
+        +play()
+        +pause()
+        +stop()
+        +edit()
+    }
 
-    Entity -->|"create entity\ndelete entity\nmodify entity\nget entity"| Attribute
-    Entity -->|"change entity name\nattach resource (add to resource list)\ndetach resource (delete from resource list)"| Entity
+    class Attribute {
+        +id: Uuid
+        +name: String
+        +data_type: AttributeType
+        +value: AttributeValue
+    }
 
-    Attribute -->|"create attribute\ndelete attribute\nmodify attribute\nlist attribute\nget attribute"| Attribute
-    Attribute -->|"change attribute name\nchange attribute data type\nchange attribute value"| Attribute
+    class ResourceType {
+        <<enumeration>>
+        Image
+        Sound
+        Script
+    }
 
-    %% GUI interactions
-    sound -->|"use the audio engine:\nplay\npause\nstop"| sound
-    image -->|"display:\nuse GUI popup to display"| image
-    script -->|"edit:\nuse GUI code editor"| script
+    class AttributeType {
+        <<enumeration>>
+        Integer
+        Float
+        String
+        Boolean
+        Vector2
+    }
+
+    SceneManager "1" --> "*" Scene : manages
+    Scene "1" --> "*" Entity : contains
+    Scene "1" --> "*" Resource : contains
+    Entity "1" --> "*" Attribute : has
+    Entity "1" --> "*" Resource : references
+    Resource --> "1" ResourceType : has type
+    Attribute --> "1" AttributeType : has type
 ```
 
 ## [Script Interpreter](/src/script_interpreter.rs)
