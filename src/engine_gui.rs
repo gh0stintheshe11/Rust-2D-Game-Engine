@@ -1,7 +1,7 @@
 use crate::ecs::{Attribute, AttributeValueType, Entity, EntityManager};
+use crate::input_handler::{InputContext, InputHandler};
 use crate::project_manager::FileManagement;
-use crate::render_engine::{RenderEngine, Animation, RenderObject, Scene, RenderLayer, Transform};
-use crate::input_handler::{InputHandler, InputContext};
+use crate::render_engine::{Animation, RenderEngine, RenderLayer, RenderObject, Scene, Transform};
 use eframe::egui;
 use rfd::FileDialog;
 
@@ -79,6 +79,11 @@ impl Default for EngineGui {
 
 impl eframe::App for EngineGui {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // Update window size at the start of each frame
+        let screen_rect = ctx.screen_rect();
+        self.render_engine
+            .update_window_size(screen_rect.width(), screen_rect.height());
+
         // Calculate ctx width and height once at the start
         let ctx_width = ctx.screen_rect().width();
 
@@ -217,15 +222,24 @@ impl eframe::App for EngineGui {
                     ui.horizontal(|ui| {
                         ui.set_width(button_group_width);
 
-                        if ui.add_sized([button_width, button_height], egui::Button::new("▶ Play")).clicked() {
+                        if ui
+                            .add_sized([button_width, button_height], egui::Button::new("▶ Play"))
+                            .clicked()
+                        {
                             self.running = true;
                         }
 
-                        if ui.add_sized([button_width, button_height], egui::Button::new("⏸ Pause")).clicked() {
+                        if ui
+                            .add_sized([button_width, button_height], egui::Button::new("⏸ Pause"))
+                            .clicked()
+                        {
                             self.running = false;
                         }
 
-                        if ui.add_sized([button_width, button_height], egui::Button::new("⏹ Reset")).clicked() {
+                        if ui
+                            .add_sized([button_width, button_height], egui::Button::new("⏹ Reset"))
+                            .clicked()
+                        {
                             self.running = false;
                         }
                     });
@@ -283,7 +297,6 @@ impl EngineGui {
                         }
                         self.show_import_menu(ui); // Add "Import..." submenu
 
-
                         ui.add_enabled(self.load_project, egui::Button::new("Build And Run"))
                             .clicked()
                             .then(|| {
@@ -293,7 +306,6 @@ impl EngineGui {
                                     Err(e) => self.print_to_terminal(&format!("Error: {}", e)),
                                 }
                             });
-
                     });
 
                     // Edit menu
@@ -345,7 +357,6 @@ impl EngineGui {
 
                 // Bottom section
                 self.show_entity_panel(ctx, ui, secondary_panel_height);
-
             });
 
         // Right panel (split into top and bottom)
@@ -527,7 +538,6 @@ impl EngineGui {
 
     /// Add a new entity to ecs and create the corresponding json file
     pub fn add_entity(&mut self) {
-
         let entity = self.ecs.create_entity();
         let serialized_entity = entity.to_json();
 
@@ -590,10 +600,9 @@ impl EngineGui {
         self.print_to_terminal(&message);
     }
 
-        /// Save the entity to its corresponding json file
+    /// Save the entity to its corresponding json file
     pub fn update_entity(&mut self, entity_id: usize) {
         if let Some(entity) = self.ecs.get_entity_by_id(entity_id) {
-
             let serialized_entity = entity.to_json();
 
             // File path for the entity json file
@@ -625,7 +634,6 @@ impl EngineGui {
 
     /// Load an entity by its ID from the corresponding json file
     pub fn load_entity(&mut self, entity_id: usize) -> Result<(), String> {
-
         let entity_file_path = format!("{}/entities/entity_{}.json", self.project_path, entity_id);
 
         let file_content = std::fs::read_to_string(&entity_file_path)
@@ -656,7 +664,6 @@ impl EngineGui {
 
     /// Add a new script json file
     pub fn add_script(&mut self) {
-
         let script_id = self.next_script_id;
 
         // File path for the script json file
@@ -700,11 +707,13 @@ impl EngineGui {
         ];
 
         ui.menu_button("Import...", |ui| {
-
             ui.add_enabled_ui(self.load_project, |ui| {
                 for (name, extensions, folder) in &asset_types {
                     if ui.button(*name).clicked() {
-                        if let Some(file_path) = FileDialog::new().add_filter((*name).to_string(), *extensions).pick_file() {
+                        if let Some(file_path) = FileDialog::new()
+                            .add_filter((*name).to_string(), *extensions)
+                            .pick_file()
+                        {
                             match FileManagement::import_asset(
                                 file_path.to_str().unwrap_or(""),
                                 &format!("{}/{}", self.project_path, folder),
@@ -729,23 +738,16 @@ impl EngineGui {
         // Fill with red
         for pixel in pixels.chunks_mut(4) {
             pixel[0] = 255; // R
-            pixel[1] = 0;   // G
-            pixel[2] = 0;   // B
+            pixel[1] = 0; // G
+            pixel[2] = 0; // B
             pixel[3] = 255; // A
         }
 
         // Create the color image
-        let color_image = egui::ColorImage::from_rgba_unmultiplied(
-            [width, height],
-            &pixels
-        );
+        let color_image = egui::ColorImage::from_rgba_unmultiplied([width, height], &pixels);
 
         // Load the texture
-        let texture = ctx.load_texture(
-            "test_texture",
-            color_image,
-            egui::TextureOptions::NEAREST
-        );
+        let texture = ctx.load_texture("test_texture", color_image, egui::TextureOptions::NEAREST);
 
         self.print_to_terminal("Created new egui texture");
         Some(texture.id())
@@ -753,39 +755,41 @@ impl EngineGui {
 
     // Main game loop
     pub fn run_game(&mut self, ctx: &egui::Context) {
-        if self.running {
-            self.input_handler.set_context(InputContext::Game);
+        // Initialize game if needed
+        if self.scene.is_none() {
+            self.initialize_game(ctx);
+            return; // Return after initialization
+        }
 
-            // Calculate delta time
-            let now = std::time::Instant::now();
-            self.delta_time = now.duration_since(self.render_engine.last_frame_time).as_secs_f32();
-            self.render_engine.last_frame_time = now;
+        // Calculate delta time
+        let now = std::time::Instant::now();
+        self.delta_time = now
+            .duration_since(self.render_engine.last_frame_time)
+            .as_secs_f32();
+        self.render_engine.last_frame_time = now;
 
-            // Initialize game if needed
-            if self.scene.is_none() {
-                self.initialize_game(ctx);
-            }
+        // Update input state
+        ctx.input(|input| {
+            self.input_handler.handle_input(input);
+        });
 
-            // Update input state
-            ctx.input(|input| {
-                self.input_handler.handle_input(input);
-            });
+        // Always handle engine input (camera controls etc)
+        self.handle_input();
 
-            // Handle input - This is where our camera controls happen
-            self.handle_input();
-
+        // Only update game state and physics if game is running and not paused
+        if self.running && !self.paused {
             // Update game state
             if let Some(scene) = &mut self.scene {
                 scene.update(self.delta_time);
             }
 
-            // Render
-            self.render(ctx);
-
-            ctx.request_repaint();
-        } else {
-            self.input_handler.set_context(InputContext::Editor);
+            // Update physics
+            self.update_physics();
         }
+
+        // Always render
+        self.render(ctx);
+        ctx.request_repaint();
     }
 
     // Initialize game resources
@@ -799,7 +803,7 @@ impl EngineGui {
                     animation,
                     transform: Transform::new((300.0, 300.0)),
                 },
-                RenderLayer::Game  // Specify the layer
+                RenderLayer::Game, // Specify the layer
             );
             self.print_to_terminal("Added rotating rectangle to scene");
         }
@@ -811,7 +815,7 @@ impl EngineGui {
                     texture,
                     transform: Transform::new((300.0, 100.0)),
                 },
-                RenderLayer::Game  // Specify the layer
+                RenderLayer::Game, // Specify the layer
             );
             self.print_to_terminal("Added static checker pattern to scene");
         }
@@ -821,42 +825,86 @@ impl EngineGui {
 
     // Handle user input
     fn handle_input(&mut self) {
-        if let Some(scene) = &mut self.scene {
-            // Increase camera movement speed significantly
-            let camera_speed = 200.0 * self.delta_time;  // Increased from 5.0 to 200.0
+        // Engine controls (always active)
+        self.handle_engine_controls();
 
-            // Only handle game input when running
-            if self.running {
-                if self.input_handler.is_key_pressed(egui::Key::W) {
-                    scene.move_camera((0.0, -camera_speed));
-                }
-                if self.input_handler.is_key_pressed(egui::Key::S) {
-                    scene.move_camera((0.0, camera_speed));
-                }
-                if self.input_handler.is_key_pressed(egui::Key::A) {
-                    scene.move_camera((-camera_speed, 0.0));
-                }
-                if self.input_handler.is_key_pressed(egui::Key::D) {
-                    scene.move_camera((camera_speed, 0.0));
-                }
+        // Game controls (only when running and not paused)
+        if self.running && !self.paused {
+            self.handle_game_controls();
+        }
+    }
 
-                // Adjust zoom speed and invert the zoom direction
-                let zoom_speed = 2.0 * self.delta_time;  // Increased from 1.0 to 2.0
-                if self.input_handler.is_key_pressed(egui::Key::Q) {
-                    scene.zoom_camera(zoom_speed);  // Zoom out makes things smaller (positive scale)
-                }
-                if self.input_handler.is_key_pressed(egui::Key::E) {
-                    scene.zoom_camera(-zoom_speed);  // Zoom in makes things bigger (negative scale)
-                }
+    fn handle_engine_controls(&mut self) {
+        // Get current mouse position
+        let mouse_pos = self.input_handler.get_mouse_pos();
 
-                let rotation_speed = 2.0 * self.delta_time;  // Increased rotation speed too
-                if self.input_handler.is_key_pressed(egui::Key::R) {
-                    scene.rotate_camera(-rotation_speed);
-                }
-                if self.input_handler.is_key_pressed(egui::Key::F) {
-                    scene.rotate_camera(rotation_speed);
-                }
+        // Create a vector to store debug messages
+        let mut debug_messages = Vec::new();
+        debug_messages.push(format!(
+            "Current Mouse Position: ({}, {})",
+            mouse_pos.x, mouse_pos.y
+        ));
+
+        // Check if mouse is in the central panel (game viewport)
+        let is_in_viewport = mouse_pos.x >= 200.0 && // Left panel width
+                            mouse_pos.x <= self.render_engine.window_size.0 - 200.0 && // Right panel width
+                            mouse_pos.y >= 30.0 &&  // Top menu height
+                            mouse_pos.y <= self.render_engine.window_size.1 - 100.0; // Bottom terminal height
+
+        debug_messages.push(format!("Is in viewport: {}", is_in_viewport));
+
+        // Collect all movement data first
+        let mut camera_movement = None;
+        let mut zoom_delta = None;
+
+        // Calculate camera movement to match cursor movement 1:1
+        if is_in_viewport
+            && self
+                .input_handler
+                .is_mouse_button_pressed(egui::PointerButton::Primary)
+        {
+            if let Some(delta) = self.input_handler.get_mouse_delta() {
+                let camera_drag_speed = 1.0;
+                let movement = (-delta.x * camera_drag_speed, -delta.y * camera_drag_speed);
+                camera_movement = Some(movement);
             }
+        }
+
+        // Calculate zoom with reduced sensitivity
+        if is_in_viewport {
+            if let Some(scroll_delta) = self.input_handler.get_scroll_delta() {
+                let zoom_speed = 0.02; // Reduced from 0.2 to 0.05
+                zoom_delta = Some(-scroll_delta.y * zoom_speed);
+            }
+        }
+
+        // Now apply the movements to the scene
+        if let Some(scene) = &mut self.scene {
+            if let Some(movement) = camera_movement {
+                scene.move_camera(movement);
+            }
+            if let Some(zoom) = zoom_delta {
+                scene.zoom_camera(zoom);
+            }
+        }
+    }
+
+    fn handle_game_controls(&mut self) {
+        // Game-specific controls
+        if self.input_handler.is_key_pressed(egui::Key::Space) {
+            self.print_to_terminal("Space pressed - Action!");
+        }
+        if self.input_handler.is_key_pressed(egui::Key::W) {
+            self.print_to_terminal("W pressed - Move up!");
+        }
+        if self.input_handler.is_key_pressed(egui::Key::S) {
+            self.print_to_terminal("S pressed - Move down!");
+        }
+        if self.input_handler.is_key_pressed(egui::Key::A) {
+            self.print_to_terminal("A pressed - Move left!");
+        }
+        if self.input_handler.is_key_pressed(egui::Key::D) {
+            self.print_to_terminal("D pressed - Move right!");
         }
     }
 
@@ -873,19 +921,24 @@ impl EngineGui {
     }
 
     // Render everything
-    fn render(&self, ctx: &egui::Context) {
+    fn render(&mut self, ctx: &egui::Context) {
         egui::CentralPanel::default().show(ctx, |ui| {
             if let Some(scene) = &self.scene {
                 // Get batches sorted by layer
                 let mut batches = scene.prepare_batches();
+
                 batches.sort_by_key(|batch| batch.layer);
 
                 // Render each batch
                 for batch in batches {
                     for instance in &batch.instances {
                         let size = egui::vec2(
-                            batch.texture.size()[0] as f32 * instance.transform.scale.0 * scene.camera.zoom,
-                            batch.texture.size()[1] as f32 * instance.transform.scale.1 * scene.camera.zoom
+                            batch.texture.size()[0] as f32
+                                * instance.transform.scale.0
+                                * scene.camera.zoom,
+                            batch.texture.size()[1] as f32
+                                * instance.transform.scale.1
+                                * scene.camera.zoom,
                         );
 
                         let (x, y) = scene.camera.transform_point(instance.transform.position);
@@ -901,7 +954,7 @@ impl EngineGui {
                                     (instance.color[1] * 255.0) as u8,
                                     (instance.color[2] * 255.0) as u8,
                                     (instance.color[3] * 255.0) as u8,
-                                ))
+                                )),
                         );
                     }
                 }
@@ -910,10 +963,10 @@ impl EngineGui {
     }
 
     pub fn create_test_object(&mut self, ctx: &egui::Context) -> Option<egui::TextureHandle> {
-        let square_size = 10;  // Size of each checker square in pixels
-        let squares = 5;       // Number of squares in each row/column
-        let width = square_size * squares;   // Total width in pixels
-        let height = square_size * squares;  // Total height in pixels
+        let square_size = 10; // Size of each checker square in pixels
+        let squares = 5; // Number of squares in each row/column
+        let width = square_size * squares; // Total width in pixels
+        let height = square_size * squares; // Total height in pixels
 
         let mut pixels = vec![0u8; width * height * 4];
 
@@ -927,22 +980,26 @@ impl EngineGui {
                 let is_checker = (square_x + square_y) % 2 == 0;
 
                 if is_checker {
-                    pixels[i] = 255;     // R
-                    pixels[i + 1] = 0;   // G
-                    pixels[i + 2] = 0;   // B
+                    pixels[i] = 255; // R
+                    pixels[i + 1] = 0; // G
+                    pixels[i + 2] = 0; // B
                     pixels[i + 3] = 255; // A
 
                     // Debug print for first square
                     if square_x == 0 && square_y == 0 && x < 2 && y < 2 {
                         self.print_to_terminal(&format!(
                             "Red Square (0,0) Pixel ({}, {}): rgba=[{},{},{},{}]",
-                            x, y,
-                            pixels[i], pixels[i+1], pixels[i+2], pixels[i+3]
+                            x,
+                            y,
+                            pixels[i],
+                            pixels[i + 1],
+                            pixels[i + 2],
+                            pixels[i + 3]
                         ));
                     }
                 } else {
-                    pixels[i] = 0;       // R
-                    pixels[i + 1] = 0;   // G
+                    pixels[i] = 0; // R
+                    pixels[i + 1] = 0; // G
                     pixels[i + 2] = 255; // B
                     pixels[i + 3] = 255; // A
 
@@ -950,40 +1007,37 @@ impl EngineGui {
                     if square_x == 1 && square_y == 0 && x >= square_size && x < square_size + 2 {
                         self.print_to_terminal(&format!(
                             "Blue Square (1,0) Pixel ({}, {}): rgba=[{},{},{},{}]",
-                            x, y,
-                            pixels[i], pixels[i+1], pixels[i+2], pixels[i+3]
+                            x,
+                            y,
+                            pixels[i],
+                            pixels[i + 1],
+                            pixels[i + 2],
+                            pixels[i + 3]
                         ));
                     }
                 }
             }
         }
 
-        let color_image = egui::ColorImage::from_rgba_unmultiplied(
-            [width, height],
-            &pixels
-        );
+        let color_image = egui::ColorImage::from_rgba_unmultiplied([width, height], &pixels);
 
-        Some(ctx.load_texture(
-            "test_pattern",
-            color_image,
-            egui::TextureOptions::NEAREST
-        ))
+        Some(ctx.load_texture("test_pattern", color_image, egui::TextureOptions::NEAREST))
     }
 
     pub fn create_test_animation(&mut self, ctx: &egui::Context) -> Option<Animation> {
-        let frames_count = 120;  // 120 frames for very smooth rotation (3° per frame)
+        let frames_count = 120; // 120 frames for very smooth rotation (3° per frame)
         let mut frames = Vec::new();
 
         // Rectangle dimensions
         let width = 100;
         let height = 50;
-        let canvas_size = 120;  // Square canvas to allow rotation
+        let canvas_size = 120; // Square canvas to allow rotation
 
         for i in 0..frames_count {
             let mut pixels = vec![0u8; canvas_size * canvas_size * 4];
 
             // Calculate rotation angle for this frame (360° / 60 frames = 6° per frame)
-            let angle = (i as f32 * (360.0/frames_count as f32)).to_radians();
+            let angle = (i as f32 * (360.0 / frames_count as f32)).to_radians();
             let cos_a = angle.cos();
             let sin_a = angle.sin();
 
@@ -999,37 +1053,39 @@ impl EngineGui {
                     let ry = cx * sin_a + cy * cos_a;
 
                     // Check if point is inside rectangle
-                    let is_inside = rx.abs() < width as f32 / 2.0 &&
-                                  ry.abs() < height as f32 / 2.0;
+                    let is_inside = rx.abs() < width as f32 / 2.0 && ry.abs() < height as f32 / 2.0;
 
                     let pixel_idx = (y * canvas_size + x) * 4;
                     if is_inside {
-                        pixels[pixel_idx] = 255;     // R
-                        pixels[pixel_idx + 1] = 0;   // G
-                        pixels[pixel_idx + 2] = 0;   // B
+                        pixels[pixel_idx] = 255; // R
+                        pixels[pixel_idx + 1] = 0; // G
+                        pixels[pixel_idx + 2] = 0; // B
                         pixels[pixel_idx + 3] = 255; // A
                     }
                 }
             }
 
-            let color_image = egui::ColorImage::from_rgba_unmultiplied(
-                [canvas_size, canvas_size],
-                &pixels
-            );
+            let color_image =
+                egui::ColorImage::from_rgba_unmultiplied([canvas_size, canvas_size], &pixels);
 
             frames.push(ctx.load_texture(
                 &format!("rotation_frame_{}", i),
                 color_image,
-                egui::TextureOptions::NEAREST
+                egui::TextureOptions::NEAREST,
             ));
         }
 
         // Set frame duration for 60 FPS (1/60 ≈ 0.0167 seconds per frame)
-        Some(Animation::new(frames, 1.0/60.0))  // One complete rotation per second
+        Some(Animation::new(frames, 1.0 / 60.0)) // One complete rotation per second
     }
 
     /// Entity Inspector Panel
-    pub fn show_entity_inspector_panel(&mut self, ctx: &egui::Context, ui: &mut egui::Ui, secondary_panel_height: f32) {
+    pub fn show_entity_inspector_panel(
+        &mut self,
+        ctx: &egui::Context,
+        ui: &mut egui::Ui,
+        secondary_panel_height: f32,
+    ) {
         egui::TopBottomPanel::top("entity_inspector")
             .resizable(false)
             .exact_height(secondary_panel_height)
@@ -1042,12 +1098,19 @@ impl EngineGui {
 
                     ui.separator();
 
-                    if let Some((attributes, attribute_order)) = self.ecs.get_attributes_by_entity_id(selected_id) {
+                    if let Some((attributes, attribute_order)) =
+                        self.ecs.get_attributes_by_entity_id(selected_id)
+                    {
                         egui::ScrollArea::vertical()
                             .auto_shrink([false; 2])
-                            .max_height(secondary_panel_height -  - ui.spacing().item_spacing.y)
+                            .max_height(secondary_panel_height - -ui.spacing().item_spacing.y)
                             .show(ui, |ui| {
-                                self.show_entity_attributes(ui, selected_id, &attributes, &attribute_order);
+                                self.show_entity_attributes(
+                                    ui,
+                                    selected_id,
+                                    &attributes,
+                                    &attribute_order,
+                                );
                             });
                     } else {
                         ui.label("Selected entity not found.");
@@ -1063,8 +1126,6 @@ impl EngineGui {
                 if self.show_reorder_attribute_popup {
                     self.show_reorder_attribute_popup(ctx);
                 }
-
-
             });
     }
 
@@ -1077,7 +1138,6 @@ impl EngineGui {
             .show(ui, |ui| {
                 ui.label(format!("Entity ID: {}", selected_id));
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
-
                     if ui.button("Add").clicked() {
                         self.show_add_attribute_popup = true;
                     }
@@ -1085,7 +1145,6 @@ impl EngineGui {
                     if ui.button("Reorder").clicked() {
                         self.show_reorder_attribute_popup = true;
                     }
-
                 });
                 ui.end_row();
             });
@@ -1099,7 +1158,6 @@ impl EngineGui {
         attributes: &std::collections::HashMap<String, Attribute>,
         attribute_order: &[String],
     ) {
-
         egui::Grid::new("entity_inspector_attributes_grid")
             .num_columns(2)
             .striped(true)
@@ -1112,15 +1170,16 @@ impl EngineGui {
                         if let Some((editing_entity, editing_key)) = &self.highlighted_attribute {
                             if *editing_entity == selected_id && *editing_key == *key {
                                 // Display text input for editing
-                                let mut new_value = if let Some(editing_value) = &self.editing_attribute {
-                                    if editing_value.is_empty() {
-                                        format!("{}", attribute.value_type)
+                                let mut new_value =
+                                    if let Some(editing_value) = &self.editing_attribute {
+                                        if editing_value.is_empty() {
+                                            format!("{}", attribute.value_type)
+                                        } else {
+                                            editing_value.clone()
+                                        }
                                     } else {
-                                        editing_value.clone()
-                                    }
-                                } else {
-                                    format!("{}", attribute.value_type)
-                                };
+                                        format!("{}", attribute.value_type)
+                                    };
 
                                 let field_response = ui.text_edit_singleline(&mut new_value);
 
@@ -1170,13 +1229,19 @@ impl EngineGui {
                         }
                         ui.end_row();
                     }
-            }
-        });
+                }
+            });
     }
 
     /// Show attribute key with truncation and tooltip if the key is too long.
     /// Can't use ui.add_sized function, which forces the text center. We want it aligns right.
-    fn show_attribute_key(&mut self, ui: &mut egui::Ui, key: &str, selected_id: usize, max_chars: usize) {
+    fn show_attribute_key(
+        &mut self,
+        ui: &mut egui::Ui,
+        key: &str,
+        selected_id: usize,
+        max_chars: usize,
+    ) {
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
             let full_text = format!("{}:", key);
             let display_text = if full_text.len() > max_chars {
@@ -1244,7 +1309,8 @@ impl EngineGui {
     ) {
         let label = ui.add_sized(
             [ui.available_width(), ui.available_height()],
-            egui::Label::new(format!("{}", attribute.value_type)).truncate()
+            egui::Label::new(format!("{}", attribute.value_type))
+                .truncate()
                 .sense(egui::Sense::click()),
         );
 
@@ -1257,7 +1323,6 @@ impl EngineGui {
     /// Displays a popup to add a new attribute to the selected entity.
     /// The attribute type is validated before being added.
     fn show_add_attribute_popup(&mut self, ctx: &egui::Context) {
-
         egui::Window::new("Add Attribute")
             .resizable(false)
             .collapsible(false)
@@ -1303,7 +1368,8 @@ impl EngineGui {
                             // check if the attribute name is empty
                             if attribute_name.is_empty() {
                                 // self.print_to_terminal("Attribute name cannot be empty.");
-                                self.add_attribute_popup_error_msg = "Attribute name cannot be empty.".to_string();
+                                self.add_attribute_popup_error_msg =
+                                    "Attribute name cannot be empty.".to_string();
                                 return;
                             }
 
@@ -1311,12 +1377,14 @@ impl EngineGui {
                             if let Some(entity) = self.ecs.get_entity_by_id(selected_id) {
                                 if self.ecs.attribute_exists(entity, &attribute_name) {
                                     // self.print_to_terminal("Attribute name already exists.");
-                                    self.add_attribute_popup_error_msg = "Attribute name already exists.".to_string();
+                                    self.add_attribute_popup_error_msg =
+                                        "Attribute name already exists.".to_string();
                                     return;
                                 }
                             } else {
                                 // self.print_to_terminal("Selected entity not found.");
-                                self.add_attribute_popup_error_msg = "Selected entity not found.".to_string();
+                                self.add_attribute_popup_error_msg =
+                                    "Selected entity not found.".to_string();
                                 return;
                             }
 
@@ -1336,7 +1404,8 @@ impl EngineGui {
                                 }
                                 Err(err) => {
                                     // self.print_to_terminal(&format!("Error adding attribute: {}", err));
-                                    self.add_attribute_popup_error_msg = format!("Error adding attribute: {}", err);
+                                    self.add_attribute_popup_error_msg =
+                                        format!("Error adding attribute: {}", err);
                                 }
                             }
                         } else {
@@ -1356,7 +1425,6 @@ impl EngineGui {
                     ui.add_space(10.0);
                     ui.colored_label(egui::Color32::RED, &self.add_attribute_popup_error_msg);
                 }
-
             });
     }
 
@@ -1409,7 +1477,9 @@ impl EngineGui {
                                         row_idx + 1
                                     };
 
-                                    if let Some(dragged_payload) = response.dnd_release_payload::<usize>() {
+                                    if let Some(dragged_payload) =
+                                        response.dnd_release_payload::<usize>()
+                                    {
                                         // The user dropped onto this item.
                                         from = Some(*dragged_payload);
                                         to = Some(insert_row_idx);
@@ -1428,7 +1498,6 @@ impl EngineGui {
                             let item = rows.remove(from);
                             to = to.min(rows.len());
                             rows.insert(to, item);
-
                         }
 
                         // update entity
@@ -1439,7 +1508,6 @@ impl EngineGui {
                         if ui.button("Done").clicked() {
                             self.show_reorder_attribute_popup = false;
                         }
-
                     });
             } else {
                 self.print_to_terminal(&format!(
@@ -1452,10 +1520,13 @@ impl EngineGui {
         }
     }
 
-
-
     /// Entity panel
-    fn show_entity_panel(&mut self, ctx: &egui::Context, ui: &mut egui::Ui, secondary_panel_height: f32) {
+    fn show_entity_panel(
+        &mut self,
+        ctx: &egui::Context,
+        ui: &mut egui::Ui,
+        secondary_panel_height: f32,
+    ) {
         let entity_folder_path = format!("{}/entities", self.project_path);
         let item_spacing = ctx.style().spacing.item_spacing;
         egui::TopBottomPanel::bottom("entity")
@@ -1473,15 +1544,11 @@ impl EngineGui {
                         .scroll_bar_visibility(
                             egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded,
                         )
-                        .max_height(
-                            secondary_panel_height - heading_height - 3.0 * item_spacing.y,
-                        )
+                        .max_height(secondary_panel_height - heading_height - 3.0 * item_spacing.y)
                         .auto_shrink([false; 2]) // Prevent shrinking when there is less content
                         .show(ui, |ui| {
-                            let files = FileManagement::list_files_in_folder(
-                                &entity_folder_path,
-                                self,
-                            );
+                            let files =
+                                FileManagement::list_files_in_folder(&entity_folder_path, self);
 
                             // Filter files to include only those starting with "entity_" json files
                             let mut entity_files: Vec<String> = files
@@ -1491,13 +1558,11 @@ impl EngineGui {
                                 })
                                 .collect();
 
-                            entity_files.sort_by_key(|file| {
-                                FileManagement::extract_id_from_file(file)
-                            });
+                            entity_files
+                                .sort_by_key(|file| FileManagement::extract_id_from_file(file));
 
                             for file in entity_files {
-                                if let Some(entity_id) =
-                                    FileManagement::extract_id_from_file(&file)
+                                if let Some(entity_id) = FileManagement::extract_id_from_file(&file)
                                 {
                                     // Check if it's already in the ecs
                                     if !self.ecs.entity_exists_by_id(entity_id) {
@@ -1511,30 +1576,31 @@ impl EngineGui {
 
                                     let is_highlighted = self.highlighted_entity == Some(entity_id);
 
-                                    let mut display_name:String = self.ecs.get_entity_by_id(entity_id).unwrap().name.clone();
+                                    let mut display_name: String =
+                                        self.ecs.get_entity_by_id(entity_id).unwrap().name.clone();
 
                                     if display_name.is_empty() {
                                         display_name = format!("Entity {}", entity_id);
                                     }
 
-                                    let button =
-                                        egui::Button::new(display_name)
-                                            .min_size(egui::vec2(80.0, ui.style().spacing.item_spacing.y))
-                                            .fill(if is_highlighted {
-                                                egui::Color32::from_rgb(200, 200, 255)
-                                            } else {
-                                                egui::Color32::from_rgb(240, 240, 240)
-                                            });
+                                    let button = egui::Button::new(display_name)
+                                        .min_size(egui::vec2(
+                                            80.0,
+                                            ui.style().spacing.item_spacing.y,
+                                        ))
+                                        .fill(if is_highlighted {
+                                            egui::Color32::from_rgb(200, 200, 255)
+                                        } else {
+                                            egui::Color32::from_rgb(240, 240, 240)
+                                        });
 
                                     let button_response = ui.add(button);
 
                                     // Handle right-click on button
                                     button_response.context_menu(|ui| {
-
                                         self.highlighted_entity = Some(entity_id);
 
                                         if ui.button("Rename").clicked() {
-
                                             self.show_entity_rename_popup = true;
                                             ui.close_menu();
                                         }
@@ -1561,13 +1627,11 @@ impl EngineGui {
                 if self.show_entity_rename_popup {
                     self.show_entity_rename_popup(ctx);
                 }
-
             });
     }
 
     /// Entity rename popup
     fn show_entity_rename_popup(&mut self, ctx: &egui::Context) {
-
         egui::Window::new("Rename Entity")
             .resizable(false)
             .collapsible(false)
@@ -1580,15 +1644,12 @@ impl EngineGui {
                         if let Some(selected_id) = self.highlighted_entity {
                             let entity_name = self.new_entity_name.trim().to_string();
 
-                            self.ecs.update_entity_name(
-                                selected_id,
-                                entity_name.clone(),
-                            );
+                            self.ecs
+                                .update_entity_name(selected_id, entity_name.clone());
                             self.update_entity(selected_id);
                             self.print_to_terminal("Entity renamed successfully.");
                             self.new_entity_name.clear();
                             self.show_entity_rename_popup = false;
-
                         } else {
                             self.print_to_terminal("No entity selected.");
                         }
@@ -1599,9 +1660,6 @@ impl EngineGui {
                         self.show_entity_rename_popup = false;
                     }
                 });
-
             });
     }
-
-
 }

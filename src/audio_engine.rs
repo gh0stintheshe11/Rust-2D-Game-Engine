@@ -1,4 +1,4 @@
-use rodio::{OutputStream, OutputStreamHandle, Sink, Decoder};
+use rodio::{Decoder, OutputStream, OutputStreamHandle, Sink};
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;

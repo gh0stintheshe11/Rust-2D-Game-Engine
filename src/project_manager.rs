@@ -1,12 +1,11 @@
+use crate::engine_gui::EngineGui;
+use serde::{Deserialize, Serialize};
+use std::env;
 use std::fs::{self, File};
+use std::io;
 use std::io::Write;
 use std::path::Path;
-use serde::{Serialize, Deserialize};
-use crate::engine_gui::EngineGui;
-use std::io;
-use std::process::{Command};
-use std::env;
-
+use std::process::Command;
 
 // Project metadata structure for project.json
 #[derive(Serialize, Deserialize, Debug)]
@@ -52,7 +51,10 @@ impl FileManagement {
         };
 
         FileManagement::create_project_file(&base_path, &metadata, engine_gui);
-        engine_gui.print_to_terminal(&format!("Project '{}' created successfully at {}!", project_name, project_path));
+        engine_gui.print_to_terminal(&format!(
+            "Project '{}' created successfully at {}!",
+            project_name, project_path
+        ));
     }
 
     // Helper function to create folders
@@ -64,7 +66,11 @@ impl FileManagement {
     }
 
     // Create project.json file
-    fn create_project_file(base_path: &str, metadata: &ProjectMetadata, engine_gui: &mut EngineGui) {
+    fn create_project_file(
+        base_path: &str,
+        metadata: &ProjectMetadata,
+        engine_gui: &mut EngineGui,
+    ) {
         let file_path = format!("{}/project.json", base_path);
         let mut file = File::create(&file_path).expect("Failed to create project.json.");
         file.write_all(metadata.to_json().as_bytes())
@@ -75,7 +81,10 @@ impl FileManagement {
     // Function to check if the project path is valid
     pub fn is_valid_project_path(project_path: &str) -> bool {
         // check if the path is a directory and have project.json
-        if Path::new(project_path).exists() && Path::new(project_path).is_dir() && Path::new(&format!("{}/project.json", project_path)).exists() {
+        if Path::new(project_path).exists()
+            && Path::new(project_path).is_dir()
+            && Path::new(&format!("{}/project.json", project_path)).exists()
+        {
             return true;
         }
         return false;
@@ -84,13 +93,12 @@ impl FileManagement {
     pub fn list_files_in_folder(folder_path: &str, engine_gui: &mut EngineGui) -> Vec<String> {
         if Path::new(folder_path).exists() {
             match fs::read_dir(folder_path) {
-                Ok(read_dir) => {
-                    read_dir
-                        .filter_map(|entry| entry.ok().map(|e| e.file_name().into_string().unwrap()))
-                        .collect()
-                }
+                Ok(read_dir) => read_dir
+                    .filter_map(|entry| entry.ok().map(|e| e.file_name().into_string().unwrap()))
+                    .collect(),
                 Err(_) => {
-                    engine_gui.print_to_terminal(&format!("Failed to read folder: {}", folder_path));
+                    engine_gui
+                        .print_to_terminal(&format!("Failed to read folder: {}", folder_path));
                     vec![] // Return an empty vector in case of error
                 }
             }
@@ -122,7 +130,6 @@ impl FileManagement {
             }
         }
 
-
         let mut file = File::create(path)
             .map_err(|e| format!("Failed to create file: {}. Error: {}", file_path, e))?;
         file.write_all(content.as_bytes())
@@ -153,12 +160,8 @@ impl FileManagement {
 
     // Load content from file
     pub fn load_file_content(file_path: &str) -> Result<String, String> {
-        fs::read_to_string(file_path).map_err(|err| {
-            format!(
-                "Failed to load content from file '{}': {}",
-                file_path, err
-            )
-        })
+        fs::read_to_string(file_path)
+            .map_err(|err| format!("Failed to load content from file '{}': {}", file_path, err))
     }
 
     /// Import asset into project (copy asset to corresponding folder)
@@ -166,7 +169,6 @@ impl FileManagement {
         // Get the file name
         let file_path = Path::new(original_path);
         if let Some(file_name) = file_path.file_name() {
-
             let dest_path = Path::new(dest_folder).join(file_name);
 
             // Copy the file to the destination
@@ -178,10 +180,8 @@ impl FileManagement {
         }
     }
 
-
     /// Copy directory recursively
     pub fn copy_dir_recursive(src: &Path, dest: &Path) -> io::Result<()> {
-
         if !dest.exists() {
             fs::create_dir_all(dest)?;
         }
@@ -240,8 +240,10 @@ impl FileManagement {
     }
 
     /// Build project by copying folders and files to build folder in project path and run cargo build --release
-    pub fn build_and_run_project(project_path: &str, engine_gui: &mut EngineGui) -> Result<(), Box<dyn std::error::Error>> {
-
+    pub fn build_and_run_project(
+        project_path: &str,
+        engine_gui: &mut EngineGui,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let build_path = format!("{}/build", project_path);
 
         let metadata = FileManagement::read_project_metadata(project_path);
@@ -250,7 +252,8 @@ impl FileManagement {
 
         // Clear files in build folder
         if Path::new(&build_path).exists() {
-            engine_gui.print_to_terminal(&format!("Removing existing build folder: {}", build_path));
+            engine_gui
+                .print_to_terminal(&format!("Removing existing build folder: {}", build_path));
             fs::remove_dir_all(&build_path)?;
         }
 
@@ -263,7 +266,10 @@ impl FileManagement {
         // Copy toml file
         let working_path = env::current_dir()?;
         let toml_file = format!("{}/Cargo.toml", working_path.display());
-        engine_gui.print_to_terminal(&format!("Copying Cargo.toml from {} to {}", toml_file, build_path));
+        engine_gui.print_to_terminal(&format!(
+            "Copying Cargo.toml from {} to {}",
+            toml_file, build_path
+        ));
         let copied_toml_path = format!("{}/Cargo.toml", build_path);
         fs::copy(&toml_file, &copied_toml_path)?;
 
@@ -273,7 +279,10 @@ impl FileManagement {
         let working_src_path = format!("{}/src", working_path.display());
         let build_src_path = format!("{}/src", build_path);
 
-        engine_gui.print_to_terminal(&format!("Creating src folder in build path: {}", build_src_path));
+        engine_gui.print_to_terminal(&format!(
+            "Creating src folder in build path: {}",
+            build_src_path
+        ));
         fs::create_dir_all(&build_src_path)?;
 
         let required_files = [
@@ -306,7 +315,10 @@ impl FileManagement {
         // Update `lib.rs` to exclude gui files
         let lib_file = format!("{}/lib.rs", build_src_path);
         if Path::new(&lib_file).exists() {
-            engine_gui.print_to_terminal(&format!("Updating lib.rs file to exclude files: {}", lib_file));
+            engine_gui.print_to_terminal(&format!(
+                "Updating lib.rs file to exclude files: {}",
+                lib_file
+            ));
             let lib_content = fs::read_to_string(&lib_file)?;
             let filtered_content = FileManagement::filter_lib_file(&lib_content);
             fs::write(&lib_file, filtered_content)?;
@@ -335,7 +347,10 @@ impl FileManagement {
         let dest_exe_path = format!("{}/{}", build_path, project_name);
         fs::rename(&exe_path, &dest_exe_path)?;
 
-        println!("Build completed successfully! Executable is in {}", dest_exe_path);
+        println!(
+            "Build completed successfully! Executable is in {}",
+            dest_exe_path
+        );
 
         // Run the built executable
         let status = Command::new(&dest_exe_path)
@@ -352,15 +367,11 @@ impl FileManagement {
     /// Modify lib.rs file to exclude modules that are no need to build and run the game
     fn filter_lib_file(original: &str) -> String {
         // List of keywords or lines to exclude
-        let excluded_lines = [
-            "mod gui",
-        ];
+        let excluded_lines = ["mod gui"];
 
         original
             .lines()
-            .filter(|line| {
-                !excluded_lines.iter().any(|exclude| line.contains(exclude))
-            })
+            .filter(|line| !excluded_lines.iter().any(|exclude| line.contains(exclude)))
             .collect::<Vec<&str>>()
             .join("\n")
     }
@@ -389,7 +400,10 @@ impl FileManagement {
     }
 
     /// Create main.rs file for game project
-    pub fn create_main_file(build_src_path: &str, project_name: &str) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn create_main_file(
+        build_src_path: &str,
+        project_name: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let main_file_path = format!("{}/main.rs", build_src_path);
 
         let main_content = format!(
@@ -409,5 +423,4 @@ fn main() {{
 
         Ok(())
     }
-
 }

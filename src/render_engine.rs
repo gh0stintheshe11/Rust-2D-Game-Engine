@@ -1,7 +1,7 @@
-use std::time::Instant;
-use std::collections::HashMap;
-use wgpu;
 use egui;
+use std::collections::HashMap;
+use std::time::Instant;
+use wgpu;
 
 // Layer System
 #[derive(Hash, Eq, PartialEq, Clone, Copy, PartialOrd, Ord)]
@@ -34,7 +34,7 @@ impl Transform {
 pub struct Camera {
     pub position: (f32, f32),
     pub rotation: f32,
-    pub zoom: f32,  // 1.0 is normal size, > 1.0 zooms in, < 1.0 zooms out
+    pub zoom: f32, // 1.0 is normal size, > 1.0 zooms in, < 1.0 zooms out
 }
 
 impl Camera {
@@ -42,7 +42,7 @@ impl Camera {
         Self {
             position: (0.0, 0.0),
             rotation: 0.0,
-            zoom: 1.0,  // Start at normal size
+            zoom: 1.0, // Start at normal size
         }
     }
 
@@ -54,17 +54,17 @@ impl Camera {
     pub fn transform_point(&self, point: (f32, f32)) -> (f32, f32) {
         // Apply camera transformations in order: zoom, rotate, translate
         let (x, y) = point;
-        
+
         // Apply zoom
         let x = x * self.zoom;
         let y = y * self.zoom;
-        
+
         // Apply rotation
         let cos_r = self.rotation.cos();
         let sin_r = self.rotation.sin();
         let rx = x * cos_r - y * sin_r;
         let ry = x * sin_r + y * cos_r;
-        
+
         // Apply translation
         (rx - self.position.0, ry - self.position.1)
     }
@@ -205,53 +205,62 @@ impl Scene {
 
     pub fn prepare_batches(&self) -> Vec<RenderBatch> {
         let mut batches: HashMap<(egui::TextureId, RenderLayer), RenderBatch> = HashMap::new();
-        
+
         // Group objects by texture and layer
         for (layer, objects) in &self.layers {
             for object in objects {
                 match object {
                     RenderObject::Static { texture, transform } => {
-                        let batch = batches.entry((texture.id(), *layer))
+                        let batch = batches
+                            .entry((texture.id(), *layer))
                             .or_insert_with(|| RenderBatch::new(texture.clone(), *layer));
-                        
+
                         batch.add_instance(
                             transform.clone(),
                             [1.0, 1.0, 1.0, 1.0],
-                            egui::Rect::from_min_max(
-                                egui::pos2(0.0, 0.0),
-                                egui::pos2(1.0, 1.0)
-                            )
+                            egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
                         );
-                    },
-                    RenderObject::Animated { animation, transform } => {
+                    }
+                    RenderObject::Animated {
+                        animation,
+                        transform,
+                    } => {
                         if let Some(texture) = animation.current_frame() {
-                            let batch = batches.entry((texture.id(), *layer))
+                            let batch = batches
+                                .entry((texture.id(), *layer))
                                 .or_insert_with(|| RenderBatch::new(texture.clone(), *layer));
-                            
+
                             batch.add_instance(
                                 transform.clone(),
                                 [1.0, 1.0, 1.0, 1.0],
                                 egui::Rect::from_min_max(
                                     egui::pos2(0.0, 0.0),
-                                    egui::pos2(1.0, 1.0)
-                                )
+                                    egui::pos2(1.0, 1.0),
+                                ),
                             );
                         }
-                    },
-                    RenderObject::Sprite { sprite_sheet, current_frame, transform } => {
-                        let batch = batches.entry((sprite_sheet.texture.id(), *layer))
-                            .or_insert_with(|| RenderBatch::new(sprite_sheet.texture.clone(), *layer));
-                        
+                    }
+                    RenderObject::Sprite {
+                        sprite_sheet,
+                        current_frame,
+                        transform,
+                    } => {
+                        let batch = batches
+                            .entry((sprite_sheet.texture.id(), *layer))
+                            .or_insert_with(|| {
+                                RenderBatch::new(sprite_sheet.texture.clone(), *layer)
+                            });
+
                         batch.add_instance(
                             transform.clone(),
                             [1.0, 1.0, 1.0, 1.0],
-                            sprite_sheet.frames[*current_frame]
+                            sprite_sheet.frames[*current_frame],
                         );
                     }
                 }
             }
         }
-        
+
         batches.into_values().collect()
     }
 }
@@ -262,6 +271,7 @@ pub struct RenderEngine {
     pub adapter: wgpu::Adapter,
     pub texture: wgpu::Texture,
     pub texture_view: wgpu::TextureView,
+    pub window_size: (f32, f32),
     pub last_frame_time: Instant,
     pub delta_time: f32,
 }
@@ -333,28 +343,30 @@ impl RenderEngine {
 
         // Create adapter
         let adapter = futures::executor::block_on(async {
-            instance.request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::HighPerformance,
-                compatible_surface: None,
-                force_fallback_adapter: false,
-            })
-            .await
-            .unwrap()
+            instance
+                .request_adapter(&wgpu::RequestAdapterOptions {
+                    power_preference: wgpu::PowerPreference::HighPerformance,
+                    compatible_surface: None,
+                    force_fallback_adapter: false,
+                })
+                .await
+                .unwrap()
         });
 
         // Create device and queue
         let (device, queue) = futures::executor::block_on(async {
-            adapter.request_device(
-                &wgpu::DeviceDescriptor {
-                    label: None,
-                    required_features: wgpu::Features::empty(),
-                    required_limits: wgpu::Limits::default(),
-                    memory_hints: wgpu::MemoryHints::default(),
-                },
-                None,
-            )
-            .await
-            .unwrap()
+            adapter
+                .request_device(
+                    &wgpu::DeviceDescriptor {
+                        label: None,
+                        required_features: wgpu::Features::empty(),
+                        required_limits: wgpu::Limits::default(),
+                        memory_hints: wgpu::MemoryHints::default(),
+                    },
+                    None,
+                )
+                .await
+                .unwrap()
         });
 
         // Create a test texture with solid color
@@ -369,8 +381,8 @@ impl RenderEngine {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::Rgba8Unorm,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING 
-                | wgpu::TextureUsages::COPY_DST 
+            usage: wgpu::TextureUsages::TEXTURE_BINDING
+                | wgpu::TextureUsages::COPY_DST
                 | wgpu::TextureUsages::RENDER_ATTACHMENT,
             view_formats: &[],
         });
@@ -406,6 +418,7 @@ impl RenderEngine {
             adapter,
             texture,
             texture_view,
+            window_size: (800.0, 600.0), // Default size
             last_frame_time: Instant::now(),
             delta_time: 0.0,
         }
@@ -414,7 +427,9 @@ impl RenderEngine {
     // Add method to update timing and handle frame updates
     pub fn update(&mut self) {
         let current_time = Instant::now();
-        self.delta_time = current_time.duration_since(self.last_frame_time).as_secs_f32();
+        self.delta_time = current_time
+            .duration_since(self.last_frame_time)
+            .as_secs_f32();
         self.last_frame_time = current_time;
     }
 
@@ -442,4 +457,8 @@ impl RenderEngine {
     }
 
     // We might add more methods here later for game-specific rendering
+
+    pub fn update_window_size(&mut self, width: f32, height: f32) {
+        self.window_size = (width, height);
+    }
 }

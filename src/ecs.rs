@@ -23,10 +23,9 @@ pub struct Attribute {
 pub struct Entity {
     pub id: usize,
     pub name: String,
-    pub attributes: HashMap<String, Attribute>,  // Stores attributes with name and value type
+    pub attributes: HashMap<String, Attribute>, // Stores attributes with name and value type
     pub attribute_order: Vec<String>,
 }
-
 
 impl fmt::Display for AttributeValueType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -39,7 +38,7 @@ impl fmt::Display for AttributeValueType {
                 } else {
                     write!(f, "{}", value)
                 }
-            },
+            }
             AttributeValueType::Integer(value) => write!(f, "{}", value),
             AttributeValueType::Boolean(value) => write!(f, "{}", value),
         }
@@ -65,7 +64,7 @@ impl Entity {
 /// Manages all entities and provides functions for creating, deleting, and modifying entities
 pub struct EntityManager {
     pub next_id: usize,
-    pub entities: HashMap<usize, Entity>,  // Map of entity IDs to entities
+    pub entities: HashMap<usize, Entity>, // Map of entity IDs to entities
 }
 
 impl EntityManager {
@@ -189,7 +188,7 @@ impl EntityManager {
         let new_entity = Entity {
             id: self.next_id,
             name: existing_entity.name.clone(),
-            attributes: existing_entity.attributes.clone(),  // Copy all attributes
+            attributes: existing_entity.attributes.clone(), // Copy all attributes
             attribute_order: existing_entity.attribute_order.clone(),
         };
         self.entities.insert(self.next_id, new_entity.clone());
@@ -230,7 +229,6 @@ impl EntityManager {
         self.entities.get(&entity_id)
     }
 
-
     /// Add an attribute to an entity by ID with validation
     pub fn add_attribute_by_entity_id(
         &mut self,
@@ -241,9 +239,12 @@ impl EntityManager {
     ) -> Result<(), String> {
         // Check if the attribute already exists
         if self.attribute_exists_by_entity_id(entity_id, &name) {
-            return Err(format!("Attribute '{}' already exists for entity with ID {}.", name, entity_id));
+            return Err(format!(
+                "Attribute '{}' already exists for entity with ID {}.",
+                name, entity_id
+            ));
         }
-        
+
         if let Some(entity) = self.entities.get_mut(&entity_id) {
             match Self::validate_value(value_type, value) {
                 Ok(valid_value) => {
@@ -313,12 +314,9 @@ impl EntityManager {
         &self,
         entity_id: usize,
     ) -> Option<(HashMap<String, Attribute>, Vec<String>)> {
-        self.entities.get(&entity_id).map(|entity| {
-            (
-                entity.attributes.clone(),
-                entity.attribute_order.clone(),
-            )
-        })
+        self.entities
+            .get(&entity_id)
+            .map(|entity| (entity.attributes.clone(), entity.attribute_order.clone()))
     }
 
     pub fn update_entity_attribute_order(&mut self, entity_id: usize, new_order: Vec<String>) {
