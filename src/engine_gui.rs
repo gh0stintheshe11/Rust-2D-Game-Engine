@@ -41,21 +41,14 @@ pub struct EngineGui {
 
 impl Default for EngineGui {
     fn default() -> Self {
-
-        let project_path = "/Users/Frank/Documents/school_work/Rust-2D-Game-Engine/test_project/";
-        let project_name = "test_project";
-
         Self {
             ecs: EntityManager::new(),
             render_engine: RenderEngine::new(),
             show_new_project_popup: false,
             show_open_project_popup: false,
-            // load_project: false,
-            // project_name: String::new(),
-            // project_path: String::new(),
-            load_project: true,
-            project_name: project_name.to_string(),
-            project_path: project_path.to_string(),
+            load_project: false,
+            project_name: String::new(),
+            project_path: String::new(),
             terminal_output: String::new(),
             // entities panel
             highlighted_entity: None,
