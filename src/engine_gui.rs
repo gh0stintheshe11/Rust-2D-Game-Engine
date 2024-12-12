@@ -20,6 +20,7 @@ pub struct EngineGui {
     editing_attribute: Option<String>,
     // entity inspector panel
     show_add_attribute_popup: bool,
+    show_reorder_attribute_popup: bool,
     add_attribute_popup_error_msg: String,
     selected_attribute_type: AttributeValueType,
     new_attribute_name: String,
@@ -53,6 +54,7 @@ impl Default for EngineGui {
             editing_attribute: None,
             // entity inspector panel
             show_add_attribute_popup: false,
+            show_reorder_attribute_popup: false,
             add_attribute_popup_error_msg: String::new(),
             selected_attribute_type: AttributeValueType::String(String::new()),
             new_attribute_name: String::new(),
@@ -1120,12 +1122,12 @@ impl EngineGui {
 
                     ui.separator();
 
-                    if let Some(attributes) = self.ecs.get_attributes_by_entity_id(selected_id) {
+                    if let Some((attributes, attribute_order)) = self.ecs.get_attributes_by_entity_id(selected_id) {
                         egui::ScrollArea::vertical()
                             .auto_shrink([false; 2])
                             .max_height(secondary_panel_height -  - ui.spacing().item_spacing.y)
                             .show(ui, |ui| {
-                                self.show_entity_attributes(ui, selected_id, &attributes);
+                                self.show_entity_attributes(ui, selected_id, &attributes, &attribute_order);
                             });
                     } else {
                         ui.label("Selected entity not found.");
@@ -1137,6 +1139,12 @@ impl EngineGui {
                 if self.show_add_attribute_popup {
                     self.show_add_attribute_popup(ctx);
                 }
+
+                if self.show_reorder_attribute_popup {
+                    self.show_reorder_attribute_popup(ctx);
+                }
+
+
             });
     }
 
@@ -1149,9 +1157,15 @@ impl EngineGui {
             .show(ui, |ui| {
                 ui.label(format!("Entity ID: {}", selected_id));
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
-                    if ui.button("Add Attribute").clicked() {
+
+                    if ui.button("Add").clicked() {
                         self.show_add_attribute_popup = true;
                     }
+
+                    if ui.button("Reorder").clicked() {
+                        self.show_reorder_attribute_popup = true;
+                    }
+
                 });
                 ui.end_row();
             });
@@ -1163,78 +1177,81 @@ impl EngineGui {
         ui: &mut egui::Ui,
         selected_id: usize,
         attributes: &std::collections::HashMap<String, Attribute>,
+        attribute_order: &[String],
     ) {
 
         egui::Grid::new("entity_inspector_attributes_grid")
             .num_columns(2)
             .striped(true)
             .show(ui, |ui| {
-                for (key, attribute) in attributes {
-                    self.show_attribute_key(ui, key, selected_id, 10); // Max 10 characters for truncation
+                for key in attribute_order {
+                    if let Some(attribute) = attributes.get(key) {
+                        self.show_attribute_key(ui, key, selected_id, 10); // Max 10 characters for truncation
 
-                    // Show attribute value with editable field
-                    if let Some((editing_entity, editing_key)) = &self.highlighted_attribute {
-                        if *editing_entity == selected_id && *editing_key == *key {
-                            // Display text input for editing
-                            let mut new_value = if let Some(editing_value) = &self.editing_attribute {
-                                if editing_value.is_empty() {
-                                    format!("{}", attribute.value_type)
+                        // Show attribute value with editable field
+                        if let Some((editing_entity, editing_key)) = &self.highlighted_attribute {
+                            if *editing_entity == selected_id && *editing_key == *key {
+                                // Display text input for editing
+                                let mut new_value = if let Some(editing_value) = &self.editing_attribute {
+                                    if editing_value.is_empty() {
+                                        format!("{}", attribute.value_type)
+                                    } else {
+                                        editing_value.clone()
+                                    }
                                 } else {
-                                    editing_value.clone()
+                                    format!("{}", attribute.value_type)
+                                };
+
+                                let field_response = ui.text_edit_singleline(&mut new_value);
+
+                                if field_response.changed() {
+                                    self.editing_attribute = Some(new_value.clone());
+                                }
+                                if field_response.lost_focus() {
+                                    if ui.ctx().input(|i| i.key_pressed(egui::Key::Enter)) {
+                                        // Modify attribute
+                                        match self.ecs.modify_attribute_by_entity_id(
+                                            selected_id,
+                                            key.clone(),
+                                            attribute.value_type.clone(),
+                                            new_value.clone(),
+                                        ) {
+                                            Ok(_) => {
+                                                self.update_entity(selected_id);
+                                                self.print_to_terminal(&format!(
+                                                    "Updated attribute '{}' for entity {}.",
+                                                    key, selected_id
+                                                ));
+                                                self.highlighted_attribute = None;
+                                                self.editing_attribute = None;
+                                            }
+                                            Err(err_msg) => {
+                                                self.print_to_terminal(&format!(
+                                                    "Error updating attribute '{}': {}",
+                                                    key, err_msg
+                                                ));
+                                                self.highlighted_attribute = None;
+                                                self.editing_attribute = None;
+                                            }
+                                        }
+                                    } else if ui.ctx().input(|i| i.key_pressed(egui::Key::Escape)) {
+                                        self.highlighted_attribute = None;
+                                        self.editing_attribute = None;
+                                    } else {
+                                        self.highlighted_attribute = None;
+                                        self.editing_attribute = None;
+                                    }
                                 }
                             } else {
-                                format!("{}", attribute.value_type)
-                            };
-
-                            let field_response = ui.text_edit_singleline(&mut new_value);
-
-                            if field_response.changed() {
-                                self.editing_attribute = Some(new_value.clone());
-                            }
-                            if field_response.lost_focus() {
-                                if ui.ctx().input(|i| i.key_pressed(egui::Key::Enter)) {
-                                    // Modify attribute
-                                    match self.ecs.modify_attribute_by_entity_id(
-                                        selected_id,
-                                        key.clone(),
-                                        attribute.value_type.clone(),
-                                        new_value.clone(),
-                                    ) {
-                                        Ok(_) => {
-                                            self.update_entity(selected_id);
-                                            self.print_to_terminal(&format!(
-                                                "Updated attribute '{}' for entity {}.",
-                                                key, selected_id
-                                            ));
-                                            self.highlighted_attribute = None;
-                                            self.editing_attribute = None;
-                                        }
-                                        Err(err_msg) => {
-                                            self.print_to_terminal(&format!(
-                                                "Error updating attribute '{}': {}",
-                                                key, err_msg
-                                            ));
-                                            self.highlighted_attribute = None;
-                                            self.editing_attribute = None;
-                                        }
-                                    }
-                                } else if ui.ctx().input(|i| i.key_pressed(egui::Key::Escape)) {
-                                    self.highlighted_attribute = None;
-                                    self.editing_attribute = None;
-                                } else {
-                                    self.highlighted_attribute = None;
-                                    self.editing_attribute = None;
-                                }
+                                self.show_editable_value(ui, key, attribute, selected_id);
                             }
                         } else {
                             self.show_editable_value(ui, key, attribute, selected_id);
                         }
-                    } else {
-                        self.show_editable_value(ui, key, attribute, selected_id);
+                        ui.end_row();
                     }
-                    ui.end_row();
-                }
-            });
+            }
+        });
     }
 
     /// Show attribute key with truncation and tooltip if the key is too long.
@@ -1422,4 +1439,97 @@ impl EngineGui {
 
             });
     }
+
+    /// Popup window dor drag and drop reorder for attributes
+    fn show_reorder_attribute_popup(&mut self, ctx: &egui::Context) {
+        if let Some(selected_id) = self.highlighted_entity {
+            if let Some((_, attribute_order)) = self.ecs.get_attributes_by_entity_id(selected_id) {
+                let mut rows = attribute_order.clone();
+
+                egui::Window::new("Reorder Attributes")
+                    .resizable(false)
+                    .collapsible(false)
+                    .show(ctx, |ui| {
+                        let mut from = None;
+                        let mut to = None;
+
+                        let frame = egui::Frame::default().inner_margin(4.0);
+
+                        let (_, dropped_payload) = ui.dnd_drop_zone::<usize, ()>(frame, |ui| {
+                            ui.set_min_size(egui::vec2(64.0, 100.0));
+                            for (row_idx, item) in rows.iter().enumerate() {
+                                let item_id = egui::Id::new(("entity_attribute", row_idx));
+
+                                let response = ui
+                                    .dnd_drag_source(item_id, row_idx, |ui| {
+                                        ui.label(item);
+                                    })
+                                    .response;
+
+                                // Detect drops onto this item:
+                                if let (Some(pointer), Some(hovered_payload)) = (
+                                    ui.input(|i| i.pointer.interact_pos()),
+                                    response.dnd_hover_payload::<usize>(),
+                                ) {
+                                    let rect = response.rect;
+
+                                    // Preview insertion:
+                                    let stroke = egui::Stroke::new(1.0, egui::Color32::WHITE);
+                                    let insert_row_idx = if *hovered_payload == row_idx {
+                                        // We are dragged onto ourselves
+                                        ui.painter().hline(rect.x_range(), rect.center().y, stroke);
+                                        row_idx
+                                    } else if pointer.y < rect.center().y {
+                                        // Above us
+                                        ui.painter().hline(rect.x_range(), rect.top(), stroke);
+                                        row_idx
+                                    } else {
+                                        // Below us
+                                        ui.painter().hline(rect.x_range(), rect.bottom(), stroke);
+                                        row_idx + 1
+                                    };
+
+                                    if let Some(dragged_payload) = response.dnd_release_payload::<usize>() {
+                                        // The user dropped onto this item.
+                                        from = Some(*dragged_payload);
+                                        to = Some(insert_row_idx);
+                                    }
+                                }
+                            }
+                        });
+
+                        if let (Some(from), Some(mut to)) = (from, to) {
+                            if from == to {
+                                // Dragging within the same column.
+                                // Adjust row index if we are re-ordering:
+                                to -= (from < to) as usize;
+                            }
+
+                            let item = rows.remove(from);
+                            to = to.min(rows.len());
+                            rows.insert(to, item);
+
+                        }
+
+                        // update entity
+                        self.ecs
+                            .update_entity_attribute_order(selected_id, rows.clone());
+                        self.update_entity(selected_id);
+
+                        if ui.button("Done").clicked() {
+                            self.show_reorder_attribute_popup = false;
+                        }
+
+                    });
+            } else {
+                self.print_to_terminal(&format!(
+                    "Failed to retrieve attributes for entity {}.",
+                    selected_id
+                ));
+            }
+        } else {
+            self.print_to_terminal("No entity selected for reordering.");
+        }
+    }
+
 }

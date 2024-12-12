@@ -23,6 +23,7 @@ pub struct Attribute {
 pub struct Entity {
     pub id: usize,
     pub attributes: HashMap<String, Attribute>,  // Stores attributes with name and value type
+    pub attribute_order: Vec<String>,
 }
 
 
@@ -50,6 +51,7 @@ impl Entity {
         Entity {
             id,
             attributes: HashMap::new(),
+            attribute_order: Vec::new(),
         }
     }
 
@@ -118,6 +120,9 @@ impl EntityManager {
                     name: name.clone(),
                     value_type: valid_value,
                 };
+                if !entity.attributes.contains_key(&name) {
+                    entity.attribute_order.push(name.clone());
+                }
                 entity.attributes.insert(name, attribute);
                 Ok(())
             }
@@ -150,6 +155,7 @@ impl EntityManager {
 
     /// Delete an attribute from an entity
     pub fn delete_attribute(&mut self, entity: &mut Entity, name: &String) {
+        entity.attribute_order.retain(|k| k != name);
         entity.attributes.remove(name);
     }
 
@@ -181,6 +187,7 @@ impl EntityManager {
         let new_entity = Entity {
             id: self.next_id,
             attributes: existing_entity.attributes.clone(),  // Copy all attributes
+            attribute_order: existing_entity.attribute_order.clone(),
         };
         self.entities.insert(self.next_id, new_entity.clone());
         self.next_id += 1;
@@ -241,6 +248,9 @@ impl EntityManager {
                         name: name.clone(),
                         value_type: valid_value,
                     };
+                    if !entity.attributes.contains_key(&name) {
+                        entity.attribute_order.push(name.clone());
+                    }
                     entity.attributes.insert(name, attribute);
                     Ok(())
                 }
@@ -281,6 +291,7 @@ impl EntityManager {
     /// Delete an attribute from an entity by ID
     pub fn delete_attribute_by_entity_id(&mut self, entity_id: usize, name: &String) {
         if let Some(entity) = self.entities.get_mut(&entity_id) {
+            entity.attribute_order.retain(|k| k != name);
             entity.attributes.remove(name);
         }
     }
@@ -298,9 +309,18 @@ impl EntityManager {
     pub fn get_attributes_by_entity_id(
         &self,
         entity_id: usize,
-    ) -> Option<HashMap<String, Attribute>> {
-        self.entities
-            .get(&entity_id)
-            .map(|entity| entity.attributes.clone())
+    ) -> Option<(HashMap<String, Attribute>, Vec<String>)> {
+        self.entities.get(&entity_id).map(|entity| {
+            (
+                entity.attributes.clone(),
+                entity.attribute_order.clone(),
+            )
+        })
+    }
+
+    pub fn update_entity_attribute_order(&mut self, entity_id: usize, new_order: Vec<String>) {
+        if let Some(entity) = self.entities.get_mut(&entity_id) {
+            entity.attribute_order = new_order;
+        }
     }
 }
