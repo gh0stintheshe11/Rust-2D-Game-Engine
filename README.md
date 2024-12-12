@@ -698,8 +698,9 @@ classDiagram
         Script
     }
 
-    ProjectManager ..> ProjectMetadata : creates/manages
     ProjectManager ..> AssetType : uses
+    ProjectManager ..> ProjectMetadata : creates/manages
+    
 
     note for ProjectManager "Static methods only\nNo instance state"
     note for ProjectMetadata "Serializable structure\nStores project info"
