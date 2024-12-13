@@ -1,4 +1,6 @@
 pub mod scene_hierarchy;
-pub mod menus;
+mod menus;
 pub mod menu_bar;
 pub mod gui_state;
+pub mod file_system;
+pub mod inspector;
