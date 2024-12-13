@@ -47,7 +47,7 @@ impl FileSystem {
             for entry in entries.filter_map(|e| e.ok()) {
                 if entry.path().is_dir() {
                     folders.push(entry);
-                } else {
+                } else if self.is_valid_file(&entry.path()) {
                     files.push(entry);
                 }
             }
@@ -104,6 +104,21 @@ impl FileSystem {
             }
         } else {
             ui.label("Failed to read directory.");
+        }
+    }
+
+    fn is_valid_file(&self, path: &Path) -> bool {
+        match path.extension().and_then(|ext| ext.to_str()) {
+            Some(ext) => {
+                let valid_extensions = [
+                    "png", "jpg", "jpeg", "gif", // Image files
+                    "wav", "mp3", "ogg",         // Sound files
+                    "ttf", "otf",                // Font files
+                    "lua",                       // Script files
+                ];
+                valid_extensions.contains(&ext.to_lowercase().as_str())
+            }
+            None => false,
         }
     }
 }
