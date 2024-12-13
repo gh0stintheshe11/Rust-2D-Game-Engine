@@ -141,23 +141,25 @@ impl EngineGui {
                     });
 
                 // Center panel (Game view/Editor)
-                egui::CentralPanel::default().show_inside(ui, |ui| {
-                    let content_rect = ui.available_rect_before_wrap();
-                    if self.show_editor {
-                        ui.painter().rect_filled(content_rect, 0.0, egui::Color32::from_gray(40));
-                        ui.add_sized(
-                            content_rect.size(),
-                            egui::TextEdit::multiline(&mut String::new())
-                                .code_editor()
-                                .desired_width(f32::INFINITY),
-                        );
-                    } else {
-                        ui.painter().rect_filled(content_rect, 0.0, egui::Color32::from_gray(32));
-                        ui.centered_and_justified(|ui| {
-                            ui.label("Game view will go here");
-                        });
-                    }
-                });
+                egui::CentralPanel::default()
+                    .frame(egui::Frame::none().inner_margin(egui::Margin::symmetric(2.0, 2.0)))
+                    .show_inside(ui, |ui| {
+                        let content_rect = ui.available_rect_before_wrap();
+                        if self.show_editor {
+                            ui.painter().rect_filled(content_rect, 0.0, egui::Color32::from_gray(40));
+                            ui.add_sized(
+                                content_rect.size(),
+                                egui::TextEdit::multiline(&mut String::new())
+                                    .code_editor()
+                                    .desired_width(f32::INFINITY),
+                            );
+                        } else {
+                            ui.painter().rect_filled(content_rect, 0.0, egui::Color32::from_gray(32));
+                            ui.centered_and_justified(|ui| {
+                                ui.label("Game view will go here");
+                            });
+                        }
+                    });
             });
 
         // Console/Debug Window (Bottom)
