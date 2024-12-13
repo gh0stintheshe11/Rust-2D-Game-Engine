@@ -32,7 +32,7 @@ pub struct EngineGui {
 
 impl EngineGui {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        cc.egui_ctx.set_visuals(egui::Visuals::dark());
+
         let gui_state = GuiState::new();
 
         let mut render_engine = RenderEngine::new();
@@ -60,6 +60,8 @@ impl EngineGui {
 
         // Frame color
         let default_fill = self.get_background_color();
+
+        self.set_theme(ctx);
 
         let main_window_frame = egui::Frame {
             inner_margin: egui::Margin::symmetric(spacing, spacing),
@@ -322,6 +324,19 @@ impl EngineGui {
             "Camera pos: {:?}, zoom: {}",
             self.render_engine.camera.position, self.render_engine.camera.zoom
         );
+    }
+
+    fn set_theme(&mut self, ctx: &egui::Context) {
+        let visuals = if self.gui_state.dark_mode {
+            egui::Visuals::dark()
+        } else {
+            egui::Visuals::light()
+        };
+
+        // avoid repaint everytime
+        if ctx.style().visuals != visuals {
+            ctx.set_visuals(visuals);
+        }
     }
 }
 
