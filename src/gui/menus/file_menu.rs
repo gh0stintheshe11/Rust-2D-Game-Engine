@@ -57,10 +57,10 @@ impl FileMenu {
 
     /// Show the "New Project" popup window.
     fn show_new_project_popup_window(&mut self, ctx: &egui::Context, gui_state: &mut GuiState) {
-
         egui::Window::new("Create New Project")
             .collapsible(false)
             .resizable(false)
+            .order(egui::Order::Foreground)
             .show(ctx, |ui| {
                 ui.label("Project Path:");
                 ui.text_edit_singleline(&mut self.temp_project_path);
@@ -113,10 +113,10 @@ impl FileMenu {
 
     /// Show the "Open Project" popup window.
     fn show_open_project_popup_window(&mut self, ctx: &egui::Context, gui_state: &mut GuiState) {
-
         egui::Window::new("Open Project")
             .collapsible(false)
             .resizable(false)
+            .order(egui::Order::Foreground)
             .show(ctx, |ui| {
                 ui.label("Project Path:");
                 ui.text_edit_singleline(&mut self.temp_project_path);
