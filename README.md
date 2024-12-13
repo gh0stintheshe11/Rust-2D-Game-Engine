@@ -15,151 +15,206 @@
 
 The Rendering Engine is a crucial component of our 2D game engine, responsible for handling all graphical output. It utilizes [`wgpu`](https://github.com/gfx-rs/wgpu), a cross-platform, safe, and modern graphics API, to provide efficient and flexible rendering capabilities.
 
-### Features
+### Core Components
 
-- Hardware-accelerated rendering using `wgpu`
-- Support for multiple graphics backends (Vulkan, Metal, DX12, WebGPU)
-- 2D sprite rendering
-- Texture creation and management
-- Shader compilation and usage
-- High-performance rendering pipeline
+```mermaid
+classDiagram
+    RenderEngine --> Camera
+    RenderEngine --> Transform
+    RenderEngine --> TextureInfo
+    RenderEngine --> Animation
+    RenderEngine ..> RenderLayer
 
-### Implementation Details
+    class RenderEngine {
+        -viewport_size: (f32, f32)
+        -last_frame_time: Instant
+        -textures: HashMap<Uuid, TextureInfo>
+        +camera: Camera
+        +new()
+        +load_texture(resource: Resource)
+        +update_viewport_size(width: f32, height: f32)
+        +render(scene: Scene)
+        +get_texture_data(id: Uuid)
+    }
 
-The `RenderEngine` struct encapsulates the core rendering functionality:
+    class Camera {
+        +position: (f32, f32)
+        +zoom: f32
+        +new()
+        +move_by(dx: f32, dy: f32)
+        +zoom_by(factor: f32)
+        +world_to_screen(world_pos: (f32, f32))
+    }
 
-- `texture_view`: A view into the render texture
-- `device`: The logical graphics and compute device
-- `queue`: The command queue for the device
-- `pipeline`: The render pipeline for 2D sprites
-- `vertex_buffer`: Buffer for sprite vertices
-- `index_buffer`: Buffer for sprite indices
+    class Transform {
+        +position: (f32, f32)
+        +rotation: f32
+        +scale: (f32, f32)
+        +new()
+        +with_position(x: f32, y: f32)
+        +with_rotation(angle: f32)
+        +with_scale(sx: f32, sy: f32)
+        +with_uniform_scale(scale: f32)
+    }
 
-Key methods include:
+    class TextureInfo {
+        -data: Vec<u8>
+        -dimensions: (u32, u32)
+        -aspect_ratio: f32
+    }
 
-- `new()`: Initializes the rendering engine, setting up the device, queue, and render pipeline
-- `render_frame(&mut self, sprites: &[Sprite])`: Renders a frame with the given sprites
+    class Animation {
+        -frames: Vec<TextureInfo>
+        -frame_duration: f32
+        -current_frame: usize
+        -elapsed_time: f32
+        -is_playing: bool
+        -is_looping: bool
+        -playback_speed: f32
+        +new(frames: Vec<TextureInfo>, duration: f32)
+        +update(delta_time: f32)
+        +play()
+        +pause()
+        +stop()
+        +set_looping(looping: bool)
+        +set_speed(speed: f32)
+        +set_frame(frame: usize)
+    }
 
-The engine uses `wgpu` to:
-- Create an instance with support for all available backends
-- Request a high-performance adapter
-- Set up a device and command queue
-- Create buffers and pipeline for sprite rendering
-- Manage shader compilation and execution
-
-### Unit Tests
-
-The unit test suite in [`render_engine_test.rs`](tests/render_engine_test.rs) verifies various aspects of the rendering engine:
-
-1. **Initialization** - `test_renderer_initialization`:
-   - Ensures the renderer can be created without errors
-
-2. **Texture Creation** - `test_texture_creation`:
-   - Verifies correct texture dimensions
-
-3. **Render Frame Execution** - `test_render_frame_executes`:
-   - Checks that the `render_frame` method runs without errors with sprites
-
-4. **Instance Initialization** - `test_instance_initialization`:
-   - Tests the creation of a `wgpu` instance
-
-5. **Device Request** - `test_request_device`:
-   - Verifies the ability to request a graphics device
-
-6. **Error Handling** - `test_error_handling_in_renderer`:
-   - Ensures the renderer handles errors gracefully
-
-7. **Shader Compilation** - `test_shader_compilation`:
-   - Tests the ability to compile WGSL shaders
-
-8. **High Load Rendering** - `test_high_load_rendering`:
-   - Stress tests the renderer with multiple render calls
-
-9. **Sprite Creation** - `test_sprite_creation`:
-   - Verifies sprite creation and properties
-
-10. **Multiple Sprites** - `test_multiple_sprites_rendering`:
-    - Tests rendering multiple sprites in a single frame
-
-### Usage
-
-To use the Rendering Engine in your game:
-
-```rust
-use rust_2d_game_engine::render_engine::{RenderEngine, Sprite};
-
-// Create renderer
-let mut renderer = RenderEngine::new();
-
-// Create sprites
-let sprites = vec![
-    Sprite {
-        position: (100.0, 100.0),
-        size: (50.0, 50.0),
-        rotation: 0.0,
-        texture_coords: (0.0, 0.0, 1.0, 1.0),
-    },
-    // Add more sprites as needed
-];
-
-// In the game loop
-renderer.render_frame(&sprites).expect("Failed to render frame");
+    class RenderLayer {
+        <<enumeration>>
+        Background
+        Game
+        UI
+        Debug
+    }
 ```
 
-### Development Roadmap
+#### Setting up a Basic Scene
+```rust
+// Initialize engine
+let mut render_engine = RenderEngine::new();
 
-#### ✅ Phase 0: Core Rendering Foundation (Completed)
-- [x] Basic WGPU setup
-  - Instance and device initialization
-  - Pipeline creation
-  - Basic shader implementation
-- [x] Basic sprite rendering
-  - Vertex and index buffer management
-  - Basic sprite structure (position, size, rotation)
-  - Simple white rectangle rendering
+// Set up camera
+render_engine.camera.move_by(0.0, 0.0);  // Center camera
+render_engine.camera.zoom_by(1.0);       // Default zoom
 
-#### Phase 1: Core Rendering Enhancements
-- [ ] Add texture loading and management
-  - Load image files (PNG, JPEG)
-  - Texture atlas support
-  - Resource management system
-- [ ] Implement basic camera system
-  - 2D viewport management
-  - Basic transformations (pan, zoom)
-  - Screen-to-world coordinate conversion
+// Load and position a sprite
+let sprite_id = render_engine.load_texture(&player_resource)?;
+let transform = Transform::new()
+    .with_position(100.0, 100.0)
+    .with_uniform_scale(1.0);
+```
 
-#### Phase 2: Animation and Visual Effects
-- [ ] Implement sprite sheets and animations
-  - Frame-based animation system
-  - Animation state management
-  - Support for multiple animation sequences
-- [ ] Add sprite batching for performance
-  - Batch similar sprites together
-  - Reduce draw calls
-  - GPU memory optimization
+#### Camera System
+The camera system provides viewport control with:
+- Pan/move functionality
+- Zoom control (0.1x to 10.0x)
+- World-to-screen coordinate conversion
+```rust
+// Smooth camera follow
+let player_pos = player.get_position();
+camera.move_by(
+    (player_pos.0 - camera.position.0) * 0.1,  // Smooth X follow
+    (player_pos.1 - camera.position.1) * 0.1   // Smooth Y follow
+);
 
-#### Phase 3: Advanced Features
-- [ ] Implement z-ordering/layers
-  - Multiple render layers
-  - Depth management
-  - Layer-based rendering
-- [ ] Add text rendering
-  - Font loading and management
-  - Unicode support
-  - Text styling options
+// Zoom to fit scene
+camera.zoom_by(0.8);  // Zoom out
+camera.zoom_by(1.2);  // Zoom in
+```
 
-#### Phase 4: Polish and Effects
-- [ ] Add particle system
-  - Particle emitters
-  - Particle life cycle management
-  - Particle rendering optimizations
-- [ ] Advanced camera features
-  - Camera shake
-  - Smooth following
-  - Screen effects (fade, flash)
+#### Transform System
+Handles object positioning and manipulation:
+- Position (x, y coordinates)
+- Rotation (in radians)
+- Scale (width, height multipliers)
+```rust
+// Create and modify transform
+let mut transform = Transform::new()
+    .with_position(100.0, 100.0)
+    .with_rotation(0.0)
+    .with_scale(1.0, 1.0);
 
-> [!IMPORTANT]
-> While the basic sprite rendering is implemented, features like textures, batching, and advanced transformations are still to be added.
+// Scale sprite without modifying original image
+transform.scale = (0.5, 0.5);  // Half size
+transform.scale = (2.0, 2.0);  // Double size
+
+// Rotate sprite
+transform.rotation = std::f32::consts::PI * 0.5;  // 90 degrees
+```
+
+#### Layer System
+Manages rendering order with four predefined layers:
+- Background (0)
+- Game (1)
+- UI (2)
+- Debug (3)
+```rust
+// Create entities in different layers
+let background = Entity::new()
+    .with_sprite(background_texture)
+    .with_layer(RenderLayer::Background);
+
+let player = Entity::new()
+    .with_sprite(player_texture)
+    .with_layer(RenderLayer::Game);
+
+let health_bar = Entity::new()
+    .with_sprite(ui_texture)
+    .with_layer(RenderLayer::UI);
+```
+
+#### Texture Management
+- Supports PNG and JPEG formats
+- Maintains original dimensions and aspect ratios
+- Efficient texture data storage and retrieval
+
+#### Animation Support
+Optional animation system with:
+- Frame-based animation
+- Playback controls (play/pause/stop)
+- Looping options
+- Variable playback speed
+- Frame selection
+```rust
+// Create and control animation
+let mut player_animation = Animation::new(walk_frames, 1.0/12.0);  // 12 FPS
+
+// Basic controls
+player_animation.play();      // Start playing
+player_animation.pause();     // Pause at current frame
+player_animation.stop();      // Stop and reset to first frame
+
+// Advanced controls
+player_animation.set_looping(true);   // Loop animation
+player_animation.set_speed(2.0);      // Play at double speed
+player_animation.set_frame(3);        // Jump to specific frame
+```
+
+### Features
+
+✅ **Implemented**
+- Basic image rendering
+- Camera controls
+- Transform system
+- Layer-based rendering
+- Viewport management
+- Basic animation support
+
+🚧 **Planned**
+- Sprite sheet support
+- Advanced animation features
+- Shader effects
+- Particle systems
+
+### Technical Details
+
+- Uses `image` crate for texture loading
+- UUID-based resource management
+- Efficient visibility culling
+- Automatic layer sorting
+- Transform-aware rendering
 
 ## [Physics Engine](/src/physics_engine.rs)
 
@@ -249,8 +304,225 @@ physics_engine.handle_collisions();
 
 ## [ECS Entity Component System](/src/ecs.rs)
 
-Functions that can modify the atrribute of entity on the fly.
-To be implemented...
+The Entity Component System (ECS) is the core architecture of our game engine, providing a flexible and efficient way to create and manage game objects. It follows a composition-over-inheritance pattern, making it easy to create complex game objects without deep inheritance hierarchies.
+
+### System Overview
+
+```mermaid
+classDiagram
+    class SceneManager {
+        +scenes: HashMap<Uuid, Scene>
+        +shared_entities: HashMap<Uuid, Entity>
+        +active_scene: Option<Uuid>
+        +new()
+        +create_scene(name: str)
+        +delete_scene(id: Uuid)
+        +create_shared_entity(name: str)
+        +delete_shared_entity(id: Uuid)
+        +set_active_scene(id: Uuid)
+        +get_active_scene()
+    }
+
+    class Scene {
+        +id: Uuid
+        +name: String
+        +entities: HashMap<Uuid, Entity>
+        +resources: HashMap<Uuid, Resource>
+        +shared_entity_refs: Vec<Uuid>
+        +new(name: str)
+        +modify_scene(new_name: str)
+        +create_entity(name: str)
+        +create_resource(name: str, path: str, type: ResourceType)
+        +add_shared_entity_ref(id: Uuid)
+        +remove_shared_entity_ref(id: Uuid)
+    }
+
+    class Entity {
+        +id: Uuid
+        +name: String
+        +attributes: HashMap<Uuid, Attribute>
+        +resource_list: Vec<Uuid>
+        +new(id: Uuid, name: str)
+        +change_entity_name(new_name: str)
+        +attach_resource(resource_id: Uuid)
+        +detach_resource(resource_id: Uuid)
+        +create_attribute(name: str, type: AttributeType, value: AttributeValue)
+    }
+
+    class Resource {
+        +id: Uuid
+        +name: String
+        +file_path: String
+        +resource_type: ResourceType
+        +display()
+        +play()
+        +pause()
+        +stop()
+        +edit()
+    }
+
+    class Attribute {
+        +id: Uuid
+        +name: String
+        +data_type: AttributeType
+        +value: AttributeValue
+    }
+
+    class ResourceType {
+        <<enumeration>>
+        Image
+        Sound
+        Script
+    }
+
+    class AttributeType {
+        <<enumeration>>
+        Integer
+        Float
+        String
+        Boolean
+        Vector2
+    }
+
+    SceneManager "1" --> "*" Scene : manages scenes
+    SceneManager "1" --> "*" Entity : manages shared entities
+    Scene "1" --> "*" Entity : contains local entities
+    Scene ..> Entity : references shared entities
+    Scene "1" --> "*" Resource : contains
+    Entity "1" --> "*" Attribute : has
+    Entity "1" --> "*" Resource : references
+    Resource --> "1" ResourceType : has type
+    Attribute --> "1" AttributeType : has type
+```
+
+ECS implementation consists of four main parts:
+
+1. **Scene Manager**
+   - Top-level controller managing multiple scenes and shared entities
+   - Handles scene creation, deletion, and switching
+   - Maintains shared entities accessible across scenes
+   - Tracks active scene for easy access
+   - Example: Managing different levels, menus, or game states
+
+2. **Scene**
+   - Container for entities, resources, and shared entity references
+   - Manages the game world state
+   - Can reference shared entities from the scene manager
+   - Example: A game level containing players, enemies, and items
+
+3. **Entity**
+   - Can be either scene-specific or shared across scenes
+   - Holds attributes and resource references
+   - Can represent anything from players to UI elements
+   - Example: A player character with position, health, and sprite
+
+4. **Components**
+   - **Attributes**: Data components (position, health, speed)
+   - **Resources**: External assets (images, sounds, scripts)
+
+### Key Features
+
+#### 1. Hierarchical Structure
+```
+SceneManager
+├── Shared Entities
+│   └── Entity 1 (e.g., "GlobalPlayer")
+│       ├── Attributes
+│       └── Resources
+└── Scenes
+    └── Scene 1 (e.g., "Level1")
+        ├── Local Entities
+        │   └── Entity 2 (e.g., "Enemy")
+        ├── Resources
+        └── Shared Entity References
+```
+
+#### 2. Flexible Component System
+- **Attributes**: Store entity-specific data
+  ```rust
+  // Position component
+  entity.create_attribute("position", AttributeType::Vector2, Vector2(0.0, 0.0));
+  
+  // Health component
+  entity.create_attribute("health", AttributeType::Integer, Integer(100));
+  ```
+
+#### 3. Resource Management
+- **Centralized Resource Handling**: Resources are managed at the scene level
+- **Reference System**: Entities reference resources by ID
+- **Type Safety**: Resources are typed (Image, Sound, Script)
+  ```rust
+  // Create and reference a resource
+  let texture_id = scene.create_resource("player", "player.png", ResourceType::Image);
+  player.attach_resource(texture_id);
+  ```
+
+### Common Use Cases
+
+#### Creating and Using Shared Entities
+```rust
+// Create a shared entity in the scene manager
+let player_id = scene_manager.create_shared_entity("Player");
+
+// Reference the shared entity in a scene
+scene.add_shared_entity_ref(player_id);
+
+// Access the shared entity through the scene
+if let Some(player) = scene.get_shared_entity_ref(scene_manager, player_id) {
+    // Use the shared entity
+}
+```
+
+#### Creating a Player Character
+```rust
+// Create entity
+let player_id = scene.create_entity("Player");
+let player = scene.get_entity_mut(player_id).unwrap();
+
+// Add components
+player.create_attribute("position", Vector2(0.0, 0.0));
+player.create_attribute("health", Integer(100));
+player.create_attribute("speed", Float(5.0));
+
+// Add resources
+let sprite_id = scene.create_resource("player_sprite", "player.png", ResourceType::Image);
+player.attach_resource(sprite_id);
+```
+
+#### Creating an Interactive Object
+```rust
+// Create a collectible item
+let coin_id = scene.create_entity("Coin");
+let coin = scene.get_entity_mut(coin_id).unwrap();
+
+// Add components
+coin.create_attribute("position", Vector2(100.0, 100.0));
+coin.create_attribute("is_collected", Boolean(false));
+coin.create_attribute("value", Integer(10));
+
+// Add resources
+let coin_sprite = scene.create_resource("coin_sprite", "coin.png", ResourceType::Image);
+let collect_sound = scene.create_resource("collect_sound", "collect.wav", ResourceType::Sound);
+coin.attach_resource(coin_sprite);
+coin.attach_resource(collect_sound);
+```
+
+### Best Practices and Tips
+
+1. **Entity Design**
+   - Use shared entities for objects that persist across scenes
+   - Keep scene-specific entities local to their scenes
+   - Use meaningful names for entities and attributes
+
+2. **Resource Management**
+   - Share resources between entities when possible
+   - Clean up unused resources
+   - Use appropriate resource types
+
+3. **Scene Organization**
+   - Divide complex games into multiple scenes
+   - Use scene transitions for level management
+   - Keep scene hierarchies clean and logical
 
 ## [Script Interpreter](/src/script_interpreter.rs)
 
@@ -397,15 +669,176 @@ Using [winit](https://github.com/rust-windowing/winit) for the game input handli
 
 ## [Game Project File Management](/src/project_manager.rs)
 
-A game engine should be able to display and manage the game project files.
+## [Project Manager](/src/project_manager.rs)
 
-- [x] create a new project
-- [x] open a project
-- [ ] save a project
-- [ ] build a project
+The Project Manager handles game project creation, loading, saving, building, and asset importing. It provides a structured way to manage game projects and their assets.
 
-> [!NOTE]
-> Not sure if project files need to be saved manually for now, since the project is directly modified in the engine.
+### Project Structure
+```
+game_project/
+├── assets/
+│   ├── images/    # PNG, JPG, JPEG, GIF
+│   ├── sounds/    # WAV, MP3, OGG
+│   ├── fonts/     # TTF, OTF
+│   └── scripts/   # LUA scripts
+├── scenes/        # Scene data files
+├── src/          # Rust source files
+│   └── main.rs
+├── Cargo.toml
+└── project.json
+```
+
+### Core Features
+
+```mermaid
+classDiagram
+    class ProjectManager {
+        +create_project(project_path: &Path) Result<(), String>
+        +load_project(project_path: &Path) Result<ProjectMetadata, String>
+        +save_project(project_path: &Path, metadata: &ProjectMetadata) Result<(), String>
+        +build_project(project_path: &Path) Result<(), String>
+        +import_asset(project_path: &Path, asset_path: &Path, asset_type: AssetType) Result<String, String>
+        +load_scene_hierarchy(project_path: &Path) Result<SceneManager, String>
+        +save_scene_hierarchy(project_path: &Path, scene_manager: &SceneManager) Result<(), String>
+        +load_project_full(project_path: &Path) Result<(ProjectMetadata, SceneManager), String>
+        +save_project_full(project_path: &Path, metadata: &ProjectMetadata, scene_manager: &SceneManager) Result<(), String>
+    }
+
+    class ProjectMetadata {
+        +project_name: String
+        +version: String
+        +project_path: String
+        +default_scene: String
+        +active_scene_id: Option<Uuid>
+    }
+
+    class AssetType {
+        <<enumeration>>
+        Image
+        Sound
+        Font
+        Script
+    }
+
+    ProjectManager ..> AssetType : uses
+    ProjectManager ..> ProjectMetadata : creates/manages
+    ProjectManager ..> SceneManager : manages
+
+    note for ProjectManager "Static methods only\nNo instance state"
+    note for ProjectMetadata "Serializable structure\nStores project info"
+    note for AssetType "Defines supported\nasset types"
+```
+
+### Usage Examples
+
+#### Project Creation and Management
+```rust
+// Create a new game project
+let project_path = Path::new("path/to/my_game");
+ProjectManager::create_project(project_path)?;
+
+// Load project with scene hierarchy
+let (metadata, scene_manager) = ProjectManager::load_project_full(project_path)?;
+
+// Save project with scene hierarchy
+ProjectManager::save_project_full(project_path, &metadata, &scene_manager)?;
+```
+
+#### Asset Import
+```rust
+// Import an image
+let image_path = Path::new("path/to/sprite.png");
+let relative_path = ProjectManager::import_asset(
+    project_path,
+    image_path,
+    AssetType::Image
+)?;
+
+// Import a sound
+let sound_path = Path::new("path/to/effect.wav");
+let relative_path = ProjectManager::import_asset(
+    project_path,
+    sound_path,
+    AssetType::Sound
+)?;
+```
+
+#### Scene Management
+```rust
+// Load scene hierarchy
+let scene_manager = ProjectManager::load_scene_hierarchy(project_path)?;
+
+// Make changes to scenes...
+
+// Save scene hierarchy
+ProjectManager::save_scene_hierarchy(project_path, &scene_manager)?;
+```
+
+#### Build System
+```rust
+// Build the project
+ProjectManager::build_project(project_path)?;
+```
+
+### Supported Asset Types
+
+#### Images
+- Formats: PNG, JPG, JPEG, GIF
+- Directory: `assets/images/`
+
+#### Sounds
+- Formats: WAV, MP3, OGG
+- Directory: `assets/sounds/`
+
+#### Fonts
+- Formats: TTF, OTF
+- Directory: `assets/fonts/`
+
+#### Scripts
+- Formats: LUA
+- Directory: `assets/scripts/`
+
+### Technical Details
+
+#### Project Metadata
+Stores essential project information in `project.json`:
+- Project name
+- Version
+- Project path
+- Default scene
+- Active scene ID (UUID)
+
+#### Scene Management
+- Serializes scene hierarchy to `scenes/scene_manager.json`
+- Tracks active scene across sessions
+- Maintains scene relationships and shared entities
+
+#### Asset Management
+- Automatic file type validation
+- Duplicate file detection
+- Organized asset directory structure
+- Clear error messages for invalid imports
+
+#### Build Process
+- Compiles Rust code with `cargo build --release`
+- Copies assets to target directory
+- Creates a ready-to-run game executable
+
+### Best Practices
+1. **Asset Organization**
+   - Use appropriate file formats for each asset type
+   - Keep assets in their designated directories
+   - Avoid duplicate file names
+
+2. **Project Structure**
+   - Maintain clean directory hierarchy
+   - Follow the recommended file organization
+   - Handle asset import errors gracefully
+
+3. **Scene Management**
+   - Save scene changes frequently
+   - Use meaningful scene names
+   - Track active scene properly
 
 ## [Engine GUI](/src/engine_gui.rs)
 

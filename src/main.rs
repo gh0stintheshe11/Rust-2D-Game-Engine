@@ -1,30 +1,26 @@
 mod engine_gui;
+mod gui;
 mod project_manager;
 use eframe::*;
 mod audio_engine;
 mod ecs;
+mod input_handler;
 mod physics_engine;
 mod render_engine;
-mod input_handler;
-use winit::event::Event;
 
 fn main() -> Result<(), eframe::Error> {
     let options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default()
+            .with_inner_size([1280.0, 720.0])
+            .with_min_inner_size([800.0, 600.0])
+            .with_maximized(true),
         ..Default::default()
     };
 
-    // Create the app
+    // Run the app
     eframe::run_native(
-        "Rust 2D Game Engine",
+        "Rust Game Engine",
         options,
-        Box::new(|cc| {
-            // Create the app
-            let app = Box::new(engine_gui::EngineGui::default());
-            
-            // Set up event handling
-            cc.egui_ctx.set_visuals(egui::Visuals::dark());
-            
-            Ok(app)
-        }),
+        Box::new(|cc| Ok(Box::new(engine_gui::EngineGui::new(cc)))),
     )
 }
