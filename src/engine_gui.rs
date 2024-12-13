@@ -163,7 +163,7 @@ impl EngineGui {
                             self.show_editor = true;
                         }
                         if ui
-                            .selectable_label(!self.show_editor, "🎮 Viewport")
+                            .selectable_label(!self.show_editor, "🎮 Viewer")
                             .clicked()
                         {
                             self.show_editor = false;
@@ -308,10 +308,10 @@ impl EngineGui {
             ])
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
-                    if ui.selectable_label(!self.show_debug, "🖥 Output").clicked() {
+                    if ui.selectable_label(!self.show_debug, "⚙ Output").clicked() {
                         self.show_debug = false;
                     }
-                    if ui.selectable_label(self.show_debug, "🔧 Debug").clicked() {
+                    if ui.selectable_label(self.show_debug, "🛠 Debug").clicked() {
                         self.show_debug = true;
                     }
                 });
