@@ -14,12 +14,16 @@ use serde::{Serialize, Deserialize};
 // =============== Scene Manager (Top Level) ===============
 pub struct SceneManager {
     scenes: HashMap<Uuid, Scene>,
+    shared_entities: HashMap<Uuid, Entity>,
+    active_scene: Option<Uuid>,  // Track currently active scene
 }
 
 impl SceneManager {
     pub fn new() -> Self {
         Self {
             scenes: HashMap::new(),
+            shared_entities: HashMap::new(),
+            active_scene: None,
         }
     }
 
@@ -55,6 +59,72 @@ impl SceneManager {
             .find(|(_, scene)| scene.name == name)
             .map(|(_, scene)| scene)
     }
+
+    pub fn create_shared_entity(&mut self, name: &str) -> Uuid {
+        let id = Uuid::new_v4();
+        let entity = Entity::new(id, name);
+        self.shared_entities.insert(id, entity);
+        id
+    }
+
+    pub fn delete_shared_entity(&mut self, id: Uuid) -> bool {
+        for scene in self.scenes.values_mut() {
+            scene.shared_entity_refs.retain(|&ref_id| ref_id != id);
+        }
+        self.shared_entities.remove(&id).is_some()
+    }
+
+    pub fn list_shared_entity(&self) -> Vec<(Uuid, &str)> {
+        self.shared_entities
+            .iter()
+            .map(|(id, entity)| (*id, entity.name.as_str()))
+            .collect()
+    }
+
+    pub fn get_shared_entity(&self, id: Uuid) -> Option<&Entity> {
+        self.shared_entities.get(&id)
+    }
+
+    pub fn get_shared_entity_mut(&mut self, id: Uuid) -> Option<&mut Entity> {
+        self.shared_entities.get_mut(&id)
+    }
+
+    pub fn get_shared_entity_by_name(&self, name: &str) -> Option<&Entity> {
+        self.shared_entities
+            .iter()
+            .find(|(_, entity)| entity.name == name)
+            .map(|(_, entity)| entity)
+    }
+
+    // Helper to get all scenes using a shared entity
+    pub fn get_scenes_using_entity(&self, entity_id: Uuid) -> Vec<&Scene> {
+        self.scenes
+            .values()
+            .filter(|scene| scene.shared_entity_refs.contains(&entity_id))
+            .collect()
+    }
+
+    // Add these methods for active scene management
+    pub fn set_active_scene(&mut self, id: Uuid) -> Result<(), String> {
+        if self.scenes.contains_key(&id) {
+            self.active_scene = Some(id);
+            Ok(())
+        } else {
+            Err("Scene not found".to_string())
+        }
+    }
+
+    pub fn get_active_scene(&self) -> Option<&Scene> {
+        self.active_scene.and_then(|id| self.scenes.get(&id))
+    }
+
+    pub fn get_active_scene_mut(&mut self) -> Option<&mut Scene> {
+        self.active_scene.and_then(|id| self.scenes.get_mut(&id))
+    }
+
+    pub fn clear_active_scene(&mut self) {
+        self.active_scene = None;
+    }
 }
 
 // =============== Scene (Manages Entities and Resources) ===============
@@ -64,6 +134,7 @@ pub struct Scene {
     pub name: String,
     pub entities: HashMap<Uuid, Entity>,
     pub resources: HashMap<Uuid, Resource>,
+    pub shared_entity_refs: Vec<Uuid>,
 }
 
 impl Scene {
@@ -73,6 +144,7 @@ impl Scene {
             name: name.to_string(),
             entities: HashMap::new(),
             resources: HashMap::new(),
+            shared_entity_refs: Vec::new(),
         }
     }
 
@@ -180,6 +252,51 @@ impl Scene {
             .iter()
             .find(|(_, ent)| ent.name == name)
             .map(|(_, ent)| ent)
+    }
+
+    // Add methods to work with shared entities
+    pub fn add_shared_entity_ref(&mut self, shared_entity_id: Uuid) {
+        if !self.shared_entity_refs.contains(&shared_entity_id) {
+            self.shared_entity_refs.push(shared_entity_id);
+        }
+    }
+
+    pub fn remove_shared_entity_ref(&mut self, shared_entity_id: Uuid) {
+        self.shared_entity_refs.retain(|&id| id != shared_entity_id);
+    }
+
+    pub fn list_shared_entity_ref(&self) -> Vec<Uuid> {
+        self.shared_entity_refs.clone()
+    }
+
+    // Get shared entity reference through scene manager
+    pub fn get_shared_entity_ref<'a>(&'a self, scene_manager: &'a SceneManager, id: Uuid) -> Option<&Entity> {
+        if self.shared_entity_refs.contains(&id) {
+            scene_manager.get_shared_entity(id)
+        } else {
+            None
+        }
+    }
+
+    // Get shared entity reference mut through scene manager
+    pub fn get_shared_entity_ref_mut<'a>(&'a self, scene_manager: &'a mut SceneManager, id: Uuid) -> Option<&mut Entity> {
+        if self.shared_entity_refs.contains(&id) {
+            scene_manager.get_shared_entity_mut(id)
+        } else {
+            None
+        }
+    }
+
+    // Helper to get all entities (both local and shared)
+    pub fn get_all_entities<'a>(&'a self, scene_manager: &'a SceneManager) -> Vec<&Entity> {
+        let mut all_entities = Vec::new();
+        all_entities.extend(self.entities.values());
+        all_entities.extend(
+            self.shared_entity_refs
+                .iter()
+                .filter_map(|id| scene_manager.get_shared_entity(*id))
+        );
+        all_entities
     }
 }
 
