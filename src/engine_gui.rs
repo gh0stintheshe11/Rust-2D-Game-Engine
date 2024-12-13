@@ -1,9 +1,7 @@
-use eframe::egui;
-use crate::gui::scene_hierarchy::SceneHierarchy;
-use crate::gui::menu_bar::MenuBar;
 use crate::gui::gui_state::GuiState;
-
-
+use crate::gui::menu_bar::MenuBar;
+use crate::gui::scene_hierarchy::SceneHierarchy;
+use eframe::egui;
 
 pub struct EngineGui {
     // Window States
@@ -37,7 +35,7 @@ impl EngineGui {
             show_debug: false,
 
             side_panel_width_percentage: 0.2, // 20% of screen width
-            console_height_percentage: 0.2,    // 20% of screen height
+            console_height_percentage: 0.2,   // 20% of screen height
 
             // Windows
             scene_hierarchy: SceneHierarchy::new(),
@@ -59,7 +57,8 @@ impl EngineGui {
         let border_compensation = 1.0; // Adjust this value as needed
 
         // Calculate available space after menu
-        let available_height = screen_rect.height() - menu_height - console_height + border_compensation;
+        let available_height =
+            screen_rect.height() - menu_height - console_height + border_compensation;
         let half_height = (available_height - spacing) / 2.0;
 
         // Frame color
@@ -75,9 +74,7 @@ impl EngineGui {
             stroke: ctx.style().visuals.widgets.noninteractive.bg_stroke,
         };
 
-        let menu_height = menu_frame.inner_margin.top 
-            + menu_frame.inner_margin.bottom 
-            + 20.0;
+        let menu_height = menu_frame.inner_margin.top + menu_frame.inner_margin.bottom + 20.0;
 
         // Create different frames for different window types
         let panel_frame = egui::Frame {
@@ -141,7 +138,10 @@ impl EngineGui {
         // Inspector Window (Right)
         egui::Window::new("Inspector")
             .frame(panel_frame)
-            .anchor(egui::Align2::RIGHT_TOP, egui::vec2(border_compensation, menu_height))
+            .anchor(
+                egui::Align2::RIGHT_TOP,
+                egui::vec2(border_compensation, menu_height),
+            )
             .fixed_size([side_panel_width - border_compensation, available_height])
             .show(ctx, |ui| {
                 ui.label("Properties will go here");
@@ -150,21 +150,28 @@ impl EngineGui {
         // Viewport (Center)
         egui::Window::new("Viewport")
             .frame(viewport_frame)
-            .anchor(egui::Align2::LEFT_TOP, egui::vec2(
-                side_panel_width + spacing - border_compensation,
-                menu_height
-            ))
+            .anchor(
+                egui::Align2::LEFT_TOP,
+                egui::vec2(
+                    side_panel_width + spacing - border_compensation,
+                    menu_height,
+                ),
+            )
             .resizable(false)
             .collapsible(false)
             .movable(false)
             .title_bar(false)
             .fixed_size([
-                screen_rect.width() - (2.0 * side_panel_width) - (2.0 * spacing) + (2.0 * border_compensation),
-                available_height
+                screen_rect.width() - (2.0 * side_panel_width) - (2.0 * spacing)
+                    + (2.0 * border_compensation),
+                available_height,
             ])
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
-                    if ui.selectable_label(!self.show_editor, "🎮 Viewport").clicked() {
+                    if ui
+                        .selectable_label(!self.show_editor, "🎮 Viewport")
+                        .clicked()
+                    {
                         self.show_editor = false;
                     }
                     if ui.selectable_label(self.show_editor, "📝 Editor").clicked() {
@@ -175,15 +182,18 @@ impl EngineGui {
 
                 if self.show_editor {
                     let rect = ui.available_rect_before_wrap();
-                    ui.painter().rect_filled(rect, 0.0, egui::Color32::from_gray(40));
-                    ui.add_sized(rect.size(),
+                    ui.painter()
+                        .rect_filled(rect, 0.0, egui::Color32::from_gray(40));
+                    ui.add_sized(
+                        rect.size(),
                         egui::TextEdit::multiline(&mut String::new())
                             .code_editor()
-                            .desired_width(f32::INFINITY)
+                            .desired_width(f32::INFINITY),
                     );
                 } else {
                     let rect = ui.available_rect_before_wrap();
-                    ui.painter().rect_filled(rect, 0.0, egui::Color32::from_gray(32));
+                    ui.painter()
+                        .rect_filled(rect, 0.0, egui::Color32::from_gray(32));
                     ui.centered_and_justified(|ui| {
                         ui.label("Game view will go here");
                     });
@@ -193,13 +203,17 @@ impl EngineGui {
         // Console/Debug Window (Bottom)
         egui::Window::new(if self.show_debug { "Debug" } else { "Console" })
             .frame(console_frame)
-            .anchor(egui::Align2::LEFT_BOTTOM, egui::vec2(
-                side_panel_width + spacing - border_compensation,
-                border_compensation
-            ))
+            .anchor(
+                egui::Align2::LEFT_BOTTOM,
+                egui::vec2(
+                    side_panel_width + spacing - border_compensation,
+                    border_compensation,
+                ),
+            )
             .fixed_size([
-                screen_rect.width() - (2.0 * side_panel_width) - (2.0 * spacing) + (2.0 * border_compensation),
-                console_height - border_compensation
+                screen_rect.width() - (2.0 * side_panel_width) - (2.0 * spacing)
+                    + (2.0 * border_compensation),
+                console_height - border_compensation,
             ])
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
@@ -230,10 +244,10 @@ impl EngineGui {
 
 impl eframe::App for EngineGui {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-
         egui::CentralPanel::default().show(ctx, |ui| {
             let rect = ui.max_rect();
-            ui.painter().rect_filled(rect, 0.0, self.get_background_color());
+            ui.painter()
+                .rect_filled(rect, 0.0, self.get_background_color());
 
             self.show_windows(ctx);
         });
