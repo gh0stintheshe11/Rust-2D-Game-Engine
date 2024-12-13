@@ -93,7 +93,10 @@ impl EngineGui {
                         if ui.selectable_label(self.show_editor, "📝 Editor").clicked() {
                             self.show_editor = true;
                         }
-                        if ui.selectable_label(!self.show_editor, "🎮 Viewport").clicked() {
+                        if ui
+                            .selectable_label(!self.show_editor, "🎮 Viewport")
+                            .clicked()
+                        {
                             self.show_editor = false;
                         }
                     });
@@ -102,7 +105,7 @@ impl EngineGui {
 
                 // Main content area with resizable panels
                 let available_rect = ui.available_rect_before_wrap();
-                
+
                 // Left panel (Scene/Files)
                 egui::SidePanel::left("left_panel")
                     .resizable(true)
@@ -145,8 +148,24 @@ impl EngineGui {
                     .frame(egui::Frame::none().inner_margin(egui::Margin::symmetric(2.0, 2.0)))
                     .show_inside(ui, |ui| {
                         let content_rect = ui.available_rect_before_wrap();
+
+                        // First fill the background
                         if self.show_editor {
-                            ui.painter().rect_filled(content_rect, 0.0, egui::Color32::from_gray(40));
+                            ui.painter().rect_filled(
+                                content_rect,
+                                0.0,
+                                egui::Color32::from_gray(40),
+                            );
+                        } else {
+                            ui.painter().rect_filled(
+                                content_rect,
+                                0.0,
+                                egui::Color32::from_gray(32),
+                            );
+                        }
+
+                        // Main content
+                        if self.show_editor {
                             ui.add_sized(
                                 content_rect.size(),
                                 egui::TextEdit::multiline(&mut String::new())
@@ -154,7 +173,26 @@ impl EngineGui {
                                     .desired_width(f32::INFINITY),
                             );
                         } else {
-                            ui.painter().rect_filled(content_rect, 0.0, egui::Color32::from_gray(32));
+                            // Game control buttons floating on top (only in viewport mode)
+                            ui.with_layout(
+                                egui::Layout::top_down_justified(egui::Align::Center),
+                                |ui| {
+                                    ui.add_space(8.0); // Add top margin
+                                    ui.horizontal(|ui| {
+                                        ui.add_space((ui.available_width() - 170.0) * 0.5); // (half of the viewport width - buotton group width)/2
+                                        if ui.button("▶ Play").clicked() {
+                                            // Handle play
+                                        }
+                                        if ui.button("⏸ Pause").clicked() {
+                                            // Handle pause
+                                        }
+                                        if ui.button("⟲ Reset").clicked() {
+                                            // Handle reset
+                                        }
+                                    });
+                                },
+                            );
+
                             ui.centered_and_justified(|ui| {
                                 ui.label("Game view will go here");
                             });
@@ -166,10 +204,7 @@ impl EngineGui {
         egui::Window::new(if self.show_debug { "Debug" } else { "Console" })
             .frame(console_frame)
             .order(egui::Order::Foreground)
-            .anchor(
-                egui::Align2::CENTER_BOTTOM,
-                egui::vec2(0.0, -spacing),
-            )
+            .anchor(egui::Align2::CENTER_BOTTOM, egui::vec2(0.0, -spacing))
             .fixed_size([
                 screen_rect.width() - (2.0 * side_panel_width) - (2.0 * spacing),
                 console_height - spacing,
