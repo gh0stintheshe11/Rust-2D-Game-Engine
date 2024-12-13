@@ -312,12 +312,15 @@ The Entity Component System (ECS) is the core architecture of our game engine, p
 classDiagram
     class SceneManager {
         +scenes: HashMap<Uuid, Scene>
+        +shared_entities: HashMap<Uuid, Entity>
+        +active_scene: Option<Uuid>
         +new()
         +create_scene(name: str)
         +delete_scene(id: Uuid)
-        +list_scene()
-        +get_scene(id: Uuid)
-        +get_scene_by_name(name: str)
+        +create_shared_entity(name: str)
+        +delete_shared_entity(id: Uuid)
+        +set_active_scene(id: Uuid)
+        +get_active_scene()
     }
 
     class Scene {
@@ -325,12 +328,13 @@ classDiagram
         +name: String
         +entities: HashMap<Uuid, Entity>
         +resources: HashMap<Uuid, Resource>
+        +shared_entity_refs: Vec<Uuid>
         +new(name: str)
         +modify_scene(new_name: str)
         +create_entity(name: str)
         +create_resource(name: str, path: str, type: ResourceType)
-        +load_scene()
-        +unload_scene()
+        +add_shared_entity_ref(id: Uuid)
+        +remove_shared_entity_ref(id: Uuid)
     }
 
     class Entity {
@@ -392,19 +396,20 @@ classDiagram
 ECS implementation consists of four main parts:
 
 1. **Scene Manager**
-   - Top-level controller managing multiple scenes
+   - Top-level controller managing multiple scenes and shared entities
    - Handles scene creation, deletion, and switching
-   - Maintains a unique ID for each scene
+   - Maintains shared entities accessible across scenes
+   - Tracks active scene for easy access
    - Example: Managing different levels, menus, or game states
 
 2. **Scene**
-   - Container for entities and resources
+   - Container for entities, resources, and shared entity references
    - Manages the game world state
-   - Handles entity and resource creation/deletion
+   - Can reference shared entities from the scene manager
    - Example: A game level containing players, enemies, and items
 
 3. **Entity**
-   - Basic game object container
+   - Can be either scene-specific or shared across scenes
    - Holds attributes and resource references
    - Can represent anything from players to UI elements
    - Example: A player character with position, health, and sprite
@@ -418,16 +423,16 @@ ECS implementation consists of four main parts:
 #### 1. Hierarchical Structure
 ```
 SceneManager
-└── Scene 1 (e.g., "OpenWorld")
-    ├── Entity 1 (e.g., "Player")
-    │   ├── Attributes
-    │   │   ├── position: Vector2(100, 100)
-    │   │   └── health: Integer(100)
-    │   └── Resources
-    │       ├── sprite.png
-    │       └── jump_sound.wav
-    └── Entity 2 (e.g., "Enemy")
-        └── ...
+├── Shared Entities
+│   └── Entity 1 (e.g., "GlobalPlayer")
+│       ├── Attributes
+│       └── Resources
+└── Scenes
+    └── Scene 1 (e.g., "Level1")
+        ├── Local Entities
+        │   └── Entity 2 (e.g., "Enemy")
+        ├── Resources
+        └── Shared Entity References
 ```
 
 #### 2. Flexible Component System
@@ -451,6 +456,20 @@ SceneManager
   ```
 
 ### Common Use Cases
+
+#### Creating and Using Shared Entities
+```rust
+// Create a shared entity in the scene manager
+let player_id = scene_manager.create_shared_entity("Player");
+
+// Reference the shared entity in a scene
+scene.add_shared_entity_ref(player_id);
+
+// Access the shared entity through the scene
+if let Some(player) = scene.get_shared_entity_ref(scene_manager, player_id) {
+    // Use the shared entity
+}
+```
 
 #### Creating a Player Character
 ```rust
@@ -489,9 +508,9 @@ coin.attach_resource(collect_sound);
 ### Best Practices and Tips
 
 1. **Entity Design**
-   - Keep entities focused and single-purpose
+   - Use shared entities for objects that persist across scenes
+   - Keep scene-specific entities local to their scenes
    - Use meaningful names for entities and attributes
-   - Group related attributes logically
 
 2. **Resource Management**
    - Share resources between entities when possible
