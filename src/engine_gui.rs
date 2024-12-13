@@ -25,7 +25,12 @@ pub struct EngineGui {
 }
 
 impl EngineGui {
-    pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        // Explicitly set dark mode visuals at startup
+        cc.egui_ctx.set_visuals(egui::Visuals::dark());
+        
+        let gui_state = GuiState::new();
+        
         Self {
             show_hierarchy: true,
             show_filesystem: true,
@@ -33,16 +38,11 @@ impl EngineGui {
             show_console: true,
             show_editor: false,
             show_debug: false,
-
-            side_panel_width_percentage: 0.2, // 20% of screen width
-            console_height_percentage: 0.2,   // 20% of screen height
-
-            // Windows
+            side_panel_width_percentage: 0.2,
+            console_height_percentage: 0.2,
             scene_hierarchy: SceneHierarchy::new(),
             menu_bar: MenuBar::new(),
-
-            // GUI settings
-            gui_state: GuiState::new(),
+            gui_state,
         }
     }
 

@@ -9,13 +9,14 @@ impl ViewMenu {
     }
 
     pub fn show(&mut self, ctx: &egui::Context, ui: &mut egui::Ui, gui_state: &mut GuiState) {
-
-        let dark_mode_button = ui.selectable_label(gui_state.dark_mode, "Dark Mode");
-
-        if dark_mode_button.clicked() {
-            gui_state.dark_mode = !gui_state.dark_mode;
-            self.update_theme(ctx, gui_state.dark_mode);
-        }
+        ui.menu_button("Appearance", |ui| {
+            if ui.radio_value(&mut gui_state.dark_mode, true, "🌙 Dark Mode").clicked() {
+                self.update_theme(ctx, true);
+            }
+            if ui.radio_value(&mut gui_state.dark_mode, false, "☀ Light Mode").clicked() {
+                self.update_theme(ctx, false);
+            }
+        });
     }
 
     fn update_theme(&mut self, ctx: &egui::Context, dark_mode: bool) {

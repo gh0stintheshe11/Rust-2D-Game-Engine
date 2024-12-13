@@ -10,7 +10,7 @@ pub struct GuiState {
 impl GuiState {
     pub fn new() -> Self {
         Self {
-            dark_mode: false,
+            dark_mode: true,
             show_new_project_popup: false,
             show_open_project_popup: false,
             load_project: false,
