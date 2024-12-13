@@ -16,10 +16,6 @@ pub struct EngineGui {
     show_editor: bool,
     show_debug: bool,
 
-    // Window Sizes (as percentages of screen size)
-    side_panel_width_percentage: f32,
-    console_height_percentage: f32,
-
     // Windows
     pub scene_hierarchy: SceneHierarchy,
     pub menu_bar: MenuBar,
@@ -104,8 +100,6 @@ impl EngineGui {
             show_console: true,
             show_editor: false,
             show_debug: false,
-            side_panel_width_percentage: 0.2,
-            console_height_percentage: 0.2,
             scene_hierarchy: SceneHierarchy::new(),
             menu_bar: MenuBar::new(),
             gui_state,
@@ -117,14 +111,14 @@ impl EngineGui {
 
     fn show_windows(&mut self, ctx: &egui::Context) {
         let screen_rect = ctx.available_rect();
-        let side_panel_width = screen_rect.width() * self.side_panel_width_percentage;
-        let console_height = screen_rect.height() * self.console_height_percentage;
         let spacing = 4.0;
+        let min_side_panel_width = 200.0;
+        let min_console_height = 200.0;
 
         // Frame color
         let default_fill = self.get_background_color();
 
-        let viewport_frame = egui::Frame {
+        let main_window_frame = egui::Frame {
             inner_margin: egui::Margin::symmetric(spacing, spacing),
             outer_margin: egui::Margin::ZERO,
             rounding: egui::Rounding::ZERO,
@@ -144,7 +138,7 @@ impl EngineGui {
 
         // Viewport (Center)
         egui::Window::new("Main Window")
-            .frame(viewport_frame)
+            .frame(main_window_frame)
             .anchor(egui::Align2::LEFT_TOP, egui::vec2(0.0, 0.0))
             .resizable(false)
             .collapsible(false)
@@ -178,7 +172,7 @@ impl EngineGui {
                 // Left panel (Scene/Files)
                 egui::SidePanel::left("left_panel")
                     .resizable(true)
-                    .min_width(200.0)
+                    .min_width(min_side_panel_width)
                     .max_width(available_rect.width() * 0.4)
                     .frame(egui::Frame::none().inner_margin(egui::Margin::ZERO))
                     .show_inside(ui, |ui| {
@@ -186,6 +180,7 @@ impl EngineGui {
                         egui::TopBottomPanel::top("scene_panel")
                             .resizable(true)
                             .min_height(200.0)
+                            .max_height(ui.available_height() * 0.75)
                             .default_height(ui.available_height() * 0.5)
                             .show_inside(ui, |ui| {
                                 ui.heading("Scene");
@@ -203,7 +198,7 @@ impl EngineGui {
                 // Right panel (Inspector)
                 egui::SidePanel::right("right_panel")
                     .resizable(true)
-                    .min_width(200.0)
+                    .min_width(min_side_panel_width)
                     .max_width(available_rect.width() * 0.4)
                     .frame(egui::Frame::none().inner_margin(egui::Margin::symmetric(8.0, 0.0)))
                     .show_inside(ui, |ui| {
@@ -242,8 +237,11 @@ impl EngineGui {
                                     .desired_width(f32::INFINITY),
                             );
                         } else {
-                            // Render the game view first (always render, not just on Play)
+                            // Render the game view first
                             self.render_test_scene(ui);
+
+                            // Get viewport rect for input handling
+                            let viewport_rect = ui.max_rect();
 
                             // Game control buttons floating on top
                             ui.with_layout(egui::Layout::top_down_justified(egui::Align::Center), |ui| {
@@ -278,20 +276,25 @@ impl EngineGui {
                                 self.input_handler.handle_input(input);
                             });
 
-                            // Handle camera pan with mouse drag
-                            if self.input_handler.is_mouse_button_pressed(egui::PointerButton::Middle) || 
-                               (self.input_handler.is_mouse_button_pressed(egui::PointerButton::Primary) && 
-                                ui.ctx().input(|i| i.modifiers.alt)) {
-                                ui.ctx().input(|i| {
-                                    let delta = i.pointer.delta();
-                                    self.render_engine.camera.move_by(-delta.x, -delta.y);
-                                });
-                            }
+                            // Only handle game input if cursor is in viewport
+                            if let Some(cursor_pos) = ui.ctx().input(|i| i.pointer.hover_pos()) {
+                                if viewport_rect.contains(cursor_pos) {
+                                    // Handle camera pan with mouse drag
+                                    if self.input_handler.is_mouse_button_pressed(egui::PointerButton::Middle) || 
+                                       (self.input_handler.is_mouse_button_pressed(egui::PointerButton::Primary) && 
+                                        ui.ctx().input(|i| i.modifiers.alt)) {
+                                        ui.ctx().input(|i| {
+                                            let delta = i.pointer.delta();
+                                            self.render_engine.camera.move_by(-delta.x, -delta.y);
+                                        });
+                                    }
 
-                            // Handle zoom with mouse wheel
-                            if let Some(scroll_delta) = self.input_handler.get_scroll_delta() {
-                                let zoom_factor = if scroll_delta.y > 0.0 { 1.1 } else { 0.9 };
-                                self.render_engine.camera.zoom_by(zoom_factor);
+                                    // Handle zoom with mouse wheel
+                                    if let Some(scroll_delta) = self.input_handler.get_scroll_delta() {
+                                        let zoom_factor = if scroll_delta.y > 0.0 { 1.1 } else { 0.9 };
+                                        self.render_engine.camera.zoom_by(zoom_factor);
+                                    }
+                                }
                             }
                         }
                     });
@@ -301,10 +304,17 @@ impl EngineGui {
         egui::Window::new(if self.show_debug { "Debug" } else { "Console" })
             .frame(console_frame)
             .order(egui::Order::Foreground)
-            .anchor(egui::Align2::CENTER_BOTTOM, egui::vec2(0.0, -spacing))
-            .fixed_size([
-                screen_rect.width() - (2.0 * side_panel_width) - (2.0 * spacing),
-                console_height - spacing,
+            .resizable(true)
+            .collapsible(true)
+            .movable(false)
+            .title_bar(true)
+            .vscroll(true)
+            .max_width(screen_rect.width() - 2.0 * min_side_panel_width - 4.0 * spacing)
+            .max_height(screen_rect.height() * 0.5)
+            .anchor(egui::Align2::CENTER_BOTTOM, egui::vec2(0.0, 0.0))
+            .default_size([
+                screen_rect.width() - (2.0 * min_side_panel_width) - (4.0 * spacing),
+                min_console_height,
             ])
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
