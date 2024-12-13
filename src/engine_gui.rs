@@ -1,7 +1,10 @@
+use std::fs::File;
 use crate::ecs::{AttributeValue, Entity, Resource, ResourceType, Scene};
 use crate::gui::gui_state::GuiState;
 use crate::gui::menu_bar::MenuBar;
 use crate::gui::scene_hierarchy::SceneHierarchy;
+use crate::gui::file_system::FileSystem;
+use crate::gui::inspector::Inspector;
 use crate::input_handler::{InputContext, InputHandler};
 use crate::render_engine::RenderEngine;
 use eframe::egui;
@@ -18,6 +21,8 @@ pub struct EngineGui {
 
     // Windows
     pub scene_hierarchy: SceneHierarchy,
+    pub file_system: FileSystem,
+    pub inspector: Inspector,
     pub menu_bar: MenuBar,
 
     // GUI settings
@@ -32,7 +37,7 @@ pub struct EngineGui {
 
 impl EngineGui {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        cc.egui_ctx.set_visuals(egui::Visuals::dark());
+
         let gui_state = GuiState::new();
 
         let mut render_engine = RenderEngine::new();
@@ -45,6 +50,8 @@ impl EngineGui {
             show_editor: false,
             show_debug: false,
             scene_hierarchy: SceneHierarchy::new(),
+            file_system: FileSystem::new(),
+            inspector: Inspector::new(),
             menu_bar: MenuBar::new(),
             gui_state,
             render_engine,
@@ -60,6 +67,8 @@ impl EngineGui {
 
         // Frame color
         let default_fill = self.get_background_color();
+
+        self.set_theme(ctx);
 
         let main_window_frame = egui::Frame {
             inner_margin: egui::Margin::symmetric(spacing, spacing),
@@ -128,13 +137,13 @@ impl EngineGui {
                             .show_inside(ui, |ui| {
                                 ui.heading("Scene");
                                 ui.separator();
-                                self.scene_hierarchy.show(ui);
+                                self.scene_hierarchy.show(ctx, ui, &mut self.gui_state);
                             });
 
                         egui::CentralPanel::default().show_inside(ui, |ui| {
                             ui.heading("Files");
                             ui.separator();
-                            ui.label("File browser will go here");
+                            self.file_system.show(ctx, ui, &mut self.gui_state);
                         });
                     });
 
@@ -147,7 +156,7 @@ impl EngineGui {
                     .show_inside(ui, |ui| {
                         ui.heading("Inspector");
                         ui.separator();
-                        ui.label("Properties will go here");
+                        self.inspector.show(ctx, ui, &mut self.gui_state);
                     });
 
                 // Center panel (Game view/Editor)
@@ -322,6 +331,19 @@ impl EngineGui {
             "Camera pos: {:?}, zoom: {}",
             self.render_engine.camera.position, self.render_engine.camera.zoom
         );
+    }
+
+    fn set_theme(&mut self, ctx: &egui::Context) {
+        let visuals = if self.gui_state.dark_mode {
+            egui::Visuals::dark()
+        } else {
+            egui::Visuals::light()
+        };
+
+        // avoid repaint everytime
+        if ctx.style().visuals != visuals {
+            ctx.set_visuals(visuals);
+        }
     }
 }
 
