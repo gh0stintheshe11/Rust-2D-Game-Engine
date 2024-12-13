@@ -28,8 +28,13 @@ impl MenuBar {
     }
 
     pub fn show(&mut self, ctx: &egui::Context, ui: &mut egui::Ui, gui_state: &mut GuiState) {
-        ui.horizontal(|ui| {
+        // Remove shadows for all popups/windows
+        let mut visuals = ctx.style().visuals.clone();
+        visuals.popup_shadow = egui::epaint::Shadow::NONE;
+        visuals.window_shadow = egui::epaint::Shadow::NONE;
+        ctx.set_visuals(visuals);
 
+        ui.horizontal(|ui| {
             // File menu
             ui.menu_button("File", |ui| {
                 self.file_menu.show(ctx, ui, gui_state);
