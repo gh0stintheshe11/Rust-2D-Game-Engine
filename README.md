@@ -677,10 +677,10 @@ game_project/
 ├── assets/
 │   ├── images/    # PNG, JPG, JPEG, GIF
 │   ├── sounds/    # WAV, MP3, OGG
-│   └── fonts/     # TTF, OTF
-├── scenes/
-├── scripts/       # LUA scripts
-├── src/
+│   ├── fonts/     # TTF, OTF
+│   └── scripts/   # LUA scripts
+├── scenes/        # Scene data files
+├── src/          # Rust source files
 │   └── main.rs
 ├── Cargo.toml
 └── project.json
@@ -696,10 +696,10 @@ classDiagram
         +save_project(project_path: &Path, metadata: &ProjectMetadata) Result<(), String>
         +build_project(project_path: &Path) Result<(), String>
         +import_asset(project_path: &Path, asset_path: &Path, asset_type: AssetType) Result<String, String>
-        -create_folder_structure(base_path: &Path) Result<(), String>
-        -create_metadata_file(base_path: &Path, metadata: &ProjectMetadata) Result<(), String>
-        -create_main_file(base_path: &Path, project_name: &str) Result<(), String>
-        -copy_directory_contents(src: &Path, dst: &Path) std::io::Result<()>
+        +load_scene_hierarchy(project_path: &Path) Result<SceneManager, String>
+        +save_scene_hierarchy(project_path: &Path, scene_manager: &SceneManager) Result<(), String>
+        +load_project_full(project_path: &Path) Result<(ProjectMetadata, SceneManager), String>
+        +save_project_full(project_path: &Path, metadata: &ProjectMetadata, scene_manager: &SceneManager) Result<(), String>
     }
 
     class ProjectMetadata {
@@ -707,6 +707,7 @@ classDiagram
         +version: String
         +project_path: String
         +default_scene: String
+        +active_scene_id: Option<Uuid>
     }
 
     class AssetType {
@@ -719,7 +720,7 @@ classDiagram
 
     ProjectManager ..> AssetType : uses
     ProjectManager ..> ProjectMetadata : creates/manages
-    
+    ProjectManager ..> SceneManager : manages
 
     note for ProjectManager "Static methods only\nNo instance state"
     note for ProjectMetadata "Serializable structure\nStores project info"
@@ -728,20 +729,17 @@ classDiagram
 
 ### Usage Examples
 
-#### Project Creation
+#### Project Creation and Management
 ```rust
 // Create a new game project
 let project_path = Path::new("path/to/my_game");
 ProjectManager::create_project(project_path)?;
-```
 
-#### Project Loading/Saving
-```rust
-// Load existing project
-let metadata = ProjectManager::load_project(project_path)?;
+// Load project with scene hierarchy
+let (metadata, scene_manager) = ProjectManager::load_project_full(project_path)?;
 
-// Save project changes
-ProjectManager::save_project(project_path, &metadata)?;
+// Save project with scene hierarchy
+ProjectManager::save_project_full(project_path, &metadata, &scene_manager)?;
 ```
 
 #### Asset Import
@@ -761,6 +759,17 @@ let relative_path = ProjectManager::import_asset(
     sound_path,
     AssetType::Sound
 )?;
+```
+
+#### Scene Management
+```rust
+// Load scene hierarchy
+let scene_manager = ProjectManager::load_scene_hierarchy(project_path)?;
+
+// Make changes to scenes...
+
+// Save scene hierarchy
+ProjectManager::save_scene_hierarchy(project_path, &scene_manager)?;
 ```
 
 #### Build System
@@ -785,7 +794,7 @@ ProjectManager::build_project(project_path)?;
 
 #### Scripts
 - Formats: LUA
-- Directory: `scripts/`
+- Directory: `assets/scripts/`
 
 ### Technical Details
 
@@ -795,6 +804,12 @@ Stores essential project information in `project.json`:
 - Version
 - Project path
 - Default scene
+- Active scene ID (UUID)
+
+#### Scene Management
+- Serializes scene hierarchy to `scenes/scene_manager.json`
+- Tracks active scene across sessions
+- Maintains scene relationships and shared entities
 
 #### Asset Management
 - Automatic file type validation
@@ -804,7 +819,7 @@ Stores essential project information in `project.json`:
 
 #### Build Process
 - Compiles Rust code with `cargo build --release`
-- Copies assets to the target directory
+- Copies assets to target directory
 - Creates a ready-to-run game executable
 
 ### Best Practices
@@ -817,6 +832,11 @@ Stores essential project information in `project.json`:
    - Maintain clean directory hierarchy
    - Follow the recommended file organization
    - Handle asset import errors gracefully
+
+3. **Scene Management**
+   - Save scene changes frequently
+   - Use meaningful scene names
+   - Track active scene properly
 
 ## [Engine GUI](/src/engine_gui.rs)
 
