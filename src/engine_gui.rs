@@ -280,7 +280,7 @@ impl EngineGui {
                             if let Some(cursor_pos) = ui.ctx().input(|i| i.pointer.hover_pos()) {
                                 if viewport_rect.contains(cursor_pos) {
                                     // Handle camera pan with mouse drag
-                                    if self.input_handler.is_mouse_button_pressed(egui::PointerButton::Middle) || 
+                                    if self.input_handler.is_mouse_button_pressed(egui::PointerButton::Secondary) || 
                                        (self.input_handler.is_mouse_button_pressed(egui::PointerButton::Primary) && 
                                         ui.ctx().input(|i| i.modifiers.alt)) {
                                         ui.ctx().input(|i| {
