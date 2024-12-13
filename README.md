@@ -384,8 +384,10 @@ classDiagram
         Vector2
     }
 
-    SceneManager "1" --> "*" Scene : manages
-    Scene "1" --> "*" Entity : contains
+    SceneManager "1" --> "*" Scene : manages scenes
+    SceneManager "1" --> "*" Entity : manages shared entities
+    Scene "1" --> "*" Entity : contains local entities
+    Scene ..> Entity : references shared entities
     Scene "1" --> "*" Resource : contains
     Entity "1" --> "*" Attribute : has
     Entity "1" --> "*" Resource : references
