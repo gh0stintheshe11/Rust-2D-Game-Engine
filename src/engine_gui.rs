@@ -25,7 +25,6 @@ pub struct EngineGui {
 
     // Add render engine
     render_engine: RenderEngine,
-    test_scene: Scene, // For testing
 
     // Add input handler
     input_handler: InputHandler,
@@ -36,62 +35,7 @@ impl EngineGui {
         cc.egui_ctx.set_visuals(egui::Visuals::dark());
         let gui_state = GuiState::new();
 
-        // Create test scene
-        let mut test_scene = Scene::new("TestScene");
         let mut render_engine = RenderEngine::new();
-
-        // Create a test entity with proper ECS
-        let entity_id = test_scene.create_entity("TestSquare");
-        if let Some(test_entity) = test_scene.get_entity_mut(entity_id) {
-            test_entity.create_attribute(
-                "position",
-                crate::ecs::AttributeType::Vector2,
-                AttributeValue::Vector2(0.0, 0.0),
-            );
-            test_entity.create_attribute(
-                "rotation",
-                crate::ecs::AttributeType::Float,
-                AttributeValue::Float(0.0),
-            );
-            test_entity.create_attribute(
-                "scale",
-                crate::ecs::AttributeType::Vector2,
-                AttributeValue::Vector2(1.0, 1.0),
-            );
-            test_entity.create_attribute(
-                "layer",
-                crate::ecs::AttributeType::Integer,
-                AttributeValue::Integer(1),
-            );
-        }
-
-        // Create and load a test texture as a resource
-        let resource_id = test_scene.create_resource(
-            "TestTexture",
-            "assets/test_texture.png",
-            ResourceType::Image,
-        );
-
-        // Load the texture into the render engine
-        if let Some(resource) = test_scene.get_resource(resource_id) {
-            println!("Found resource: {}", resource.file_path);
-            if let Ok(texture_id) = render_engine.load_texture(resource) {
-                println!("Successfully loaded texture with ID: {}", texture_id);
-                // Add the sprite attribute to the entity
-                if let Some(test_entity) = test_scene.get_entity_mut(entity_id) {
-                    test_entity.create_attribute(
-                        "sprite",
-                        crate::ecs::AttributeType::String,
-                        AttributeValue::String(texture_id.to_string()),
-                    );
-                    println!("Added sprite attribute to entity");
-                }
-            } else {
-                println!("Failed to load texture!");
-            }
-        } else {
-            println!("Could not find resource!");
-        }
 
         Self {
             show_hierarchy: true,
@@ -104,7 +48,6 @@ impl EngineGui {
             menu_bar: MenuBar::new(),
             gui_state,
             render_engine,
-            test_scene,
             input_handler: InputHandler::new(),
         }
     }
