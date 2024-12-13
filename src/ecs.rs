@@ -12,10 +12,11 @@ use serde::{Serialize, Deserialize};
 //          └── (Has its specific operations like play/display/edit)
 
 // =============== Scene Manager (Top Level) ===============
+#[derive(Serialize, Deserialize)]
 pub struct SceneManager {
-    scenes: HashMap<Uuid, Scene>,
-    shared_entities: HashMap<Uuid, Entity>,
-    active_scene: Option<Uuid>,  // Track currently active scene
+    pub scenes: HashMap<Uuid, Scene>,
+    pub shared_entities: HashMap<Uuid, Entity>,
+    pub active_scene: Option<Uuid>,  // Track currently active scene
 }
 
 impl SceneManager {
@@ -128,7 +129,7 @@ impl SceneManager {
 }
 
 // =============== Scene (Manages Entities and Resources) ===============
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Scene {
     pub id: Uuid,
     pub name: String,

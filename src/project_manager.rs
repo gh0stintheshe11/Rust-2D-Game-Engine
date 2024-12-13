@@ -1,49 +1,68 @@
+// Required imports for file operations, serialization, and project management
 use serde::{Deserialize, Serialize};
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::Path;
 use std::process::Command;
+use uuid::Uuid;
+use crate::ecs::SceneManager;
 
+// Project metadata structure that holds basic project information
+// This is serialized to/from project.json
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ProjectMetadata {
-    pub project_name: String,
-    pub version: String,
-    pub project_path: String,
-    pub default_scene: String,
+    pub project_name: String,      // Name of the game project
+    pub version: String,           // Project version (e.g., "1.0.0")
+    pub project_path: String,      // Absolute path to project directory
+    pub default_scene: String,     // Default scene file name
+    pub active_scene_id: Option<Uuid>, // Currently active scene's UUID
 }
 
+// Main project management structure
 pub struct ProjectManager;
 
 impl ProjectManager {
+    // Creates a new game project at the specified path
+    // Sets up folder structure, creates initial files, and initializes scene manager
     pub fn create_project(project_path: &Path) -> Result<(), String> {
+        // Extract project name from path
         let project_name = project_path.file_name()
             .and_then(|name| name.to_str())
             .ok_or("Invalid project path")?;
 
+        // Create initial project metadata
         let metadata = ProjectMetadata {
             project_name: project_name.to_string(),
             version: "1.0.0".to_string(),
             project_path: project_path.to_str().unwrap().to_string(),
             default_scene: "main.scene".to_string(),
+            active_scene_id: None,
         };
 
+        // Set up project structure and files
         Self::create_folder_structure(project_path)?;
         Self::create_metadata_file(project_path, &metadata)?;
         Self::create_main_file(project_path, project_name)?;
 
+        // Initialize and save empty scene hierarchy
+        let scene_manager = SceneManager::new();
+        Self::save_scene_hierarchy(project_path, &scene_manager)?;
+
         Ok(())
     }
 
+    // Creates the standard folder structure for a new project
     fn create_folder_structure(base_path: &Path) -> Result<(), String> {
         let folders = [
-            "assets/images",
-            "assets/sounds",
-            "assets/fonts",
-            "scenes",
-            "scripts",
-            "src",  // For Rust source files
+            "assets/images",    // For image assets (textures, sprites)
+            "assets/sounds",    // For audio assets
+            "assets/fonts",     // For font files
+            "assets/scripts",   // For game scripts
+            "scenes",           // For scene data files
+            "src",             // For Rust source files
         ];
 
+        // Create each folder in the structure
         for folder in &folders {
             let path = base_path.join(folder);
             fs::create_dir_all(&path)
@@ -53,6 +72,7 @@ impl ProjectManager {
         Ok(())
     }
 
+    // Creates and writes the project metadata file (project.json)
     fn create_metadata_file(base_path: &Path, metadata: &ProjectMetadata) -> Result<(), String> {
         let file_path = base_path.join("project.json");
         let json = serde_json::to_string_pretty(metadata)
@@ -65,7 +85,9 @@ impl ProjectManager {
         Ok(())
     }
 
+    // Creates initial source files: main.rs and Cargo.toml
     fn create_main_file(base_path: &Path, project_name: &str) -> Result<(), String> {
+        // Create main.rs with basic game setup
         let src_path = base_path.join("src");
         let main_path = src_path.join("main.rs");
         
@@ -95,7 +117,7 @@ fn main() {{
         fs::write(&main_path, main_content)
             .map_err(|e| format!("Failed to create main.rs: {}", e))?;
 
-        // Create Cargo.toml
+        // Create Cargo.toml with project configuration
         let cargo_content = format!(
             r#"[package]
 name = "{}"
@@ -115,6 +137,7 @@ my_game_engine = {{ path = "../path/to/engine" }}
         Ok(())
     }
 
+    // Loads project metadata from project.json
     pub fn load_project(project_path: &Path) -> Result<ProjectMetadata, String> {
         let file_path = project_path.join("project.json");
         let file = File::open(&file_path)
@@ -125,6 +148,7 @@ my_game_engine = {{ path = "../path/to/engine" }}
         Ok(metadata)
     }
 
+    // Saves project metadata to project.json
     pub fn save_project(project_path: &Path, metadata: &ProjectMetadata) -> Result<(), String> {
         let file_path = project_path.join("project.json");
         let json = serde_json::to_string_pretty(metadata)
@@ -137,6 +161,7 @@ my_game_engine = {{ path = "../path/to/engine" }}
         Ok(())
     }
 
+    // Builds the project using cargo and copies assets to target directory
     pub fn build_project(project_path: &Path) -> Result<(), String> {
         // Run cargo build --release
         let status = Command::new("cargo")
@@ -150,7 +175,7 @@ my_game_engine = {{ path = "../path/to/engine" }}
             return Err("Project build failed".into());
         }
 
-        // Copy assets to target directory
+        // Copy assets to target directory for distribution
         let target_dir = project_path.join("target/release");
         let assets_dir = project_path.join("assets");
         if assets_dir.exists() {
@@ -165,6 +190,7 @@ my_game_engine = {{ path = "../path/to/engine" }}
         Ok(())
     }
 
+    // Recursively copies directory contents while preserving structure
     fn copy_directory_contents(src: &Path, dst: &Path) -> std::io::Result<()> {
         if !dst.exists() {
             fs::create_dir_all(dst)?;
@@ -185,6 +211,7 @@ my_game_engine = {{ path = "../path/to/engine" }}
         Ok(())
     }
 
+    // Imports an asset file into the project's appropriate asset directory
     pub fn import_asset(project_path: &Path, asset_path: &Path, asset_type: AssetType) -> Result<String, String> {
         // Validate file extension
         let extension = asset_path.extension()
@@ -200,24 +227,23 @@ my_game_engine = {{ path = "../path/to/engine" }}
             ));
         }
 
-        // Determine the target directory based on asset type
+        // Determine target directory based on asset type
         let target_dir = match asset_type {
             AssetType::Image => project_path.join("assets/images"),
             AssetType::Sound => project_path.join("assets/sounds"),
             AssetType::Font => project_path.join("assets/fonts"),
-            AssetType::Script => project_path.join("scripts"),
+            AssetType::Script => project_path.join("assets/scripts"),
         };
 
-        // Get the filename from the asset path
+        // Get filename and create target path
         let file_name = asset_path.file_name()
             .ok_or("Invalid asset path")?
             .to_str()
             .ok_or("Invalid asset filename")?;
 
-        // Create the target path
         let target_path = target_dir.join(file_name);
 
-        // Check if file already exists
+        // Check for duplicate files
         if target_path.exists() {
             return Err(format!(
                 "Asset '{}' already exists in the project. Please rename the file or remove the existing one.",
@@ -229,30 +255,85 @@ my_game_engine = {{ path = "../path/to/engine" }}
         fs::copy(asset_path, &target_path)
             .map_err(|e| format!("Failed to copy asset: {}", e))?;
 
-        // Return the relative path from project root
+        // Return relative path from project root
         Ok(target_path.strip_prefix(project_path)
             .map_err(|e| format!("Failed to get relative path: {}", e))?
             .to_string_lossy()
             .into_owned())
     }
+
+    // Saves the current scene hierarchy to scene_manager.json
+    pub fn save_scene_hierarchy(project_path: &Path, scene_manager: &SceneManager) -> Result<(), String> {
+        let scene_file = project_path.join("scenes").join("scene_manager.json");
+        let json = serde_json::to_string_pretty(&scene_manager)
+            .map_err(|e| format!("Failed to serialize scene hierarchy: {}", e))?;
+        
+        fs::write(&scene_file, json)
+            .map_err(|e| format!("Failed to write scene hierarchy: {}", e))?;
+
+        // Update project metadata with active scene
+        if let Ok(mut metadata) = Self::load_project(project_path) {
+            metadata.active_scene_id = scene_manager.active_scene;
+            Self::save_project(project_path, &metadata)?;
+        }
+
+        Ok(())
+    }
+
+    // Loads the scene hierarchy from scene_manager.json
+    pub fn load_scene_hierarchy(project_path: &Path) -> Result<SceneManager, String> {
+        let scene_file = project_path.join("scenes").join("scene_manager.json");
+        
+        // Return new scene manager if file doesn't exist
+        if !scene_file.exists() {
+            return Ok(SceneManager::new());
+        }
+
+        let json = fs::read_to_string(&scene_file)
+            .map_err(|e| format!("Failed to read scene hierarchy: {}", e))?;
+            
+        let scene_manager: SceneManager = serde_json::from_str(&json)
+            .map_err(|e| format!("Failed to parse scene hierarchy: {}", e))?;
+
+        Ok(scene_manager)
+    }
+
+    // Loads both project metadata and scene hierarchy
+    pub fn load_project_full(project_path: &Path) -> Result<(ProjectMetadata, SceneManager), String> {
+        let metadata = Self::load_project(project_path)?;
+        let scene_manager = Self::load_scene_hierarchy(project_path)?;
+        Ok((metadata, scene_manager))
+    }
+
+    // Saves both project metadata and scene hierarchy
+    pub fn save_project_full(
+        project_path: &Path, 
+        metadata: &ProjectMetadata, 
+        scene_manager: &SceneManager
+    ) -> Result<(), String> {
+        Self::save_project(project_path, metadata)?;
+        Self::save_scene_hierarchy(project_path, scene_manager)?;
+        Ok(())
+    }
 }
 
+// Enum defining supported asset types
 #[derive(Debug)]
 pub enum AssetType {
-    Image,
-    Sound,
-    Font,
-    Script,
+    Image,  // Image files (textures, sprites)
+    Sound,  // Audio files
+    Font,   // Font files
+    Script, // Script files (Lua)
 }
 
 impl AssetType {
-    // Valid extensions for each asset type
+    // Returns the valid file extensions for each asset type
     fn valid_extensions(&self) -> &[&str] {
         match self {
             AssetType::Image => &["png", "jpg", "jpeg", "gif"],
             AssetType::Sound => &["wav", "mp3", "ogg"],
             AssetType::Font => &["ttf", "otf"],
-            AssetType::Script => &["lua"],  // For now just Lua scripts
+            AssetType::Script => &["lua"],  // Currently only supporting Lua scripts
         }
     }
 }
