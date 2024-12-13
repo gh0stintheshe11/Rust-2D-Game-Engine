@@ -1,11 +1,11 @@
+use crate::ecs::{AttributeValue, Entity, Resource, ResourceType, Scene};
 use crate::gui::gui_state::GuiState;
 use crate::gui::menu_bar::MenuBar;
 use crate::gui::scene_hierarchy::SceneHierarchy;
+use crate::input_handler::{InputContext, InputHandler};
 use crate::render_engine::RenderEngine;
-use crate::ecs::{Scene, Entity, Resource, ResourceType, AttributeValue};
 use eframe::egui;
 use uuid::Uuid;
-use crate::input_handler::{InputHandler, InputContext};
 
 pub struct EngineGui {
     // Window States
@@ -29,7 +29,7 @@ pub struct EngineGui {
 
     // Add render engine
     render_engine: RenderEngine,
-    test_scene: Scene,  // For testing
+    test_scene: Scene, // For testing
 
     // Add input handler
     input_handler: InputHandler,
@@ -43,39 +43,39 @@ impl EngineGui {
         // Create test scene
         let mut test_scene = Scene::new("TestScene");
         let mut render_engine = RenderEngine::new();
-        
+
         // Create a test entity with proper ECS
         let entity_id = test_scene.create_entity("TestSquare");
         if let Some(test_entity) = test_scene.get_entity_mut(entity_id) {
             test_entity.create_attribute(
                 "position",
                 crate::ecs::AttributeType::Vector2,
-                AttributeValue::Vector2(0.0, 0.0)
+                AttributeValue::Vector2(0.0, 0.0),
             );
             test_entity.create_attribute(
                 "rotation",
                 crate::ecs::AttributeType::Float,
-                AttributeValue::Float(0.0)
+                AttributeValue::Float(0.0),
             );
             test_entity.create_attribute(
                 "scale",
                 crate::ecs::AttributeType::Vector2,
-                AttributeValue::Vector2(1.0, 1.0)
+                AttributeValue::Vector2(1.0, 1.0),
             );
             test_entity.create_attribute(
                 "layer",
                 crate::ecs::AttributeType::Integer,
-                AttributeValue::Integer(1)
+                AttributeValue::Integer(1),
             );
         }
-        
+
         // Create and load a test texture as a resource
         let resource_id = test_scene.create_resource(
             "TestTexture",
             "assets/test_texture.png",
-            ResourceType::Image
+            ResourceType::Image,
         );
-        
+
         // Load the texture into the render engine
         if let Some(resource) = test_scene.get_resource(resource_id) {
             println!("Found resource: {}", resource.file_path);
@@ -86,7 +86,7 @@ impl EngineGui {
                     test_entity.create_attribute(
                         "sprite",
                         crate::ecs::AttributeType::String,
-                        AttributeValue::String(texture_id.to_string())
+                        AttributeValue::String(texture_id.to_string()),
                     );
                     println!("Added sprite attribute to entity");
                 }
@@ -242,63 +242,57 @@ impl EngineGui {
                                     .desired_width(f32::INFINITY),
                             );
                         } else {
-                            // Game control buttons floating on top (only in viewport mode)
-                            ui.with_layout(
-                                egui::Layout::top_down_justified(egui::Align::Center),
-                                |ui| {
-                                    ui.add_space(8.0); // Add top margin
-                                    ui.horizontal(|ui| {
-                                        ui.add_space((ui.available_width() - 170.0) * 0.5); // (half of the viewport width - buotton group width)/2
-                                        if ui.button("▶ Play").clicked() {
-                                            // Handle play
-                                        }
-                                        if ui.button("⏸ Pause").clicked() {
-                                            // Handle pause
-                                        }
-                                        if ui.button("⟲ Reset").clicked() {
-                                            // Handle reset
-                                        }
-                                    });
-                                },
-                            );
+                            // Render the game view first (always render, not just on Play)
+                            self.render_test_scene(ui);
 
-                            // Update input handler with more detailed input state
+                            // Game control buttons floating on top
+                            ui.with_layout(egui::Layout::top_down_justified(egui::Align::Center), |ui| {
+                                ui.add_space(4.0);
+                                ui.horizontal(|ui| {
+                                    ui.add_space((ui.available_width() - 170.0) * 0.5);
+                                    if ui.button("▶ Play").clicked() {
+                                        // Handle play
+                                    }
+                                    if ui.button("⏸ Pause").clicked() {
+                                        // Handle pause
+                                    }
+                                    if ui.button("⏹ Reset").clicked() {
+                                        // Handle game reset
+                                    }
+                                });
+                            });
+
+                            // Camera reset button in bottom right
+                            ui.with_layout(egui::Layout::bottom_up(egui::Align::RIGHT), |ui| {
+                                ui.add_space(4.0);  // Bottom margin
+                                ui.horizontal(|ui| {
+                                    ui.add_space(4.0);  // Right margin
+                                    if ui.button("⭕").clicked() {
+                                        self.render_engine.camera.reset();
+                                    }
+                                });
+                            });
+
+                            // Update input handler
                             ui.ctx().input(|input| {
                                 self.input_handler.handle_input(input);
                             });
-
-                            // Debug print mouse state
-                            println!("Mouse buttons: Middle={}, Primary={}, Alt={}", 
-                                self.input_handler.is_mouse_button_pressed(egui::PointerButton::Middle),
-                                self.input_handler.is_mouse_button_pressed(egui::PointerButton::Primary),
-                                ui.ctx().input(|i| i.modifiers.alt)
-                            );
 
                             // Handle camera pan with mouse drag
                             if self.input_handler.is_mouse_button_pressed(egui::PointerButton::Middle) || 
                                (self.input_handler.is_mouse_button_pressed(egui::PointerButton::Primary) && 
                                 ui.ctx().input(|i| i.modifiers.alt)) {
                                 ui.ctx().input(|i| {
-                                    let delta = i.pointer.delta();  // delta is Vec2, not Option<Vec2>
-                                    println!("Mouse delta from egui: {:?}", delta);
+                                    let delta = i.pointer.delta();
                                     self.render_engine.camera.move_by(-delta.x, -delta.y);
                                 });
                             }
 
                             // Handle zoom with mouse wheel
                             if let Some(scroll_delta) = self.input_handler.get_scroll_delta() {
-                                println!("Scroll delta: {:?}", scroll_delta);
                                 let zoom_factor = if scroll_delta.y > 0.0 { 1.1 } else { 0.9 };
                                 self.render_engine.camera.zoom_by(zoom_factor);
                             }
-
-                            // Print camera state
-                            println!("Camera position: {:?}, zoom: {}", 
-                                self.render_engine.camera.position, 
-                                self.render_engine.camera.zoom);
-
-                            // Render the game view
-                            self.render_test_scene(ui);
                         }
                     });
             });
@@ -341,39 +335,40 @@ impl EngineGui {
     fn render_test_scene(&mut self, ui: &mut egui::Ui) {
         let (width, height) = (ui.available_width(), ui.available_height());
         println!("Viewport size: {}x{}", width, height);
-        
+
         // Get camera-transformed positions
         let center_screen = self.render_engine.camera.world_to_screen((0.0, 0.0));
         let square_screen = self.render_engine.camera.world_to_screen((-100.0, -100.0));
-        
+
         // Draw a red circle
         ui.painter().circle_filled(
             egui::pos2(
-                width/2.0 + center_screen.0,
-                height/2.0 + center_screen.1
-            ),  // Center position
-            30.0 * self.render_engine.camera.zoom,  // Scale radius with zoom
+                width / 2.0 + center_screen.0,
+                height / 2.0 + center_screen.1,
+            ), // Center position
+            30.0 * self.render_engine.camera.zoom, // Scale radius with zoom
             egui::Color32::RED,
         );
-        
+
         // Draw a blue square
-        let square_size = 50.0 * self.render_engine.camera.zoom;  // Scale size with zoom
+        let square_size = 50.0 * self.render_engine.camera.zoom; // Scale size with zoom
         ui.painter().rect_filled(
             egui::Rect::from_min_size(
                 egui::pos2(
-                    width/2.0 + square_screen.0,
-                    height/2.0 + square_screen.1
+                    width / 2.0 + square_screen.0,
+                    height / 2.0 + square_screen.1,
                 ),
                 egui::vec2(square_size, square_size),
             ),
-            0.0,  // rounding
+            0.0, // rounding
             egui::Color32::BLUE,
         );
 
         // Debug print camera state
-        println!("Camera pos: {:?}, zoom: {}", 
-            self.render_engine.camera.position,
-            self.render_engine.camera.zoom);
+        println!(
+            "Camera pos: {:?}, zoom: {}",
+            self.render_engine.camera.position, self.render_engine.camera.zoom
+        );
     }
 }
 

@@ -21,7 +21,7 @@ impl Camera {
     }
 
     pub fn zoom_by(&mut self, factor: f32) {
-        self.zoom = (self.zoom * factor).clamp(0.1, 10.0)
+        self.zoom = (self.zoom * factor).clamp(0.1, 10.0);
     }
 
     pub fn world_to_screen(&self, world_pos: (f32, f32)) -> (f32, f32) {
@@ -30,12 +30,17 @@ impl Camera {
             (world_pos.1 - self.position.1) * self.zoom,
         )
     }
+
+    pub fn reset(&mut self) {
+        self.position = (0.0, 0.0);
+        self.zoom = 1.0;
+    }
 }
 
 #[derive(Debug)]
 pub struct TextureInfo {
     data: Vec<u8>,
-    dimensions: (u32, u32),  // Original width and height in pixels
+    dimensions: (u32, u32), // Original width and height in pixels
     aspect_ratio: f32,
 }
 
@@ -79,10 +84,10 @@ impl Animation {
         }
 
         self.elapsed_time += delta_time * self.playback_speed;
-        
+
         if self.elapsed_time >= self.frame_duration {
             let next_frame = self.current_frame + 1;
-            
+
             if next_frame >= self.frames.len() {
                 if self.is_looping {
                     self.current_frame = 0;
@@ -93,7 +98,7 @@ impl Animation {
             } else {
                 self.current_frame = next_frame;
             }
-            
+
             self.elapsed_time = 0.0;
         }
     }
@@ -160,7 +165,7 @@ impl Animation {
 pub struct RenderEngine {
     viewport_size: (f32, f32),
     last_frame_time: std::time::Instant,
-    textures: HashMap<Uuid, TextureInfo>,  // Now stores more texture info
+    textures: HashMap<Uuid, TextureInfo>, // Now stores more texture info
     pub camera: Camera,
 }
 
@@ -178,18 +183,21 @@ impl RenderEngine {
         if let crate::ecs::ResourceType::Image = resource.resource_type {
             let img = image::open(&resource.file_path)
                 .map_err(|e| format!("Failed to load image {}: {}", resource.file_path, e))?;
-            
+
             let dimensions = img.dimensions();
             let aspect_ratio = dimensions.0 as f32 / dimensions.1 as f32;
             let rgba = img.to_rgba8();
-            
+
             // Store texture info including dimensions and aspect ratio
-            self.textures.insert(resource.id, TextureInfo {
-                data: rgba.to_vec(),
-                dimensions,
-                aspect_ratio,
-            });
-            
+            self.textures.insert(
+                resource.id,
+                TextureInfo {
+                    data: rgba.to_vec(),
+                    dimensions,
+                    aspect_ratio,
+                },
+            );
+
             Ok(resource.id)
         } else {
             Err("Resource is not an image".to_string())
@@ -204,13 +212,17 @@ impl RenderEngine {
         self.viewport_size
     }
 
-    pub fn render(&mut self, scene: &crate::ecs::Scene) -> Vec<(Uuid, (f32, f32), (f32, f32), RenderLayer)> {
+    pub fn render(
+        &mut self,
+        scene: &crate::ecs::Scene,
+    ) -> Vec<(Uuid, (f32, f32), (f32, f32), RenderLayer)> {
         let mut render_queue = Vec::new();
-        
+
         for (_, entity) in &scene.entities {
             // Get transform components
             let transform = Transform {
-                position: entity.get_attribute_by_name("position")
+                position: entity
+                    .get_attribute_by_name("position")
                     .and_then(|attr| {
                         if let crate::ecs::AttributeValue::Vector2(x, y) = attr.value {
                             Some((x, y))
@@ -219,8 +231,9 @@ impl RenderEngine {
                         }
                     })
                     .unwrap_or((0.0, 0.0)),
-                    
-                rotation: entity.get_attribute_by_name("rotation")
+
+                rotation: entity
+                    .get_attribute_by_name("rotation")
                     .and_then(|attr| {
                         if let crate::ecs::AttributeValue::Float(r) = attr.value {
                             Some(r)
@@ -229,8 +242,9 @@ impl RenderEngine {
                         }
                     })
                     .unwrap_or(0.0),
-                    
-                scale: entity.get_attribute_by_name("scale")
+
+                scale: entity
+                    .get_attribute_by_name("scale")
                     .and_then(|attr| {
                         if let crate::ecs::AttributeValue::Vector2(sx, sy) = attr.value {
                             Some((sx, sy))
@@ -241,16 +255,16 @@ impl RenderEngine {
                     .unwrap_or((1.0, 1.0)),
             };
 
-            let sprite_resource = entity.get_attribute_by_name("sprite")
-                .and_then(|attr| {
-                    if let crate::ecs::AttributeValue::String(resource_id) = &attr.value {
-                        Uuid::parse_str(resource_id).ok()
-                    } else {
-                        None
-                    }
-                });
+            let sprite_resource = entity.get_attribute_by_name("sprite").and_then(|attr| {
+                if let crate::ecs::AttributeValue::String(resource_id) = &attr.value {
+                    Uuid::parse_str(resource_id).ok()
+                } else {
+                    None
+                }
+            });
 
-            let layer = entity.get_attribute_by_name("layer")
+            let layer = entity
+                .get_attribute_by_name("layer")
                 .and_then(|attr| {
                     if let crate::ecs::AttributeValue::Integer(layer) = attr.value {
                         Some(match layer {
@@ -268,15 +282,20 @@ impl RenderEngine {
 
             if let Some(sprite_id) = sprite_resource {
                 let screen_pos = self.camera.world_to_screen(transform.position);
-                
+
                 if let Some(texture_info) = self.textures.get(&sprite_id) {
                     // Apply transform scale to the texture dimensions
-                    let width = texture_info.dimensions.0 as f32 * self.camera.zoom * transform.scale.0;
-                    let height = texture_info.dimensions.1 as f32 * self.camera.zoom * transform.scale.1;
-                    
+                    let width =
+                        texture_info.dimensions.0 as f32 * self.camera.zoom * transform.scale.0;
+                    let height =
+                        texture_info.dimensions.1 as f32 * self.camera.zoom * transform.scale.1;
+
                     // Basic visibility check
-                    if screen_pos.0 + width >= 0.0 && screen_pos.0 <= self.viewport_size.0 &&
-                       screen_pos.1 + height >= 0.0 && screen_pos.1 <= self.viewport_size.1 {
+                    if screen_pos.0 + width >= 0.0
+                        && screen_pos.0 <= self.viewport_size.0
+                        && screen_pos.1 + height >= 0.0
+                        && screen_pos.1 <= self.viewport_size.1
+                    {
                         render_queue.push((sprite_id, screen_pos, (width, height), layer));
                     }
                 }
@@ -288,7 +307,8 @@ impl RenderEngine {
     }
 
     pub fn get_texture_data(&self, id: Uuid) -> Option<(&Vec<u8>, (u32, u32))> {
-        self.textures.get(&id)
+        self.textures
+            .get(&id)
             .map(|info| (&info.data, info.dimensions))
     }
 }
@@ -297,7 +317,7 @@ impl RenderEngine {
 #[derive(Debug, Clone, Copy)]
 pub struct Transform {
     pub position: (f32, f32),
-    pub rotation: f32,    // In radians
+    pub rotation: f32, // In radians
     pub scale: (f32, f32),
 }
 
