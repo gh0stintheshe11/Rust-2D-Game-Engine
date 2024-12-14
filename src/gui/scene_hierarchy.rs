@@ -11,6 +11,10 @@ pub struct SceneHierarchy {
     create_item_name: String,
     selected_item: Option<(String, Uuid)>, // Track selected item (type, ID) (type: Scene, Entity)
     error_message: String,
+    // for rename
+    renaming_scene: Option<Uuid>,
+    renaming_entity: Option<(Uuid, Uuid)>,
+    rename_input: String,
 }
 
 impl SceneHierarchy {
@@ -22,6 +26,10 @@ impl SceneHierarchy {
             create_item_name: String::new(),
             selected_item: None,
             error_message: String::new(),
+            // for rename
+            renaming_scene: None,
+            renaming_entity: None,
+            rename_input: String::new(),
         }
     }
 
@@ -72,6 +80,11 @@ impl SceneHierarchy {
 
                                 // Handle right-click context menu for scene
                                 response.context_menu(|ui| {
+                                    if ui.button("Rename").clicked() {
+                                        self.renaming_scene = Some(*scene_id);
+                                        self.rename_input = scene.name.clone();
+                                        ui.close_menu();
+                                    }
                                     if ui.button("Delete").clicked() {
                                         scene_to_delete = Some(*scene_id);
                                         ui.close_menu();
@@ -99,6 +112,11 @@ impl SceneHierarchy {
 
                                     // Handle right-click context menu for entity
                                     response.context_menu(|ui| {
+                                        if ui.button("Rename").clicked() {
+                                            self.renaming_entity = Some((*scene_id, *entity_id));
+                                            self.rename_input = entity.name.clone();
+                                            ui.close_menu();
+                                        }
                                         if ui.button("Delete").clicked() {
                                             entity_to_delete = Some((*scene_id, *entity_id));
                                             ui.close_menu();
@@ -111,49 +129,22 @@ impl SceneHierarchy {
                     ui.label("No scenes loaded.");
                 }
 
+                // Handle renaming after the UI loop to avoid borrow issues
+                if let Some(scene_id) = self.renaming_scene {
+                    self.open_rename_popup(ctx, ui, "Rename Scene", scene_id, None, gui_state);
+                }
+
+                if let Some((scene_id, entity_id)) = self.renaming_entity {
+                    self.open_rename_popup(ctx, ui, "Rename Entity", scene_id, Some(entity_id), gui_state);
+                }
+
                 // Handle deletion after the UI loop, avoid Rust borrow issues
                 if let Some(scene_id) = scene_to_delete {
-                    if let Some(scene_manager) = gui_state.scene_manager.as_mut() {
-                        if scene_manager.delete_scene(scene_id) {
-                            println!("Deleted scene with ID: {:?}", scene_id);
-
-                            // Save project after deletion
-                            if let Err(err) = ProjectManager::save_project_full(
-                                Path::new(&gui_state.project_path),
-                                gui_state.project_metadata.as_ref().unwrap(),
-                                scene_manager,
-                            ) {
-                                println!("Error saving project after deleting a scene: {err}");
-                            } else {
-                                println!("Saved project after deleting a scene.");
-                            }
-                        } else {
-                            println!("Failed to delete the scene.");
-                        }
-                    }
+                    self.delete_scene(scene_id, gui_state);
                 }
 
                 if let Some((scene_id, entity_id)) = entity_to_delete {
-                    if let Some(scene_manager) = gui_state.scene_manager.as_mut() {
-                        if let Some(scene) = scene_manager.get_scene_mut(scene_id) {
-                            if scene.delete_entity(entity_id) {
-                                println!("Deleted entity with ID: {:?}", entity_id);
-
-                                // Save project after deletion
-                                if let Err(err) = ProjectManager::save_project_full(
-                                    Path::new(&gui_state.project_path),
-                                    gui_state.project_metadata.as_ref().unwrap(),
-                                    scene_manager,
-                                ) {
-                                    println!("Error saving project after deleting an entity: {err}");
-                                } else {
-                                    println!("Saved project after deleting an entity.");
-                                }
-                            } else {
-                                println!("Failed to delete the entity.");
-                            }
-                        }
-                    }
+                    self.delete_entity(scene_id, entity_id, gui_state);
                 }
             });
 
@@ -299,5 +290,113 @@ impl SceneHierarchy {
         } else {
             self.error_message = "Scene manager is not available.".to_string();
         }
+    }
+
+    /// Delete scene by scene id, save project after
+    fn delete_scene(&mut self, scene_id: Uuid, gui_state: &mut GuiState) {
+        if let Some(scene_manager) = gui_state.scene_manager.as_mut() {
+            if scene_manager.delete_scene(scene_id) {
+                println!("Deleted scene with ID: {:?}", scene_id);
+
+                // Save project after deletion
+                if let Err(err) = ProjectManager::save_project_full(
+                    Path::new(&gui_state.project_path),
+                    gui_state.project_metadata.as_ref().unwrap(),
+                    scene_manager,
+                ) {
+                    println!("Error saving project after deleting a scene: {}", err);
+                } else {
+                    println!("Saved project after deleting a scene.");
+                }
+            } else {
+                println!("Failed to delete the scene.");
+            }
+        }
+    }
+
+    /// Delete entity by given scene id and entity id, save project after
+    fn delete_entity(&mut self, scene_id: Uuid, entity_id: Uuid, gui_state: &mut GuiState) {
+        if let Some(scene_manager) = gui_state.scene_manager.as_mut() {
+            if let Some(scene) = scene_manager.get_scene_mut(scene_id) {
+                if scene.delete_entity(entity_id) {
+                    println!("Deleted entity with ID: {:?}", entity_id);
+
+                    // Save project after deletion
+                    if let Err(err) = ProjectManager::save_project_full(
+                        Path::new(&gui_state.project_path),
+                        gui_state.project_metadata.as_ref().unwrap(),
+                        scene_manager,
+                    ) {
+                        println!("Error saving project after deleting an entity: {}", err);
+                    } else {
+                        println!("Saved project after deleting an entity.");
+                    }
+                } else {
+                    println!("Failed to delete the entity.");
+                }
+            }
+        }
+    }
+
+    /// Rename popup
+    fn open_rename_popup(
+        &mut self,
+        ctx: &egui::Context,
+        ui: &mut egui::Ui,
+        title: &str,
+        scene_id: Uuid,
+        entity_id: Option<Uuid>,
+        gui_state: &mut GuiState,
+    ) {
+        egui::Window::new(title)
+            .collapsible(false)
+            .resizable(false)
+            .show(ctx, |ui| {
+                ui.label("Enter new name:");
+                ui.text_edit_singleline(&mut self.rename_input);
+
+                ui.horizontal(|ui| {
+                    if ui.button("Rename").clicked() {
+                        if let Some(scene_manager) = gui_state.scene_manager.as_mut() {
+                            if let Some(entity_id) = entity_id {
+                                // Rename entity
+                                if let Some(scene) = scene_manager.get_scene_mut(scene_id) {
+                                    if let Some(entity) = scene.get_entity_mut(entity_id) {
+                                        entity.name = self.rename_input.trim().to_string();
+                                        println!("Renamed entity to: {}", entity.name);
+                                    }
+                                }
+                            } else {
+                                // Rename scene
+                                if let Some(scene) = scene_manager.get_scene_mut(scene_id) {
+                                    scene.name = self.rename_input.trim().to_string();
+                                    println!("Renamed scene to: {}", scene.name);
+                                }
+                            }
+
+                            // Save project after renaming
+                            if let Err(err) = ProjectManager::save_project_full(
+                                Path::new(&gui_state.project_path),
+                                gui_state.project_metadata.as_ref().unwrap(),
+                                scene_manager,
+                            ) {
+                                println!("Error saving project after renaming: {err}");
+                            } else {
+                                println!("Saved project after renaming.");
+                            }
+                        }
+
+                        self.renaming_scene = None;
+                        self.renaming_entity = None;
+                        self.rename_input.clear();
+                    }
+
+                    if ui.button("Cancel").clicked() {
+                        self.renaming_scene = None;
+                        self.renaming_entity = None;
+                        self.rename_input.clear();
+                    }
+                });
+            });
     }
 }
