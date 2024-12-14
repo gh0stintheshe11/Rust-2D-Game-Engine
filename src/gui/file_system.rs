@@ -1,7 +1,7 @@
 use eframe::egui;
 use std::fs;
 use std::path::{Path, PathBuf};
-use crate::gui::gui_state::GuiState;
+use crate::gui::gui_state::{GuiState, SelectedItem};
 
 pub struct FileSystem {
     search_query: String,
@@ -33,10 +33,10 @@ impl FileSystem {
         ui.separator();
 
         // Render the file tree
-        self.render_file_tree(ui, &root_path, 0);
+        self.render_file_tree(ui, &root_path, 0, gui_state);
     }
 
-    fn render_file_tree(&mut self, ui: &mut egui::Ui, path: &Path, depth: usize) {
+    fn render_file_tree(&mut self, ui: &mut egui::Ui, path: &Path, depth: usize, gui_state: &mut GuiState) {
 
         if let Ok(mut entries) = fs::read_dir(path) {
             let search_query = self.search_query.to_lowercase();
@@ -66,7 +66,7 @@ impl FileSystem {
                 egui::CollapsingHeader::new(format!("📁 {}", folder_name))
                     .default_open(true)
                     .show(ui, |ui| {
-                        self.render_file_tree(ui, &folder_path, depth + 1);
+                        self.render_file_tree(ui, &folder_path, depth + 1, gui_state);
                     });
 
             }
@@ -97,6 +97,7 @@ impl FileSystem {
 
                     if response.clicked() {
                         self.selected_file = Some(file_path.clone());
+                        gui_state.selected_item = SelectedItem::File(file_path.clone());
                         println!("Selected file: {}", file_name);
                     }
 
@@ -108,6 +109,10 @@ impl FileSystem {
                                 println!("Failed to delete file: {}", err);
                             } else {
                                 println!("Deleted file: {}", file_name);
+                                // Reset selected item if the deleted file was selected
+                                if matches!(&gui_state.selected_item, SelectedItem::File(selected_path) if selected_path == &file_path) {
+                                    gui_state.selected_item = SelectedItem::None;
+                                }
                                 if self.selected_file == Some(file_path.clone()) {
                                     self.selected_file = None;
                                 }
