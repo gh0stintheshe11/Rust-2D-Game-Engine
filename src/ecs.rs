@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use uuid::Uuid;
 use serde::{Serialize, Deserialize};
+use std::fmt;
 
 //SceneManager
 // └── Manages multiple Scenes
@@ -420,13 +421,32 @@ pub enum AttributeType {
     Vector2,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum AttributeValue {
     Integer(i32),
     Float(f32),
     String(String),
     Boolean(bool),
     Vector2(f32, f32),
+}
+
+impl fmt::Display for AttributeValue {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            AttributeValue::Integer(value) => write!(f, "{}", value),
+            AttributeValue::Float(value) => {
+                // Show .0 if it doesnt have decimal
+                if value.fract() == 0.0 {
+                    write!(f, "{:.1}", value)
+                } else {
+                    write!(f, "{}", value)
+                }
+            },
+            AttributeValue::String(value) => write!(f, "{}", value),
+            AttributeValue::Boolean(value) => write!(f, "{}", value),
+            AttributeValue::Vector2(x, y) => write!(f, "{}, {}", x, y),
+        }
+    }
 }
 
 // =============== Resource ===============
