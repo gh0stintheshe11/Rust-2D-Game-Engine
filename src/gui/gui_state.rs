@@ -6,6 +6,7 @@ use uuid::Uuid;
 pub enum SelectedItem {
     Scene(Uuid),
     Entity(Uuid, Uuid), // (Scene ID, Entity ID)
+    Resource(Uuid, Uuid), // (Scene ID, Resource ID)
     File(PathBuf),
     None,
 }

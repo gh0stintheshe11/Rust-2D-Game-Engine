@@ -5,6 +5,8 @@ use uuid::Uuid;
 use crate::project_manager::ProjectManager;
 use std::path::Path;
 use crate::ecs;
+use crate::ecs::{ResourceType};
+use std::collections::HashMap;
 
 const PREDEFINED_ENTITIES: &[(
     &str,
@@ -38,6 +40,11 @@ pub struct SceneHierarchy {
     renaming_scene: Option<Uuid>,
     renaming_entity: Option<(Uuid, Uuid)>,
     rename_input: String,
+    // for manage resource of entity
+    manage_resources_entity: Option<(Uuid, Uuid)>, // Track selected entity for manage resource (scene_id, entity_id)
+    selected_resources: HashMap<Uuid, bool>,
+    show_manage_resource_popup: bool,
+    manage_resource_popup_error_message: String,
 }
 
 impl SceneHierarchy {
@@ -53,6 +60,11 @@ impl SceneHierarchy {
             renaming_scene: None,
             renaming_entity: None,
             rename_input: String::new(),
+            // for manage resource of entity
+            manage_resources_entity: None,
+            selected_resources: HashMap::new(),
+            show_manage_resource_popup: false,
+            manage_resource_popup_error_message: String::new(),
         }
     }
 
@@ -78,11 +90,18 @@ impl SceneHierarchy {
             }
         }
 
+        if self.show_manage_resource_popup {
+            if let Some((scene_id, entity_id)) = self.manage_resources_entity {
+                self.render_manage_resource_group(ctx, ui, gui_state, scene_id, entity_id);
+            }
+        }
+
         egui::ScrollArea::vertical()
             .auto_shrink([false, false])
             .show(ui, |ui| {
                 let mut scene_to_delete: Option<Uuid> = None;
                 let mut entity_to_delete: Option<(Uuid, Uuid)> = None;
+                let mut resource_to_detach: Option<(Uuid, Uuid, Uuid)> = None; // scene_id, entity_id, resource_id
 
                 if let Some(scene_manager) = &gui_state.scene_manager {
                     for (scene_id, scene) in &scene_manager.scenes {
@@ -124,29 +143,103 @@ impl SceneHierarchy {
                                         continue;
                                     }
 
-                                    let selected = self
-                                        .selected_item
-                                        .as_ref()
-                                        .map_or(false, |(item_type, id)| item_type == "Entity" && id == entity_id);
+                                    // If entity has resources, show as collapse header, otherwise show as label
+                                    if !entity.resource_list.is_empty() {
+                                        // Entity is collapsible
+                                        let entity_ui_id = ui.make_persistent_id(entity_id);
 
-                                    let response = ui.selectable_label(selected, format!("📌 {}", entity.name));
-                                    if response.clicked() {
-                                        self.selected_item = Some(("Entity".to_string(), *entity_id));
-                                        gui_state.selected_item = SelectedItem::Entity(*scene_id, *entity_id);
+                                        egui::collapsing_header::CollapsingState::load_with_default_open(ctx, entity_ui_id, true)
+                                            .show_header(ui, |ui| {
+                                                let selected = self
+                                                    .selected_item
+                                                    .as_ref()
+                                                    .map_or(false, |(item_type, id)| item_type == "Entity" && id == entity_id);
+
+                                                let response = ui.selectable_label(selected, format!("📌 {}", entity.name));
+                                                if response.clicked() {
+                                                    self.selected_item = Some(("Entity".to_string(), *entity_id));
+                                                    gui_state.selected_item = SelectedItem::Entity(*scene_id, *entity_id);
+                                                }
+
+                                                // Handle right-click context menu for entity
+                                                response.context_menu(|ui| {
+                                                    if ui.button("Manage Resources").clicked() {
+                                                        self.manage_resources_entity = Some((*scene_id, *entity_id));
+                                                        self.show_manage_resource_popup = true;
+                                                        ui.close_menu();
+                                                    }
+                                                    if ui.button("Rename").clicked() {
+                                                        self.renaming_entity = Some((*scene_id, *entity_id));
+                                                        self.rename_input = entity.name.clone();
+                                                        ui.close_menu();
+                                                    }
+                                                    if ui.button("Delete").clicked() {
+                                                        entity_to_delete = Some((*scene_id, *entity_id));
+                                                        ui.close_menu();
+                                                    }
+                                                });
+                                            }).body(|ui| {
+
+                                            // Display resources in entity
+                                            for resource_id in &entity.resource_list {
+                                                if let Some(resource) = scene.resources.get(resource_id) {
+                                                    let resource_selected = self
+                                                        .selected_item
+                                                        .as_ref()
+                                                        .map_or(false, |(item_type, id)| item_type == "Resource" && id == resource_id);
+
+                                                    let response = ui.selectable_label(resource_selected, format!("📄 {}", resource.name));
+
+                                                    if response.clicked() {
+                                                        // Update selected item state to Resource
+                                                        self.selected_item = Some(("Resource".to_string(), *resource_id));
+                                                        gui_state.selected_item = SelectedItem::Resource(*scene_id, *resource_id);
+                                                    }
+
+                                                    // Handle right-click context menu for resource
+                                                    response.context_menu(|ui| {
+                                                        if ui.button("Detach").clicked() {
+                                                            resource_to_detach = Some((*scene_id, *entity_id, *resource_id));
+                                                            ui.close_menu();
+                                                        }
+                                                    });
+                                                } else {
+                                                    println!("Resource {resource_id} not found in entity {entity_id}.");
+                                                }
+                                            }
+                                        });
+                                    } else {
+                                        ui.horizontal(|ui| {
+                                            let selected = self
+                                                .selected_item
+                                                .as_ref()
+                                                .map_or(false, |(item_type, id)| item_type == "Entity" && id == entity_id);
+
+                                            let response = ui.selectable_label(selected, format!("📌 {}", entity.name));
+                                            if response.clicked() {
+                                                self.selected_item = Some(("Entity".to_string(), *entity_id));
+                                                gui_state.selected_item = SelectedItem::Entity(*scene_id, *entity_id);
+                                            }
+
+                                            // Handle right-click context menu for entity
+                                            response.context_menu(|ui| {
+                                                if ui.button("Manage Resources").clicked() {
+                                                    self.manage_resources_entity = Some((*scene_id, *entity_id));
+                                                    self.show_manage_resource_popup = true;
+                                                    ui.close_menu();
+                                                }
+                                                if ui.button("Rename").clicked() {
+                                                    self.renaming_entity = Some((*scene_id, *entity_id));
+                                                    self.rename_input = entity.name.clone();
+                                                    ui.close_menu();
+                                                }
+                                                if ui.button("Delete").clicked() {
+                                                    entity_to_delete = Some((*scene_id, *entity_id));
+                                                    ui.close_menu();
+                                                }
+                                            });
+                                        });
                                     }
-
-                                    // Handle right-click context menu for entity
-                                    response.context_menu(|ui| {
-                                        if ui.button("Rename").clicked() {
-                                            self.renaming_entity = Some((*scene_id, *entity_id));
-                                            self.rename_input = entity.name.clone();
-                                            ui.close_menu();
-                                        }
-                                        if ui.button("Delete").clicked() {
-                                            entity_to_delete = Some((*scene_id, *entity_id));
-                                            ui.close_menu();
-                                        }
-                                    });
                                 }
                             });
                     }
@@ -170,6 +263,10 @@ impl SceneHierarchy {
 
                 if let Some((scene_id, entity_id)) = entity_to_delete {
                     self.delete_entity(scene_id, entity_id, gui_state);
+                }
+
+                if let Some((scene_id, entity_id, resource_id)) = resource_to_detach {
+                    self.detach_resource(scene_id, entity_id, resource_id, gui_state);
                 }
             });
 
@@ -209,6 +306,13 @@ impl SceneHierarchy {
                             self.create_item_type = name.to_string();
                         }
                     }
+
+                    if ui
+                        .add_sized([available_width, 24.0], egui::SelectableLabel::new(self.create_item_type == "Resource", "Resource"))
+                        .clicked()
+                    {
+                        self.create_item_type = "Resource".to_string();
+                    }
                 });
 
                 ui.add_space(10.0);
@@ -231,6 +335,12 @@ impl SceneHierarchy {
                                     }
                                     "Entity" => {
                                         self.create_new_entity("Entity".to_string(), gui_state);
+                                        if self.error_message.is_empty() {
+                                            self.show_create_popup = false;
+                                        }
+                                    }
+                                    "Resource" => {
+                                        self.create_new_resource(gui_state);
                                         if self.error_message.is_empty() {
                                             self.show_create_popup = false;
                                         }
@@ -269,6 +379,114 @@ impl SceneHierarchy {
                 }
 
             });
+    }
+
+    fn render_manage_resource_group(&mut self, ctx: &egui::Context, ui: &mut egui::Ui, gui_state: &mut GuiState, scene_id: Uuid, entity_id: Uuid) {
+
+        let mut resource_updated = false;
+
+        egui::Window::new("Manage Resources")
+            .collapsible(false)
+            .resizable(false)
+            .order(egui::Order::Foreground)
+            .show(ctx, |ui| {
+                if let Some(scene_manager) = &mut gui_state.scene_manager {
+                    if let Some(scene) = scene_manager.get_scene_mut(scene_id) {
+                        if let Some(entity) = scene.get_entity(entity_id) {
+
+                            let max_height = ctx.available_rect().height() * 0.6;
+
+                            // Get resource list and sort by name
+                            let mut resources: Vec<(Uuid, String)> = scene
+                                .list_resource()
+                                .iter()
+                                .map(|(id, name)| (*id, name.to_string()))
+                                .collect();
+                            resources.sort_by(|a, b| a.1.to_lowercase().cmp(&b.1.to_lowercase()));
+
+                            egui::ScrollArea::vertical()
+                                .max_height(max_height)
+                                .auto_shrink([false, true])
+                                .show(ui, |ui| {
+                                    // Display resource list with checkboxes
+                                    for (resource_id, resource_name) in &resources {
+                                        let is_selected = self
+                                            .selected_resources
+                                            .entry(*resource_id)
+                                            .or_insert(entity.resource_list.contains(&resource_id));
+                                        ui.horizontal(|ui| {
+                                            ui.checkbox(is_selected, resource_name.to_string());
+                                        });
+                                    }
+                                });
+
+                            ui.separator();
+
+                            ui.horizontal(|ui| {
+                                if ui.button("Save").clicked() {
+                                    resource_updated = true;
+                                    self.show_manage_resource_popup = false;
+                                }
+                                if ui.button("Cancel").clicked() {
+                                    self.show_manage_resource_popup = false;
+                                    self.selected_resources.clear();
+                                }
+                            });
+                        } else {
+                            self.manage_resource_popup_error_message = "Entity not found.".to_string();
+                        }
+                    } else {
+                        self.manage_resource_popup_error_message = "Scene not found.".to_string();
+                    }
+                } else {
+                    self.manage_resource_popup_error_message = "Scene manager is not initialized.".to_string();
+                }
+
+                // Display error message
+                if !self.manage_resource_popup_error_message.is_empty() {
+                    ui.add_space(10.0);
+                    ui.colored_label(egui::Color32::RED, &self.manage_resource_popup_error_message);
+                }
+
+            });
+
+
+        if resource_updated {
+
+            if let Some(scene_manager) = &mut gui_state.scene_manager {
+                if let Some(scene) = scene_manager.get_scene_mut(scene_id) {
+                    if let Some(entity) = scene.get_entity_mut(entity_id) {
+
+                        // Update the entity's resource list based on selection
+                        entity.resource_list.clear();
+                        for (resource_id, selected) in &self.selected_resources {
+                            if *selected {
+                                entity.resource_list.push(*resource_id);
+                            }
+                        }
+
+                        // Save the project after updating
+                        if let Err(err) = ProjectManager::save_project_full(
+                            Path::new(&gui_state.project_path),
+                            gui_state.project_metadata.as_ref().unwrap(),
+                            scene_manager,
+                        ) {
+                            self.manage_resource_popup_error_message = "Error saving project after managing resources: {err}".to_string();
+                        } else {
+                            self.manage_resources_entity = None;
+                            self.selected_resources.clear();
+                            self.manage_resource_popup_error_message.clear();
+                            self.show_manage_resource_popup = false;
+                        }
+
+
+                        return;
+                    }
+                }
+            }
+            self.manage_resources_entity = None;
+            println!("Error saving project after managing resources.");
+        }
     }
 
     /// Create a new scene
@@ -360,6 +578,52 @@ impl SceneHierarchy {
         }
     }
 
+    /// Create a new resource under the selected scene
+    fn create_new_resource(&mut self, gui_state: &mut GuiState) {
+        if let Some(scene_manager) = gui_state.scene_manager.as_mut() {
+            let name = self.create_item_name.trim().to_string();
+            if !name.is_empty() {
+                // Check if the selected item is a scene, the resource must under a scene
+                if let Some((item_type, scene_id)) = self.selected_item.as_ref() {
+                    if item_type == "Scene" {
+                        let scene_id = *scene_id;
+                        if let Some(scene) = scene_manager.get_scene_mut(scene_id) {
+
+                            // Create an empty resource, empty path with Image type.
+                            let new_resource_id = scene.create_resource(&name, "", ResourceType::Image);
+
+                            self.selected_item = Some(("Resource".to_string(), new_resource_id));
+                            gui_state.selected_item = SelectedItem::Resource(scene_id, new_resource_id);
+
+                            println!("Created new resource '{}' with ID: {:?}", name, new_resource_id);
+
+                            // Save project after creating the resource
+                            if let Err(err) = ProjectManager::save_project_full(
+                                Path::new(&gui_state.project_path),
+                                gui_state.project_metadata.as_ref().unwrap(),
+                                scene_manager,
+                            ) {
+                                self.error_message = format!("Error saving project after creating a resource: {}", err);
+                            } else {
+                                self.error_message.clear();
+                            }
+                        } else {
+                            self.error_message = "The selected scene could not be found.".to_string();
+                        }
+                    } else {
+                        self.error_message = "Please select a scene first to add the resource.".to_string();
+                    }
+                } else {
+                    self.error_message = "Please select a scene first to add the resource.".to_string();
+                }
+            } else {
+                self.error_message = "Resource name cannot be empty.".to_string();
+            }
+        } else {
+            self.error_message = "Scene manager is not available.".to_string();
+        }
+    }
+
     /// Delete scene by scene id, save project after
     fn delete_scene(&mut self, scene_id: Uuid, gui_state: &mut GuiState) {
         if let Some(scene_manager) = gui_state.scene_manager.as_mut() {
@@ -417,6 +681,45 @@ impl SceneHierarchy {
                     println!("Failed to delete the entity.");
                 }
             }
+        }
+    }
+
+    /// Detach resource by given scene_id, entity id and resource id, save project after
+    fn detach_resource(&mut self, scene_id: Uuid, entity_id: Uuid, resource_id: Uuid, gui_state: &mut GuiState) {
+        if let Some(scene_manager) = gui_state.scene_manager.as_mut() {
+            if let Some(scene) = scene_manager.get_scene_mut(scene_id) {
+                if let Some(entity) = scene.get_entity_mut(entity_id) {
+                    entity.detach_resource(resource_id);
+                        println!("Detached resource for entity ID {:?} with resource ID: {:?}", entity_id, resource_id);
+
+                        // Reset gui_state's selected item if the detached resource was selected
+                        if matches!(
+                            gui_state.selected_item,
+                            SelectedItem::Resource(selected_scene, selected_resource)
+                            if selected_resource == resource_id && selected_scene == scene_id
+                        ) {
+                            gui_state.selected_item = SelectedItem::None;
+                        }
+
+                        // Save project after deletion
+                        if let Err(err) = ProjectManager::save_project_full(
+                            Path::new(&gui_state.project_path),
+                            gui_state.project_metadata.as_ref().unwrap(),
+                            scene_manager,
+                        ) {
+                            println!("Error saving project after detach a resource: {}", err);
+                        } else {
+                            println!("Saved project after detach a resource.");
+                        }
+
+                } else {
+                    println!("Failed to get the entity.");
+                }
+            } else {
+                println!("Failed to get the scene.");
+            }
+        } else {
+            println!("Failed to get the scene manager.");
         }
     }
 

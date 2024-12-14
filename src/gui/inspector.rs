@@ -1,6 +1,6 @@
 use eframe::egui;
 use crate::gui::gui_state::{GuiState, SelectedItem};
-use crate::ecs::{AttributeValue, AttributeType, Attribute, Entity};
+use crate::ecs::{AttributeValue, AttributeType, Entity};
 use std::collections::HashMap;
 use std::path::Path;
 use uuid::Uuid;
@@ -35,6 +35,9 @@ impl Inspector {
             SelectedItem::Scene(scene_id) => self.show_scene_details(ui, *scene_id, gui_state),
             SelectedItem::Entity(scene_id, entity_id) => {
                 self.show_entity_details(ui, ctx, *scene_id, *entity_id, gui_state)
+            }
+            SelectedItem::Resource(scene_id, resource_id) => {
+                self.show_resource_details(ui, ctx, *scene_id, *resource_id, gui_state)
             }
             SelectedItem::File(file_path) => self.show_file_details(ui, file_path),
             SelectedItem::None => {
@@ -78,7 +81,35 @@ impl Inspector {
         }
     }
 
-    // Display entity information
+    /// Display resource information
+    fn show_resource_details(
+        &mut self,
+        ui: &mut egui::Ui,
+        ctx: &egui::Context,
+        scene_id: Uuid,
+        resource_id: Uuid,
+        gui_state: &mut GuiState,
+    ) {
+        if let Some(scene_manager) = &mut gui_state.scene_manager {
+            if let Some(scene) = scene_manager.get_scene_mut(scene_id) {
+                if let Some(resource) = scene.get_resource_mut(resource_id) {
+                    ui.label("Resource Details");
+                    ui.separator();
+                    ui.label(format!("Name: {}", resource.name));
+                    ui.label(format!("ID: {}", resource_id));
+                    ui.label(format!("Scene ID: {}", scene_id));
+                } else {
+                    ui.label("Not found.");
+                }
+            } else {
+                ui.label("Scene not found.");
+            }
+        } else {
+            ui.label("Scene manager is not initialized.");
+        }
+    }
+
+    /// Display entity information
     fn show_entity_details(
         &mut self,
         ui: &mut egui::Ui,
