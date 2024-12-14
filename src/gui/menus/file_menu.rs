@@ -126,17 +126,20 @@ impl FileMenu {
                         if !path.exists() {
                             self.error_message = "Error: Path does not exist.".to_string();
                         } else {
-                            match ProjectManager::load_project(&path) {
-                                Ok(metadata) => {
+                            match ProjectManager::load_project_full(&path) {
+                                Ok((metadata, scene_manager)) => {
 
                                     gui_state.project_name = metadata.project_name.clone();
                                     gui_state.project_path = metadata.project_path.clone();
                                     gui_state.load_project = true;
 
+                                    gui_state.project_metadata = Some(metadata);
+                                    gui_state.scene_manager = Some(scene_manager);
+
                                     gui_state.show_open_project_popup = false;
                                     self.temp_project_path.clear();
                                     self.error_message.clear();
-                                    println!("Project '{}' loaded!", metadata.project_name);
+                                    println!("Project '{}' loaded!", gui_state.project_name);
                                 }
                                 Err(err) => {
                                     self.error_message = format!("Error loading project: {}", err);
