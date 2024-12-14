@@ -50,6 +50,9 @@ impl SceneHierarchy {
         egui::ScrollArea::vertical()
             .auto_shrink([false, false])
             .show(ui, |ui| {
+                let mut scene_to_delete: Option<Uuid> = None;
+                let mut entity_to_delete: Option<(Uuid, Uuid)> = None;
+
                 if let Some(scene_manager) = &gui_state.scene_manager {
                     for (scene_id, scene) in &scene_manager.scenes {
                         let id = ui.make_persistent_id(scene_id);
@@ -62,12 +65,18 @@ impl SceneHierarchy {
                                     .as_ref()
                                     .map_or(false, |(item_type, id)| item_type == "Scene" && id == scene_id);
 
-                                if ui
-                                    .selectable_label(selected, &scene.name)
-                                    .clicked()
-                                {
+                                let response = ui.selectable_label(selected, &scene.name);
+                                if response.clicked() {
                                     self.selected_item = Some(("Scene".to_string(), *scene_id));
                                 }
+
+                                // Handle right-click context menu for scene
+                                response.context_menu(|ui| {
+                                    if ui.button("Delete").clicked() {
+                                        scene_to_delete = Some(*scene_id);
+                                        ui.close_menu();
+                                    }
+                                });
                             })
                             .body(|ui| {
                                 for (entity_id, entity) in &scene.entities {
@@ -83,19 +92,71 @@ impl SceneHierarchy {
                                         .as_ref()
                                         .map_or(false, |(item_type, id)| item_type == "Entity" && id == entity_id);
 
-                                    if ui
-                                        .selectable_label(selected, format!("📌 {}", entity.name))
-                                        .clicked()
-                                    {
+                                    let response = ui.selectable_label(selected, format!("📌 {}", entity.name));
+                                    if response.clicked() {
                                         self.selected_item = Some(("Entity".to_string(), *entity_id));
                                     }
+
+                                    // Handle right-click context menu for entity
+                                    response.context_menu(|ui| {
+                                        if ui.button("Delete").clicked() {
+                                            entity_to_delete = Some((*scene_id, *entity_id));
+                                            ui.close_menu();
+                                        }
+                                    });
                                 }
                             });
                     }
                 } else {
                     ui.label("No scenes loaded.");
                 }
+
+                // Handle deletion after the UI loop, avoid Rust borrow issues
+                if let Some(scene_id) = scene_to_delete {
+                    if let Some(scene_manager) = gui_state.scene_manager.as_mut() {
+                        if scene_manager.delete_scene(scene_id) {
+                            println!("Deleted scene with ID: {:?}", scene_id);
+
+                            // Save project after deletion
+                            if let Err(err) = ProjectManager::save_project_full(
+                                Path::new(&gui_state.project_path),
+                                gui_state.project_metadata.as_ref().unwrap(),
+                                scene_manager,
+                            ) {
+                                println!("Error saving project after deleting a scene: {err}");
+                            } else {
+                                println!("Saved project after deleting a scene.");
+                            }
+                        } else {
+                            println!("Failed to delete the scene.");
+                        }
+                    }
+                }
+
+                if let Some((scene_id, entity_id)) = entity_to_delete {
+                    if let Some(scene_manager) = gui_state.scene_manager.as_mut() {
+                        if let Some(scene) = scene_manager.get_scene_mut(scene_id) {
+                            if scene.delete_entity(entity_id) {
+                                println!("Deleted entity with ID: {:?}", entity_id);
+
+                                // Save project after deletion
+                                if let Err(err) = ProjectManager::save_project_full(
+                                    Path::new(&gui_state.project_path),
+                                    gui_state.project_metadata.as_ref().unwrap(),
+                                    scene_manager,
+                                ) {
+                                    println!("Error saving project after deleting an entity: {err}");
+                                } else {
+                                    println!("Saved project after deleting an entity.");
+                                }
+                            } else {
+                                println!("Failed to delete the entity.");
+                            }
+                        }
+                    }
+                }
             });
+
     }
 
     fn render_create_popup(&mut self, ctx: &egui::Context, ui: &mut egui::Ui, gui_state: &mut GuiState) {
