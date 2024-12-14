@@ -1,52 +1,12 @@
 # Rust 2D Game Engine: Final Report
 
-## Table of Contents
-- [Rust 2D Game Engine: Final Report](#rust-2d-game-engine-final-report)
-  - [Table of Contents](#table-of-contents)
-  - [Team Members](#team-members)
-  - [Motivation](#motivation)
-  - [Objective](#objective)
-      - [Simplicity and Usability](#simplicity-and-usability)
-      - [Performance and Scalability](#performance-and-scalability)
-      - [Modularity and Customization](#modularity-and-customization)
-      - [Cross-Platform Compatibility](#cross-platform-compatibility)
-      - [Developer Empowerment](#developer-empowerment)
-  - [Features](#features)
-      - [Rendering Engine](#rendering-engine)
-      - [Physics Engine](#physics-engine)
-      - [Entity Component System (ECS)](#entity-component-system-ecs)
-      - [Script Interpreter](#script-interpreter)
-      - [Audio Engine](#audio-engine)
-      - [Input Handling](#input-handling)
-      - [Game Project File Management](#game-project-file-management)
-      - [Engine GUI](#engine-gui)
-      - [Comprehensive Unit Testing](#comprehensive-unit-testing)
-  - [User's Guide](#users-guide)
-      - [Create new project](#create-new-project)
-      - [Open project](#open-project)
-      - [Create new entity](#create-new-entity)
-      - [Delete entity](#delete-entity)
-      - [Add attributes to entity](#add-attributes-to-entity)
-      - [Create new script](#create-new-script)
-      - [Delete new script](#delete-new-script)
-      - [Import font, scene, audio, and video](#import-font-scene-audio-and-video)
-      - [Build and Run your game](#build-and-run-your-game)
-  - [Reproducibility Guide](#reproducibility-guide)
-  - [Contributions](#contributions)
-  - [Lessons Learned and Concluding Remarks](#lessons-learned-and-concluding-remarks)
-      - [Lesson One: The Importance of Testing Suite](#lesson-one-the-importance-of-testing-suite)
-      - [Lesson Two: Collaboration](#lesson-two-collaboration)
-      - [Lesson Three: Modularity](#lesson-three-modularity)
-      - [Concluding Remarks](#concluding-remarks)
-
-
-
 ## Team Members
+
 > #TODO: write preferred emails
 
--   [Lang Sun - 1003584971 - ](https://github.com/gh0stintheshe11)
--   [Feiyang Fan - 1005146913 - feiyang.fan@mail.utoronto.ca](https://github.com/feiyangfan)
--   [Jie Peng(Frank) Chen - 997532861 - ](https://github.com/frankjc2022)
+- [Lang Sun - 1003584971 - ](https://github.com/gh0stintheshe11)
+- [Feiyang Fan - 1005146913 - feiyang.fan@mail.utoronto.ca](https://github.com/feiyangfan)
+- [Jie Peng(Frank) Chen - 997532861 - ](https://github.com/frankjc2022)
 
 ## Motivation
 
@@ -58,128 +18,739 @@ Our project is an opportunity to address this gap while immersing ourselves in a
 
 This engine is designed to be a "dummy-can-use" tool—intuitive enough for beginners to dive into game development while still providing advanced capabilities for experienced developers. By focusing solely on 2D, we eliminate the bloat and confusion that often come with multi-purpose engines, ensuring that every feature and optimization serves the unique needs of 2D game creators.
 
-In essence, this project isn't just about building a game engine; it's about creating a space in the Rust ecosystem for indie developers and small studios to innovate, experiment, and succeed in the world of 2D game development.
-
 ## Objective
 
 The primary objective of our Rust 2D Game Engine project is to create a lightweight, cross-platform engine that empowers developers to build 2D games with simplicity and efficiency. By focusing on modularity, performance, and an indie developer-friendly approach, the engine aims to provide an accessible and robust foundation for game development.
 
 Our project emphasize:
-#### Simplicity and Usability
-Designing a user-friendly engine that lowers the barrier to entry for beginner game developers while supporting advanced use cases for experienced developers.
 
-#### Performance and Scalability
-Leveraging Rust's strengths in memory safety and high performance to ensure the engine is optimized for a wide range of 2D game projects, from small prototypes to larger, more complex games.
+- Designing a user-friendly engine that lowers the barrier to entry for beginner game developers while supporting advanced use cases for experienced developers.
 
-#### Modularity and Customization
-Providing a flexible, modular architecture that allows developers to pick and integrate only the components they need, ensuring adaptability to different project requirements.
+- Leveraging Rust's strengths in memory safety and high performance to ensure the engine is optimized for a wide range of 2D game projects, from small prototypes to larger, more complex games.
 
-#### Cross-Platform Compatibility
-Ensuring that games built with the engine can run seamlessly across multiple platforms, including desktop, web, and mobile environments.
+- Providing a flexible, modular architecture that allows developers to pick and integrate only the components they need, ensuring adaptability to different project requirements.
 
-#### Developer Empowerment
-Streamlining the game development process by enabling rapid iteration and experimentation through intuitive tools, a Lua scripting system, and visual interfaces.
+- Ensuring that games built with the engine can run seamlessly across multiple platforms, including desktop, web, and mobile environments.
+
+- Streamlining the game development process by enabling rapid iteration and experimentation through intuitive tools, a Lua scripting system, and visual interfaces.
 
 ## Features
 
-#### Rendering Engine
+### [Rendering Engine](/src/render_engine.rs)
 
-_A cutting-edge graphics subsystem powered by [wgpu](https://crates.io/crates/wgpu), delivering cross-platform, hardware-accelerated rendering capabilities._
+_The Rendering Engine is a crucial component of our 2D game engine, responsible for handling all graphical output. It utilizes [`wgpu`](https://github.com/gfx-rs/wgpu), a cross-platform, safe, and modern graphics API, to provide efficient and flexible rendering capabilities._
 
--   Leverages a modern, abstracted graphics API supporting multiple backends (Vulkan, Metal, DirectX 12, WebGPU) for platform flexibility.
+#### Core Components Overview
 
--   Implements a high-performance rendering pipeline optimized for 2D sprite rendering, with texture management and dynamic shader compilation.
+```mermaid
+classDiagram
+    RenderEngine --> Camera
+    RenderEngine --> Transform
+    RenderEngine --> TextureInfo
+    RenderEngine --> Animation
+    RenderEngine ..> RenderLayer
 
-#### Physics Engine
+    class RenderEngine {
+        -viewport_size: (f32, f32)
+        -last_frame_time: Instant
+        -textures: HashMap<Uuid, TextureInfo>
+        +camera: Camera
+        +new()
+        +load_texture(resource: Resource)
+        +update_viewport_size(width: f32, height: f32)
+        +render(scene: Scene)
+        +get_texture_data(id: Uuid)
+    }
+
+    class Camera {
+        +position: (f32, f32)
+        +zoom: f32
+        +new()
+        +move_by(dx: f32, dy: f32)
+        +zoom_by(factor: f32)
+        +world_to_screen(world_pos: (f32, f32))
+    }
+
+    class Transform {
+        +position: (f32, f32)
+        +rotation: f32
+        +scale: (f32, f32)
+        +new()
+        +with_position(x: f32, y: f32)
+        +with_rotation(angle: f32)
+        +with_scale(sx: f32, sy: f32)
+        +with_uniform_scale(scale: f32)
+    }
+
+    class TextureInfo {
+        -data: Vec<u8>
+        -dimensions: (u32, u32)
+        -aspect_ratio: f32
+    }
+
+    class Animation {
+        -frames: Vec<TextureInfo>
+        -frame_duration: f32
+        -current_frame: usize
+        -elapsed_time: f32
+        -is_playing: bool
+        -is_looping: bool
+        -playback_speed: f32
+        +new(frames: Vec<TextureInfo>, duration: f32)
+        +update(delta_time: f32)
+        +play()
+        +pause()
+        +stop()
+        +set_looping(looping: bool)
+        +set_speed(speed: f32)
+        +set_frame(frame: usize)
+    }
+
+    class RenderLayer {
+        <<enumeration>>
+        Background
+        Game
+        UI
+        Debug
+    }
+```
+
+#### Setting up a Basic Scene
+
+```rust
+// Initialize engine
+let mut render_engine = RenderEngine::new();
+
+// Set up camera
+render_engine.camera.move_by(0.0, 0.0);  // Center camera
+render_engine.camera.zoom_by(1.0);       // Default zoom
+
+// Load and position a sprite
+let sprite_id = render_engine.load_texture(&player_resource)?;
+let transform = Transform::new()
+    .with_position(100.0, 100.0)
+    .with_uniform_scale(1.0);
+```
+
+#### Camera System
+
+The camera system provides viewport control with:
+
+- Pan/move functionality
+- Zoom control (0.1x to 10.0x)
+- World-to-screen coordinate conversion
+
+```rust
+// Smooth camera follow
+let player_pos = player.get_position();
+camera.move_by(
+    (player_pos.0 - camera.position.0) * 0.1,  // Smooth X follow
+    (player_pos.1 - camera.position.1) * 0.1   // Smooth Y follow
+);
+
+// Zoom to fit scene
+camera.zoom_by(0.8);  // Zoom out
+camera.zoom_by(1.2);  // Zoom in
+```
+
+#### Transform System
+
+Handles object positioning and manipulation:
+
+- Position (x, y coordinates)
+- Rotation (in radians)
+- Scale (width, height multipliers)
+
+```rust
+// Create and modify transform
+let mut transform = Transform::new()
+    .with_position(100.0, 100.0)
+    .with_rotation(0.0)
+    .with_scale(1.0, 1.0);
+
+// Scale sprite without modifying original image
+transform.scale = (0.5, 0.5);  // Half size
+transform.scale = (2.0, 2.0);  // Double size
+
+// Rotate sprite
+transform.rotation = std::f32::consts::PI * 0.5;  // 90 degrees
+```
+
+#### Layer System
+
+Manages rendering order with four predefined layers:
+
+- Background (0)
+- Game (1)
+- UI (2)
+- Debug (3)
+
+```rust
+// Create entities in different layers
+let background = Entity::new()
+    .with_sprite(background_texture)
+    .with_layer(RenderLayer::Background);
+
+let player = Entity::new()
+    .with_sprite(player_texture)
+    .with_layer(RenderLayer::Game);
+
+let health_bar = Entity::new()
+    .with_sprite(ui_texture)
+    .with_layer(RenderLayer::UI);
+```
+
+#### Texture Management
+
+- Supports PNG and JPEG formats
+- Maintains original dimensions and aspect ratios
+- Efficient texture data storage and retrieval
+
+#### Animation Support
+
+Optional animation system with:
+
+- Frame-based animation
+- Playback controls (play/pause/stop)
+- Looping options
+- Variable playback speed
+- Frame selection
+
+```rust
+// Create and control animation
+let mut player_animation = Animation::new(walk_frames, 1.0/12.0);  // 12 FPS
+
+// Basic controls
+player_animation.play();      // Start playing
+player_animation.pause();     // Pause at current frame
+player_animation.stop();      // Stop and reset to first frame
+
+// Advanced controls
+player_animation.set_looping(true);   // Loop animation
+player_animation.set_speed(2.0);      // Play at double speed
+player_animation.set_frame(3);        // Jump to specific frame
+```
+
+### [Physics Engine](/src/physics_engine.rs)
 
 _A robust 2D physics simulation system built on the [rapier2d](https://crates.io/crates/rapier2d) library, delivering realistic and responsive environmental interactions._
 
--   Integrates advanced physics calculations with support for collision detection, response, and physical simulations.
+- Gravity simulation
 
--   Offers rigid body dynamics, including dynamic and static body creation with customizable physical properties like mass, friction, and restitution.
+- Integrates advanced physics calculations with support for collision detection, response, and physical simulations.
 
--   Supports diverse collider geometries (spherical, cuboid, capsule) to accommodate varied game design requirements, from simple arcade-style to more intricate physics scenarios.
+- Offers rigid body dynamics, including dynamic and static body creation with customizable physical properties like mass, friction, and restitution.
 
-#### Entity Component System (ECS)
+- Supports diverse collider geometries (spherical, cuboid, capsule) to accommodate varied game design requirements, from simple arcade-style to more intricate physics scenarios.
 
-_An innovative architectural pattern designed for maximum flexibility, performance, and scalability in game entity management._
+#### Implementation Details
 
--   Implements a data-oriented design that separates game logic from data, enabling rapid feature development and minimal computational overhead.
+The `PhysicsEngine` struct encapsulates all necessary components for physics simulation:
 
--   Provides memory-efficient entity creation and management, capable of handling thousands of game objects with minimal performance degradation.
+- `PhysicsPipeline`: Manages the overall physics simulation process
+- `RigidBodySet` and `ColliderSet`: Store rigid bodies and their colliders
+- `IslandManager`, `BroadPhase`, and `NarrowPhase`: Handle collision detection
+- `ImpulseJointSet` and `MultibodyJointSet`: Manage object constraints
+- `CCDSolver`: Handles continuous collision detection
+- `QueryPipeline`: Allows for spatial queries
 
--   Offers seamless component composition, allowing developers to construct complex game behaviors through modular, reusable components.
+Key methods include:
 
-#### Script Interpreter
+- `new()`: Initializes the physics engine with default settings
+- `step()`: Advances the physics simulation by one time step
+- `add_rigid_body()`: Adds a new rigid body to the simulation
+- `handle_collisions()`: Detects and processes collisions between objects
 
-_A powerful scripting integration layer enabling dynamic game logic extension and runtime behavior modification._
+#### Unit Tests
 
--   Seamlessly embeds Lua scripting via the [rlua](https://crates.io/crates/rlua) crate, allowing developers to write game logic, event handlers, and complex behaviors without recompiling the core engine.
+The test suite in [`physics_engine_test.rs`](tests/physics_engine_test.rs) verifies various aspects of the physics simulation:
 
--   Provides robust bidirectional data exchange between Rust and Lua, with error handling and safe memory management.
+1. **Initialization** - `test_initialization`:
 
--   Supports hot-reloading of scripts, enabling rapid iteration and live modifications during game development.
+   - Checks correct gravity setting and empty initial state
 
-#### Audio Engine
+2. **Rigid Body Addition**:
 
-_A low-latency, high-fidelity audio processing system designed for immersive soundscapes and precise audio control._
+   - `test_add_dynamic_rigid_body_with_collider`: Verifies dynamic body creation
+   - `test_add_static_rigid_body_with_collider`: Checks static body creation
+   - `test_add_invalid_rigid_body`: Ensures invalid bodies are not added
 
--   Utilizes the [rodio](https://crates.io/crates/rodio) crate to deliver efficient audio stream management across multiple formats and playback scenarios.
+3. **Gravity Simulation** - `test_simulation_under_gravity`:
 
--   Supports complex audio features like spatial sound, volume attenuation, and seamless music and sound effect transitions.
+   - Confirms objects fall under gravity
 
--   Ensures minimal audio latency, critical for maintaining synchronization with game events and player interactions.
+4. **Collision Detection** - `test_collision_detection`:
 
-#### Input Handling
+   - Verifies collisions between dynamic and static bodies
+
+5. **Multiple Body Simulation** - `test_multiple_bodies_falling`:
+
+   - Tests behavior of multiple dynamic bodies
+
+6. **Collider Shapes** - `test_different_collider_shapes`:
+
+   - Checks various collider shapes (ball, cuboid, capsule)
+
+7. **Custom Properties** - `test_rigid_body_with_custom_properties`:
+
+   - Tests bodies with custom mass and restitution
+
+8. **Collision Events** - `test_collision_events`:
+   - Ensures collision events are properly detected and reported
+
+#### Usage
+
+See [Physics Engine Usage](#physics-engine-usage) in [Users Guide](#users-guide).
+
+### [Entity Component System (ECS)](/src/ecs.rs)
+
+_The Entity Component System (ECS) is the core architecture of our game engine, providing a flexible and efficient way to create and manage game objects. It follows a composition-over-inheritance pattern, making it easy to create complex game objects without deep inheritance hierarchies._
+
+#### System Overview
+
+```mermaid
+classDiagram
+    class SceneManager {
+        +scenes: HashMap<Uuid, Scene>
+        +shared_entities: HashMap<Uuid, Entity>
+        +active_scene: Option<Uuid>
+        +new()
+        +create_scene(name: str)
+        +delete_scene(id: Uuid)
+        +create_shared_entity(name: str)
+        +delete_shared_entity(id: Uuid)
+        +set_active_scene(id: Uuid)
+        +get_active_scene()
+    }
+
+    class Scene {
+        +id: Uuid
+        +name: String
+        +entities: HashMap<Uuid, Entity>
+        +resources: HashMap<Uuid, Resource>
+        +shared_entity_refs: Vec<Uuid>
+        +new(name: str)
+        +modify_scene(new_name: str)
+        +create_entity(name: str)
+        +create_resource(name: str, path: str, type: ResourceType)
+        +add_shared_entity_ref(id: Uuid)
+        +remove_shared_entity_ref(id: Uuid)
+    }
+
+    class Entity {
+        +id: Uuid
+        +name: String
+        +attributes: HashMap<Uuid, Attribute>
+        +resource_list: Vec<Uuid>
+        +new(id: Uuid, name: str)
+        +change_entity_name(new_name: str)
+        +attach_resource(resource_id: Uuid)
+        +detach_resource(resource_id: Uuid)
+        +create_attribute(name: str, type: AttributeType, value: AttributeValue)
+    }
+
+    class Resource {
+        +id: Uuid
+        +name: String
+        +file_path: String
+        +resource_type: ResourceType
+        +display()
+        +play()
+        +pause()
+        +stop()
+        +edit()
+    }
+
+    class Attribute {
+        +id: Uuid
+        +name: String
+        +data_type: AttributeType
+        +value: AttributeValue
+    }
+
+    class ResourceType {
+        <<enumeration>>
+        Image
+        Sound
+        Script
+    }
+
+    class AttributeType {
+        <<enumeration>>
+        Integer
+        Float
+        String
+        Boolean
+        Vector2
+    }
+
+    SceneManager "1" --> "*" Scene : manages scenes
+    SceneManager "1" --> "*" Entity : manages shared entities
+    Scene "1" --> "*" Entity : contains local entities
+    Scene ..> Entity : references shared entities
+    Scene "1" --> "*" Resource : contains
+    Entity "1" --> "*" Attribute : has
+    Entity "1" --> "*" Resource : references
+    Resource --> "1" ResourceType : has type
+    Attribute --> "1" AttributeType : has type
+```
+
+ECS implementation consists of four main parts:
+
+1. **Scene Manager**
+
+   - Top-level controller managing multiple scenes and shared entities
+   - Handles scene creation, deletion, and switching
+   - Maintains shared entities accessible across scenes
+   - Tracks active scene for easy access
+   - Example: Managing different levels, menus, or game states
+
+2. **Scene**
+
+   - Container for entities, resources, and shared entity references
+   - Manages the game world state
+   - Can reference shared entities from the scene manager
+   - Example: A game level containing players, enemies, and items
+
+3. **Entity**
+
+   - Can be either scene-specific or shared across scenes
+   - Holds attributes and resource references
+   - Can represent anything from players to UI elements
+   - Example: A player character with position, health, and sprite
+
+4. **Components**
+   - **Attributes**: Data components (position, health, speed)
+   - **Resources**: External assets (images, sounds, scripts)
+
+#### Key Features
+
+##### 1. Hierarchical Structure
+
+```
+SceneManager
+├── Shared Entities
+│   └── Entity 1 (e.g., "GlobalPlayer")
+│       ├── Attributes
+│       └── Resources
+└── Scenes
+    └── Scene 1 (e.g., "Level1")
+        ├── Local Entities
+        │   └── Entity 2 (e.g., "Enemy")
+        ├── Resources
+        └── Shared Entity References
+```
+
+##### 2. Flexible Component System
+
+- **Attributes**: Store entity-specific data
+
+  ```rust
+  // Position component
+  entity.create_attribute("position", AttributeType::Vector2, Vector2(0.0, 0.0));
+
+  // Health component
+  entity.create_attribute("health", AttributeType::Integer, Integer(100));
+  ```
+
+##### 3. Resource Management
+
+- **Centralized Resource Handling**: Resources are managed at the scene level
+- **Reference System**: Entities reference resources by ID
+- **Type Safety**: Resources are typed (Image, Sound, Script)
+  ```rust
+  // Create and reference a resource
+  let texture_id = scene.create_resource("player", "player.png", ResourceType::Image);
+  player.attach_resource(texture_id);
+  ```
+
+#### Usage
+
+See [Creating a Player Character](#creating-a-player-character-with-ecs), [Creating and Using Shared Entities](#creating-and-using-shared-entities-with-ecs), and [Creating an Interactive Object](#creating-an-interactive-object-with-ecs) in [Users Guide](#users-guide)
+
+#### Best Practices and Tips
+
+1. **Entity Design**
+
+   - Use shared entities for objects that persist across scenes
+   - Keep scene-specific entities local to their scenes
+   - Use meaningful names for entities and attributes
+
+2. **Resource Management**
+
+   - Share resources between entities when possible
+   - Clean up unused resources
+   - Use appropriate resource types
+
+3. **Scene Organization**
+   - Divide complex games into multiple scenes
+   - Use scene transitions for level management
+   - Keep scene hierarchies clean and logical
+
+### [Script Interpreter](/src/script_interpreter.rs)
+
+_The Script Interpreter is a crucial component of our 2D game engine, enabling the integration of `lua` scripting capabilities, which is a simple and popular choice in the game industry. It utilizes [rlua](https://github.com/Kampfkarren/rlua), a high-level Lua binding for Rust, to provide a seamless interface between Rust and Lua._
+
+#### Features
+
+- Run Lua scripts within the Rust environment
+- Pass data between Rust and Lua
+- Execute complex Lua scripts for game logic
+- Handle Lua errors gracefully
+
+#### Implementation Details
+
+The core of the script interpreter is the [`run_lua_script`](/src/script_interpreter.rs#L4) function in [`script_interpreter.rs`](/src/script_interpreter.rs), which initializes a new Lua context and executes the provided Lua script.
+
+#### Unit Tests
+
+The test suite in [`script_interpreter_test.rs`](tests/script_interpreter_test.rs) verifies various aspects of the Lua integration:
+
+1. **Simple Script Execution** - `test_run_simple_script` :
+
+   - Runs a basic Lua script that performs addition, ensuring basic Lua scripts can be executed without errors.
+
+2. **Error Handling** - `test_run_script_with_error`:
+
+   - Verifies that Lua handles undefined variables correctly by treating them as `nil`.
+
+3. **Math Operations** - `test_lua_math_operations`:
+
+   - Verifies complex mathematical operations can be performed accurately in Lua.
+
+4. **Data Passing (Rust to Lua)** - `test_pass_data_to_lua`:
+
+   - Demonstrates passing data from Rust to Lua.
+
+5. **Data Returning (Lua to Rust)** - `test_return_data_from_lua`:
+
+   - Shows how to call Lua functions from Rust and retrieve results.
+
+6. **Complex Script Execution** - `test_complex_script`:
+
+   - Tests a more complex script involving object manipulation and function definitions.
+
+7. **Error Handling in Lua** - `test_handle_error_in_lua_script`:
+
+   - Verifies Lua's behavior with potential runtime errors, such as division by zero.
+
+#### Usage
+
+See [Script Interpreter for Game Logic](#script-interpreter-for-game-logic) in [Users Guide](#users-guide).
+
+### [Audio Engine](/src/audio_engine.rs)
+
+_The Audio Engine is a crucial component of our 2D game engine, responsible for handling sound playback. It utilizes [rodio](https://github.com/RustAudio/rodio), a pure Rust audio playback library, to manage audio streams and control sound output._
+
+#### Features
+
+- Simple audio playback from file
+- Pause and resume functionality
+- Ability to check if audio is currently playing
+
+#### Implementation Details
+
+The `AudioEngine` struct is the core of our audio system. It contains:
+
+- An `OutputStream` for audio output
+- An `OutputStreamHandle` for creating new sounds
+- A `Sink` for controlling audio playback
+
+Key methods include:
+
+- `new()`: Initializes the audio engine with default output stream and sink.
+- `play_sound(file_path: &str)`: Loads and plays an audio file from the given path.
+- `is_playing()`: Checks if audio is currently playing.
+- `pause()`: Pauses the current audio playback.
+- `resume()`: Resumes paused audio playback.
+
+The engine uses `BufReader` and `Decoder` from the `rodio` crate to efficiently read and decode audio files.
+
+#### Error Handling
+
+The `play_sound` method returns a `Result`, allowing for graceful error handling if the file is not found or cannot be decoded.
+
+#### Unit Tests
+
+The unit tests ([`audio_engine_test.rs`](tests/audio_engine_test.rs)) thoroughly verify the functionality of the `AudioEngine`:
+
+1. **Initialization Test**:
+
+   - Ensures the audio engine initializes correctly with an empty sink.
+
+2. **Play Sound Test**:
+
+   - Verifies that a sound file can be successfully loaded and played.
+   - Checks that the engine correctly reports when audio is playing.
+   - Confirms that the audio stops playing when explicitly stopped.
+
+3. **Is Playing Test**:
+   - Checks the initial state (not playing).
+   - Verifies correct state after playing a sound.
+   - Tests pause functionality and ensures the engine reports correct state.
+   - Checks resume functionality.
+   - Verifies correct state after stopping the audio.
+
+These tests use a constant `TEST_AUDIO_FILE` path, which should point to a valid audio file in the test environment.
+
+#### Usage
+
+See [Game Audio](#game-audio) in [Users Guide](#users-guide).
+
+### [Input Handling](/src/input_handler.rs)
 
 _A responsive, platform-agnostic input management system that ensures smooth and intuitive player interactions._
 
--   Built with the [winit](https://crates.io/crates/winit) crate to provide device support, handling inputs from keyboards, mice, touchscreens, and game controllers.
+- Built with the [winit](https://crates.io/crates/winit) crate to provide device support, handling inputs from keyboards, mice, touchscreens, and game controllers.
 
--   Implements advanced input mapping and processing with low latency, supporting complex input combinations and gestures.
+- Implements advanced input mapping and processing with low latency, supporting complex input combinations and gestures.
 
--   Offers configurable input schemes and easy integration with the ECS for flexible control mechanisms.
+- Offers configurable input schemes and easy integration with the ECS for flexible control mechanisms.
 
-#### Game Project File Management
+### [Project Manager](/src/project_manager.rs)
 
-_An asset and project management system designed for streamlined game development workflows._
+_The Project Manager handles game project creation, loading, saving, building, and asset importing. It provides a structured way to manage game projects and their assets._
 
--   Provides robust file handling capabilities for game assets, configuration files, and persistent game states.
+#### Project Structure
+```
+game_project/
+├── assets/
+│   ├── images/    # PNG, JPG, JPEG, GIF
+│   ├── sounds/    # WAV, MP3, OGG
+│   ├── fonts/     # TTF, OTF
+│   └── scripts/   # LUA scripts
+├── scenes/        # Scene data files
+├── src/          # Rust source files
+│   └── main.rs
+├── Cargo.toml
+└── project.json
+```
 
--   Supports project lifecycle management: creation, loading, saving, and cross-platform project building.
+#### Core Features
 
--   Implements intelligent asset tracking and dependency resolution to simplify project maintenance.
+```mermaid
+classDiagram
+    class ProjectManager {
+        +create_project(project_path: &Path) Result<(), String>
+        +load_project(project_path: &Path) Result<ProjectMetadata, String>
+        +save_project(project_path: &Path, metadata: &ProjectMetadata) Result<(), String>
+        +build_project(project_path: &Path) Result<(), String>
+        +import_asset(project_path: &Path, asset_path: &Path, asset_type: AssetType) Result<String, String>
+        +load_scene_hierarchy(project_path: &Path) Result<SceneManager, String>
+        +save_scene_hierarchy(project_path: &Path, scene_manager: &SceneManager) Result<(), String>
+        +load_project_full(project_path: &Path) Result<(ProjectMetadata, SceneManager), String>
+        +save_project_full(project_path: &Path, metadata: &ProjectMetadata, scene_manager: &SceneManager) Result<(), String>
+    }
 
-#### Engine GUI
+    class ProjectMetadata {
+        +project_name: String
+        +version: String
+        +project_path: String
+        +default_scene: String
+        +active_scene_id: Option<Uuid>
+    }
+
+    class AssetType {
+        <<enumeration>>
+        Image
+        Sound
+        Font
+        Script
+    }
+
+    ProjectManager ..> AssetType : uses
+    ProjectManager ..> ProjectMetadata : creates/manages
+    ProjectManager ..> SceneManager : manages
+
+    note for ProjectManager "Static methods only\nNo instance state"
+    note for ProjectMetadata "Serializable structure\nStores project info"
+    note for AssetType "Defines supported\nasset types"
+```
+
+#### Usage
+See [Project Manager Usage](#project-manager-usage) in [Users Guide](#users-guide).
+
+#### Supported Asset Types
+
+##### Images
+- Formats: PNG, JPG, JPEG, GIF
+- Directory: `assets/images/`
+
+##### Sounds
+- Formats: WAV, MP3, OGG
+- Directory: `assets/sounds/`
+
+##### Fonts
+- Formats: TTF, OTF
+- Directory: `assets/fonts/`
+
+##### Scripts
+- Formats: LUA
+- Directory: `assets/scripts/`
+
+#### Technical Details
+
+##### Project Metadata
+Stores essential project information in `project.json`:
+- Project name
+- Version
+- Project path
+- Default scene
+- Active scene ID (UUID)
+
+##### Scene Management
+- Serializes scene hierarchy to `scenes/scene_manager.json`
+- Tracks active scene across sessions
+- Maintains scene relationships and shared entities
+
+##### Asset Management
+- Automatic file type validation
+- Duplicate file detection
+- Organized asset directory structure
+- Clear error messages for invalid imports
+
+##### Build Process
+- Compiles Rust code with `cargo build --release`
+- Copies assets to target directory
+- Creates a ready-to-run game executable
+
+#### Best Practices
+1. **Asset Organization**
+   - Use appropriate file formats for each asset type
+   - Keep assets in their designated directories
+   - Avoid duplicate file names
+
+2. **Project Structure**
+   - Maintain clean directory hierarchy
+   - Follow the recommended file organization
+   - Handle asset import errors gracefully
+
+3. **Scene Management**
+   - Save scene changes frequently
+   - Use meaningful scene names
+   - Track active scene properly
+
+### Engine GUI
 
 _An intuitive, real-time development interface powered by [egui](https://crates.io/crates/egui), transforming game development into a more interactive and efficient process._
 
--   Offers a context-aware inspector for real-time modification of game components, entities, and system parameters.
+- Offers a context-aware inspector for real-time modification of game components, entities, and system parameters.
 
--   Enables live debugging, performance profiling, and immediate visual feedback without interrupting the development workflow.
+- Enables live debugging, performance profiling, and immediate visual feedback without interrupting the development workflow.
 
--   Provides customizable views and layouts, allowing developers to tailor the interface to their specific project needs and preferences.
+- Provides customizable views and layouts, allowing developers to tailor the interface to their specific project needs and preferences.
 
-#### Comprehensive Unit Testing
+### Comprehensive Unit Testing
 
 _A rigorous testing framework ensuring the reliability, performance, and correctness of each engine component._
 
--   Implements an extensive test suite covering critical aspects of the game engine, with dedicated test modules for each major subsystem.
-
--   The rendering engine tests ([`render_engine_test.rs`](tests/render_engine_test.rs)) provide comprehensive validation, including:
-    -   Renderer initialization and device request
-    -   Texture and sprite creation
-    -   Shader compilation
-    -   Error handling
-    -   Performance under high rendering loads
-
--   Leverages Rust's built-in testing framework to provide automated, repeatable tests that can be run during continuous integration.
-
--   Covers edge cases and potential failure modes to ensure robust and predictable engine behavior across different hardware and configurations.
+- Implements an extensive test suite covering critical aspects of the game engine, with dedicated test modules for each major subsystem.
 
 ## User's Guide
 
-In Rust, to integrate our Rendering Engine in your game:
+### In Rust
+
+#### Integrate our Rendering Engine in your game:
 
 ```rust
 use rust_2d_game_engine::render_engine::{RenderEngine, Sprite};
@@ -202,39 +773,207 @@ let sprites = vec![
 renderer.render_frame(&sprites).expect("Failed to render frame");
 ```
 
+#### Physics Engine Usage
+
+To use the Physics Engine:
+
+1. Create an instance of `PhysicsEngine` using `PhysicsEngine::new()`.
+2. Add rigid bodies to the simulation with `add_rigid_body()`.
+3. Call `step()` in your game loop to advance the physics simulation.
+4. Use `handle_collisions()` to detect and respond to collisions.
+
+Example:
+
+```rust
+use rust_2d_game_engine::physics_engine::PhysicsEngine;
+
+let mut physics_engine = PhysicsEngine::new();
+
+// Add a dynamic body
+physics_engine.add_rigid_body([0.0, 5.0], true);
+
+// In the game loop
+physics_engine.step();
+physics_engine.handle_collisions();
+```
+
+#### Creating and Using Shared Entities with ECS
+
+```rust
+// Create a shared entity in the scene manager
+let player_id = scene_manager.create_shared_entity("Player");
+
+// Reference the shared entity in a scene
+scene.add_shared_entity_ref(player_id);
+
+// Access the shared entity through the scene
+if let Some(player) = scene.get_shared_entity_ref(scene_manager, player_id) {
+    // Use the shared entity
+}
+```
+
+#### Creating a Player Character with ECS
+
+```rust
+// Create entity
+let player_id = scene.create_entity("Player");
+let player = scene.get_entity_mut(player_id).unwrap();
+
+// Add components
+player.create_attribute("position", Vector2(0.0, 0.0));
+player.create_attribute("health", Integer(100));
+player.create_attribute("speed", Float(5.0));
+
+// Add resources
+let sprite_id = scene.create_resource("player_sprite", "player.png", ResourceType::Image);
+player.attach_resource(sprite_id);
+```
+
+#### Creating an Interactive Object with ECS
+
+```rust
+// Create a collectible item
+let coin_id = scene.create_entity("Coin");
+let coin = scene.get_entity_mut(coin_id).unwrap();
+
+// Add components
+coin.create_attribute("position", Vector2(100.0, 100.0));
+coin.create_attribute("is_collected", Boolean(false));
+coin.create_attribute("value", Integer(10));
+
+// Add resources
+let coin_sprite = scene.create_resource("coin_sprite", "coin.png", ResourceType::Image);
+let collect_sound = scene.create_resource("collect_sound", "collect.wav", ResourceType::Sound);
+coin.attach_resource(coin_sprite);
+coin.attach_resource(collect_sound);
+```
+
+#### Script Interpreter for Game Logic
+
+To use the Script Interpreter for game logic:
+
+- Use `run_lua_script(script)` to execute Lua code.
+- For more complex interactions, use the `rlua::Lua` context directly to set globals, call functions, or retrieve values.
+
+Example:
+
+```rust
+use rust_2d_game_engine::script_interpreter;
+
+let script = r#"
+    function greet(name)
+        return "Hello, " .. name .. "!"
+    end
+"#;
+
+script_interpreter::run_lua_script(script).expect("Failed to run script");
+```
+
+Further interaction with the script can be done using `rlua` directly.
+
+#### Game Audio
+
+To use the `AudioEngine` for game audio:
+
+1. Create an instance of `AudioEngine` using `AudioEngine::new()`.
+2. Use `play_sound(file_path)` to play audio files.
+3. Control playback with `pause()` and `resume()`.
+4. Check playback status with `is_playing()`.
+
+#### Project Manager Usage
+
+##### Project Creation and Management
+```rust
+// Create a new game project
+let project_path = Path::new("path/to/my_game");
+ProjectManager::create_project(project_path)?;
+
+// Load project with scene hierarchy
+let (metadata, scene_manager) = ProjectManager::load_project_full(project_path)?;
+
+// Save project with scene hierarchy
+ProjectManager::save_project_full(project_path, &metadata, &scene_manager)?;
+```
+
+##### Asset Import
+```rust
+// Import an image
+let image_path = Path::new("path/to/sprite.png");
+let relative_path = ProjectManager::import_asset(
+    project_path,
+    image_path,
+    AssetType::Image
+)?;
+
+// Import a sound
+let sound_path = Path::new("path/to/effect.wav");
+let relative_path = ProjectManager::import_asset(
+    project_path,
+    sound_path,
+    AssetType::Sound
+)?;
+```
+
+##### Scene Management
+```rust
+// Load scene hierarchy
+let scene_manager = ProjectManager::load_scene_hierarchy(project_path)?;
+
+// Make changes to scenes...
+
+// Save scene hierarchy
+ProjectManager::save_scene_hierarchy(project_path, &scene_manager)?;
+```
+
+##### Build System
+```rust
+// Build the project
+ProjectManager::build_project(project_path)?;
+```
+
+### GUI
+
 #### Create new project
 
 To create a new project, click on `File`->`New`->enter your project name and path you wish to save it in->press `Create`.
 ![alt text](final_report_assets/project_create_open.png)
 
 #### Open project
+
 To open a project, click on `File`->`Open`->enter your project path.
 
 #### Create new entity
+
 `Edit`->`Add...`->`New entity`
 ![alt text](final_report_assets/new_entity.png)
 
 #### Delete entity
+
 Right click on the entity you wish to delete, then click on `Delete`.
 ![alt text](final_report_assets/delete_entity.png)
 
 #### Add attributes to entity
+
 Select an entity, then click on `Add attribute` at the top left panel.
 Enter attribute name, select attribute types, and enter attribute value. Click on `Save`
 ![alt text](final_report_assets/entity_attr.png)
 
 #### Create new script
+
 `Edit`->`Add...`->`New script`. Select the script you just created at the bottom right panel. Then at the top right panel, input your Lua script.
 ![alt text](final_report_assets/new_script.png)
 
 #### Delete new script
+
 Similar to delete an entity, right click the script you wish to delete and click on `Delete`
 
 #### Import font, scene, audio, and video
+
 `File`->`Import...`
 ![alt text](final_report_assets/import.png)
 
 #### Build and Run your game
+
 `File`->`Build and Run`
 
 ## Reproducibility Guide
@@ -247,38 +986,41 @@ Run `cargo run` in the terminal at the root directory of our project if you wish
 
 **Lang Sun**:
 
--   [Rendering Engine](#rendering-engine)
--   [Physics Engine](#physics-engine)
--   [Input Handling](#input-handling)
+- [Rendering Engine](#rendering-engine)
+- [Physics Engine](#physics-engine)
+- [Input Handling](#input-handling)
 
 **Feiyang Fan**:
 
--   [Entity Component System (ECS)](#ecs)
--   [Audio Engine](#audio-engine)
+- [Entity Component System (ECS)](#ecs)
+- [Audio Engine](#audio-engine)
 
 **Frank Chen**:
 
--   [Script Interpreter](#script-interpreter)
--   [Game Project File Management](#game-project-file-management)
--   [Engine GUI](#engine-gui)
+- [Script Interpreter](#script-interpreter)
+- [Game Project File Management](#game-project-file-management)
+- [Engine GUI](#engine-gui)
 
 ## Lessons Learned and Concluding Remarks
 
-#### Lesson One: The Importance of Testing Suite
+### Lesson One: The Importance of Testing Suite
+
 - Our extensive unit testing framework revealed critical insights into engine reliability and performance.
 - We learned that thorough testing across different scenarios is crucial for creating a robust game development tool.
 - The test suite not only caught potential issues but also served as a living documentation of the engine's capabilities.
 
-#### Lesson Two: Collaboration
+### Lesson Two: Collaboration
+
 - The project was as much about technical development as it was about team collaboration and shared passion.
 - We discovered the power of combining individual skills towards a common, innovative goal.
 - The journey of creating the engine was as valuable as the end product itself.
 
-#### Lesson Three: Modularity
+### Lesson Three: Modularity
+
 - Our modular approach to the engine's architecture proved critical in maintaining flexibility and extensibility.
 - We learned that well-designed, loosely coupled components allow for easier maintenance, testing, and future enhancements.
 
-#### Concluding Remarks
+### Concluding Remarks
 
 Our Rust 2D Game Engine represents a promising first step into the world of specialized game development tools in Rust. While currently in its early prototype stage, the project has already demonstrated some good potential in addressing the unique needs of 2D game developers within the Rust ecosystem.
 
@@ -287,10 +1029,8 @@ We have successfully laid a robust foundation, implementing core systems like th
 However, we recognize that this is just the beginning of our journey. The current iteration, while functional, is a proof of concept that requires continued refinement, expansion, and community feedback. Our roadmap includes:
 
 - Expanding the feature set to support more complex game development scenarios
-- Further implement the `Undo` and `Redo` functionality with state management
 - Improving documentation and developer tools
 - Increasing cross-platform compatibility
 - Continuously optimizing performance and reliability
 
 We are excited about the potential of this project and view it as an evolving platform. Our passion for game development, Rust, and creating accessible tools drives us to continue improving and expanding the engine.
-
