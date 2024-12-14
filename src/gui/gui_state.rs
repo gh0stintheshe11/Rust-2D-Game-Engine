@@ -1,3 +1,6 @@
+use crate::ecs::SceneManager;
+use crate::project_manager::ProjectMetadata;
+
 pub struct GuiState {
     pub dark_mode: bool,
     pub show_new_project_popup: bool,
@@ -5,6 +8,8 @@ pub struct GuiState {
     pub load_project: bool,            // Track if the project should be loaded
     pub project_name: String,          // Store the project name input
     pub project_path: String,          // Store the project path input
+    pub project_metadata: Option<ProjectMetadata>,
+    pub scene_manager: Option<SceneManager>,
 }
 
 impl GuiState {
@@ -16,6 +21,8 @@ impl GuiState {
             load_project: false,
             project_name: String::new(),
             project_path: String::new(),
+            project_metadata: None,
+            scene_manager: None,
         }
     }
 
