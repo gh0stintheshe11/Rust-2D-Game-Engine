@@ -13,6 +13,7 @@ pub struct InputHandler {
     mouse_pos: egui::Pos2,
     prev_mouse_pos: egui::Pos2,
     scroll_delta: egui::Vec2,
+    modifiers: egui::Modifiers,
 }
 
 impl InputHandler {
@@ -24,6 +25,7 @@ impl InputHandler {
             mouse_pos: egui::pos2(0.0, 0.0),
             prev_mouse_pos: egui::pos2(0.0, 0.0),
             scroll_delta: egui::vec2(0.0, 0.0),
+            modifiers: egui::Modifiers::default(),
         }
     }
 
@@ -32,6 +34,9 @@ impl InputHandler {
     }
 
     pub fn handle_input(&mut self, input: &egui::InputState) {
+        // Store modifiers state
+        self.modifiers = input.modifiers;
+
         // Update key states
         self.keys_pressed.clear();
         input.keys_down.iter().for_each(|key| {
@@ -83,5 +88,35 @@ impl InputHandler {
         } else {
             None
         }
+    }
+
+    pub fn get_all_active_inputs(&self) -> Vec<String> {
+        let mut all_inputs = Vec::new();
+        
+        // Add modifier keys if pressed
+        if self.modifiers.ctrl {
+            all_inputs.push("Ctrl".to_string());
+        }
+        if self.modifiers.shift {
+            all_inputs.push("Shift".to_string());
+        }
+        if self.modifiers.alt {
+            all_inputs.push("Alt".to_string());
+        }
+        if self.modifiers.command {
+            all_inputs.push("Cmd".to_string());
+        }
+        
+        // Add all pressed keyboard keys
+        for key in &self.keys_pressed {
+            all_inputs.push(format!("{:?}", key));
+        }
+        
+        // Add all pressed mouse buttons
+        for button in &self.mouse_buttons {
+            all_inputs.push(format!("{:?}", button));
+        }
+        
+        all_inputs
     }
 }

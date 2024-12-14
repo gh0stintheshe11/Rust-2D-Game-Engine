@@ -9,13 +9,35 @@ use crate::input_handler::{InputContext, InputHandler};
 use crate::render_engine::RenderEngine;
 use eframe::egui;
 use uuid::Uuid;
+use chrono::prelude::*;
+
+struct ConsoleMessage {
+    text: String,
+    timestamp: chrono::DateTime<chrono::Local>,
+    message_type: ConsoleMessageType,
+}
+
+enum ConsoleMessageType {
+    Info,
+    Warning,
+    Error,
+    Debug,
+}
+
+impl ConsoleMessage {
+    fn new(text: String, message_type: ConsoleMessageType) -> Self {
+        Self {
+            text,
+            timestamp: chrono::Local::now(),
+            message_type,
+        }
+    }
+}
+
+const MAX_CONSOLE_MESSAGES: usize = 1000; // Adjust this number as needed
 
 pub struct EngineGui {
     // Window States
-    show_hierarchy: bool,
-    show_filesystem: bool,
-    show_inspector: bool,
-    show_console: bool,
     show_editor: bool,
     show_debug: bool,
 
@@ -33,20 +55,16 @@ pub struct EngineGui {
 
     // Add input handler
     input_handler: InputHandler,
+
+    console_messages: Vec<ConsoleMessage>,
 }
 
 impl EngineGui {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
-
         let gui_state = GuiState::new();
-
         let mut render_engine = RenderEngine::new();
 
         Self {
-            show_hierarchy: true,
-            show_filesystem: true,
-            show_inspector: true,
-            show_console: true,
             show_editor: false,
             show_debug: false,
             scene_hierarchy: SceneHierarchy::new(),
@@ -56,6 +74,7 @@ impl EngineGui {
             gui_state,
             render_engine,
             input_handler: InputHandler::new(),
+            console_messages: Vec::new(),
         }
     }
 
@@ -63,7 +82,6 @@ impl EngineGui {
         let screen_rect = ctx.available_rect();
         let spacing = 4.0;
         let min_side_panel_width = 200.0;
-        let min_console_height = 200.0;
 
         // Frame color
         let default_fill = self.get_background_color();
@@ -71,15 +89,6 @@ impl EngineGui {
         self.set_theme(ctx);
 
         let main_window_frame = egui::Frame {
-            inner_margin: egui::Margin::symmetric(spacing, spacing),
-            outer_margin: egui::Margin::ZERO,
-            rounding: egui::Rounding::ZERO,
-            shadow: eframe::epaint::Shadow::NONE,
-            fill: default_fill,
-            stroke: ctx.style().visuals.widgets.noninteractive.bg_stroke,
-        };
-
-        let console_frame = egui::Frame {
             inner_margin: egui::Margin::symmetric(spacing, spacing),
             outer_margin: egui::Margin::ZERO,
             rounding: egui::Rounding::ZERO,
@@ -116,50 +125,104 @@ impl EngineGui {
                         }
                     });
                 });
-                ui.separator();
+
+                // Only add separator if any panel is visible
+                if self.gui_state.show_hierarchy_filesystem || self.gui_state.show_inspector || self.gui_state.show_console {
+                    ui.separator();
+                }
 
                 // Main content area with resizable panels
                 let available_rect = ui.available_rect_before_wrap();
 
                 // Left panel (Scene/Files)
-                egui::SidePanel::left("left_panel")
-                    .resizable(true)
-                    .min_width(min_side_panel_width)
-                    .max_width(available_rect.width() * 0.4)
-                    .frame(egui::Frame::none().inner_margin(egui::Margin::ZERO))
-                    .show_inside(ui, |ui| {
-                        // Use vertical layout to split the panel
-                        egui::TopBottomPanel::top("scene_panel")
-                            .resizable(true)
-                            .min_height(200.0)
-                            .max_height(ui.available_height() * 0.75)
-                            .default_height(ui.available_height() * 0.5)
-                            .show_inside(ui, |ui| {
-                                ui.heading("Scene");
-                                ui.separator();
-                                self.scene_hierarchy.show(ctx, ui, &mut self.gui_state);
-                            });
+                if self.gui_state.show_hierarchy_filesystem {
+                    egui::SidePanel::left("left_panel")
+                        .resizable(true)
+                        .min_width(min_side_panel_width)
+                        .max_width(available_rect.width() * 0.4)
+                        .frame(egui::Frame::none().inner_margin(egui::Margin::ZERO))
+                        .show_inside(ui, |ui| {
+                            // Use vertical layout to split the panel
+                            egui::TopBottomPanel::top("scene_panel")
+                                .resizable(true)
+                                .min_height(200.0)
+                                .max_height(ui.available_height() * 0.75)
+                                .default_height(ui.available_height() * 0.5)
+                                .show_inside(ui, |ui| {
+                                    ui.heading("Scene");
+                                    ui.separator();
+                                    self.scene_hierarchy.show(ctx, ui, &mut self.gui_state);
+                                });
 
-                        egui::CentralPanel::default().show_inside(ui, |ui| {
-                            ui.heading("Files");
-                            ui.separator();
-                            self.file_system.show(ctx, ui, &mut self.gui_state);
+                            egui::CentralPanel::default().show_inside(ui, |ui| {
+                                ui.heading("Files");
+                                ui.separator();
+                                self.file_system.show(ctx, ui, &mut self.gui_state);
+                            });
                         });
-                    });
+                }
 
                 // Right panel (Inspector)
-                egui::SidePanel::right("right_panel")
-                    .resizable(true)
-                    .min_width(min_side_panel_width)
-                    .max_width(available_rect.width() * 0.4)
-                    .frame(egui::Frame::none().inner_margin(egui::Margin::symmetric(8.0, 0.0)))
-                    .show_inside(ui, |ui| {
-                        ui.heading("Inspector");
-                        ui.separator();
-                        self.inspector.show(ctx, ui, &mut self.gui_state);
-                    });
+                if self.gui_state.show_inspector {
+                    egui::SidePanel::right("right_panel")
+                        .resizable(true)
+                        .min_width(min_side_panel_width)
+                        .max_width(available_rect.width() * 0.4)
+                        .frame(egui::Frame::none().inner_margin(egui::Margin::symmetric(8.0, 0.0)))
+                        .show_inside(ui, |ui| {
+                            ui.heading("Inspector");
+                            ui.separator();
+                            self.inspector.show(ctx, ui, &mut self.gui_state);
+                        });
+                }
 
-                // Center panel (Game view/Editor)
+                // Bottom panel (Console)
+                if self.gui_state.show_console {
+                    egui::TopBottomPanel::bottom("console_panel")
+                        .resizable(true)
+                        .min_height(100.0)
+                        .default_height(200.0)
+                        .max_height(ui.available_height() * 0.5)
+                        .frame(egui::Frame::none()
+                            .inner_margin(egui::Margin::symmetric(6.0, 8.0)))
+                        .show_inside(ui, |ui| {
+                            ui.horizontal(|ui| {
+                                if ui.selectable_label(!self.show_debug, "💬 Output").clicked() {
+                                    self.show_debug = false;
+                                }
+                                if ui.selectable_label(self.show_debug, "🛠 Debug").clicked() {
+                                    self.show_debug = true;
+                                }
+                            });
+                            ui.separator();
+                            if self.show_debug {
+                                ui.label("Debug info will go here");
+                            } else {
+                                egui::ScrollArea::vertical()
+                                    .stick_to_bottom(true)
+                                    .show_viewport(ui, |ui, _| {
+                                        for message in &self.console_messages {
+                                            let time_str = message.timestamp.format("%H:%M:%S").to_string();
+
+                                            let (prefix, color) = match message.message_type {
+                                                ConsoleMessageType::Info => ("ℹ", egui::Color32::LIGHT_BLUE),
+                                                ConsoleMessageType::Warning => ("⚠", egui::Color32::YELLOW),
+                                                ConsoleMessageType::Error => ("❌", egui::Color32::RED),
+                                                ConsoleMessageType::Debug => ("🔧", egui::Color32::GRAY),
+                                            };
+
+                                            ui.horizontal(|ui| {
+                                                ui.label(format!("[{}]", time_str));
+                                                ui.colored_label(color, prefix);
+                                                ui.label(&message.text);
+                                            });
+                                        }
+                                    });
+                            }
+                        });
+                }
+
+                // Center panel (Game view/Editor) should come after all other panels
                 egui::CentralPanel::default()
                     .frame(egui::Frame::none().inner_margin(egui::Margin::symmetric(2.0, 2.0)))
                     .show_inside(ui, |ui| {
@@ -248,41 +311,41 @@ impl EngineGui {
                                     }
                                 }
                             }
+
+                            // Debug overlay in the bottom-left of the game view
+                            if self.gui_state.show_debug_overlay {
+                                ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
+                                    ui.add_space(38.0);  // Bottom margin
+                                    ui.horizontal(|ui| {
+                                        ui.add_space(4.0);  // Left margin
+                                        ui.vertical(|ui| {
+                                            let white = egui::Color32::WHITE;
+                                            
+                                            // Cursor position
+                                            if let Some(cursor_pos) = ui.ctx().input(|i| i.pointer.hover_pos()) {
+                                                ui.colored_label(white, format!("Cursor: ({:.1}, {:.1})", cursor_pos.x, cursor_pos.y));
+                                            } else {
+                                                ui.colored_label(white, "Cursor: Outside");
+                                            }
+
+                                            // Active inputs
+                                            let all_inputs = self.input_handler.get_all_active_inputs();
+                                            let keys_str = if all_inputs.is_empty() {
+                                                "None".to_string()
+                                            } else {
+                                                all_inputs.join(", ")
+                                            };
+                                            ui.colored_label(white, format!("Keys: {}", keys_str));
+
+                                            // Viewport size
+                                            ui.colored_label(white, format!("Viewport: {:.0}x{:.0}", 
+                                                viewport_rect.width(), viewport_rect.height()));
+                                        });
+                                    });
+                                });
+                            }
                         }
                     });
-            });
-
-        // Console/Debug Window (Bottom)
-        egui::Window::new(if self.show_debug { "Debug" } else { "Console" })
-            .frame(console_frame)
-            .order(egui::Order::Foreground)
-            .resizable(true)
-            .collapsible(true)
-            .movable(false)
-            .title_bar(true)
-            .vscroll(true)
-            .max_width(screen_rect.width() - 2.0 * min_side_panel_width - 4.0 * spacing)
-            .max_height(screen_rect.height() * 0.5)
-            .anchor(egui::Align2::CENTER_BOTTOM, egui::vec2(0.0, 0.0))
-            .default_size([
-                screen_rect.width() - (2.0 * min_side_panel_width) - (4.0 * spacing),
-                min_console_height,
-            ])
-            .show(ctx, |ui| {
-                ui.horizontal(|ui| {
-                    if ui.selectable_label(!self.show_debug, "💬 Output").clicked() {
-                        self.show_debug = false;
-                    }
-                    if ui.selectable_label(self.show_debug, "🛠 Debug").clicked() {
-                        self.show_debug = true;
-                    }
-                });
-                ui.separator();
-                if self.show_debug {
-                    ui.label("Debug info will go here");
-                } else {
-                    ui.label("Output console will go here");
-                }
             });
     }
 
@@ -296,7 +359,6 @@ impl EngineGui {
 
     fn render_test_scene(&mut self, ui: &mut egui::Ui) {
         let (width, height) = (ui.available_width(), ui.available_height());
-        println!("Viewport size: {}x{}", width, height);
 
         // Get camera-transformed positions
         let center_screen = self.render_engine.camera.world_to_screen((0.0, 0.0));
@@ -325,12 +387,6 @@ impl EngineGui {
             0.0, // rounding
             egui::Color32::BLUE,
         );
-
-        // Debug print camera state
-        println!(
-            "Camera pos: {:?}, zoom: {}",
-            self.render_engine.camera.position, self.render_engine.camera.zoom
-        );
     }
 
     fn set_theme(&mut self, ctx: &egui::Context) {
@@ -344,6 +400,43 @@ impl EngineGui {
         if ctx.style().visuals != visuals {
             ctx.set_visuals(visuals);
         }
+    }
+
+    fn add_message(&mut self, message: ConsoleMessage) {
+        self.console_messages.push(message);
+        // Remove oldest messages if we exceed the limit
+        if self.console_messages.len() > MAX_CONSOLE_MESSAGES {
+            let excess = self.console_messages.len() - MAX_CONSOLE_MESSAGES;
+            self.console_messages.drain(0..excess);
+        }
+    }
+
+    pub fn log_info(&mut self, message: impl Into<String>) {
+        self.add_message(ConsoleMessage::new(
+            message.into(),
+            ConsoleMessageType::Info,
+        ));
+    }
+
+    pub fn log_warning(&mut self, message: impl Into<String>) {
+        self.add_message(ConsoleMessage::new(
+            message.into(),
+            ConsoleMessageType::Warning,
+        ));
+    }
+
+    pub fn log_error(&mut self, message: impl Into<String>) {
+        self.add_message(ConsoleMessage::new(
+            message.into(),
+            ConsoleMessageType::Error,
+        ));
+    }
+
+    pub fn log_debug(&mut self, message: impl Into<String>) {
+        self.add_message(ConsoleMessage::new(
+            message.into(),
+            ConsoleMessageType::Debug,
+        ));
     }
 }
 

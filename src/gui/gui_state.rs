@@ -20,6 +20,10 @@ pub struct GuiState {
     pub project_metadata: Option<ProjectMetadata>,
     pub scene_manager: Option<SceneManager>,
     pub selected_item: SelectedItem,
+    pub show_hierarchy_filesystem: bool,
+    pub show_inspector: bool,
+    pub show_console: bool,
+    pub show_debug_overlay: bool,
 }
 
 impl GuiState {
@@ -34,6 +38,10 @@ impl GuiState {
             project_metadata: None,
             scene_manager: None,
             selected_item: SelectedItem::None,
+            show_hierarchy_filesystem: true,
+            show_inspector: true,
+            show_console: true,
+            show_debug_overlay: false,
         }
     }
 
