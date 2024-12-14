@@ -1,8 +1,31 @@
 use eframe::egui;
-use crate::gui::gui_state::GuiState;
+use ecs::{AttributeType, AttributeValue};
+use crate::gui::gui_state::{GuiState, SelectedItem};
 use uuid::Uuid;
 use crate::project_manager::ProjectManager;
 use std::path::Path;
+use crate::ecs;
+
+const PREDEFINED_ENTITIES: &[(
+    &str,
+    &[(&str, AttributeType, AttributeValue)],
+)] = &[
+    (
+        "Camera",
+        &[
+            ("transform_position_x", AttributeType::Float, AttributeValue::Float(0.0)),
+            ("transform_position_y", AttributeType::Float, AttributeValue::Float(0.0)),
+            ("transform_position_z", AttributeType::Float, AttributeValue::Float(0.0)),
+            ("transform_rotation_x", AttributeType::Float, AttributeValue::Float(0.0)),
+            ("transform_rotation_y", AttributeType::Float, AttributeValue::Float(0.0)),
+            ("transform_rotation_z", AttributeType::Float, AttributeValue::Float(0.0)),
+            ("transform_scale_x", AttributeType::Float, AttributeValue::Float(1.0)),
+            ("transform_scale_y", AttributeType::Float, AttributeValue::Float(1.0)),
+            ("transform_scale_z", AttributeType::Float, AttributeValue::Float(1.0)),
+        ],
+    ),
+];
+
 
 pub struct SceneHierarchy {
     search_query: String,
@@ -76,6 +99,7 @@ impl SceneHierarchy {
                                 let response = ui.selectable_label(selected, &scene.name);
                                 if response.clicked() {
                                     self.selected_item = Some(("Scene".to_string(), *scene_id));
+                                    gui_state.selected_item = SelectedItem::Scene(*scene_id);
                                 }
 
                                 // Handle right-click context menu for scene
@@ -108,6 +132,7 @@ impl SceneHierarchy {
                                     let response = ui.selectable_label(selected, format!("📌 {}", entity.name));
                                     if response.clicked() {
                                         self.selected_item = Some(("Entity".to_string(), *entity_id));
+                                        gui_state.selected_item = SelectedItem::Entity(*scene_id, *entity_id);
                                     }
 
                                     // Handle right-click context menu for entity
@@ -174,6 +199,16 @@ impl SceneHierarchy {
                     {
                         self.create_item_type = "Entity".to_string();
                     }
+
+                    // Predefined Entity
+                    for (name, _) in PREDEFINED_ENTITIES.iter() {
+                        if ui
+                            .add_sized([available_width, 24.0], egui::SelectableLabel::new(self.create_item_type == name.to_string(), name.to_string()))
+                            .clicked()
+                        {
+                            self.create_item_type = name.to_string();
+                        }
+                    }
                 });
 
                 ui.add_space(10.0);
@@ -195,9 +230,20 @@ impl SceneHierarchy {
                                         }
                                     }
                                     "Entity" => {
-                                        self.create_new_entity(gui_state);
+                                        self.create_new_entity("Entity".to_string(), gui_state);
                                         if self.error_message.is_empty() {
                                             self.show_create_popup = false;
+                                        }
+                                    }
+                                    name => {
+                                        // Predefined entity creation
+                                        if PREDEFINED_ENTITIES.iter().any(|(predefined_name, _)| predefined_name.to_string() == name.to_string()) {
+                                            self.create_new_entity(name.to_string(), gui_state);
+                                            if self.error_message.is_empty() {
+                                                self.show_create_popup = false;
+                                            }
+                                        } else {
+                                            self.error_message = "Invalid item type selected.".to_string();
                                         }
                                     }
                                     _ => self.error_message = "Invalid item type selected.".to_string(),
@@ -232,6 +278,7 @@ impl SceneHierarchy {
             if !name.is_empty() {
                 let new_scene_id = scene_manager.create_scene(&name);
                 self.selected_item = Some(("Scene".to_string(), new_scene_id));
+                gui_state.selected_item = SelectedItem::Scene(new_scene_id);
                 println!("Created new scene with ID: {:?}", new_scene_id);
 
                 // Save project after creating the scene
@@ -253,17 +300,38 @@ impl SceneHierarchy {
     }
 
     /// Create a new entity under the selected scene
-    fn create_new_entity(&mut self, gui_state: &mut GuiState) {
+    fn create_new_entity(&mut self, entity_type: String, gui_state: &mut GuiState) {
         if let Some(scene_manager) = gui_state.scene_manager.as_mut() {
             let name = self.create_item_name.trim().to_string();
             if !name.is_empty() {
-                // Check if the selected item is a scene
+                // Check if the selected item is a scene, the entity must under a scene
                 if let Some((item_type, scene_id)) = self.selected_item.as_ref() {
                     if item_type == "Scene" {
-                        if let Some(scene) = scene_manager.get_scene_mut(*scene_id) {
+                        let scene_id = *scene_id;
+                        if let Some(scene) = scene_manager.get_scene_mut(scene_id) {
+
                             let new_entity_id = scene.create_entity(&name);
+
+                            // Add predefined attributes
+                            if let Some(attributes) = PREDEFINED_ENTITIES.iter().find_map(|(predefined_name, attributes)| {
+                                if predefined_name == &entity_type {
+                                    Some(attributes)
+                                } else {
+                                    None
+                                }
+                            }) {
+                                for (attr_name, attr_type, attr_value) in attributes.iter() {
+                                    scene
+                                        .get_entity_mut(new_entity_id)
+                                        .unwrap()
+                                        .create_attribute(attr_name, attr_type.clone(), attr_value.clone());
+                                }
+                            }
+
                             self.selected_item = Some(("Entity".to_string(), new_entity_id));
-                            println!("Created new entity with ID: {:?}", new_entity_id);
+                            gui_state.selected_item = SelectedItem::Entity(scene_id, new_entity_id);
+
+                            println!("Created new entity '{}' with type '{}' and ID: {:?}", name, entity_type, new_entity_id);
 
                             // Save project after creating the entity
                             if let Err(err) = ProjectManager::save_project_full(
@@ -298,6 +366,11 @@ impl SceneHierarchy {
             if scene_manager.delete_scene(scene_id) {
                 println!("Deleted scene with ID: {:?}", scene_id);
 
+                // Reset gui_state's selected item if the deleted scene was selected
+                if matches!(gui_state.selected_item, SelectedItem::Scene(selected_id) if selected_id == scene_id) {
+                    gui_state.selected_item = SelectedItem::None;
+                }
+
                 // Save project after deletion
                 if let Err(err) = ProjectManager::save_project_full(
                     Path::new(&gui_state.project_path),
@@ -320,6 +393,15 @@ impl SceneHierarchy {
             if let Some(scene) = scene_manager.get_scene_mut(scene_id) {
                 if scene.delete_entity(entity_id) {
                     println!("Deleted entity with ID: {:?}", entity_id);
+
+                    // Reset gui_state's selected item if the deleted entity was selected
+                    if matches!(
+                        gui_state.selected_item,
+                        SelectedItem::Entity(selected_scene, selected_entity)
+                        if selected_scene == scene_id && selected_entity == entity_id
+                    ) {
+                        gui_state.selected_item = SelectedItem::None;
+                    }
 
                     // Save project after deletion
                     if let Err(err) = ProjectManager::save_project_full(

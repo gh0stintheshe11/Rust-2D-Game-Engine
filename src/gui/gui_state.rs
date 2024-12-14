@@ -1,5 +1,14 @@
 use crate::ecs::SceneManager;
 use crate::project_manager::ProjectMetadata;
+use std::path::PathBuf;
+use uuid::Uuid;
+
+pub enum SelectedItem {
+    Scene(Uuid),
+    Entity(Uuid, Uuid), // (Scene ID, Entity ID)
+    File(PathBuf),
+    None,
+}
 
 pub struct GuiState {
     pub dark_mode: bool,
@@ -10,6 +19,7 @@ pub struct GuiState {
     pub project_path: String,          // Store the project path input
     pub project_metadata: Option<ProjectMetadata>,
     pub scene_manager: Option<SceneManager>,
+    pub selected_item: SelectedItem,
 }
 
 impl GuiState {
@@ -23,6 +33,7 @@ impl GuiState {
             project_path: String::new(),
             project_metadata: None,
             scene_manager: None,
+            selected_item: SelectedItem::None,
         }
     }
 
