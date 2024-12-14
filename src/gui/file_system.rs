@@ -5,12 +5,14 @@ use crate::gui::gui_state::GuiState;
 
 pub struct FileSystem {
     search_query: String,
+    selected_file: Option<PathBuf>,
 }
 
 impl FileSystem {
     pub fn new() -> Self {
         Self {
             search_query: String::new(),
+            selected_file: None,
         }
     }
 
@@ -86,7 +88,17 @@ impl FileSystem {
                 ui.horizontal(|ui| {
                     ui.add_space(depth as f32 * 10.0);
 
-                    let response = ui.label(format!("📄 {}", file_name));
+                    let selected = self
+                        .selected_file
+                        .as_ref()
+                        .map_or(false, |selected_path| selected_path == &file_path);
+
+                    let response = ui.selectable_label(selected, format!("📄 {}", file_name));
+
+                    if response.clicked() {
+                        self.selected_file = Some(file_path.clone());
+                        println!("Selected file: {}", file_name);
+                    }
 
                     // Handle right-click context menu
                     response.context_menu(|ui| {
@@ -96,6 +108,9 @@ impl FileSystem {
                                 println!("Failed to delete file: {}", err);
                             } else {
                                 println!("Deleted file: {}", file_name);
+                                if self.selected_file == Some(file_path.clone()) {
+                                    self.selected_file = None;
+                                }
                             }
                             ui.close_menu();
                         }
