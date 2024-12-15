@@ -3,6 +3,7 @@ use serde::{Serialize, Deserialize};
 use std::fmt;
 use crate::audio_engine::AudioEngine;
 use indexmap::IndexMap;
+use rayon::prelude::*;
 
 //SceneManager
 // └── Manages multiple Scenes
@@ -14,7 +15,7 @@ use indexmap::IndexMap;
 //          └── (Has its specific operations like play/display/edit)
 
 // =============== Scene Manager (Top Level) ===============
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct SceneManager {
     pub scenes: IndexMap<Uuid, Scene>,
     pub shared_entities: IndexMap<Uuid, Entity>,
@@ -38,7 +39,7 @@ impl SceneManager {
     }
 
     pub fn delete_scene(&mut self, id: Uuid) -> bool {
-        self.scenes.remove(&id).is_some()
+        self.scenes.shift_remove(&id).is_some()
     }
 
     pub fn list_scene(&self) -> Vec<(Uuid, &str)> {
@@ -74,7 +75,7 @@ impl SceneManager {
         for scene in self.scenes.values_mut() {
             scene.shared_entity_refs.retain(|&ref_id| ref_id != id);
         }
-        self.shared_entities.remove(&id).is_some()
+        self.shared_entities.shift_remove(&id).is_some()
     }
 
     pub fn list_shared_entity(&self) -> Vec<(Uuid, &str)> {
@@ -173,7 +174,7 @@ impl Scene {
     }
 
     pub fn delete_entity(&mut self, id: Uuid) -> bool {
-        self.entities.remove(&id).is_some()
+        self.entities.shift_remove(&id).is_some()
     }
 
     pub fn list_entity(&self) -> Vec<(Uuid, &str)> {
@@ -210,7 +211,7 @@ impl Scene {
     }
 
     pub fn delete_resource(&mut self, id: Uuid) -> bool {
-        self.resources.remove(&id).is_some()
+        self.resources.shift_remove(&id).is_some()
     }
 
     pub fn list_resource(&self) -> Vec<(Uuid, &str)> {
@@ -330,6 +331,23 @@ impl Scene {
         self.entities.insert(id, entity);
         id
     }
+
+    pub fn update_entity_attributes(&mut self, updates: Vec<(Uuid, Uuid, AttributeValue)>) {
+        // Updates is a vec of (entity_id, attribute_id, new_value)
+        self.entities.par_iter_mut().for_each(|(entity_id, entity)| {
+            // Get all updates for this entity
+            updates.iter()
+                .filter(|(id, _, _)| id == entity_id)
+                .for_each(|(_, attr_id, new_value)| {
+                    entity.modify_attribute(
+                        *attr_id,
+                        None,
+                        None,
+                        Some(new_value.clone())
+                    );
+                });
+        });
+    }
 }
 
 // =============== Entity (Manages Attributes) ===============
@@ -384,7 +402,7 @@ impl Entity {
     }
 
     pub fn delete_attribute(&mut self, id: Uuid) -> bool {
-        self.attributes.remove(&id).is_some()
+        self.attributes.shift_remove(&id).is_some()
     }
 
     pub fn list_attribute(&self) -> Vec<(Uuid, &str)> {

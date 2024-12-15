@@ -48,6 +48,9 @@ pub struct PhysicsEngine {
     entity_to_collider: HashMap<Uuid, ColliderHandle>,
 
     time_step: f32,  // Physics update time step in seconds
+
+    // Store position attribute IDs for quick updates
+    entity_position_attrs: HashMap<Uuid, Uuid>,
 }
 
 impl PhysicsEngine {
@@ -80,6 +83,7 @@ impl PhysicsEngine {
             entity_to_body: HashMap::new(),
             entity_to_collider: HashMap::new(),
             time_step: 1.0 / 60.0,  // Default 60Hz physics
+            entity_position_attrs: HashMap::new(),
         }
     }
 
@@ -150,6 +154,11 @@ impl PhysicsEngine {
     }
 
     pub fn add_entity(&mut self, entity: &Entity, scene: &Scene) {
+        // Store position attribute ID for quick updates
+        if let Some(pos_attr) = entity.get_attribute_by_name("position") {
+            self.entity_position_attrs.insert(entity.id, pos_attr.id);
+        }
+        
         // Get physics properties from entity attributes
         let position = if let Some(pos_attr) = entity.get_attribute_by_name("position") {
             if let AttributeValue::Vector2(x, y) = pos_attr.value {
@@ -220,6 +229,7 @@ impl PhysicsEngine {
     }
 
     pub fn remove_entity(&mut self, entity_id: Uuid) {
+        self.entity_position_attrs.remove(&entity_id);
         if let Some(rb_handle) = self.entity_to_body.remove(&entity_id) {
             self.rigid_body_set.remove(
                 rb_handle,
@@ -241,7 +251,7 @@ impl PhysicsEngine {
         }
     }
 
-    pub fn step(&mut self, scene: &mut Scene) {
+    pub fn step(&mut self, scene: &mut Scene) -> Vec<(Uuid, Uuid, AttributeValue)> {
         // Process custom gravity fields
         for (_, entity1) in &scene.entities {
             if let Some(creates_gravity) = entity1.get_attribute_by_name("creates_gravity") {
@@ -299,22 +309,23 @@ impl PhysicsEngine {
             &(),
         );
 
-        // Update entity positions
-        for (_, entity) in &mut scene.entities {
-            if let Some(rb_handle) = self.entity_to_body.get(&entity.id) {
-                if let Some(rb) = self.rigid_body_set.get(*rb_handle) {
+        // Update positions using stored attribute IDs
+        let mut updates = Vec::new();
+        
+        for (entity_id, rb_handle) in &self.entity_to_body {
+            if let Some(rb) = self.rigid_body_set.get(*rb_handle) {
+                if let Some(pos_attr_id) = self.entity_position_attrs.get(entity_id) {
                     let position = rb.translation();
-                    if let Some(pos_attr) = entity.get_attribute_by_name("position") {
-                        entity.modify_attribute(
-                            pos_attr.id,
-                            None,
-                            None,
-                            Some(AttributeValue::Vector2(position.x, position.y))
-                        );
-                    }
+                    updates.push((
+                        *entity_id,
+                        *pos_attr_id,
+                        AttributeValue::Vector2(position.x, position.y)
+                    ));
                 }
             }
         }
+
+        updates
     }
 
     pub fn load_scene(&mut self, scene: &Scene) {

@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use uuid::Uuid;
 use crate::ecs::{Scene, ResourceType};
 
+#[derive(Clone)]
 pub struct Camera {
     pub position: (f32, f32),
     pub zoom: f32,
@@ -38,7 +39,7 @@ impl Camera {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TextureInfo {
     data: Vec<u8>,
     dimensions: (u32, u32), // Original width and height in pixels
@@ -163,6 +164,7 @@ impl Animation {
     }
 }
 
+#[derive(Clone)]
 pub struct RenderEngine {
     viewport_size: (f32, f32),
     last_frame_time: std::time::Instant,
@@ -347,6 +349,14 @@ impl RenderEngine {
 
         render_queue.sort_by_key(|(_, _, _, layer)| *layer);
         render_queue
+    }
+
+    pub fn cleanup(&mut self) {
+        // Clear texture caches
+        self.scene_texture_cache.clear();
+        
+        // Reset camera
+        self.camera.reset();
     }
 }
 

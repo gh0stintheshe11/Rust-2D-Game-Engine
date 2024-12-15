@@ -1,15 +1,17 @@
-use std::fs::File;
-use crate::ecs::{AttributeValue, Entity, Resource, ResourceType, Scene};
+use crate::{
+    physics_engine::PhysicsEngine,
+    render_engine::RenderEngine,
+    input_handler::InputHandler,
+    audio_engine::AudioEngine,
+    ecs::SceneManager,
+    game_runtime::{GameRuntime, RuntimeState}
+};
 use crate::gui::gui_state::GuiState;
 use crate::gui::menu_bar::MenuBar;
 use crate::gui::scene_hierarchy::SceneHierarchy;
 use crate::gui::file_system::FileSystem;
 use crate::gui::inspector::Inspector;
-use crate::input_handler::{InputContext, InputHandler};
-use crate::render_engine::RenderEngine;
 use eframe::egui;
-use uuid::Uuid;
-use chrono::prelude::*;
 
 struct ConsoleMessage {
     text: String,
@@ -57,12 +59,25 @@ pub struct EngineGui {
     input_handler: InputHandler,
 
     console_messages: Vec<ConsoleMessage>,
+
+    game_runtime: GameRuntime,
 }
 
 impl EngineGui {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         let gui_state = GuiState::new();
-        let mut render_engine = RenderEngine::new();
+        let render_engine = RenderEngine::new();
+        let input_handler = InputHandler::new();
+        
+        // Create GameRuntime with all required components
+        let game_runtime = GameRuntime::new(
+            SceneManager::new(),
+            PhysicsEngine::new(),
+            render_engine.clone(), // We'll need to implement Clone for RenderEngine
+            input_handler.clone(), // We'll need to implement Clone for InputHandler
+            AudioEngine::new(),
+            60  // target fps
+        );
 
         Self {
             show_editor: false,
@@ -73,8 +88,9 @@ impl EngineGui {
             menu_bar: MenuBar::new(),
             gui_state,
             render_engine,
-            input_handler: InputHandler::new(),
+            input_handler,
             console_messages: Vec::new(),
+            game_runtime,
         }
     }
 
@@ -263,14 +279,42 @@ impl EngineGui {
                                 ui.add_space(4.0);
                                 ui.horizontal(|ui| {
                                     ui.add_space((ui.available_width() - 170.0) * 0.5);
-                                    if ui.button("▶ Play").clicked() {
-                                        // Handle play
+                                    
+                                    // Check if a project is loaded
+                                    if self.gui_state.project_path.is_empty() {
+                                        // No project loaded - show disabled buttons
+                                        ui.add_enabled(false, egui::Button::new("▶ Play"));
+                                        ui.add_enabled(false, egui::Button::new("⏸ Pause"));
+                                        ui.add_enabled(false, egui::Button::new("⏹ Reset"));
+                                        return;
                                     }
-                                    if ui.button("⏸ Pause").clicked() {
-                                        // Handle pause
+
+                                    // Project is loaded - show normal controls
+                                    match self.game_runtime.get_state() {
+                                        RuntimeState::Stopped => {
+                                            if ui.button("▶ Play").clicked() {
+                                                self.game_runtime.set_state(RuntimeState::Playing);
+                                                self.game_runtime.run().unwrap();
+                                            }
+                                            ui.add_enabled(false, egui::Button::new("⏸ Pause"));
+                                        }
+                                        RuntimeState::Playing => {
+                                            ui.add_enabled(false, egui::Button::new("▶ Play"));
+                                            if ui.button("⏸ Pause").clicked() {
+                                                self.game_runtime.set_state(RuntimeState::Paused);
+                                            }
+                                        }
+                                        RuntimeState::Paused => {
+                                            if ui.button("▶ Resume").clicked() {
+                                                self.game_runtime.set_state(RuntimeState::Playing);
+                                                self.game_runtime.run().unwrap();
+                                            }
+                                            ui.add_enabled(false, egui::Button::new("⏸ Pause"));
+                                        }
                                     }
+                                    
                                     if ui.button("⏹ Reset").clicked() {
-                                        // Handle game reset
+                                        self.game_runtime.reset();
                                     }
                                 });
                             });

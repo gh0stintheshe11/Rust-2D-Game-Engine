@@ -161,6 +161,14 @@ impl AudioEngine {
             sink.stop();
         }
     }
+
+    pub fn cleanup(&mut self) {
+        // Stop all playing sounds
+        self.stop_all();
+        
+        // Clear sound buffers and caches
+        self.scene_sound_cache.clear();
+    }
 }
 
 // Scene integration

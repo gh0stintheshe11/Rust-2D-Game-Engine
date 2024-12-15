@@ -1,11 +1,13 @@
 use egui::{Key, PointerButton};
 use std::collections::HashSet;
 
+#[derive(Clone)]
 pub enum InputContext {
-    Editor,
+    EngineUI,
     Game,
 }
 
+#[derive(Clone)]
 pub struct InputHandler {
     context: InputContext,
     keys_pressed: HashSet<Key>,
@@ -19,7 +21,7 @@ pub struct InputHandler {
 impl InputHandler {
     pub fn new() -> Self {
         InputHandler {
-            context: InputContext::Editor,
+            context: InputContext::EngineUI,
             keys_pressed: HashSet::new(),
             mouse_buttons: Vec::new(),
             mouse_pos: egui::pos2(0.0, 0.0),
