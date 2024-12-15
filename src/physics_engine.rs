@@ -46,6 +46,8 @@ pub struct PhysicsEngine {
     // Maps our entity IDs to Rapier's physics handles
     entity_to_body: HashMap<Uuid, RigidBodyHandle>,
     entity_to_collider: HashMap<Uuid, ColliderHandle>,
+
+    time_step: f32,  // Physics update time step in seconds
 }
 
 impl PhysicsEngine {
@@ -57,6 +59,10 @@ impl PhysicsEngine {
             // Physics runs at 60Hz (60 updates per second)
             integration_parameters: IntegrationParameters {
                 dt: 1.0 / 60.0,
+                min_ccd_dt: 1.0 / 60.0 / 100.0,
+                contact_damping_ratio: 0.0,
+                contact_natural_frequency: 30.0,
+                joint_natural_frequency: 30.0,
                 ..Default::default()
             },
 
@@ -73,7 +79,34 @@ impl PhysicsEngine {
             query_pipeline: QueryPipeline::new(),
             entity_to_body: HashMap::new(),
             entity_to_collider: HashMap::new(),
+            time_step: 1.0 / 60.0,  // Default 60Hz physics
         }
+    }
+
+    // Time step control
+    pub fn set_time_step(&mut self, time_step: f32) {
+        self.time_step = time_step;
+        self.integration_parameters.dt = time_step;
+    }
+
+    pub fn get_time_step(&self) -> f32 {
+        self.time_step
+    }
+
+    // CCD control
+    pub fn set_min_ccd_dt(&mut self, min_dt: f32) {
+        self.integration_parameters.min_ccd_dt = min_dt;
+    }
+
+    // Contact parameters
+    pub fn set_contact_parameters(&mut self, damping: f32, frequency: f32) {
+        self.integration_parameters.contact_damping_ratio = damping;
+        self.integration_parameters.contact_natural_frequency = frequency;
+    }
+
+    // Joint parameters
+    pub fn set_joint_frequency(&mut self, frequency: f32) {
+        self.integration_parameters.joint_natural_frequency = frequency;
     }
 
     fn create_collider(&self, entity: &Entity, scene: &Scene, density: f32, friction: f32, restitution: f32) -> Collider {
