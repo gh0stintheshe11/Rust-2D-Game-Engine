@@ -16,6 +16,11 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
+    - name: Install Linux Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libx11-dev libxi-dev libgl1-mesa-dev libasound2-dev
+
     - name: Build
       run: cargo build --release
 
@@ -28,6 +33,6 @@ jobs:
         prerelease: false
         generate_release_notes: true
         files: |
-          target/release/rust-2d-game-engine
+          target/release/rust_2d_game_engine
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
