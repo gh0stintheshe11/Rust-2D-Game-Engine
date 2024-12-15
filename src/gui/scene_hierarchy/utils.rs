@@ -21,6 +21,18 @@ pub fn save_project(gui_state: &GuiState) {
     }
 }
 
-fn is_valid_identifier(name: &str) -> bool {
+pub fn is_valid_identifier(name: &str) -> bool {
     !name.is_empty() && name.chars().all(|c| c.is_alphanumeric() || c == '_')
+}
+
+pub fn truncate_path(path: &str) -> String {
+    // Maximum length for display
+    const MAX_LENGTH: usize = 30;
+    if path.len() > MAX_LENGTH {
+        let start = &path[..10];
+        let end = &path[path.len() - 10..];
+        format!("{}...{}", start, end)
+    } else {
+        path.to_string()
+    }
 }

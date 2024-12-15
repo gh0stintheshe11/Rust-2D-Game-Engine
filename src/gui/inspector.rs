@@ -5,6 +5,8 @@ use std::collections::HashMap;
 use std::path::Path;
 use uuid::Uuid;
 use crate::project_manager::ProjectManager;
+use crate::gui::scene_hierarchy::utils;
+use std::fs;
 
 pub struct Inspector {
     // Maps attribute's id to its editing state value
@@ -90,6 +92,14 @@ impl Inspector {
         resource_id: Uuid,
         gui_state: &mut GuiState,
     ) {
+        // Get files in assets folder
+        let available_files = {
+            let assets_path = Path::new(&gui_state.project_path).join("assets");
+            self.get_files_recursively(&assets_path)
+        };
+
+        let mut data_updated = false;
+
         if let Some(scene_manager) = &mut gui_state.scene_manager {
             if let Some(scene) = scene_manager.get_scene_mut(scene_id) {
                 if let Some(resource) = scene.get_resource_mut(resource_id) {
@@ -98,8 +108,35 @@ impl Inspector {
                     ui.label(format!("Name: {}", resource.name));
                     ui.label(format!("ID: {}", resource_id));
                     ui.label(format!("Scene ID: {}", scene_id));
+
+                    ui.separator();
+
+                    if available_files.is_empty() {
+                        ui.label("No files found under 'assets' directory.");
+                    } else {
+                        ui.label("Select a file:");
+                        let selected_file = self
+                            .editing_states
+                            .entry(resource_id)
+                            .or_insert_with(|| resource.file_path.clone());
+
+                        let truncated_path = utils::truncate_path(selected_file);
+
+                        egui::ComboBox::new(resource_id, "")
+                            .selected_text(truncated_path)
+                            .show_ui(ui, |ui| {
+                                for file in available_files.iter() {
+                                    if ui.selectable_value(selected_file, file.clone(), file).clicked() {
+                                        resource.file_path = file.clone();
+                                        println!("Updated resource file to: {}", resource.file_path);
+
+                                        data_updated = true;
+                                    }
+                                }
+                            });
+                    }
                 } else {
-                    ui.label("Not found.");
+                    ui.label("Resource not found.");
                 }
             } else {
                 ui.label("Scene not found.");
@@ -107,6 +144,30 @@ impl Inspector {
         } else {
             ui.label("Scene manager is not initialized.");
         }
+
+        if data_updated {
+            utils::save_project(gui_state);
+            println!("Save updated resource.");
+        }
+    }
+
+    fn get_files_recursively(&self, dir: &Path) -> Vec<String> {
+        let mut files = Vec::new();
+        if dir.exists() {
+            let _ = fs::read_dir(dir).map(|entries| {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.is_file() {
+                        if let Some(path_str) = path.to_str() {
+                            files.push(path_str.to_string());
+                        }
+                    } else if path.is_dir() {
+                        files.extend(self.get_files_recursively(&path));
+                    }
+                }
+            });
+        }
+        files
     }
 
     /// Display entity information
