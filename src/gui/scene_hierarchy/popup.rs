@@ -19,6 +19,10 @@ pub struct PopupManager {
     pub manage_resource_popup_active: bool,
     pub manage_resources_entity: Option<(Uuid, Uuid)>, // Track selected entity for manage resource (scene_id, entity_id)
     pub selected_resources: std::collections::HashMap<Uuid, bool>,
+    pub manage_scene_resources_active: bool,
+    pub manage_resources_scene: Option<Uuid>,// Track selected scene for manage resource (scene_id)
+    pub resource_rename_inputs: std::collections::HashMap<Uuid, String>,
+    pub resource_editing_states: std::collections::HashMap<Uuid, bool>, // Track editing states for each resource
 }
 
 impl PopupManager {
@@ -34,6 +38,10 @@ impl PopupManager {
             manage_resource_popup_active: false,
             manage_resources_entity: None,
             selected_resources: std::collections::HashMap::new(),
+            manage_scene_resources_active: false,
+            manage_resources_scene: None,
+            resource_rename_inputs: std::collections::HashMap::new(),
+            resource_editing_states: std::collections::HashMap::new(),
         }
     }
 
@@ -57,6 +65,22 @@ impl PopupManager {
         self.scene_rename_scene = None;
         self.entity_rename_entity = None;
         self.rename_input.clear();
+        self.error_message.clear();
+    }
+
+    pub fn start_manage_scene_resources(&mut self, scene_id: Uuid) {
+        self.manage_scene_resources_active = true;
+        self.manage_resources_scene = Some(scene_id);
+        self.resource_rename_inputs.clear();
+        self.resource_editing_states.clear();
+        self.error_message.clear();
+    }
+
+    pub fn reset_manage_scene_resources(&mut self) {
+        self.manage_scene_resources_active = false;
+        self.manage_resources_scene = None;
+        self.resource_rename_inputs.clear();
+        self.resource_editing_states.clear();
         self.error_message.clear();
     }
 
@@ -516,5 +540,129 @@ impl PopupManager {
                 self.render_manage_resources_popup(ctx, ui, gui_state, scene_id, entity_id);
             }
         }
+
+        // Render manage resources popup for scenes
+        if self.manage_scene_resources_active {
+            if let Some(scene_id) = self.manage_resources_scene {
+                self.render_manage_scene_resources_popup(ctx, ui, gui_state, scene_id);
+            } else {
+                println!("Error: Scene ID is not set for managing resources.");
+            }
+        }
+
     }
+
+    /// Manage resources for scene, allow rename and delete. Check if resource linked to a entity before delete.
+    pub fn render_manage_scene_resources_popup(
+        &mut self,
+        ctx: &Context,
+        ui: &mut Ui,
+        gui_state: &mut GuiState,
+        scene_id: Uuid,
+    ) {
+        if !self.manage_scene_resources_active {
+            return;
+        }
+
+
+        egui::Window::new("Manage Scene Resources")
+            .collapsible(false)
+            .resizable(false)
+            .order(egui::Order::Foreground)
+            .show(ctx, |ui| {
+                // Get resources and entities outside, avoid borrow issues.
+                let (resources, entities): (Vec<(Uuid, String)>, Vec<Uuid>) = match gui_state
+                    .scene_manager
+                    .as_ref()
+                    .and_then(|scene_manager| scene_manager.get_scene(scene_id))
+                    .map(|scene| {
+                        let resources: Vec<(Uuid, String)> = scene
+                            .resources
+                            .iter()
+                            .map(|(id, res)| (*id, res.name.clone()))
+                            .collect();
+                        let entities: Vec<Uuid> = scene
+                            .entities
+                            .values()
+                            .flat_map(|entity| entity.resource_list.iter().copied())
+                            .collect();
+                        (resources, entities)
+                    }) {
+                    Some(data) => data,
+                    None => {
+                        ui.label("No scene manager or scene available.");
+                        return;
+                    }
+                };
+
+                let max_height = ctx.available_rect().height() * 0.6;
+
+                // Display resources
+                egui::ScrollArea::vertical()
+                    .max_height(max_height)
+                    .auto_shrink([false, true])
+                    .show(ui, |ui| {
+                        for (resource_id, resource_name) in resources {
+                            let editing = self.resource_editing_states.entry(resource_id).or_insert(false);
+                            let rename_input = self
+                                .resource_rename_inputs
+                                .entry(resource_id)
+                                .or_insert(resource_name.clone());
+
+                            ui.horizontal(|ui| {
+                                if *editing {
+                                    ui.text_edit_singleline(rename_input);
+                                    if ui.button("Save").clicked() {
+                                        if let Some(scene_manager) = gui_state.scene_manager.as_mut() {
+                                            if let Some(scene) = scene_manager.get_scene_mut(scene_id) {
+                                                if let Some(resource) = scene.get_resource_mut(resource_id) {
+                                                    resource.name = rename_input.clone();
+                                                    println!("Renamed resource to: {}", resource.name);
+                                                }
+                                            }
+                                            utils::save_project(gui_state);
+                                        }
+                                        *editing = false;
+                                    }
+                                } else {
+                                    ui.label(&resource_name);
+                                    if ui.button("Rename").clicked() {
+                                        *editing = true;
+                                    }
+                                }
+
+                                if ui.button("Delete").clicked() {
+                                    let is_linked = entities.contains(&resource_id);
+
+                                    if is_linked {
+                                        self.error_message = format!(
+                                            "Cannot delete resource '{}' because it is linked to an entity.",
+                                            resource_name
+                                        );
+                                    } else if let Some(scene_manager) = gui_state.scene_manager.as_mut() {
+                                        if let Some(scene) = scene_manager.get_scene_mut(scene_id) {
+                                            scene.delete_resource(resource_id);
+                                            println!("Deleted resource with ID: {:?}", resource_id);
+                                            utils::save_project(gui_state);
+                                        }
+                                    }
+                                }
+                            });
+                        }
+                    });
+
+                if !self.error_message.is_empty() {
+                    ui.add_space(10.0);
+                    ui.colored_label(egui::Color32::RED, &self.error_message);
+                }
+
+                ui.separator();
+
+                if ui.button("Close").clicked() {
+                    self.reset_manage_scene_resources();
+                }
+            });
+
+    }
+
 }

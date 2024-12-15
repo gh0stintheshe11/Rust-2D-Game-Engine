@@ -57,6 +57,10 @@ impl SceneItem {
         }
 
         response.context_menu(|ui| {
+            if ui.button("Manage Scene Resources").clicked() {
+                hierarchy.popup_manager.start_manage_scene_resources(*scene_id);
+                ui.close_menu();
+            }
             if ui.button("Rename").clicked() {
                 hierarchy.popup_manager.start_rename_scene(*scene_id, scene_name.to_string());
                 ui.close_menu();
