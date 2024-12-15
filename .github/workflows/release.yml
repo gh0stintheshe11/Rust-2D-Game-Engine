@@ -1,0 +1,58 @@
+name: Engine Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: Build Engine - ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: rust_2d_game_engine
+            asset_name: rust-2d-game-engine-linux
+          - os: windows-latest
+            artifact_name: rust_2d_game_engine.exe
+            asset_name: rust-2d-game-engine-windows.exe
+          - os: macos-latest
+            artifact_name: rust_2d_game_engine
+            asset_name: rust-2d-game-engine-macos
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: stable
+        override: true
+
+    - name: Install Linux Dependencies
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libx11-dev libxi-dev libgl1-mesa-dev libasound2-dev
+
+    - name: Build
+      run: cargo build --release
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      if: startsWith(github.ref, 'refs/tags/')
+      with:
+        name: Engine ${{ github.ref_name }}
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+        files: |
+          target/release/${{ matrix.artifact_name }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
