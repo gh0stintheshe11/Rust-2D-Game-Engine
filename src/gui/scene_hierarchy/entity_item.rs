@@ -2,7 +2,7 @@ use crate::gui::scene_hierarchy::{SceneHierarchy, resource_item::ResourceItem};
 use crate::gui::gui_state::{GuiState, ScenePanelSelectedItem, SelectedItem};
 use egui::{Context, Ui};
 use uuid::Uuid;
-use std::collections::HashMap;
+use indexmap::IndexMap;
 
 pub struct EntityItem;
 
@@ -13,7 +13,7 @@ impl EntityItem {
         hierarchy: &mut SceneHierarchy,
         gui_state: &mut GuiState,
         scene_id: &Uuid,
-        entities: &HashMap<Uuid, crate::ecs::Entity>,
+        entities: &IndexMap<Uuid, crate::ecs::Entity>,
     ) {
 
         // Sort entity by name for displaying
