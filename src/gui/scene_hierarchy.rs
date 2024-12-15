@@ -116,6 +116,7 @@ impl SceneHierarchy {
                                 });
                             })
                             .body(|ui| {
+                                // Display entities under the scene
                                 for (entity_id, entity) in &scene.entities {
                                     // Apply search filter to entities
                                     if !self.search_query.is_empty()
@@ -161,8 +162,19 @@ impl SceneHierarchy {
                                                 });
                                             }).body(|ui| {
 
+                                            // Sort resources under the entity by name
+                                            let mut sorted_resources: Vec<_> = entity
+                                                .resource_list
+                                                .iter()
+                                                .filter_map(|resource_id| {
+                                                    scene.resources.get(resource_id).map(|resource| (resource_id, resource))
+                                                })
+                                                .collect();
+
+                                            sorted_resources.sort_by(|(_, res_a), (_, res_b)| res_a.name.to_lowercase().cmp(&res_b.name.to_lowercase()));
+
                                             // Display resources in entity
-                                            for resource_id in &entity.resource_list {
+                                            for (resource_id, _) in sorted_resources {
                                                 if let Some(resource) = scene.resources.get(resource_id) {
                                                     let resource_selected = self
                                                         .selected_item
