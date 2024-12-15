@@ -1,4 +1,4 @@
-use crate::ecs::ResourceType;
+use crate::ecs::{PhysicsProperties, ResourceType};
 use crate::gui::gui_state::{GuiState, ScenePanelSelectedItem, SelectedItem};
 use crate::gui::scene_hierarchy::predefined_entities::PREDEFINED_ENTITIES;
 use crate::gui::scene_hierarchy::utils;
@@ -169,15 +169,9 @@ impl PopupManager {
                         ("Scene", "Scene"),
                         ("Entity", "Entity"),
                         ("Resource", "Resource"),
-                    ]
-                    .iter()
-                    .cloned()
-                    .chain(
-                        PREDEFINED_ENTITIES
-                            .iter()
-                            .map(|entity| (&*entity.name, &*entity.name)),
-                    )
-                    .collect::<Vec<_>>();
+                        ("Camera", "Camera"),
+                        ("Physics", "Physics"),
+                    ];
 
                     for (type_name, label) in all_item_types {
                         let is_selected = self.create_item_type == type_name;
@@ -228,16 +222,18 @@ impl PopupManager {
 
         match self.create_item_type.as_str() {
             "Scene" => self.create_new_scene(gui_state),
-            "Entity" => self.create_new_entity("Entity".to_string(), gui_state),
+            "Entity" => self.create_new_entity("Entity".to_string(), gui_state, "Empty"),
             "Resource" => self.create_new_resource(gui_state),
+            "Camera" => self.create_new_entity("Entity".to_string(), gui_state, "Camera"),
+            "Physics" => self.create_new_entity("Entity".to_string(), gui_state, "Physics"),
             other => {
                 // Predefined entity creation
-                if PREDEFINED_ENTITIES
-                    .iter()
-                    .any(|entity| entity.name == other)
-                {
-                    self.create_new_entity(other.to_string(), gui_state);
-                }
+                // if PREDEFINED_ENTITIES
+                //     .iter()
+                //     .any(|entity| entity.name == other)
+                // {
+                //     self.create_new_entity(other.to_string(), gui_state);
+                // }
             }
         }
 
@@ -281,10 +277,11 @@ impl PopupManager {
 
         // Save the project
         utils::save_project(gui_state);
+        self.reset_create_popup();
     }
 
     /// Create a new entity under the selected scene
-    fn create_new_entity(&mut self, entity_type: String, gui_state: &mut GuiState) {
+    fn create_new_entity(&mut self, entity_type: String, gui_state: &mut GuiState, predefined_type: &str) {
         // Ensure scene manager exists
         let scene_manager = match &mut gui_state.scene_manager {
             Some(manager) => manager,
@@ -320,20 +317,29 @@ impl PopupManager {
         };
 
         // Create the new entity
-        let new_entity_id = scene.create_entity(name);
+        let new_entity_id = match predefined_type {
+            "Empty" => scene.create_entity(name),
+            "Camera" => scene.create_camera(name),
+            "Physics" => scene.create_physical_entity(name, (0.0, 0.0), PhysicsProperties::default()),
+            _ => {
+                println!("Unknown predefined type: {}", predefined_type);
+                return;
+            }
+        };
+
 
         // Add predefined attributes
-        if let Some(predefined_entity) = PREDEFINED_ENTITIES
-            .iter()
-            .find(|entity| entity.name == entity_type)
-        {
-            for (attr_name, attr_type, attr_value) in predefined_entity.attributes {
-                scene
-                    .get_entity_mut(new_entity_id)
-                    .unwrap()
-                    .create_attribute(attr_name, attr_type.clone(), attr_value.clone());
-            }
-        }
+        // if let Some(predefined_entity) = PREDEFINED_ENTITIES
+        //     .iter()
+        //     .find(|entity| entity.name == entity_type)
+        // {
+        //     for (attr_name, attr_type, attr_value) in predefined_entity.attributes {
+        //         scene
+        //             .get_entity_mut(new_entity_id)
+        //             .unwrap()
+        //             .create_attribute(attr_name, attr_type.clone(), attr_value.clone());
+        //     }
+        // }
 
         let scene_id = match &gui_state.scene_panel_selected_item {
             ScenePanelSelectedItem::Scene(scene_id) => *scene_id,
@@ -355,6 +361,7 @@ impl PopupManager {
 
         // Save the project
         utils::save_project(gui_state);
+        self.reset_create_popup();
     }
 
     /// Create a new resource under the selected scene
@@ -407,6 +414,7 @@ impl PopupManager {
 
         // Save the project
         utils::save_project(gui_state);
+        self.reset_create_popup();
     }
 
     pub fn render_manage_resources_popup(

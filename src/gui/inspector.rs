@@ -188,52 +188,9 @@ impl Inspector {
                     // ui.label(format!("ID: {}", entity_id));
                     // ui.label(format!("Scene ID: {}", scene_id));
 
-                    // Group attributes by prefix
-                    let mut grouped_attributes: HashMap<String, Vec<(Uuid, String, AttributeValue)>> = HashMap::new();
-                    for (&attribute_id, attribute) in &entity.attributes {
-                        if let Some((prefix, name)) = attribute.name.split_once('_') {
-                            grouped_attributes
-                                .entry(prefix.to_string())
-                                .or_default()
-                                .push((attribute_id, name.to_string(), attribute.value.clone()));
-                        } else {
-                            // If cant find prefix (e.g., no "_" in name), group them as "Other"
-                            grouped_attributes
-                                .entry("Other".to_string())
-                                .or_default()
-                                .push((attribute_id, attribute.name.clone(), attribute.value.clone()));
-                        }
-                    }
 
-                    // Sorting groups, predefined groups first, metadata last
-                    let mut sorted_groups: Vec<(String, Vec<(Uuid, String, AttributeValue)>)> =
-                        grouped_attributes.into_iter().collect();
-
-                    // Show metadata group at the last
-                    sorted_groups.sort_by(|(a, _), (b, _)| {
-                        if a == "metadata" {
-                            std::cmp::Ordering::Greater
-                        } else if b == "metadata" {
-                            std::cmp::Ordering::Less
-                        } else {
-                            a.cmp(b)
-                        }
-                    });
-
-                    // Display groups and attributes
-                    for (prefix, attributes) in sorted_groups {
-                        let header_id = ui.make_persistent_id(format!("{}_header", prefix));
-                        let header_title = prefix[0..1].to_uppercase() + &prefix[1..];
-
-                        egui::collapsing_header::CollapsingState::load_with_default_open(ctx, header_id, true)
-                            .show_header(ui, |ui| {
-                                ui.label(header_title);
-                            })
-                            .body(|ui| {
-                                for (attribute_id, name, value) in attributes {
-                                    self.display_attribute(ui, attribute_id, &name, &value, entity);
-                                }
-                            });
+                    for (&attribute_id, attribute) in &entity.attributes.clone() {
+                        self.display_attribute(ui, attribute_id, &attribute.name, &attribute.value, entity);
                     }
 
                     // Add Metadata Button
