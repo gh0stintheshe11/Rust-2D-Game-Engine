@@ -2,6 +2,7 @@ use rapier2d::prelude::*;
 use uuid::Uuid;
 use std::collections::HashMap;
 use crate::ecs::{Scene, Entity, AttributeValue};
+use image::GenericImageView;
 
 pub struct PhysicsEngine {
     // Global gravity force applied to all dynamic bodies
@@ -75,7 +76,47 @@ impl PhysicsEngine {
         }
     }
 
-    pub fn add_entity(&mut self, entity: &Entity) {
+    fn create_collider(&self, entity: &Entity, scene: &Scene, density: f32, friction: f32, restitution: f32) -> Collider {
+        // Get sprite resource ID
+        let sprite_id = entity.get_attribute_by_name("sprite")
+            .and_then(|attr| if let AttributeValue::String(id) = &attr.value {
+                Uuid::parse_str(id).ok()
+            } else { None });
+
+        // Get sprite dimensions from resource
+        let collider_builder = if let Some(sprite_id) = sprite_id {
+            if let Some(resource) = scene.get_resource(sprite_id) {
+                // Get image dimensions
+                if let Ok(img) = image::open(&resource.file_path) {
+                    let (width, height) = img.dimensions();
+                    
+                    // If width and height are similar, use circle
+                    if (width as f32 / height as f32).abs() > 0.9 
+                       && (width as f32 / height as f32).abs() < 1.1 {
+                        ColliderBuilder::ball(width as f32 / 2.0)
+                    } else {
+                        // Otherwise use box
+                        ColliderBuilder::cuboid(width as f32 / 2.0, height as f32 / 2.0)
+                    }
+                } else {
+                    ColliderBuilder::ball(0.5) // Default if can't load image
+                }
+            } else {
+                ColliderBuilder::ball(0.5) // Default if resource not found
+            }
+        } else {
+            ColliderBuilder::ball(0.5) // Default if no sprite
+        };
+
+        // Add physics properties
+        collider_builder
+            .density(density)
+            .friction(friction)
+            .restitution(restitution)
+            .build()
+    }
+
+    pub fn add_entity(&mut self, entity: &Entity, scene: &Scene) {
         // Get physics properties from entity attributes
         let position = if let Some(pos_attr) = entity.get_attribute_by_name("position") {
             if let AttributeValue::Vector2(x, y) = pos_attr.value {
@@ -134,17 +175,11 @@ impl PhysicsEngine {
 
         let rb_handle = self.rigid_body_set.insert(rigid_body);
 
-        // Create collider
+        // Create collider with automatic shape detection
         if has_collision {
-            let collider = ColliderBuilder::ball(0.5)  // Default circle collider
-                .friction(friction)
-                .restitution(restitution)
-                .density(density)
-                .build();
-
+            let collider = self.create_collider(entity, scene, density, friction, restitution);
             let collider_handle = self.collider_set
                 .insert_with_parent(collider, rb_handle, &mut self.rigid_body_set);
-
             self.entity_to_collider.insert(entity.id, collider_handle);
         }
 
@@ -247,5 +282,131 @@ impl PhysicsEngine {
                 }
             }
         }
+    }
+
+    pub fn load_scene(&mut self, scene: &Scene) {
+        for (_, entity) in &scene.entities {
+            self.add_entity(entity, scene);
+        }
+    }
+
+    // We should also add cleanup for scene switching
+    pub fn cleanup(&mut self) {
+        // Clear entity mappings
+        self.entity_to_body.clear();
+        self.entity_to_collider.clear();
+
+        // Remove all physics objects
+        self.rigid_body_set = RigidBodySet::new();
+        self.collider_set = ColliderSet::new();
+        
+        // Reset physics state with new instances
+        self.island_manager = IslandManager::new();
+        self.broad_phase = BroadPhaseMultiSap::new();
+        self.narrow_phase = NarrowPhase::new();
+        self.impulse_joint_set = ImpulseJointSet::new();
+        self.multibody_joint_set = MultibodyJointSet::new();
+        self.ccd_solver = CCDSolver::new();
+        self.query_pipeline = QueryPipeline::new();
+    }
+
+    // Get velocity of an entity
+    pub fn get_velocity(&self, entity_id: &Uuid) -> Option<Vector<Real>> {
+        self.entity_to_body.get(entity_id)
+            .and_then(|rb_handle| self.rigid_body_set.get(*rb_handle))
+            .map(|rb| rb.linvel().clone())
+    }
+
+    // Set velocity of an entity
+    pub fn set_velocity(&mut self, entity_id: &Uuid, velocity: Vector<Real>) {
+        if let Some(rb_handle) = self.entity_to_body.get(entity_id) {
+            if let Some(rb) = self.rigid_body_set.get_mut(*rb_handle) {
+                rb.set_linvel(velocity, true);
+            }
+        }
+    }
+
+    // Apply force to an entity
+    pub fn apply_force(&mut self, entity_id: &Uuid, force: Vector<Real>) {
+        if let Some(rb_handle) = self.entity_to_body.get(entity_id) {
+            if let Some(rb) = self.rigid_body_set.get_mut(*rb_handle) {
+                rb.add_force(force, true);
+            }
+        }
+    }
+
+    // Apply impulse (immediate force) to an entity
+    pub fn apply_impulse(&mut self, entity_id: &Uuid, impulse: Vector<Real>) {
+        if let Some(rb_handle) = self.entity_to_body.get(entity_id) {
+            if let Some(rb) = self.rigid_body_set.get_mut(*rb_handle) {
+                rb.apply_impulse(impulse, true);
+            }
+        }
+    }
+
+    // Get all entities colliding with this one
+    pub fn get_colliding_entities(&self, entity_id: &Uuid) -> Vec<Uuid> {
+        let mut colliding = Vec::new();
+        
+        if let Some(collider_handle) = self.entity_to_collider.get(entity_id) {
+            let contact_pairs = self.narrow_phase.contact_pairs_with(*collider_handle);
+            for pair in contact_pairs {
+                let other_handle = if pair.collider1 == *collider_handle {
+                    pair.collider2
+                } else {
+                    pair.collider1
+                };
+                
+                // Find entity ID for this collider
+                for (entity_id, &handle) in &self.entity_to_collider {
+                    if handle == other_handle {
+                        colliding.push(*entity_id);
+                        break;
+                    }
+                }
+            }
+        }
+        
+        colliding
+    }
+
+    // Angular motion
+    pub fn get_angular_velocity(&self, entity_id: &Uuid) -> Option<Real> {
+        self.entity_to_body.get(entity_id)
+            .and_then(|rb_handle| self.rigid_body_set.get(*rb_handle))
+            .map(|rb| rb.angvel())
+    }
+
+    pub fn set_angular_velocity(&mut self, entity_id: &Uuid, angular_vel: Real) {
+        if let Some(rb_handle) = self.entity_to_body.get(entity_id) {
+            if let Some(rb) = self.rigid_body_set.get_mut(*rb_handle) {
+                rb.set_angvel(angular_vel, true);
+            }
+        }
+    }
+
+    pub fn apply_torque(&mut self, entity_id: &Uuid, torque: Real) {
+        if let Some(rb_handle) = self.entity_to_body.get(entity_id) {
+            if let Some(rb) = self.rigid_body_set.get_mut(*rb_handle) {
+                rb.add_torque(torque, true);
+            }
+        }
+    }
+
+    // Movement status
+    pub fn is_moving(&self, entity_id: &Uuid) -> bool {
+        if let Some(vel) = self.get_velocity(entity_id) {
+            let linear_moving = vel.norm() > 0.001;
+            let angular_moving = self.get_angular_velocity(entity_id)
+                .map(|av| av.abs() > 0.001)
+                .unwrap_or(false);
+            linear_moving || angular_moving
+        } else {
+            false
+        }
+    }
+
+    pub fn is_stable(&self, entity_id: &Uuid) -> bool {
+        !self.is_moving(entity_id)
     }
 }
