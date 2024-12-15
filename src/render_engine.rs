@@ -1,6 +1,7 @@
 use image::GenericImageView;
 use std::collections::HashMap;
 use uuid::Uuid;
+use crate::ecs::{Scene, ResourceType};
 
 pub struct Camera {
     pub position: (f32, f32),
@@ -165,7 +166,8 @@ impl Animation {
 pub struct RenderEngine {
     viewport_size: (f32, f32),
     last_frame_time: std::time::Instant,
-    textures: HashMap<Uuid, TextureInfo>, // Now stores more texture info
+    scene_texture_cache: HashMap<Uuid, HashMap<Uuid, TextureInfo>>, // scene_id -> (resource_id -> texture)
+    direct_textures: HashMap<String, TextureInfo>, // For UI/preview
     pub camera: Camera,
 }
 
@@ -174,36 +176,70 @@ impl RenderEngine {
         Self {
             viewport_size: (0.0, 0.0),
             last_frame_time: std::time::Instant::now(),
-            textures: HashMap::new(),
+            scene_texture_cache: HashMap::new(),
+            direct_textures: HashMap::new(),
             camera: Camera::new(),
         }
     }
 
-    pub fn load_texture(&mut self, resource: &crate::ecs::Resource) -> Result<Uuid, String> {
-        if let crate::ecs::ResourceType::Image = resource.resource_type {
-            let img = image::open(&resource.file_path)
-                .map_err(|e| format!("Failed to load image {}: {}", resource.file_path, e))?;
+    // Core loading functionality
+    fn load_texture_from_path(&self, path: &str) -> Result<TextureInfo, String> {
+        let img = image::open(path)
+            .map_err(|e| format!("Failed to load image {}: {}", path, e))?;
 
-            let dimensions = img.dimensions();
-            let aspect_ratio = dimensions.0 as f32 / dimensions.1 as f32;
-            let rgba = img.to_rgba8();
+        let dimensions = img.dimensions();
+        let aspect_ratio = dimensions.0 as f32 / dimensions.1 as f32;
+        let rgba = img.to_rgba8();
 
-            // Store texture info including dimensions and aspect ratio
-            self.textures.insert(
-                resource.id,
-                TextureInfo {
-                    data: rgba.to_vec(),
-                    dimensions,
-                    aspect_ratio,
-                },
-            );
-
-            Ok(resource.id)
-        } else {
-            Err("Resource is not an image".to_string())
-        }
+        Ok(TextureInfo {
+            data: rgba.to_vec(),
+            dimensions,
+            aspect_ratio,
+        })
     }
 
+    // For scene resources
+    pub fn load_scene_textures(&mut self, scene: &Scene) -> Result<(), String> {
+        let mut scene_cache = HashMap::new();
+        
+        for (resource_id, resource) in scene.resources.iter()
+            .filter(|(_, r)| r.resource_type == ResourceType::Image)
+        {
+            let texture = self.load_texture_from_path(&resource.file_path)?;
+            scene_cache.insert(*resource_id, texture);
+        }
+
+        self.scene_texture_cache.insert(scene.id, scene_cache);
+        Ok(())
+    }
+
+    // For UI/preview (direct usage)
+    pub fn load_direct_texture(&mut self, path: &str) -> Result<(), String> {
+        if !self.direct_textures.contains_key(path) {
+            let texture = self.load_texture_from_path(path)?;
+            self.direct_textures.insert(path.to_string(), texture);
+        }
+        Ok(())
+    }
+
+    // Get texture data methods
+    pub fn get_scene_texture(&self, scene_id: Uuid, resource_id: Uuid) -> Option<(&Vec<u8>, (u32, u32))> {
+        self.scene_texture_cache.get(&scene_id)?
+            .get(&resource_id)
+            .map(|info| (&info.data, info.dimensions))
+    }
+
+    pub fn get_direct_texture(&self, path: &str) -> Option<(&Vec<u8>, (u32, u32))> {
+        self.direct_textures.get(path)
+            .map(|info| (&info.data, info.dimensions))
+    }
+
+    // Memory management
+    pub fn cleanup_direct_textures(&mut self) {
+        self.direct_textures.clear();
+    }
+
+    // Keep existing methods unchanged
     pub fn update_viewport_size(&mut self, width: f32, height: f32) {
         self.viewport_size = (width, height);
     }
@@ -212,11 +248,18 @@ impl RenderEngine {
         self.viewport_size
     }
 
+    // Modified to use scene texture cache
     pub fn render(
         &mut self,
-        scene: &crate::ecs::Scene,
+        scene: &Scene,
     ) -> Vec<(Uuid, (f32, f32), (f32, f32), RenderLayer)> {
         let mut render_queue = Vec::new();
+
+        let scene_textures = if let Some(textures) = self.scene_texture_cache.get(&scene.id) {
+            textures
+        } else {
+            return render_queue;
+        };
 
         for (_, entity) in &scene.entities {
             // Get transform components
@@ -257,7 +300,7 @@ impl RenderEngine {
 
             let sprite_resource = entity.get_attribute_by_name("sprite").and_then(|attr| {
                 if let crate::ecs::AttributeValue::String(resource_id) = &attr.value {
-                    Uuid::parse_str(resource_id).ok()
+                    Uuid::parse_str(&resource_id).ok()
                 } else {
                     None
                 }
@@ -283,7 +326,7 @@ impl RenderEngine {
             if let Some(sprite_id) = sprite_resource {
                 let screen_pos = self.camera.world_to_screen(transform.position);
 
-                if let Some(texture_info) = self.textures.get(&sprite_id) {
+                if let Some(texture_info) = scene_textures.get(&sprite_id) {
                     // Apply transform scale to the texture dimensions
                     let width =
                         texture_info.dimensions.0 as f32 * self.camera.zoom * transform.scale.0;
@@ -304,12 +347,6 @@ impl RenderEngine {
 
         render_queue.sort_by_key(|(_, _, _, layer)| *layer);
         render_queue
-    }
-
-    pub fn get_texture_data(&self, id: Uuid) -> Option<(&Vec<u8>, (u32, u32))> {
-        self.textures
-            .get(&id)
-            .map(|info| (&info.data, info.dimensions))
     }
 }
 

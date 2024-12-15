@@ -533,7 +533,7 @@ pub struct Resource {
     pub resource_type: ResourceType,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum ResourceType {
     Image,
     Sound,
@@ -548,24 +548,31 @@ impl Resource {
         }
     }
 
-    pub fn play(&self, audio_engine: &mut AudioEngine) -> Result<Uuid, String> {
+    pub fn play(&self, audio_engine: &mut AudioEngine, scene_id: Uuid) -> Result<Uuid, String> {
         match self.resource_type {
-            ResourceType::Sound => audio_engine.play_sound(&self.file_path),
-            _ => Err("Can only play sound resources".to_string()),
+            ResourceType::Sound => audio_engine.play_scene_sound(scene_id, self.id),
+            _ => Err("Resource is not a sound".to_string()),
         }
     }
 
     pub fn pause(&self, audio_engine: &mut AudioEngine, sound_id: Uuid) -> Result<(), String> {
         match self.resource_type {
-            ResourceType::Sound => audio_engine.pause_sound(sound_id),
+            ResourceType::Sound => audio_engine.pause(sound_id),
             _ => Err("Can only pause sound resources".to_string()),
         }
     }
 
     pub fn stop(&self, audio_engine: &mut AudioEngine, sound_id: Uuid) -> Result<(), String> {
         match self.resource_type {
-            ResourceType::Sound => audio_engine.stop_sound(sound_id),
+            ResourceType::Sound => audio_engine.stop(sound_id),
             _ => Err("Can only stop sound resources".to_string()),
+        }
+    }
+
+    pub fn resume(&self, audio_engine: &mut AudioEngine, sound_id: Uuid) -> Result<(), String> {
+        match self.resource_type {
+            ResourceType::Sound => audio_engine.resume(sound_id),
+            _ => Err("Can only resume sound resources".to_string()),
         }
     }
 
