@@ -87,30 +87,45 @@ impl ProjectManager {
 
     // Creates initial source files: main.rs and Cargo.toml
     fn create_main_file(base_path: &Path, project_name: &str) -> Result<(), String> {
-        // Create main.rs with basic game setup
         let src_path = base_path.join("src");
         let main_path = src_path.join("main.rs");
         
         let main_content = format!(
-            r#"use my_game_engine::game_runtime;
-use my_game_engine::script_interpreter::LuaScriptEngine;
+            r#"use rust_2d_game_engine::{{
+    EngineGui,
+    eframe,
+    ecs::SceneManager,
+}};
 
-fn main() {{
+fn main() -> eframe::Result<()> {{
+    // Set up panic handler for safety
+    std::panic::set_hook(Box::new(|panic_info| {{
+        eprintln!("Game panicked: {{}}", panic_info);
+    }}));
+
     println!("Starting {}...");
     
-    // Initialize the game runtime
-    let mut runtime = game_runtime::GameRuntime::new();
-    
-    // Initialize Lua script engine
-    let script_engine = LuaScriptEngine::new();
-    
-    // Load the default scene
-    runtime.load_default_scene();
-    
-    // Start the game loop
-    runtime.run();
+    let native_options = eframe::NativeOptions::default();
+    eframe::run_native(
+        "{}",
+        native_options,
+        Box::new(|cc| {{
+            // Create engine with default scene manager
+            let mut engine = EngineGui::new(cc);
+            
+            // Scene creation and entity management will be done through the UI
+            // You can use the Scene Hierarchy window to:
+            // - Create new scenes
+            // - Add entities
+            // - Configure components
+            // - Manage resources
+            
+            Box::new(engine)
+        }})
+    )
 }}
 "#,
+            project_name,
             project_name
         );
 

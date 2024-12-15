@@ -12,6 +12,8 @@ use crate::gui::scene_hierarchy::SceneHierarchy;
 use crate::gui::file_system::FileSystem;
 use crate::gui::inspector::Inspector;
 use eframe::egui;
+use std::fs;
+use std::path::PathBuf;
 
 struct ConsoleMessage {
     text: String,
@@ -61,6 +63,9 @@ pub struct EngineGui {
     console_messages: Vec<ConsoleMessage>,
 
     game_runtime: GameRuntime,
+
+    editor_content: String,
+    current_edited_file: Option<PathBuf>,
 }
 
 impl EngineGui {
@@ -91,6 +96,8 @@ impl EngineGui {
             input_handler,
             console_messages: Vec::new(),
             game_runtime,
+            editor_content: String::new(),
+            current_edited_file: None,
         }
     }
 
@@ -133,11 +140,13 @@ impl EngineGui {
                         if ui.selectable_label(self.show_editor, "📝 Editor").clicked() {
                             self.show_editor = true;
                         }
-                        if ui
-                            .selectable_label(!self.show_editor, "🎮 Viewer")
-                            .clicked()
-                        {
+                        if ui.selectable_label(!self.show_editor, "🎮 Viewer").clicked() {
                             self.show_editor = false;
+                            if let Some(path) = &self.current_edited_file {
+                                if let Err(err) = fs::write(path, &self.editor_content) {
+                                    self.log_error(format!("Failed to save file: {}", err));
+                                }
+                            }
                         }
                     });
                 });
@@ -170,10 +179,14 @@ impl EngineGui {
                                     self.scene_hierarchy.show(ctx, ui, &mut self.gui_state);
                                 });
 
+                            // Add the file system view in the bottom part
                             egui::CentralPanel::default().show_inside(ui, |ui| {
                                 ui.heading("Files");
                                 ui.separator();
-                                self.file_system.show(ctx, ui, &mut self.gui_state);
+                                if let Some((path, content)) = self.file_system.show(ctx, ui, &mut self.gui_state) {
+                                    self.editor_content = content;
+                                    self.current_edited_file = Some(path);
+                                }
                             });
                         });
                 }
@@ -251,22 +264,23 @@ impl EngineGui {
                                 0.0,
                                 egui::Color32::from_gray(40),
                             );
-                        } else {
-                            ui.painter().rect_filled(
-                                content_rect,
-                                0.0,
-                                egui::Color32::from_gray(32),
-                            );
-                        }
 
-                        // Main content
-                        if self.show_editor {
-                            ui.add_sized(
+                            // Just show the editor, no file system here
+                            let response = ui.add_sized(
                                 content_rect.size(),
-                                egui::TextEdit::multiline(&mut String::new())
+                                egui::TextEdit::multiline(&mut self.editor_content)
                                     .code_editor()
                                     .desired_width(f32::INFINITY),
                             );
+
+                            // If editor content changed, save it
+                            if response.changed() {
+                                if let Some(path) = &self.current_edited_file {
+                                    if let Err(err) = fs::write(path, &self.editor_content) {
+                                        self.log_error(format!("Failed to save file: {}", err));
+                                    }
+                                }
+                            }
                         } else {
                             // Render the game view first
                             self.render_test_scene(ui);
@@ -282,7 +296,7 @@ impl EngineGui {
                                     
                                     // Check if a project is loaded
                                     if self.gui_state.project_path.is_empty() {
-                                        // No project loaded - show disabled buttons
+                                        // No project loaded - show disabled buttons or message
                                         ui.add_enabled(false, egui::Button::new("▶ Play"));
                                         ui.add_enabled(false, egui::Button::new("⏸ Pause"));
                                         ui.add_enabled(false, egui::Button::new("⏹ Reset"));
@@ -293,13 +307,19 @@ impl EngineGui {
                                     match self.game_runtime.get_state() {
                                         RuntimeState::Stopped => {
                                             if ui.button("▶ Play").clicked() {
-                                                self.game_runtime.set_state(RuntimeState::Playing);
-                                                self.game_runtime.run().unwrap();
+                                                match self.game_runtime.run() {
+                                                    Ok(_) => {
+                                                        self.game_runtime.set_state(RuntimeState::Playing);
+                                                        self.log_info("Game started successfully");
+                                                    }
+                                                    Err(error) => {
+                                                        self.game_runtime.set_state(RuntimeState::Stopped);
+                                                        self.log_error(format!("Failed to start game: {}", error));
+                                                    }
+                                                }
                                             }
-                                            ui.add_enabled(false, egui::Button::new("⏸ Pause"));
                                         }
                                         RuntimeState::Playing => {
-                                            ui.add_enabled(false, egui::Button::new("▶ Play"));
                                             if ui.button("⏸ Pause").clicked() {
                                                 self.game_runtime.set_state(RuntimeState::Paused);
                                             }
@@ -309,7 +329,6 @@ impl EngineGui {
                                                 self.game_runtime.set_state(RuntimeState::Playing);
                                                 self.game_runtime.run().unwrap();
                                             }
-                                            ui.add_enabled(false, egui::Button::new("⏸ Pause"));
                                         }
                                     }
                                     

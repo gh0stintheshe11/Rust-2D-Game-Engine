@@ -1,18 +1,33 @@
-use my_game_engine::game_runtime;
-use my_game_engine::script_interpreter::LuaScriptEngine;
+use rust_2d_game_engine::{
+    EngineGui,
+    eframe,
+    ecs::SceneManager,
+};
 
-fn main() {
+fn main() -> eframe::Result<()> {
+    // Set up panic handler for safety
+    std::panic::set_hook(Box::new(|panic_info| {
+        eprintln!("Game panicked: {}", panic_info);
+    }));
+
     println!("Starting flappy_bird...");
     
-    // Initialize the game runtime
-    let mut runtime = game_runtime::GameRuntime::new();
-    
-    // Initialize Lua script engine
-    let script_engine = LuaScriptEngine::new();
-    
-    // Load the default scene
-    runtime.load_default_scene();
-    
-    // Start the game loop
-    runtime.run();
+    let native_options = eframe::NativeOptions::default();
+    eframe::run_native(
+        "flappy_bird",
+        native_options,
+        Box::new(|cc| {
+            // Create engine with default scene manager
+            let mut engine = EngineGui::new(cc);
+            
+            // Scene creation and entity management will be done through the UI
+            // You can use the Scene Hierarchy window to:
+            // - Create new scenes
+            // - Add entities
+            // - Configure components
+            // - Manage resources
+            
+            Box::new(engine)
+        })
+    )
 }

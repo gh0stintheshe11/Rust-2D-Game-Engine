@@ -5,7 +5,6 @@ use crate::{
     audio_engine::AudioEngine,
     ecs::SceneManager,
 };
-use std::time::{Duration, Instant};
 
 pub enum RuntimeState {
     Stopped,  // Not running, initial state
@@ -103,40 +102,72 @@ impl GameRuntime {
     }
 
     pub fn run(&mut self) -> Result<(), String> {
-        self.running = true;
-        let frame_duration = Duration::from_secs_f32(1.0 / self.target_fps as f32);
-
-        while self.running {
-            let frame_start = Instant::now();
-
-            if let Some(scene) = self.scene_manager.get_active_scene_mut() {
-                match self.state {
-                    RuntimeState::Playing => {
-                        // Run physics
-                        let physics_updates = self.physics_engine.step(scene);
-                        scene.update_entity_attributes(physics_updates);
-                        // Run audio
-                        self.audio_engine.update();
-                    }
-                    RuntimeState::Paused => {
-                        // Just render current state
-                    }
-                    RuntimeState::Stopped => {
-                        break; // Exit run loop
-                    }
-                }
-
-                // Always render
-                self.render_engine.render(scene);
-            }
-
-            // Frame timing
-            let elapsed = frame_start.elapsed();
-            if elapsed < frame_duration {
-                std::thread::sleep(frame_duration - elapsed);
-            }
+        // Check if there's anything to run
+        if self.scene_manager.list_scene().is_empty() {
+            return Err("Cannot run: No scenes in project. Create a scene first.".to_string());
         }
 
+        // Check if there's an active scene
+        if self.scene_manager.get_active_scene().is_none() {
+            return Err("Cannot run: No active scene selected.".to_string());
+        }
+
+        self.running = true;
+        self.state = RuntimeState::Playing;
         Ok(())
+    }
+
+    // This will be called from the eframe update loop
+    pub fn update(&mut self, _ctx: &egui::Context) {
+        if !self.running {
+            return;
+        }
+
+        if let Some(scene) = self.scene_manager.get_active_scene_mut() {
+            match self.state {
+                RuntimeState::Playing => {
+                    // Run physics
+                    let physics_updates = self.physics_engine.step(scene);
+                    scene.update_entity_attributes(physics_updates);
+                    // Run audio
+                    self.audio_engine.update();
+                    // Render
+                    self.render_engine.render(scene);
+                }
+                RuntimeState::Paused => {
+                    // Just render current state
+                    self.render_engine.render(scene);
+                }
+                RuntimeState::Stopped => {
+                    self.cleanup_and_reset();
+                }
+            }
+        } else {
+            // If we lost the active scene, stop the game
+            self.cleanup_and_reset();
+        }
+    }
+
+    pub fn stop(&mut self) {
+        self.cleanup_and_reset();
+    }
+
+    fn cleanup_and_reset(&mut self) {
+        // Stop all running systems
+        self.running = false;
+        self.state = RuntimeState::Stopped;
+        
+        // Cleanup engines
+        self.physics_engine.cleanup();
+        self.render_engine.cleanup();
+        self.audio_engine.cleanup();
+        
+        // Restore dev state if needed
+        if let Some(snapshot) = &self.dev_state_snapshot {
+            self.scene_manager = snapshot.clone();
+        }
+        
+        // Reset input context
+        self.input_handler.set_context(InputContext::EngineUI);
     }
 }

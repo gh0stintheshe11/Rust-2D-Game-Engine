@@ -16,12 +16,12 @@ impl FileSystem {
         }
     }
 
-    pub fn show(&mut self, ctx: &egui::Context, ui: &mut egui::Ui, gui_state: &mut GuiState) {
+    pub fn show(&mut self, ctx: &egui::Context, ui: &mut egui::Ui, gui_state: &mut GuiState) -> Option<(PathBuf, String)> {
         // Check if the project path exists
-        let root_path = PathBuf::from(&gui_state.project_path).join("assets");
+        let root_path = PathBuf::from(&gui_state.project_path);
         if !root_path.exists() {
             ui.label("Project path does not exist. Please create or open a project.");
-            return;
+            return None;
         }
 
         // Search bar
@@ -34,6 +34,12 @@ impl FileSystem {
 
         // Render the file tree
         self.render_file_tree(ui, &root_path, 0, gui_state);
+
+        // Return both the path and content if a Rust file was clicked
+        if let Some((path, content)) = self.try_read_code_file() {
+            return Some((path, content));
+        }
+        None
     }
 
     fn render_file_tree(&mut self, ui: &mut egui::Ui, path: &Path, depth: usize, gui_state: &mut GuiState) {
@@ -49,7 +55,7 @@ impl FileSystem {
             for entry in entries.filter_map(|e| e.ok()) {
                 if entry.path().is_dir() {
                     folders.push(entry);
-                } else if self.is_valid_file(&entry.path()) {
+                } else {
                     files.push(entry);
                 }
             }
@@ -140,5 +146,17 @@ impl FileSystem {
             }
             None => false,
         }
+    }
+
+    fn try_read_code_file(&self) -> Option<(PathBuf, String)> {
+        if let Some(path) = &self.selected_file {
+            // for rs and lua files
+            if path.extension()?.to_str()? == "rs" || path.extension()?.to_str()? == "lua" {
+                return fs::read_to_string(path)
+                    .ok()
+                    .map(|content| (path.clone(), content));
+            }
+        }
+        None
     }
 }
