@@ -138,17 +138,25 @@ pub struct Scene {
     pub entities: HashMap<Uuid, Entity>,
     pub resources: HashMap<Uuid, Resource>,
     pub shared_entity_refs: Vec<Uuid>,
+    pub default_camera: Option<Uuid>,
 }
 
 impl Scene {
     pub fn new(name: &str) -> Self {
-        Self {
+        let mut scene = Self {
             id: Uuid::new_v4(),
             name: name.to_string(),
             entities: HashMap::new(),
             resources: HashMap::new(),
             shared_entity_refs: Vec::new(),
-        }
+            default_camera: None,
+        };
+
+        // Create default camera
+        let camera_id = scene.create_camera("main_camera");
+        scene.default_camera = Some(camera_id);
+
+        scene
     }
 
     // Scene operations
@@ -301,6 +309,27 @@ impl Scene {
         );
         all_entities
     }
+
+    // Predefined: Camera Entity
+    pub fn create_camera(&mut self, name: &str) -> Uuid {
+        let id = Uuid::new_v4();
+        let camera = Entity::new_camera(id, name);
+        self.entities.insert(id, camera);
+        id
+    }
+
+    // Predefined: Physical Entity
+    pub fn create_physical_entity(
+        &mut self, 
+        name: &str,
+        position: (f32, f32),
+        physics: PhysicsProperties
+    ) -> Uuid {
+        let id = Uuid::new_v4();
+        let entity = Entity::new_physical(id, name, position, physics);
+        self.entities.insert(id, entity);
+        id
+    }
 }
 
 // =============== Entity (Manages Attributes) ===============
@@ -402,6 +431,51 @@ impl Entity {
             .find(|(_, attr)| attr.name == name)
             .map(|(_, attr)| attr)
     }
+
+    // Predefined: Camera Entity
+    pub fn new_camera(id: Uuid, name: &str) -> Self {
+        let mut entity = Self::new(id, name);
+        
+        // Add camera-specific attributes
+        entity.create_attribute("position", AttributeType::Vector2, AttributeValue::Vector2(0.0, 0.0));
+        entity.create_attribute("zoom", AttributeType::Float, AttributeValue::Float(1.0));
+        entity.create_attribute("rotation", AttributeType::Float, AttributeValue::Float(0.0));
+        entity.create_attribute("is_camera", AttributeType::Boolean, AttributeValue::Boolean(true));
+        
+        entity
+    }
+
+    // Predefined: Physical Entity
+    pub fn new_physical(
+        id: Uuid, 
+        name: &str,
+        position: (f32, f32),
+        physics: PhysicsProperties
+    ) -> Self {
+        let mut entity = Self::new(id, name);
+        
+        // Add physics-specific attributes
+        entity.create_attribute("position", AttributeType::Vector2, 
+            AttributeValue::Vector2(position.0, position.1));
+        entity.create_attribute("is_movable", AttributeType::Boolean, 
+            AttributeValue::Boolean(physics.is_movable));
+        entity.create_attribute("has_gravity", AttributeType::Boolean, 
+            AttributeValue::Boolean(physics.affected_by_gravity));
+        entity.create_attribute("creates_gravity", AttributeType::Boolean, 
+            AttributeValue::Boolean(physics.creates_gravity));
+        entity.create_attribute("has_collision", AttributeType::Boolean, 
+            AttributeValue::Boolean(physics.has_collision));
+        entity.create_attribute("friction", AttributeType::Float, 
+            AttributeValue::Float(physics.friction));
+        entity.create_attribute("restitution", AttributeType::Float, 
+            AttributeValue::Float(physics.restitution));
+        entity.create_attribute("density", AttributeType::Float, 
+            AttributeValue::Float(physics.density));
+        entity.create_attribute("can_rotate", AttributeType::Boolean, 
+            AttributeValue::Boolean(physics.can_rotate));
+        
+        entity
+    }
 }
 
 // =============== Attribute Types ===============
@@ -499,6 +573,33 @@ impl Resource {
         match self.resource_type {
             ResourceType::Script => println!("Editing script: {}", self.file_path),
             _ => println!("Can only edit script resources"),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct PhysicsProperties {
+    pub is_movable: bool,
+    pub affected_by_gravity: bool,
+    pub creates_gravity: bool,
+    pub has_collision: bool,
+    pub friction: f32,
+    pub restitution: f32,
+    pub density: f32,
+    pub can_rotate: bool,
+}
+
+impl Default for PhysicsProperties {
+    fn default() -> Self {
+        Self {
+            is_movable: false,
+            affected_by_gravity: false,
+            creates_gravity: false,
+            has_collision: true,
+            friction: 0.5,
+            restitution: 0.0,
+            density: 1.0,
+            can_rotate: false,
         }
     }
 }
