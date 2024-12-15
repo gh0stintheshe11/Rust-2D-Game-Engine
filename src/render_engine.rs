@@ -1,6 +1,6 @@
 use image::GenericImageView;
+use std::collections::HashMap;
 use uuid::Uuid;
-use indexmap::IndexMap;
 
 pub struct Camera {
     pub position: (f32, f32),
@@ -165,7 +165,7 @@ impl Animation {
 pub struct RenderEngine {
     viewport_size: (f32, f32),
     last_frame_time: std::time::Instant,
-    textures: IndexMap<Uuid, TextureInfo>,
+    textures: HashMap<Uuid, TextureInfo>, // Now stores more texture info
     pub camera: Camera,
 }
 
@@ -174,7 +174,7 @@ impl RenderEngine {
         Self {
             viewport_size: (0.0, 0.0),
             last_frame_time: std::time::Instant::now(),
-            textures: IndexMap::new(),
+            textures: HashMap::new(),
             camera: Camera::new(),
         }
     }
