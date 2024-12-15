@@ -1,8 +1,8 @@
-use std::collections::HashMap;
 use uuid::Uuid;
 use serde::{Serialize, Deserialize};
 use std::fmt;
 use crate::audio_engine::AudioEngine;
+use indexmap::IndexMap;
 
 //SceneManager
 // └── Manages multiple Scenes
@@ -16,16 +16,16 @@ use crate::audio_engine::AudioEngine;
 // =============== Scene Manager (Top Level) ===============
 #[derive(Serialize, Deserialize)]
 pub struct SceneManager {
-    pub scenes: HashMap<Uuid, Scene>,
-    pub shared_entities: HashMap<Uuid, Entity>,
+    pub scenes: IndexMap<Uuid, Scene>,
+    pub shared_entities: IndexMap<Uuid, Entity>,
     pub active_scene: Option<Uuid>,  // Track currently active scene
 }
 
 impl SceneManager {
     pub fn new() -> Self {
         Self {
-            scenes: HashMap::new(),
-            shared_entities: HashMap::new(),
+            scenes: IndexMap::new(),
+            shared_entities: IndexMap::new(),
             active_scene: None,
         }
     }
@@ -135,8 +135,8 @@ impl SceneManager {
 pub struct Scene {
     pub id: Uuid,
     pub name: String,
-    pub entities: HashMap<Uuid, Entity>,
-    pub resources: HashMap<Uuid, Resource>,
+    pub entities: IndexMap<Uuid, Entity>,
+    pub resources: IndexMap<Uuid, Resource>,
     pub shared_entity_refs: Vec<Uuid>,
     pub default_camera: Option<Uuid>,
 }
@@ -146,8 +146,8 @@ impl Scene {
         let mut scene = Self {
             id: Uuid::new_v4(),
             name: name.to_string(),
-            entities: HashMap::new(),
-            resources: HashMap::new(),
+            entities: IndexMap::new(),
+            resources: IndexMap::new(),
             shared_entity_refs: Vec::new(),
             default_camera: None,
         };
@@ -337,7 +337,7 @@ impl Scene {
 pub struct Entity {
     pub id: Uuid,
     pub name: String,
-    pub attributes: HashMap<Uuid, Attribute>,
+    pub attributes: IndexMap<Uuid, Attribute>,
     pub resource_list: Vec<Uuid>,
 }
 
@@ -346,7 +346,7 @@ impl Entity {
         Self {
             id,
             name: name.to_string(),
-            attributes: HashMap::new(),
+            attributes: IndexMap::new(),
             resource_list: Vec::new(),
         }
     }

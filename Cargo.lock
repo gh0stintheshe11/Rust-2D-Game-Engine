@@ -1953,6 +1953,7 @@ checksum = "707907fe3c25f5424cce2cb7e1cbcafee6bdbe735ca90ef77c29e84591e5b9da"
 dependencies = [
  "equivalent",
  "hashbrown 0.15.0",
+ "serde",
 ]
 
 [[package]]
@@ -3415,6 +3416,7 @@ dependencies = [
  "egui-winit",
  "futures",
  "image",
+ "indexmap",
  "mockall",
  "rapier2d",
  "rfd",
