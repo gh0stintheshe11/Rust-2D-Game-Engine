@@ -6,7 +6,15 @@ use uuid::Uuid;
 pub enum SelectedItem {
     Scene(Uuid),
     Entity(Uuid, Uuid), // (Scene ID, Entity ID)
+    Resource(Uuid, Uuid), // (Scene ID, Resource ID)
     File(PathBuf),
+    None,
+}
+
+pub enum ScenePanelSelectedItem {
+    Scene(Uuid),
+    Entity(Uuid, Uuid), // (Scene ID, Entity ID)
+    Resource(Uuid, Uuid), // (Scene ID, Resource ID)
     None,
 }
 
@@ -19,11 +27,14 @@ pub struct GuiState {
     pub project_path: String,          // Store the project path input
     pub project_metadata: Option<ProjectMetadata>,
     pub scene_manager: Option<SceneManager>,
-    pub selected_item: SelectedItem,
+
     pub show_hierarchy_filesystem: bool,
     pub show_inspector: bool,
     pub show_console: bool,
     pub show_debug_overlay: bool,
+
+    pub selected_item: SelectedItem,
+    pub scene_panel_selected_item: ScenePanelSelectedItem,
 }
 
 impl GuiState {
@@ -37,11 +48,14 @@ impl GuiState {
             project_path: String::new(),
             project_metadata: None,
             scene_manager: None,
-            selected_item: SelectedItem::None,
+
             show_hierarchy_filesystem: true,
             show_inspector: true,
             show_console: true,
             show_debug_overlay: false,
+
+            selected_item: SelectedItem::None,
+            scene_panel_selected_item: ScenePanelSelectedItem::None,
         }
     }
 
