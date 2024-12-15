@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use uuid::Uuid;
 use serde::{Serialize, Deserialize};
 use std::fmt;
+use crate::audio_engine::AudioEngine;
 
 //SceneManager
 // └── Manages multiple Scenes
@@ -473,24 +474,24 @@ impl Resource {
         }
     }
 
-    pub fn play(&self) {
+    pub fn play(&self, audio_engine: &mut AudioEngine) -> Result<Uuid, String> {
         match self.resource_type {
-            ResourceType::Sound => println!("Playing sound: {}", self.file_path),
-            _ => println!("Can only play sound resources"),
+            ResourceType::Sound => audio_engine.play_sound(&self.file_path),
+            _ => Err("Can only play sound resources".to_string()),
         }
     }
 
-    pub fn pause(&self) {
+    pub fn pause(&self, audio_engine: &mut AudioEngine, sound_id: Uuid) -> Result<(), String> {
         match self.resource_type {
-            ResourceType::Sound => println!("Pausing sound: {}", self.file_path),
-            _ => println!("Can only pause sound resources"),
+            ResourceType::Sound => audio_engine.pause_sound(sound_id),
+            _ => Err("Can only pause sound resources".to_string()),
         }
     }
 
-    pub fn stop(&self) {
+    pub fn stop(&self, audio_engine: &mut AudioEngine, sound_id: Uuid) -> Result<(), String> {
         match self.resource_type {
-            ResourceType::Sound => println!("Stopping sound: {}", self.file_path),
-            _ => println!("Can only stop sound resources"),
+            ResourceType::Sound => audio_engine.stop_sound(sound_id),
+            _ => Err("Can only stop sound resources".to_string()),
         }
     }
 
