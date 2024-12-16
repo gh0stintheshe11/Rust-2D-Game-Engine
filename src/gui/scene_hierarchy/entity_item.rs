@@ -35,26 +35,28 @@ impl EntityItem {
                         EntityItem::tree_item_entity(ui, scene_id, entity_id, &entity.name, hierarchy, gui_state);
                     })
                     .body(|ui| {
-                        ui.indent("assets", |ui| {
-                            if !entity.images.is_empty() {
-                                for path in &entity.images {
-                                    let filename = path.file_name()
-                                        .unwrap_or_default()
-                                        .to_string_lossy()
-                                        .to_string();
-                                    ui.label(format!("🖼 {}", filename));
-                                }
+                        if !entity.images.is_empty() {
+                            for path in &entity.images {
+                                let filename = path.file_name()
+                                    .unwrap_or_default()
+                                    .to_string_lossy()
+                                    .to_string();
+                                ui.horizontal(|ui| {
+                                    ui.label(format!("🔆 {}", filename));
+                                });
                             }
-                            if !entity.sounds.is_empty() {
-                                for path in &entity.sounds {
-                                    let filename = path.file_name()
-                                        .unwrap_or_default()
-                                        .to_string_lossy()
-                                        .to_string();
-                                    ui.label(format!("🔊 {}", filename));
-                                }
+                        }
+                        if !entity.sounds.is_empty() {
+                            for path in &entity.sounds {
+                                let filename = path.file_name()
+                                    .unwrap_or_default()
+                                    .to_string_lossy()
+                                    .to_string();
+                                ui.horizontal(|ui| {
+                                    ui.label(format!("🎵 {}", filename));
+                                });
                             }
-                        });
+                        }
                     });
             } else {
                 ui.horizontal(|ui| {
@@ -84,7 +86,7 @@ impl EntityItem {
             entity_name
         };
 
-        let response = ui.selectable_label(selected, format!("📌 {}", display_name));
+        let response = ui.selectable_label(selected, format!("🖼 {}", display_name));
         if response.clicked() {
             gui_state.selected_item = SelectedItem::Entity(*scene_id, *entity_id);
             gui_state.scene_panel_selected_item = ScenePanelSelectedItem::Entity(*scene_id, *entity_id);

@@ -1,7 +1,0 @@
-[package]
-name = "flappy_bird"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-my_game_engine = { path = "../path/to/engine" }

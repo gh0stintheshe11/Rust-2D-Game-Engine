@@ -377,10 +377,15 @@ impl EngineGui {
                             ui.with_layout(egui::Layout::bottom_up(egui::Align::RIGHT), |ui| {
                                 ui.add_space(4.0);  // Bottom margin
                                 ui.horizontal(|ui| {
-                                    ui.add_space(4.0);  // Right margin
-                                    if ui.button("⭕").clicked() {
+                                    ui.add_space(2.0);  // Right margin
+                                    let button = ui.add_sized(
+                                        [20.0, 20.0],  // Fixed size of 24x24 pixels
+                                        egui::Button::new("🔄")
+                                    );
+                                    if button.clicked() {
                                         self.render_engine.camera.reset();
                                     }
+                                    button.on_hover_text("Reset Camera");  // Tooltip text
                                 });
                             });
 
