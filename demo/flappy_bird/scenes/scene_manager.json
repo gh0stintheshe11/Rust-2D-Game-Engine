@@ -1,0 +1,329 @@
+{
+  "scenes": {
+    "2ace0aec-aa3a-421c-bdd3-938aceb6a666": {
+      "id": "89a2f5ee-1211-40b5-a98d-83693abae12f",
+      "name": "game_main",
+      "entities": {
+        "907a8f36-c371-4df6-8cba-be279f47c50f": {
+          "id": "907a8f36-c371-4df6-8cba-be279f47c50f",
+          "name": "main_camera",
+          "attributes": {
+            "039c639d-700c-4ebf-8da6-dd8562ea5ea1": {
+              "id": "039c639d-700c-4ebf-8da6-dd8562ea5ea1",
+              "name": "position",
+              "data_type": "Vector2",
+              "value": {
+                "Vector2": [
+                  0.0,
+                  0.0
+                ]
+              }
+            },
+            "f444e22a-d258-4192-8464-09ee776670dd": {
+              "id": "f444e22a-d258-4192-8464-09ee776670dd",
+              "name": "zoom",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "c8a1bf85-e4b3-477a-9d5e-35018da74568": {
+              "id": "c8a1bf85-e4b3-477a-9d5e-35018da74568",
+              "name": "rotation",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "1f03f75f-5533-4636-85ee-d793a6aa152d": {
+              "id": "1f03f75f-5533-4636-85ee-d793a6aa152d",
+              "name": "is_camera",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            }
+          },
+          "images": [],
+          "sounds": [],
+          "script": null
+        },
+        "3f04514b-bf7d-4e29-b65e-3d6957e5a083": {
+          "id": "3f04514b-bf7d-4e29-b65e-3d6957e5a083",
+          "name": "bird",
+          "attributes": {
+            "866c0fc5-2e04-4318-82b0-dcf805d91472": {
+              "id": "866c0fc5-2e04-4318-82b0-dcf805d91472",
+              "name": "position",
+              "data_type": "Vector2",
+              "value": {
+                "Vector2": [
+                  0.0,
+                  0.0
+                ]
+              }
+            },
+            "52c070dd-4907-4197-baad-2b76ca07c022": {
+              "id": "52c070dd-4907-4197-baad-2b76ca07c022",
+              "name": "is_movable",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "3890f0b9-de67-4da1-9d87-07527d31d9c7": {
+              "id": "3890f0b9-de67-4da1-9d87-07527d31d9c7",
+              "name": "has_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "86d1f6c9-bf44-4147-a216-47ca21299127": {
+              "id": "86d1f6c9-bf44-4147-a216-47ca21299127",
+              "name": "creates_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "b8be0eb4-c011-4f32-8fb2-11d1504b131f": {
+              "id": "b8be0eb4-c011-4f32-8fb2-11d1504b131f",
+              "name": "has_collision",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "95de3c89-06a5-4d13-a5cc-af7fdb39b50a": {
+              "id": "95de3c89-06a5-4d13-a5cc-af7fdb39b50a",
+              "name": "friction",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.5
+              }
+            },
+            "9db157de-9654-4013-8a42-c36e4845db7b": {
+              "id": "9db157de-9654-4013-8a42-c36e4845db7b",
+              "name": "restitution",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "fc047487-38e5-4938-a9c5-6410f7ad895e": {
+              "id": "fc047487-38e5-4938-a9c5-6410f7ad895e",
+              "name": "density",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "d9a70d6d-7023-4eb9-8018-c8a55ed569fa": {
+              "id": "d9a70d6d-7023-4eb9-8018-c8a55ed569fa",
+              "name": "can_rotate",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            }
+          },
+          "images": [
+            "/home/lang/Rust-2D-Game-Engine/demo/flappy_bird/assets/images/bird1.png",
+            "/home/lang/Rust-2D-Game-Engine/demo/flappy_bird/assets/images/bird2.png",
+            "/home/lang/Rust-2D-Game-Engine/demo/flappy_bird/assets/images/bird3.png"
+          ],
+          "sounds": [],
+          "script": null
+        },
+        "bb27a94f-35e0-44c4-9363-bae8be0637e0": {
+          "id": "bb27a94f-35e0-44c4-9363-bae8be0637e0",
+          "name": "ground",
+          "attributes": {
+            "4b1ab44e-93f9-4d45-91b5-788ea13ba369": {
+              "id": "4b1ab44e-93f9-4d45-91b5-788ea13ba369",
+              "name": "position",
+              "data_type": "Vector2",
+              "value": {
+                "Vector2": [
+                  0.0,
+                  0.0
+                ]
+              }
+            },
+            "129b0721-3675-4697-9df5-fb26598ffc43": {
+              "id": "129b0721-3675-4697-9df5-fb26598ffc43",
+              "name": "is_movable",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "9ee4f313-a2b2-4004-9113-61797cb888d4": {
+              "id": "9ee4f313-a2b2-4004-9113-61797cb888d4",
+              "name": "has_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "6c6c11c5-bf76-493c-9e64-17e4eea58506": {
+              "id": "6c6c11c5-bf76-493c-9e64-17e4eea58506",
+              "name": "creates_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "5bdb6ecc-ef1b-4e08-a801-6852c76c55f0": {
+              "id": "5bdb6ecc-ef1b-4e08-a801-6852c76c55f0",
+              "name": "has_collision",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "80872edb-3719-4f8b-b37d-325fee89b7f2": {
+              "id": "80872edb-3719-4f8b-b37d-325fee89b7f2",
+              "name": "friction",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.5
+              }
+            },
+            "921f4dc0-3548-40c4-acca-de914184f478": {
+              "id": "921f4dc0-3548-40c4-acca-de914184f478",
+              "name": "restitution",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "83d30751-bdda-49c0-9a46-057bd4ea50ed": {
+              "id": "83d30751-bdda-49c0-9a46-057bd4ea50ed",
+              "name": "density",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "a0b504df-de2b-4e9e-9c5a-9dbcb5d818a2": {
+              "id": "a0b504df-de2b-4e9e-9c5a-9dbcb5d818a2",
+              "name": "can_rotate",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            }
+          },
+          "images": [
+            "/home/lang/Rust-2D-Game-Engine/demo/flappy_bird/assets/images/ground.png"
+          ],
+          "sounds": [],
+          "script": null
+        },
+        "baaf73ca-ebfb-41cd-aedf-03ca0d1d5b83": {
+          "id": "baaf73ca-ebfb-41cd-aedf-03ca0d1d5b83",
+          "name": "pipe",
+          "attributes": {
+            "88ba65b1-c25b-4a0c-9b06-4195283863a4": {
+              "id": "88ba65b1-c25b-4a0c-9b06-4195283863a4",
+              "name": "position",
+              "data_type": "Vector2",
+              "value": {
+                "Vector2": [
+                  0.0,
+                  0.0
+                ]
+              }
+            },
+            "5163d3d7-380c-45b3-9c44-b7762ef53474": {
+              "id": "5163d3d7-380c-45b3-9c44-b7762ef53474",
+              "name": "is_movable",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "3c92e55f-9376-4447-8dac-728962e585a6": {
+              "id": "3c92e55f-9376-4447-8dac-728962e585a6",
+              "name": "has_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "d2609678-04b4-4533-8c60-2b213543038f": {
+              "id": "d2609678-04b4-4533-8c60-2b213543038f",
+              "name": "creates_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "58078edc-c928-4f75-b4df-eb33e0ba13b4": {
+              "id": "58078edc-c928-4f75-b4df-eb33e0ba13b4",
+              "name": "has_collision",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "55315f43-6310-439d-98a3-8ca025c4c4c8": {
+              "id": "55315f43-6310-439d-98a3-8ca025c4c4c8",
+              "name": "friction",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.5
+              }
+            },
+            "b52e2879-0a38-485b-9328-170e31a9fc25": {
+              "id": "b52e2879-0a38-485b-9328-170e31a9fc25",
+              "name": "restitution",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "55586ae3-878a-4983-976c-180cef147d54": {
+              "id": "55586ae3-878a-4983-976c-180cef147d54",
+              "name": "density",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "bd55f82b-7088-48e1-bff4-b6144cda8ff6": {
+              "id": "bd55f82b-7088-48e1-bff4-b6144cda8ff6",
+              "name": "can_rotate",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            }
+          },
+          "images": [
+            "/home/lang/Rust-2D-Game-Engine/demo/flappy_bird/assets/images/top_pipe.png",
+            "/home/lang/Rust-2D-Game-Engine/demo/flappy_bird/assets/images/bottom_pipe.png"
+          ],
+          "sounds": [],
+          "script": null
+        },
+        "4b177504-4ed2-4aae-bbf5-03aa10ecd8d4": {
+          "id": "4b177504-4ed2-4aae-bbf5-03aa10ecd8d4",
+          "name": "background",
+          "attributes": {},
+          "images": [
+            "/home/lang/Rust-2D-Game-Engine/demo/flappy_bird/assets/images/bg.png"
+          ],
+          "sounds": [],
+          "script": null
+        }
+      },
+      "shared_entity_refs": [],
+      "default_camera": "907a8f36-c371-4df6-8cba-be279f47c50f"
+    }
+  },
+  "shared_entities": {},
+  "active_scene": null
+}

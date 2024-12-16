@@ -77,16 +77,21 @@ impl FileMenu {
                                 Ok(_) => {
 
                                     // Load the created project
-                                    match ProjectManager::load_project(&self.temp_project_path) {
-                                        Ok(metadata) => {
+                                    match ProjectManager::load_project_full(&self.temp_project_path) {
+                                        Ok(loaded_project) => {
+                                            let metadata = loaded_project.metadata;
+                                            let scene_manager = loaded_project.scene_manager;
 
                                             gui_state.project_name = metadata.project_name.clone();
                                             gui_state.project_path = metadata.project_path.clone().into();
                                             gui_state.load_project = true;
 
+                                            gui_state.project_metadata = Some(metadata);
+                                            gui_state.scene_manager = Some(scene_manager);
+
                                             gui_state.show_new_project_popup = false;
                                             self.error_message.clear();
-                                            println!("Project '{}' created and loaded successfully!", metadata.project_name);
+                                            println!("Project '{}' created and loaded successfully!", gui_state.project_name);
                                         }
                                         Err(err) => {
                                             self.error_message = format!("Error loading project: {}", err);
@@ -181,9 +186,17 @@ impl FileMenu {
 
         match ProjectManager::load_project(&gui_state.project_path) {
             Ok(metadata) => {
-                match ProjectManager::save_project(&gui_state.project_path, &metadata) {
-                    Ok(_) => println!("Project saved successfully."),
-                    Err(err) => println!("Error saving project: {}", err),
+                if let Some(scene_manager) = &gui_state.scene_manager {
+                    match ProjectManager::save_project_full(
+                        &gui_state.project_path, 
+                        &metadata, 
+                        scene_manager
+                    ) {
+                        Ok(_) => println!("Project saved successfully."),
+                        Err(err) => println!("Error saving project: {}", err),
+                    }
+                } else {
+                    println!("No scene manager available to save.");
                 }
             }
             Err(_) => {
