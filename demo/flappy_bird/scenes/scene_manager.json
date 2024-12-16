@@ -56,20 +56,20 @@
                 "Boolean": true
               }
             },
-            "922491d1-3b09-4c7d-803b-a6af1dc0663e": {
-              "id": "922491d1-3b09-4c7d-803b-a6af1dc0663e",
-              "name": "metadata_width",
+            "cd41be6f-86d5-4969-b8c8-7f8705e6e531": {
+              "id": "cd41be6f-86d5-4969-b8c8-7f8705e6e531",
+              "name": "width",
               "data_type": "Float",
               "value": {
-                "Float": 0.0
+                "Float": 800.0
               }
             },
-            "95669f75-7dee-4997-a5d6-759b0af878c3": {
-              "id": "95669f75-7dee-4997-a5d6-759b0af878c3",
-              "name": "metadata_height",
+            "4677c7e6-6307-40bd-a356-731bac737c26": {
+              "id": "4677c7e6-6307-40bd-a356-731bac737c26",
+              "name": "height",
               "data_type": "Float",
               "value": {
-                "Float": 0.0
+                "Float": 600.0
               }
             }
           },
