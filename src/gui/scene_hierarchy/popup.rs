@@ -2,7 +2,6 @@ use crate::ecs::{PhysicsProperties, SceneManager};
 use crate::gui::gui_state::{GuiState, ScenePanelSelectedItem, SelectedItem};
 use crate::gui::scene_hierarchy::predefined_entities::PREDEFINED_ENTITIES;
 use crate::gui::scene_hierarchy::utils;
-use crate::project_manager::ProjectManager;
 use eframe::egui::{Context, Ui};
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
@@ -90,6 +89,7 @@ impl PopupManager {
         egui::Window::new(title)
             .collapsible(false)
             .resizable(false)
+            .order(egui::Order::Foreground)
             .show(ctx, |ui| {
                 ui.label("Enter new name:");
                 ui.text_edit_singleline(&mut self.rename_input);
@@ -207,19 +207,19 @@ impl PopupManager {
             return;
         }
 
-        match self.create_item_type.as_str() {
+        let item_type = self.create_item_type.clone();
+        match item_type.as_str() {
             "Scene" => self.create_new_scene(gui_state),
             "Entity" => self.create_new_entity("Entity".to_string(), gui_state, "Empty"),
-            "Camera" => self.create_new_entity("Entity".to_string(), gui_state, "Camera"),
-            "Physics" => self.create_new_entity("Entity".to_string(), gui_state, "Physics"),
+            "Camera" => self.create_new_entity("Camera".to_string(), gui_state, "Camera"),
+            "Physics" => self.create_new_entity("Physics".to_string(), gui_state, "Physics"),
             other => {
-                // Predefined entity creation
-                // if PREDEFINED_ENTITIES
-                //     .iter()
-                //     .any(|entity| entity.name == other)
-                // {
-                //     self.create_new_entity(other.to_string(), gui_state);
-                // }
+                if PREDEFINED_ENTITIES
+                    .iter()
+                    .any(|entity| entity.name == other)
+                {
+                    self.create_new_entity(other.to_string(), gui_state, other);
+                }
             }
         }
 
@@ -306,26 +306,19 @@ impl PopupManager {
         let new_entity_id = match predefined_type {
             "Empty" => scene.create_entity(name),
             "Camera" => scene.create_camera(name),
-            "Physics" => scene.create_physical_entity(name, (0.0, 0.0), PhysicsProperties::default()),
-            _ => {
-                println!("Unknown predefined type: {}", predefined_type);
-                return;
-            }
+            "Physics" => {
+                let entity_id = scene.create_entity(name);
+                if let Some(entity) = scene.get_entity_mut(entity_id) {
+                    if let Some(predefined) = PREDEFINED_ENTITIES.iter().find(|e| e.name == "Physics") {
+                        for (attr_name, attr_type, attr_value) in predefined.attributes.iter() {
+                            entity.create_attribute(attr_name, attr_type.clone(), attr_value.clone());
+                        }
+                    }
+                }
+                entity_id
+            },
+            _ => scene.create_entity(name),
         };
-
-
-        // Add predefined attributes
-        // if let Some(predefined_entity) = PREDEFINED_ENTITIES
-        //     .iter()
-        //     .find(|entity| entity.name == entity_type)
-        // {
-        //     for (attr_name, attr_type, attr_value) in predefined_entity.attributes {
-        //         scene
-        //             .get_entity_mut(new_entity_id)
-        //             .unwrap()
-        //             .create_attribute(attr_name, attr_type.clone(), attr_value.clone());
-        //     }
-        // }
 
         let scene_id = match &gui_state.scene_panel_selected_item {
             ScenePanelSelectedItem::Scene(scene_id) => *scene_id,
@@ -385,6 +378,7 @@ impl PopupManager {
                 .open(&mut self.resource_selection_popup_active)
                 .collapsible(false)
                 .resizable(false)
+                .order(egui::Order::Foreground)
                 .show(ctx, |ui| {
                     // Resource type dropdown
                     egui::CollapsingHeader::new("Resource Type")
@@ -467,6 +461,7 @@ impl PopupManager {
                 .open(&mut self.manage_assets_popup_active)
                 .collapsible(false)
                 .resizable(false)
+                .order(egui::Order::Foreground)
                 .show(ctx, |ui| {
                     if let Some(scene) = scene_manager.get_scene_mut(scene_id) {
                         if let Some(entity) = scene.get_entity_mut(entity_id) {

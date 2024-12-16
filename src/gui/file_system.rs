@@ -77,17 +77,16 @@ impl FileSystem {
             stroke: egui::Stroke::NONE,
         }
         .show(ui, |ui| {
-            let root_path = PathBuf::from(&gui_state.project_path);
-
-            if !ProjectManager::is_valid_project_directory(&root_path) {
-                ui.label("Invalid project directory. Please create or open a valid project.");
-            } else {
-                egui::ScrollArea::both()
-                    .auto_shrink([false; 2])
-                    .show(ui, |ui| {
-                        self.render_file_tree(ui, &root_path, 0, gui_state);
-                    });
+            if !gui_state.project_loaded {
+                ui.label("No project opened.");
+                return;
             }
+            let path = gui_state.project_path.clone();
+            egui::ScrollArea::both()
+                .auto_shrink([false; 2])
+                .show(ui, |ui| {
+                    self.render_file_tree(ui, &path, 0, gui_state);
+                });
         });
 
         // Return file content if selected

@@ -41,18 +41,28 @@ impl Inspector {
     pub fn show(&mut self, ctx: &egui::Context, ui: &mut egui::Ui, gui_state: &mut GuiState) {
         match &gui_state.selected_item {
             SelectedItem::Entity(scene_id, entity_id) => {
-                if let Some(entity) = gui_state.scene_manager.as_mut().unwrap()
-                    .get_scene_mut(*scene_id).unwrap()
-                    .get_entity_mut(*entity_id) 
-                {
-                    ui.label("Images:");
-                    for path in &entity.images {
-                        ui.label(path.to_string_lossy());
-                    }
-                    
-                    ui.label("Sounds:");
-                    for path in &entity.sounds {
-                        ui.label(path.to_string_lossy());
+                let scene_id = *scene_id;
+                let entity_id = *entity_id;
+                
+                // First show entity details
+                self.show_entity_details(ui, ctx, scene_id, entity_id, gui_state);
+                
+                // Then get a new borrow for images and sounds
+                if let Some(scene_manager) = &gui_state.scene_manager {
+                    if let Some(scene) = scene_manager.get_scene(scene_id) {
+                        if let Some(entity) = scene.get_entity(entity_id) {
+                            ui.separator();
+                            ui.label("Images:");
+                            for path in &entity.images {
+                                ui.label(path.to_string_lossy());
+                            }
+                            
+                            ui.separator();
+                            ui.label("Sounds:");
+                            for path in &entity.sounds {
+                                ui.label(path.to_string_lossy());
+                            }
+                        }
                     }
                 }
             }
@@ -268,8 +278,8 @@ impl Inspector {
                         self.display_attribute(ui, attribute_id, &attribute.name, &attribute.value, entity);
                     }
 
-                    // Add Metadata Button
-                    if ui.button("Add Metadata").clicked() {
+                    // Add Attributes Button
+                    if ui.button("Add Attributes").clicked() {
                         self.show_metadata_popup = true;
                         self.metadata_new_name.clear();
                         self.metadata_new_type = AttributeType::String;

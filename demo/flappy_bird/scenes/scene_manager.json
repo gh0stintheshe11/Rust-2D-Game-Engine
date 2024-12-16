@@ -48,14 +48,6 @@
           "sounds": [],
           "script": null
         },
-        "22f4fc5a-f970-4bcb-a9ef-47d41417e3c8": {
-          "id": "22f4fc5a-f970-4bcb-a9ef-47d41417e3c8",
-          "name": "bird",
-          "attributes": {},
-          "images": [],
-          "sounds": [],
-          "script": null
-        },
         "5f5e2d63-5d6d-42c9-b82f-f317679ef5b1": {
           "id": "5f5e2d63-5d6d-42c9-b82f-f317679ef5b1",
           "name": "background",
@@ -64,18 +56,86 @@
           "sounds": [],
           "script": null
         },
-        "74f69225-e479-4cea-be1d-fab40b482a76": {
-          "id": "74f69225-e479-4cea-be1d-fab40b482a76",
+        "753aa2d2-dc8f-423a-a82b-646a38bcd50d": {
+          "id": "753aa2d2-dc8f-423a-a82b-646a38bcd50d",
           "name": "ground",
-          "attributes": {},
-          "images": [],
-          "sounds": [],
-          "script": null
-        },
-        "b168609f-aa60-4561-b731-b19efe4eb826": {
-          "id": "b168609f-aa60-4561-b731-b19efe4eb826",
-          "name": "pipe",
-          "attributes": {},
+          "attributes": {
+            "42169736-7828-4987-ba00-79d0a167bb3d": {
+              "id": "42169736-7828-4987-ba00-79d0a167bb3d",
+              "name": "position",
+              "data_type": "Vector2",
+              "value": {
+                "Vector2": [
+                  0.0,
+                  0.0
+                ]
+              }
+            },
+            "21df0153-e940-4769-b734-3bd0b01e8890": {
+              "id": "21df0153-e940-4769-b734-3bd0b01e8890",
+              "name": "is_movable",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "d0b5852d-ae41-48dd-9e7e-0d27df38216a": {
+              "id": "d0b5852d-ae41-48dd-9e7e-0d27df38216a",
+              "name": "has_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "52d325df-80ee-415c-9c8b-988b149a573e": {
+              "id": "52d325df-80ee-415c-9c8b-988b149a573e",
+              "name": "creates_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "e49f5850-e230-4d59-9ef6-812c06296e20": {
+              "id": "e49f5850-e230-4d59-9ef6-812c06296e20",
+              "name": "has_collision",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "71d0d069-b636-49ff-b66c-98504dd90809": {
+              "id": "71d0d069-b636-49ff-b66c-98504dd90809",
+              "name": "friction",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.5
+              }
+            },
+            "b04269c0-fde9-44d2-9b51-dff39378b359": {
+              "id": "b04269c0-fde9-44d2-9b51-dff39378b359",
+              "name": "restitution",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "e8bad1fd-e9f2-498d-845f-5c9222a38efc": {
+              "id": "e8bad1fd-e9f2-498d-845f-5c9222a38efc",
+              "name": "density",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "3a499531-1414-45fc-a167-3601581b2221": {
+              "id": "3a499531-1414-45fc-a167-3601581b2221",
+              "name": "can_rotate",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            }
+          },
           "images": [],
           "sounds": [],
           "script": null

@@ -125,10 +125,11 @@ impl FileMenu {
                 let mut path_str = self.temp_project_path.to_string_lossy().into_owned();
                 if ui.text_edit_singleline(&mut path_str).changed() {
                     self.temp_project_path = PathBuf::from(&path_str);
+                    self.error_message.clear();
                 }
                 
                 ui.horizontal(|ui| {
-                    if ui.button("Open").clicked() {
+                    if ui.button("Open").clicked() && !path_str.is_empty() {
                         if !self.temp_project_path.exists() {
                             self.error_message = "Error: Path does not exist.".to_string();
                         } else {
@@ -140,6 +141,7 @@ impl FileMenu {
                                     gui_state.project_name = metadata.project_name.clone();
                                     gui_state.project_path = metadata.project_path.clone().into();
                                     gui_state.load_project = true;
+                                    gui_state.project_loaded = true;
 
                                     gui_state.project_metadata = Some(metadata);
                                     gui_state.scene_manager = Some(scene_manager);
@@ -163,7 +165,7 @@ impl FileMenu {
                     }
                 });
 
-                if !self.error_message.is_empty() {
+                if !self.error_message.is_empty() && !self.temp_project_path.as_os_str().is_empty() {
                     ui.colored_label(egui::Color32::RED, &self.error_message);
                 }
 
