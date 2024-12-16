@@ -2,17 +2,18 @@ use rodio::{Decoder, OutputStream, OutputStreamHandle, Sink, Source};
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use uuid::Uuid;
-use crate::ecs::{Scene, Resource, ResourceType};
+use crate::ecs::{Scene, Entity};
 use lofty::{Probe, AudioFile};
 
 pub struct AudioEngine {
     stream: OutputStream,
     stream_handle: OutputStreamHandle,
     active_sounds: HashMap<Uuid, Sink>,
-    scene_sound_cache: HashMap<Uuid, HashMap<Uuid, Vec<u8>>>,
+    sound_cache: HashMap<Uuid, Vec<u8>>,  // Path hash -> sound data
     immediate_sink: Option<Sink>,
-    duration_cache: HashMap<String, f32>,
+    duration_cache: HashMap<Uuid, f32>,
 }
 
 impl AudioEngine {
@@ -22,48 +23,76 @@ impl AudioEngine {
             stream,
             stream_handle,
             active_sounds: HashMap::new(),
-            scene_sound_cache: HashMap::new(),
+            sound_cache: HashMap::new(),
             immediate_sink: None,
             duration_cache: HashMap::new(),
         }
     }
 
+    // Generate deterministic UUID from path
+    fn path_to_uuid(path: &Path) -> Uuid {
+        use sha2::{Sha256, Digest};
+        let mut hasher = Sha256::new();
+        hasher.update(path.to_string_lossy().as_bytes());
+        let result = hasher.finalize();
+        
+        let mut bytes = [0u8; 16];
+        bytes.copy_from_slice(&result[..16]);
+        bytes[6] = (bytes[6] & 0x0f) | 0x40;
+        bytes[8] = (bytes[8] & 0x3f) | 0x80;
+        
+        Uuid::from_bytes(bytes)
+    }
+
     // === Loading Operations ===
     
-    // Single file loading
-    pub fn load_sound(&self, path: &str) -> Result<Vec<u8>, String> {
+    fn load_sound(&mut self, path: &Path) -> Result<Uuid, String> {
+        let sound_id = Self::path_to_uuid(path);
+        
+        if self.sound_cache.contains_key(&sound_id) {
+            return Ok(sound_id);
+        }
+
         let file = File::open(path)
-            .map_err(|e| format!("Failed to open sound file {}: {}", path, e))?;
+            .map_err(|e| format!("Failed to open sound file {:?}: {}", path, e))?;
         
         let mut reader = BufReader::new(file);
         let mut data = Vec::new();
         reader.read_to_end(&mut data)
-            .map_err(|e| format!("Failed to read sound file {}: {}", path, e))?;
+            .map_err(|e| format!("Failed to read sound file {:?}: {}", path, e))?;
         
-        Ok(data)
-    }
-
-    // Batch loading
-    pub fn load_scene_sounds(&mut self, scene: &Scene) -> Result<(), String> {
-        let mut scene_cache = HashMap::new();
+        self.sound_cache.insert(sound_id, data);
         
-        let sound_resources: Vec<(&Uuid, &Resource)> = scene.resources.iter()
-            .filter(|(_, resource)| resource.resource_type == ResourceType::Sound)
-            .collect();
-
-        for (resource_id, resource) in sound_resources {
-            let data = self.load_sound(&resource.file_path)?;
-            scene_cache.insert(*resource_id, data);
+        if let Ok(duration) = self.get_audio_duration(path) {
+            self.duration_cache.insert(sound_id, duration);
         }
 
-        self.scene_sound_cache.insert(scene.id, scene_cache);
+        Ok(sound_id)
+    }
+
+    // Load sounds for an entity
+    pub fn load_entity_sounds(&mut self, entity: &Entity) -> Result<(), String> {
+        for path in &entity.sounds {
+            self.load_sound(path)?;
+        }
+        Ok(())
+    }
+
+    // Load sounds for a scene
+    pub fn load_scene_sounds(&mut self, scene: &Scene) -> Result<(), String> {
+        for (_, entity) in &scene.entities {
+            self.load_entity_sounds(entity)?;
+        }
         Ok(())
     }
 
     // === Playback Operations ===
     
-    // Core playback with optional cleanup
-    fn play_sound_data(&mut self, data: &Vec<u8>, cleanup: bool) -> Result<Uuid, String> {
+    pub fn play_sound(&mut self, path: &Path) -> Result<Uuid, String> {
+        let sound_id = self.load_sound(path)?;
+        let data = self.sound_cache.get(&sound_id)
+            .ok_or("Sound not found in cache")?;
+        
         let cursor = std::io::Cursor::new(data.clone());
         let source = Decoder::new(cursor)
             .map_err(|e| format!("Failed to decode sound: {}", e))?;
@@ -73,41 +102,24 @@ impl AudioEngine {
         
         sink.append(source);
         
-        let id = Uuid::new_v4();
-        self.active_sounds.insert(id, sink);
-
-        // If cleanup is true, the sink will be removed once it's empty
-        if cleanup {
-            self.update();  // Clean up any finished sounds
-        }
+        let play_id = Uuid::new_v4();
+        self.active_sounds.insert(play_id, sink);
         
-        Ok(id)
+        Ok(play_id)
     }
 
-    // Play a cached scene sound (no cleanup needed)
-    pub fn play_scene_sound(&mut self, scene_id: Uuid, resource_id: Uuid) -> Result<Uuid, String> {
-        let data = self.scene_sound_cache
-            .get(&scene_id)
-            .ok_or("Scene sounds not loaded")?
-            .get(&resource_id)
-            .ok_or("Sound resource not found in scene cache")?
-            .clone();
-        
-        self.play_sound_data(&data, false)  // No cleanup for cached sounds
-    }
-
-    // Play a sound file immediately without tracking it
-    pub fn play_sound_immediate(&mut self, path: &str) -> Result<(), String> {
-        // Stop any existing immediate playback
+    // Play a sound file immediately
+    pub fn play_sound_immediate(&mut self, path: &Path) -> Result<(), String> {
         if let Some(sink) = &self.immediate_sink {
             sink.stop();
         }
 
-        let file = File::open(path)
-            .map_err(|e| format!("Failed to open sound file {}: {}", path, e))?;
-        
-        let reader = BufReader::new(file);
-        let source = Decoder::new(reader)
+        let sound_id = self.load_sound(path)?;
+        let data = self.sound_cache.get(&sound_id)
+            .ok_or("Sound not found in cache")?;
+
+        let cursor = std::io::Cursor::new(data.clone());
+        let source = Decoder::new(cursor)
             .map_err(|e| format!("Failed to decode sound: {}", e))?;
 
         let sink = Sink::try_new(&self.stream_handle)
@@ -117,6 +129,13 @@ impl AudioEngine {
         self.immediate_sink = Some(sink);
         
         Ok(())
+    }
+
+    pub fn stop_immediate(&mut self) {
+        if let Some(sink) = &self.immediate_sink {
+            sink.stop();
+        }
+        self.immediate_sink = None;
     }
 
     // === Control Operations ===
@@ -184,34 +203,42 @@ impl AudioEngine {
         }
     }
 
+    // === Memory Management ===
+    
     pub fn cleanup(&mut self) {
-        // Stop all playing sounds
         self.stop_all();
-        
-        // Clear sound buffers and caches
-        self.scene_sound_cache.clear();
+        self.stop_immediate();
+        self.sound_cache.clear();
+        self.duration_cache.clear();
     }
 
-    // Stop immediate mode playback
-    pub fn stop_immediate(&mut self) {
-        if let Some(sink) = &self.immediate_sink {
-            sink.stop();
-        }
-        self.immediate_sink = None;
+    pub fn clear_cache(&mut self) {
+        self.sound_cache.clear();
+        self.duration_cache.clear();
     }
 
-    pub fn get_audio_duration(&self, path: &str) -> Result<f32, String> {
-        // Open and probe the file
+    pub fn unload_sound(&mut self, path: &Path) {
+        let sound_id = Self::path_to_uuid(path);
+        self.sound_cache.remove(&sound_id);
+        self.duration_cache.remove(&sound_id);
+    }
+
+    pub fn get_memory_usage(&self) -> usize {
+        self.sound_cache.values()
+            .map(|data| data.len())
+            .sum()
+    }
+
+    // === Metadata Operations ===
+    pub fn get_audio_duration(&self, path: &Path) -> Result<f32, String> {
         let tagged_file = Probe::open(path)
-            .map_err(|e| format!("Failed to open audio file: {}", e))?
+            .map_err(|e| format!("Failed to open audio file: {:?}: {}", path, e))?
             .read()
-            .map_err(|e| format!("Failed to read audio file: {}", e))?;
+            .map_err(|e| format!("Failed to read audio file: {:?}: {}", path, e))?;
 
-        // Get the properties (including duration)
         let properties = tagged_file.properties();
         let duration = properties.duration();
         
-        // Convert duration to seconds
         Ok(duration.as_secs_f32())
     }
 }

@@ -18,6 +18,13 @@ pub struct ProjectMetadata {
     pub active_scene_id: Option<Uuid>, // Currently active scene's UUID
 }
 
+// Add a new struct to represent project loading result
+#[derive(Debug)]
+pub struct LoadedProject {
+    pub metadata: ProjectMetadata,
+    pub scene_manager: SceneManager,
+}
+
 // Main project management structure
 pub struct ProjectManager;
 
@@ -27,7 +34,7 @@ impl ProjectManager {
 
     // Creates a new game project at the specified path
     // Sets up folder structure, creates initial files, and initializes scene manager
-    pub fn create_project(project_path: &Path) -> Result<(), String> {
+    pub fn create_project(project_path: &Path) -> Result<LoadedProject, String> {
         // Extract project name from path
         let project_name = project_path.file_name()
             .and_then(|name| name.to_str())
@@ -51,7 +58,11 @@ impl ProjectManager {
         let scene_manager = SceneManager::new();
         Self::save_scene_hierarchy(project_path, &scene_manager)?;
 
-        Ok(())
+        // Return LoadedProject just like load_project_full does
+        Ok(LoadedProject {
+            metadata,
+            scene_manager,
+        })
     }
 
     // Creates the standard folder structure for a new project
@@ -326,10 +337,28 @@ my_game_engine = {{ path = "../path/to/engine" }}
     }
 
     // Loads both project metadata and scene hierarchy
-    pub fn load_project_full(project_path: &Path) -> Result<(ProjectMetadata, SceneManager), String> {
+    pub fn load_project_full(project_path: &Path) -> Result<LoadedProject, String> {
+        // First check for EPM file
+        if !Self::is_valid_project_directory(project_path) {
+            return Err("Not a valid project - missing project.epm file".to_string());
+        }
+
+        //valid project structure
+        if !Self::validate_project_structure(project_path).is_ok() {
+            return Err("Project structure is invalid".to_string());
+        }
+
+        // Load and update project metadata (this will update and save the new path)
         let metadata = Self::load_project(project_path)?;
+        
+        // Load scene manager
         let scene_manager = Self::load_scene_hierarchy(project_path)?;
-        Ok((metadata, scene_manager))
+        
+        // Return loaded project with updated metadata
+        Ok(LoadedProject {
+            metadata,
+            scene_manager,
+        })
     }
 
     // Saves both project metadata and scene hierarchy
@@ -343,9 +372,42 @@ my_game_engine = {{ path = "../path/to/engine" }}
         Ok(())
     }
 
-    // Add new helper method
+    // Modify is_valid_project_directory to be more explicit
     pub fn is_valid_project_directory(path: &Path) -> bool {
         path.join(Self::PROJECT_FILE_NAME).exists()
+    }
+
+    // Modify validate_project_structure to check EPM file first
+    pub fn validate_project_structure(project_path: &Path) -> Result<(), String> {
+        // First and most important check - EPM file
+        if !project_path.join(Self::PROJECT_FILE_NAME).exists() {
+            return Err("Not a valid project - missing project.epm file".to_string());
+        }
+
+        let required_folders = [
+            "assets/images",
+            "assets/sounds",
+            "assets/fonts",
+            "assets/scripts",
+            "scenes",
+            "src",
+        ];
+
+        // Then check folders
+        for folder in &required_folders {
+            let folder_path = project_path.join(folder);
+            if !folder_path.exists() {
+                return Err(format!("Required folder '{}' is missing", folder));
+            }
+        }
+
+        // Finally check scene manager
+        let scene_file = project_path.join("scenes").join("scene_manager.json");
+        if !scene_file.exists() {
+            return Err("Scene manager file is missing".to_string());
+        }
+
+        Ok(())
     }
 }
 

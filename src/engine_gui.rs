@@ -330,7 +330,7 @@ impl EngineGui {
                                     ui.add_space((ui.available_width() - 170.0) * 0.5);
                                     
                                     // Check if a project is loaded
-                                    if self.gui_state.project_path.is_empty() {
+                                    if !self.gui_state.has_valid_project() {
                                         // No project loaded - show disabled buttons or message
                                         ui.add_enabled(false, egui::Button::new("▶ Play"));
                                         ui.add_enabled(false, egui::Button::new("⏸ Pause"));

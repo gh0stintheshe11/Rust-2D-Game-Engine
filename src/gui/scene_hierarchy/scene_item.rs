@@ -3,7 +3,6 @@ use crate::gui::gui_state::{GuiState, SelectedItem, ScenePanelSelectedItem};
 use egui::{Context, Ui};
 use uuid::Uuid;
 use crate::ecs::Scene;
-use crate::gui::scene_hierarchy::resource_item::ResourceItem;
 
 pub struct SceneItem;
 
@@ -42,20 +41,7 @@ impl SceneItem {
                     SceneItem::tree_item_scene(ui, scene_id, &scene.name, hierarchy, gui_state);
                 })
                 .body(|ui| {
-                    // Resources branch
-                    egui::CollapsingHeader::new("📦 Resources")
-                        .default_open(true)
-                        .show(ui, |ui| {
-                            let resource_list: Vec<Uuid> = scene.resources.keys().cloned().collect();
-                            ResourceItem::show_resources(ui, scene_id, &Uuid::nil(), &resource_list, hierarchy, gui_state);
-                        });
-
-                    // Entities branch
-                    egui::CollapsingHeader::new("🎮 Entities")
-                        .default_open(true)
-                        .show(ui, |ui| {
-                            EntityItem::show_entities(ui, ctx, hierarchy, gui_state, scene_id, &scene.entities);
-                        });
+                    EntityItem::show_entities(ui, ctx, hierarchy, gui_state, scene_id, &scene.entities);
                 });
         }
     }
@@ -79,10 +65,6 @@ impl SceneItem {
         }
 
         response.context_menu(|ui| {
-            if ui.button("Manage Scene Resources").clicked() {
-                hierarchy.popup_manager.start_manage_scene_resources(*scene_id);
-                ui.close_menu();
-            }
             if ui.button("Rename").clicked() {
                 hierarchy.popup_manager.start_rename_scene(*scene_id, scene_name.to_string());
                 ui.close_menu();

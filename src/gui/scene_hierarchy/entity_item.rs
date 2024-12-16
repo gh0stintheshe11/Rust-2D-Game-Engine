@@ -30,14 +30,25 @@ impl EntityItem {
 
             let header_id = ui.make_persistent_id(entity_id);
 
-            // Show as collapsable if has resources, otherwise show as label.
-            if !entity.resource_list.is_empty() {
+            // Show as collapsable if has images or sounds, otherwise show as label.
+            if !entity.images.is_empty() || !entity.sounds.is_empty() {
                 egui::collapsing_header::CollapsingState::load_with_default_open(ctx, header_id, true)
                     .show_header(ui, |ui| {
                         EntityItem::tree_item_entity(ui, scene_id, entity_id, &entity.name, hierarchy, gui_state);
                     })
                     .body(|ui| {
-                        ResourceItem::show_resources(ui, scene_id, entity_id, &entity.resource_list, hierarchy, gui_state);
+                        if !entity.images.is_empty() {
+                            ui.label("Images:");
+                            for path in &entity.images {
+                                ui.label(path.to_string_lossy().to_string());
+                            }
+                        }
+                        if !entity.sounds.is_empty() {
+                            ui.label("Sounds:");
+                            for path in &entity.sounds {
+                                ui.label(path.to_string_lossy().to_string());
+                            }
+                        }
                     });
             } else {
                 ui.horizontal(|ui| {
@@ -47,7 +58,14 @@ impl EntityItem {
         }
     }
 
-    fn tree_item_entity(ui: &mut Ui, scene_id: &Uuid, entity_id: &Uuid, entity_name: &str, hierarchy: &mut SceneHierarchy, gui_state: &mut GuiState) {
+    pub fn tree_item_entity(
+        ui: &mut Ui,
+        scene_id: &Uuid,
+        entity_id: &Uuid,
+        entity_name: &str,
+        hierarchy: &mut SceneHierarchy,
+        gui_state: &mut GuiState,
+    ) {
         let selected = matches!(
             gui_state.scene_panel_selected_item,
             ScenePanelSelectedItem::Entity(s_id, e_id) if s_id == *scene_id && e_id == *entity_id
@@ -60,15 +78,14 @@ impl EntityItem {
         }
 
         response.context_menu(|ui| {
-            if ui.button("Manage Resources").clicked() {
-                hierarchy.popup_manager.manage_resources_entity = Some((*scene_id, *entity_id));
-                hierarchy.popup_manager.manage_resource_popup_active = true;
+            if ui.button("Manage Assets").clicked() {
+                hierarchy.popup_manager.manage_assets_entity = Some((*scene_id, *entity_id));
+                hierarchy.popup_manager.manage_assets_popup_active = true;
                 ui.close_menu();
             }
             if ui.button("Rename").clicked() {
                 hierarchy.popup_manager.entity_rename_entity = Some((*scene_id, *entity_id));
                 hierarchy.popup_manager.rename_input = entity_name.to_string();
-                hierarchy.popup_manager.start_rename_entity(*scene_id, *entity_id, entity_name.to_string());
                 ui.close_menu();
             }
             if ui.button("Delete").clicked() {

@@ -24,7 +24,7 @@ chrono = "0.4.39"
 indexmap = { version = "2.2.3", features = ["serde", "rayon"] }
 rayon = "1.10.0"
 lofty = "0.15.0"
-
+sha2 = "0.10.8"
 [dev-dependencies]
 mockall = "0.11"
 

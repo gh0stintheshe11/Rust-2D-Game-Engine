@@ -113,36 +113,26 @@ impl PhysicsEngine {
         self.integration_parameters.joint_natural_frequency = frequency;
     }
 
-    fn create_collider(&self, entity: &Entity, scene: &Scene, density: f32, friction: f32, restitution: f32) -> Collider {
-        // Get sprite resource ID
-        let sprite_id = entity.get_attribute_by_name("sprite")
-            .and_then(|attr| if let AttributeValue::String(id) = &attr.value {
-                Uuid::parse_str(id).ok()
-            } else { None });
-
-        // Get sprite dimensions from resource
-        let collider_builder = if let Some(sprite_id) = sprite_id {
-            if let Some(resource) = scene.get_resource(sprite_id) {
-                // Get image dimensions
-                if let Ok(img) = image::open(&resource.file_path) {
-                    let (width, height) = img.dimensions();
-                    
-                    // If width and height are similar, use circle
-                    if (width as f32 / height as f32).abs() > 0.9 
-                       && (width as f32 / height as f32).abs() < 1.1 {
-                        ColliderBuilder::ball(width as f32 / 2.0)
-                    } else {
-                        // Otherwise use box
-                        ColliderBuilder::cuboid(width as f32 / 2.0, height as f32 / 2.0)
-                    }
+    fn create_collider(&self, entity: &Entity, density: f32, friction: f32, restitution: f32) -> Collider {
+        // Get first image path from entity (assuming first image is the sprite)
+        let collider_builder = if let Some(image_path) = entity.get_image(0) {
+            // Get image dimensions
+            if let Ok(img) = image::open(image_path) {
+                let (width, height) = img.dimensions();
+                
+                // If width and height are similar, use circle
+                if (width as f32 / height as f32).abs() > 0.9 
+                   && (width as f32 / height as f32).abs() < 1.1 {
+                    ColliderBuilder::ball(width as f32 / 2.0)
                 } else {
-                    ColliderBuilder::ball(0.5) // Default if can't load image
+                    // Otherwise use box
+                    ColliderBuilder::cuboid(width as f32 / 2.0, height as f32 / 2.0)
                 }
             } else {
-                ColliderBuilder::ball(0.5) // Default if resource not found
+                ColliderBuilder::ball(0.5) // Default if can't load image
             }
         } else {
-            ColliderBuilder::ball(0.5) // Default if no sprite
+            ColliderBuilder::ball(0.5) // Default if no image
         };
 
         // Add physics properties
@@ -153,7 +143,7 @@ impl PhysicsEngine {
             .build()
     }
 
-    pub fn add_entity(&mut self, entity: &Entity, scene: &Scene) {
+    pub fn add_entity(&mut self, entity: &Entity) {
         // Store position attribute ID for quick updates
         if let Some(pos_attr) = entity.get_attribute_by_name("position") {
             self.entity_position_attrs.insert(entity.id, pos_attr.id);
@@ -219,7 +209,7 @@ impl PhysicsEngine {
 
         // Create collider with automatic shape detection
         if has_collision {
-            let collider = self.create_collider(entity, scene, density, friction, restitution);
+            let collider = self.create_collider(entity, density, friction, restitution);
             let collider_handle = self.collider_set
                 .insert_with_parent(collider, rb_handle, &mut self.rigid_body_set);
             self.entity_to_collider.insert(entity.id, collider_handle);
@@ -330,7 +320,7 @@ impl PhysicsEngine {
 
     pub fn load_scene(&mut self, scene: &Scene) {
         for (_, entity) in &scene.entities {
-            self.add_entity(entity, scene);
+            self.add_entity(entity);
         }
     }
 

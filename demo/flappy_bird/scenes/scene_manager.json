@@ -1,15 +1,15 @@
 {
   "scenes": {
-    "41d2288f-2b5f-48a5-91ad-2d015711fd3a": {
-      "id": "c24019be-e51e-45a3-a3f8-0c3ed00881ea",
+    "df0a3af8-4a76-4769-8e8a-51162c15d4a5": {
+      "id": "25d63b6d-71d0-4a21-9f7b-4ee97345078a",
       "name": "game_main",
       "entities": {
-        "d771b234-8ac7-40ad-8d26-978fd140885e": {
-          "id": "d771b234-8ac7-40ad-8d26-978fd140885e",
+        "2af4d005-b6aa-46fe-b8cb-9b074f7a8144": {
+          "id": "2af4d005-b6aa-46fe-b8cb-9b074f7a8144",
           "name": "main_camera",
           "attributes": {
-            "738fe760-7f45-412b-a6d2-f854d5452434": {
-              "id": "738fe760-7f45-412b-a6d2-f854d5452434",
+            "db26d8a8-5213-4ba5-beb8-8f9bb539c3b6": {
+              "id": "db26d8a8-5213-4ba5-beb8-8f9bb539c3b6",
               "name": "position",
               "data_type": "Vector2",
               "value": {
@@ -19,24 +19,24 @@
                 ]
               }
             },
-            "c865e30e-21ec-40e6-a00d-22921b290f2b": {
-              "id": "c865e30e-21ec-40e6-a00d-22921b290f2b",
+            "d75fa534-683e-4798-9335-c527f8cb2777": {
+              "id": "d75fa534-683e-4798-9335-c527f8cb2777",
               "name": "zoom",
               "data_type": "Float",
               "value": {
                 "Float": 1.0
               }
             },
-            "079aa5af-b5e5-4936-a421-1282531b2d41": {
-              "id": "079aa5af-b5e5-4936-a421-1282531b2d41",
+            "3f2e56e0-1276-4a32-9d36-e865aedac562": {
+              "id": "3f2e56e0-1276-4a32-9d36-e865aedac562",
               "name": "rotation",
               "data_type": "Float",
               "value": {
                 "Float": 0.0
               }
             },
-            "cdcd0ef0-73d3-48fb-8d37-c26b8996a746": {
-              "id": "cdcd0ef0-73d3-48fb-8d37-c26b8996a746",
+            "61e39ee9-fc3e-40b4-92df-6ff023f12b95": {
+              "id": "61e39ee9-fc3e-40b4-92df-6ff023f12b95",
               "name": "is_camera",
               "data_type": "Boolean",
               "value": {
@@ -44,373 +44,45 @@
               }
             }
           },
-          "resource_list": []
+          "images": [],
+          "sounds": [],
+          "script": null
         },
-        "c2a86b34-3407-46b3-a554-2908f920d3a8": {
-          "id": "c2a86b34-3407-46b3-a554-2908f920d3a8",
+        "22f4fc5a-f970-4bcb-a9ef-47d41417e3c8": {
+          "id": "22f4fc5a-f970-4bcb-a9ef-47d41417e3c8",
           "name": "bird",
-          "attributes": {
-            "e4b58b30-5307-4dae-8893-51a2c3a9abf5": {
-              "id": "e4b58b30-5307-4dae-8893-51a2c3a9abf5",
-              "name": "position",
-              "data_type": "Vector2",
-              "value": {
-                "Vector2": [
-                  0.0,
-                  0.0
-                ]
-              }
-            },
-            "bec37cba-9984-4983-99ca-4860c19b9b99": {
-              "id": "bec37cba-9984-4983-99ca-4860c19b9b99",
-              "name": "is_movable",
-              "data_type": "Boolean",
-              "value": {
-                "Boolean": false
-              }
-            },
-            "d3fd1f22-4915-4431-8382-88244e6144f6": {
-              "id": "d3fd1f22-4915-4431-8382-88244e6144f6",
-              "name": "has_gravity",
-              "data_type": "Boolean",
-              "value": {
-                "Boolean": false
-              }
-            },
-            "24544d74-1c05-4ddc-859d-203a55013e34": {
-              "id": "24544d74-1c05-4ddc-859d-203a55013e34",
-              "name": "creates_gravity",
-              "data_type": "Boolean",
-              "value": {
-                "Boolean": false
-              }
-            },
-            "50bfb906-7498-4e83-be0e-79380e691bc6": {
-              "id": "50bfb906-7498-4e83-be0e-79380e691bc6",
-              "name": "has_collision",
-              "data_type": "Boolean",
-              "value": {
-                "Boolean": true
-              }
-            },
-            "11ec05a9-c161-43c9-8383-e80755b87520": {
-              "id": "11ec05a9-c161-43c9-8383-e80755b87520",
-              "name": "friction",
-              "data_type": "Float",
-              "value": {
-                "Float": 0.5
-              }
-            },
-            "cbde7591-9cce-4245-9693-a6a3fba118ce": {
-              "id": "cbde7591-9cce-4245-9693-a6a3fba118ce",
-              "name": "restitution",
-              "data_type": "Float",
-              "value": {
-                "Float": 0.0
-              }
-            },
-            "6b9033fb-3f38-4e25-9ed9-f69373d63d75": {
-              "id": "6b9033fb-3f38-4e25-9ed9-f69373d63d75",
-              "name": "density",
-              "data_type": "Float",
-              "value": {
-                "Float": 1.0
-              }
-            },
-            "bf2130c9-a3b9-456c-b79d-47714a7a87e1": {
-              "id": "bf2130c9-a3b9-456c-b79d-47714a7a87e1",
-              "name": "can_rotate",
-              "data_type": "Boolean",
-              "value": {
-                "Boolean": false
-              }
-            }
-          },
-          "resource_list": []
-        },
-        "e56eeede-b4a7-4094-8d0c-a12ddb83f72c": {
-          "id": "e56eeede-b4a7-4094-8d0c-a12ddb83f72c",
-          "name": "bg",
           "attributes": {},
-          "resource_list": []
+          "images": [],
+          "sounds": [],
+          "script": null
         },
-        "22c9de36-a972-42ad-87ce-b496a9cdb037": {
-          "id": "22c9de36-a972-42ad-87ce-b496a9cdb037",
-          "name": "pipes",
-          "attributes": {
-            "5d48c275-8421-4913-90ac-f1456679d2b2": {
-              "id": "5d48c275-8421-4913-90ac-f1456679d2b2",
-              "name": "position",
-              "data_type": "Vector2",
-              "value": {
-                "Vector2": [
-                  0.0,
-                  0.0
-                ]
-              }
-            },
-            "74e1673a-79fe-4b78-bd20-856cedaff538": {
-              "id": "74e1673a-79fe-4b78-bd20-856cedaff538",
-              "name": "is_movable",
-              "data_type": "Boolean",
-              "value": {
-                "Boolean": false
-              }
-            },
-            "1a5277a1-eedd-4645-aa60-9ba5bedbbcfa": {
-              "id": "1a5277a1-eedd-4645-aa60-9ba5bedbbcfa",
-              "name": "has_gravity",
-              "data_type": "Boolean",
-              "value": {
-                "Boolean": false
-              }
-            },
-            "cd8d96c9-5009-4996-8f73-14bc8a9e1f79": {
-              "id": "cd8d96c9-5009-4996-8f73-14bc8a9e1f79",
-              "name": "creates_gravity",
-              "data_type": "Boolean",
-              "value": {
-                "Boolean": false
-              }
-            },
-            "e9f6d96f-6223-4edd-8d1b-e1987f9b37ba": {
-              "id": "e9f6d96f-6223-4edd-8d1b-e1987f9b37ba",
-              "name": "has_collision",
-              "data_type": "Boolean",
-              "value": {
-                "Boolean": true
-              }
-            },
-            "99625d83-dfac-4384-8af6-e0148c8c6a90": {
-              "id": "99625d83-dfac-4384-8af6-e0148c8c6a90",
-              "name": "friction",
-              "data_type": "Float",
-              "value": {
-                "Float": 0.5
-              }
-            },
-            "4dd9d974-2e53-4cf7-af05-bfa297c3db3c": {
-              "id": "4dd9d974-2e53-4cf7-af05-bfa297c3db3c",
-              "name": "restitution",
-              "data_type": "Float",
-              "value": {
-                "Float": 0.0
-              }
-            },
-            "85fd3ab5-9aad-48cd-97ff-8473b68a0eb6": {
-              "id": "85fd3ab5-9aad-48cd-97ff-8473b68a0eb6",
-              "name": "density",
-              "data_type": "Float",
-              "value": {
-                "Float": 1.0
-              }
-            },
-            "de1f132f-9f1e-4fe1-9e7b-315d04cea52c": {
-              "id": "de1f132f-9f1e-4fe1-9e7b-315d04cea52c",
-              "name": "can_rotate",
-              "data_type": "Boolean",
-              "value": {
-                "Boolean": false
-              }
-            }
-          },
-          "resource_list": []
+        "5f5e2d63-5d6d-42c9-b82f-f317679ef5b1": {
+          "id": "5f5e2d63-5d6d-42c9-b82f-f317679ef5b1",
+          "name": "background",
+          "attributes": {},
+          "images": [],
+          "sounds": [],
+          "script": null
         },
-        "073e50db-54a3-4ac3-ab1e-99c3307ac7dd": {
-          "id": "073e50db-54a3-4ac3-ab1e-99c3307ac7dd",
+        "74f69225-e479-4cea-be1d-fab40b482a76": {
+          "id": "74f69225-e479-4cea-be1d-fab40b482a76",
           "name": "ground",
-          "attributes": {
-            "c7e29675-79ee-4cb3-9c08-81f718e7f361": {
-              "id": "c7e29675-79ee-4cb3-9c08-81f718e7f361",
-              "name": "position",
-              "data_type": "Vector2",
-              "value": {
-                "Vector2": [
-                  0.0,
-                  0.0
-                ]
-              }
-            },
-            "493a197a-e249-4e68-87fc-1383e45635d4": {
-              "id": "493a197a-e249-4e68-87fc-1383e45635d4",
-              "name": "is_movable",
-              "data_type": "Boolean",
-              "value": {
-                "Boolean": false
-              }
-            },
-            "f82caa5c-7d76-41ed-9c39-48d3bf212122": {
-              "id": "f82caa5c-7d76-41ed-9c39-48d3bf212122",
-              "name": "has_gravity",
-              "data_type": "Boolean",
-              "value": {
-                "Boolean": false
-              }
-            },
-            "bdcffb0f-66d8-4fdf-b26a-7511fdd49a17": {
-              "id": "bdcffb0f-66d8-4fdf-b26a-7511fdd49a17",
-              "name": "creates_gravity",
-              "data_type": "Boolean",
-              "value": {
-                "Boolean": false
-              }
-            },
-            "f48808bf-7771-468d-9035-bf47494b9847": {
-              "id": "f48808bf-7771-468d-9035-bf47494b9847",
-              "name": "has_collision",
-              "data_type": "Boolean",
-              "value": {
-                "Boolean": true
-              }
-            },
-            "8f521133-d89e-48f6-a07a-3e39f31852a4": {
-              "id": "8f521133-d89e-48f6-a07a-3e39f31852a4",
-              "name": "friction",
-              "data_type": "Float",
-              "value": {
-                "Float": 0.5
-              }
-            },
-            "48705b76-0e56-4997-92f4-c9a63c3d0047": {
-              "id": "48705b76-0e56-4997-92f4-c9a63c3d0047",
-              "name": "restitution",
-              "data_type": "Float",
-              "value": {
-                "Float": 0.0
-              }
-            },
-            "8c99b873-a478-40b8-a526-714392f0fb37": {
-              "id": "8c99b873-a478-40b8-a526-714392f0fb37",
-              "name": "density",
-              "data_type": "Float",
-              "value": {
-                "Float": 1.0
-              }
-            },
-            "f771d6aa-614a-4edf-8034-e8872b36b991": {
-              "id": "f771d6aa-614a-4edf-8034-e8872b36b991",
-              "name": "can_rotate",
-              "data_type": "Boolean",
-              "value": {
-                "Boolean": false
-              }
-            }
-          },
-          "resource_list": []
-        }
-      },
-      "resources": {
-        "2d9c1da8-78a2-47f9-b30c-bb704e3d53e5": {
-          "id": "2d9c1da8-78a2-47f9-b30c-bb704e3d53e5",
-          "name": "bg",
-          "file_path": "/home/lang/Rust-2D-Game-Engine/demo/flappy_bird/assets/images/bg.png",
-          "resource_type": "Image"
+          "attributes": {},
+          "images": [],
+          "sounds": [],
+          "script": null
+        },
+        "b168609f-aa60-4561-b731-b19efe4eb826": {
+          "id": "b168609f-aa60-4561-b731-b19efe4eb826",
+          "name": "pipe",
+          "attributes": {},
+          "images": [],
+          "sounds": [],
+          "script": null
         }
       },
       "shared_entity_refs": [],
-      "default_camera": "d771b234-8ac7-40ad-8d26-978fd140885e"
-    },
-    "22409291-752b-40ba-ab3f-5e4937bb4028": {
-      "id": "e167fc90-bc22-4bb1-ac1c-51151c25a597",
-      "name": "game_start",
-      "entities": {
-        "d3ef0f53-cf31-4c88-afee-fc067f2792bd": {
-          "id": "d3ef0f53-cf31-4c88-afee-fc067f2792bd",
-          "name": "main_camera",
-          "attributes": {
-            "14a9989d-6c27-4e6b-8b01-b3b5e899cbc8": {
-              "id": "14a9989d-6c27-4e6b-8b01-b3b5e899cbc8",
-              "name": "position",
-              "data_type": "Vector2",
-              "value": {
-                "Vector2": [
-                  0.0,
-                  0.0
-                ]
-              }
-            },
-            "0f97082f-f90e-4192-9a0f-2147894dca2b": {
-              "id": "0f97082f-f90e-4192-9a0f-2147894dca2b",
-              "name": "zoom",
-              "data_type": "Float",
-              "value": {
-                "Float": 1.0
-              }
-            },
-            "55c4c8a6-9d72-446f-bad7-976b46bedbeb": {
-              "id": "55c4c8a6-9d72-446f-bad7-976b46bedbeb",
-              "name": "rotation",
-              "data_type": "Float",
-              "value": {
-                "Float": 0.0
-              }
-            },
-            "8dc83efc-16d8-47d3-baa7-e9e242c9f4b3": {
-              "id": "8dc83efc-16d8-47d3-baa7-e9e242c9f4b3",
-              "name": "is_camera",
-              "data_type": "Boolean",
-              "value": {
-                "Boolean": true
-              }
-            }
-          },
-          "resource_list": []
-        }
-      },
-      "resources": {},
-      "shared_entity_refs": [],
-      "default_camera": "d3ef0f53-cf31-4c88-afee-fc067f2792bd"
-    },
-    "11729b96-1182-4b5a-bb0e-e9ddfaf9da70": {
-      "id": "407fa332-785e-45ca-a56f-82e450f9c0ea",
-      "name": "game_end",
-      "entities": {
-        "152fcf12-078e-48c8-a277-7479fdf057f2": {
-          "id": "152fcf12-078e-48c8-a277-7479fdf057f2",
-          "name": "main_camera",
-          "attributes": {
-            "a11a1732-48fd-4dd6-8c9d-53eb2b5437c2": {
-              "id": "a11a1732-48fd-4dd6-8c9d-53eb2b5437c2",
-              "name": "position",
-              "data_type": "Vector2",
-              "value": {
-                "Vector2": [
-                  0.0,
-                  0.0
-                ]
-              }
-            },
-            "c2a57fc5-9696-489c-b7f1-200b5a308603": {
-              "id": "c2a57fc5-9696-489c-b7f1-200b5a308603",
-              "name": "zoom",
-              "data_type": "Float",
-              "value": {
-                "Float": 1.0
-              }
-            },
-            "0aff4dfc-de08-40f2-82b7-4777799ce42b": {
-              "id": "0aff4dfc-de08-40f2-82b7-4777799ce42b",
-              "name": "rotation",
-              "data_type": "Float",
-              "value": {
-                "Float": 0.0
-              }
-            },
-            "9ef20540-3cf3-4e32-9ebf-fa615f89b263": {
-              "id": "9ef20540-3cf3-4e32-9ebf-fa615f89b263",
-              "name": "is_camera",
-              "data_type": "Boolean",
-              "value": {
-                "Boolean": true
-              }
-            }
-          },
-          "resource_list": []
-        }
-      },
-      "resources": {},
-      "shared_entity_refs": [],
-      "default_camera": "152fcf12-078e-48c8-a277-7479fdf057f2"
+      "default_camera": "2af4d005-b6aa-46fe-b8cb-9b074f7a8144"
     }
   },
   "shared_entities": {},

@@ -1,8 +1,8 @@
 use eframe::egui;
 use crate::gui::gui_state::{GuiState, SelectedItem};
-use crate::ecs::{AttributeValue, AttributeType, Entity, Resource, ResourceType};
+use crate::ecs::{AttributeValue, AttributeType, Entity};
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use uuid::Uuid;
 use crate::project_manager::ProjectManager;
 use crate::gui::scene_hierarchy::utils;
@@ -39,23 +39,32 @@ impl Inspector {
     }
 
     pub fn show(&mut self, ctx: &egui::Context, ui: &mut egui::Ui, gui_state: &mut GuiState) {
-        egui::ScrollArea::vertical()
-            .auto_shrink([false, false])
-            .show(ui, |ui| {
-                match &gui_state.selected_item {
-                    SelectedItem::Scene(scene_id) => self.show_scene_details(ui, *scene_id, gui_state),
-                    SelectedItem::Entity(scene_id, entity_id) => {
-                        self.show_entity_details(ui, ctx, *scene_id, *entity_id, gui_state)
+        match &gui_state.selected_item {
+            SelectedItem::Entity(scene_id, entity_id) => {
+                if let Some(entity) = gui_state.scene_manager.as_mut().unwrap()
+                    .get_scene_mut(*scene_id).unwrap()
+                    .get_entity_mut(*entity_id) 
+                {
+                    ui.label("Images:");
+                    for path in &entity.images {
+                        ui.label(path.to_string_lossy());
                     }
-                    SelectedItem::Resource(scene_id, resource_id) => {
-                        self.show_resource_details(ui, ctx, *scene_id, *resource_id, gui_state)
-                    }
-                    SelectedItem::File(file_path) => self.show_file_details(ui, file_path),
-                    SelectedItem::None => {
-                        ui.label("No item selected.");
+                    
+                    ui.label("Sounds:");
+                    for path in &entity.sounds {
+                        ui.label(path.to_string_lossy());
                     }
                 }
-            });
+            }
+            SelectedItem::Scene(scene_id) => self.show_scene_details(ui, *scene_id, gui_state),
+            SelectedItem::File(file_path) => self.show_file_details(ui, file_path),
+            SelectedItem::Asset(scene_id, entity_id, asset_path) => {
+                self.show_file_details(ui, asset_path);
+            }
+            SelectedItem::None => {
+                ui.label("No item selected.");
+            }
+        }
     }
 
     // Display scene information
@@ -67,7 +76,6 @@ impl Inspector {
                 ui.label(format!("Name: {}", scene.name));
                 ui.label(format!("ID: {}", scene_id));
                 ui.label(format!("Number of Entities: {}", scene.entities.len()));
-                ui.label(format!("Number of Resources: {}", scene.resources.len()));
             } else {
                 ui.label("Scene not found.");
             }
@@ -149,7 +157,7 @@ impl Inspector {
                             // Show file info
                             ui.separator();
                             ui.label("Path:");
-                            ui.label(format!("{}", file_path.display()));
+                            ui.label(format!("{}", file_path.to_string_lossy()));
                             ui.separator();
                             ui.label(format!("Size: {}", format_file_size(metadata.len())));
                             ui.separator();
@@ -159,10 +167,8 @@ impl Inspector {
                     "mp3" | "wav" | "ogg" => {
                         ui.horizontal(|ui| {
                             if ui.button("▶ Play").clicked() {
-                                if let Some(path_str) = file_path.to_str() {
-                                    if let Err(e) = self.audio_engine.play_sound_immediate(path_str) {
-                                        println!("Failed to play sound: {}", e);
-                                    }
+                                if let Err(e) = self.audio_engine.play_sound_immediate(file_path) {
+                                    println!("Failed to play sound: {}", e);
                                 }
                             }
                             
@@ -173,35 +179,33 @@ impl Inspector {
                         
                         ui.separator();
                         ui.label("Path:");
-                        ui.label(format!("{}", file_path.display()));
+                        ui.label(format!("{}", file_path.to_string_lossy()));
                         ui.separator();
                         
-                        if let Some(path_str) = file_path.to_str() {
-                            match self.audio_engine.get_audio_duration(path_str) {
-                                Ok(duration) => {
-                                    let duration_text = {
-                                        let total_seconds = duration.round() as i64;
-                                        let seconds = total_seconds % 60;
-                                        let minutes = (total_seconds / 60) % 60;
-                                        let hours = (total_seconds / 3600) % 24;
-                                        let days = total_seconds / 86400;
+                        match self.audio_engine.get_audio_duration(file_path) {
+                            Ok(duration) => {
+                                let duration_text = {
+                                    let total_seconds = duration.round() as i64;
+                                    let seconds = total_seconds % 60;
+                                    let minutes = (total_seconds / 60) % 60;
+                                    let hours = (total_seconds / 3600) % 24;
+                                    let days = total_seconds / 86400;
 
-                                        if days > 0 {
-                                            format!("Duration: {}d {}h {}m {}s", days, hours, minutes, seconds)
-                                        } else if hours > 0 {
-                                            format!("Duration: {}h {}m {}s", hours, minutes, seconds)
-                                        } else if minutes > 0 {
-                                            format!("Duration: {}m {}s", minutes, seconds)
-                                        } else {
-                                            format!("Duration: {}s", seconds)
-                                        }
-                                    };
-                                    ui.label(duration_text);
-                                    ui.separator();
-                                }
-                                Err(e) => {
-                                    println!("Failed to get audio duration: {}", e);
-                                }
+                                    if days > 0 {
+                                        format!("Duration: {}d {}h {}m {}s", days, hours, minutes, seconds)
+                                    } else if hours > 0 {
+                                        format!("Duration: {}h {}m {}s", hours, minutes, seconds)
+                                    } else if minutes > 0 {
+                                        format!("Duration: {}m {}s", minutes, seconds)
+                                    } else {
+                                        format!("Duration: {}s", seconds)
+                                    }
+                                };
+                                ui.label(duration_text);
+                                ui.separator();
+                            }
+                            Err(e) => {
+                                println!("Failed to get audio duration: {}", e);
                             }
                         }
                         
@@ -213,14 +217,14 @@ impl Inspector {
                         }
                         ui.separator();
                         ui.label("Path:");
-                        ui.label(format!("{}", file_path.display()));
+                        ui.label(format!("{}", file_path.to_string_lossy()));
                         ui.separator();
                         ui.label(format!("Size: {}", format_file_size(metadata.len())));
                     }
                     "ttf" | "otf" => {
                         ui.separator();
                         ui.label("Path:");
-                        ui.label(format!("{}", file_path.display()));
+                        ui.label(format!("{}", file_path.to_string_lossy()));
                         ui.separator();
                         ui.label(format!("Size: {}", format_file_size(metadata.len())));
                     }
@@ -228,7 +232,7 @@ impl Inspector {
                         ui.label("Unsupported file type.");
                         ui.separator();
                         ui.label("Path:");
-                        ui.label(format!("{}", file_path.display()));
+                        ui.label(format!("{}", file_path.to_string_lossy()));
                         ui.separator();
                         ui.label(format!("Size: {}", format_file_size(metadata.len())));
                     }
@@ -239,99 +243,6 @@ impl Inspector {
         } else {
             ui.label("Failed to retrieve file metadata.");
         }
-    }
-
-    /// Display resource information
-    fn show_resource_details(
-        &mut self,
-        ui: &mut egui::Ui,
-        ctx: &egui::Context,
-        scene_id: Uuid,
-        resource_id: Uuid,
-        gui_state: &mut GuiState,
-    ) {
-        // Get files in assets folder
-        let available_files = {
-            let assets_path = Path::new(&gui_state.project_path).join("assets");
-            self.get_files_recursively(&assets_path)
-                .into_iter()
-                .filter(|file| utils::is_valid_asset_file(Path::new(file)))
-                .collect::<Vec<_>>()
-        };
-
-        let mut data_updated = false;
-
-        if let Some(scene_manager) = &mut gui_state.scene_manager {
-            if let Some(scene) = scene_manager.get_scene_mut(scene_id) {
-                if let Some(resource) = scene.get_resource_mut(resource_id) {
-                    ui.label("Resource Details");
-                    ui.separator();
-                    ui.label(format!("Name: {}", resource.name));
-                    ui.label(format!("ID: {}", resource_id));
-                    ui.label(format!("Scene ID: {}", scene_id));
-                    ui.label(format!("Resource Type: {:?}", resource.resource_type));
-                    ui.separator();
-
-                    if available_files.is_empty() {
-                        ui.label("No files found under 'assets' directory.");
-                    } else {
-                        ui.label("Select a file:");
-                        let selected_file = self
-                            .editing_states
-                            .entry(resource_id)
-                            .or_insert_with(|| resource.file_path.clone());
-
-                        let truncated_path = utils::truncate_related_path(&gui_state.project_path, selected_file);
-
-                        egui::ComboBox::new(resource_id, "")
-                            .selected_text(truncated_path)
-                            .show_ui(ui, |ui| {
-                                for file in available_files.iter() {
-                                    if ui.selectable_value(selected_file, file.clone(), file).clicked() {
-                                        resource.file_path = file.clone();
-                                        if let Some(resource_type) = utils::resource_type_from_extension(Path::new(file)) {
-                                            resource.resource_type = resource_type;
-                                        }
-                                        println!("Updated resource file to: {}", resource.file_path);
-
-                                        data_updated = true;
-                                    }
-                                }
-                            });
-                    }
-                } else {
-                    ui.label("Resource not found.");
-                }
-            } else {
-                ui.label("Scene not found.");
-            }
-        } else {
-            ui.label("Scene manager is not initialized.");
-        }
-
-        if data_updated {
-            utils::save_project(gui_state);
-            println!("Save updated resource.");
-        }
-    }
-
-    fn get_files_recursively(&self, dir: &Path) -> Vec<String> {
-        let mut files = Vec::new();
-        if dir.exists() {
-            let _ = fs::read_dir(dir).map(|entries| {
-                for entry in entries.flatten() {
-                    let path = entry.path();
-                    if path.is_file() {
-                        if let Some(path_str) = path.to_str() {
-                            files.push(path_str.to_string());
-                        }
-                    } else if path.is_dir() {
-                        files.extend(self.get_files_recursively(&path));
-                    }
-                }
-            });
-        }
-        files
     }
 
     /// Display entity information
@@ -384,7 +295,7 @@ impl Inspector {
             self.data_updated = false;
             if let Some(scene_manager) = &gui_state.scene_manager {
                 if let Err(err) = ProjectManager::save_project_full(
-                    Path::new(&gui_state.project_path),
+                    &gui_state.project_path,
                     gui_state.project_metadata.as_ref().unwrap(),
                     scene_manager,
                 ) {

@@ -1,9 +1,9 @@
 use uuid::Uuid;
 use serde::{Serialize, Deserialize};
 use std::fmt;
-use crate::audio_engine::AudioEngine;
 use indexmap::IndexMap;
 use rayon::prelude::*;
+use std::path::PathBuf;
 
 //SceneManager
 // └── Manages multiple Scenes
@@ -15,7 +15,7 @@ use rayon::prelude::*;
 //          └── (Has its specific operations like play/display/edit)
 
 // =============== Scene Manager (Top Level) ===============
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SceneManager {
     pub scenes: IndexMap<Uuid, Scene>,
     pub shared_entities: IndexMap<Uuid, Entity>,
@@ -137,7 +137,6 @@ pub struct Scene {
     pub id: Uuid,
     pub name: String,
     pub entities: IndexMap<Uuid, Entity>,
-    pub resources: IndexMap<Uuid, Resource>,
     pub shared_entity_refs: Vec<Uuid>,
     pub default_camera: Option<Uuid>,
 }
@@ -148,7 +147,6 @@ impl Scene {
             id: Uuid::new_v4(),
             name: name.to_string(),
             entities: IndexMap::new(),
-            resources: IndexMap::new(),
             shared_entity_refs: Vec::new(),
             default_camera: None,
         };
@@ -190,80 +188,6 @@ impl Scene {
 
     pub fn get_entity_mut(&mut self, id: Uuid) -> Option<&mut Entity> {
         self.entities.get_mut(&id)
-    }
-
-    // Resource management
-    pub fn create_resource(
-        &mut self,
-        name: &str,
-        file_path: &str,
-        resource_type: ResourceType,
-    ) -> Uuid {
-        let id = Uuid::new_v4();
-        let resource = Resource {
-            id,
-            name: name.to_string(),
-            file_path: file_path.to_string(),
-            resource_type,
-        };
-        self.resources.insert(id, resource);
-        id
-    }
-
-    pub fn delete_resource(&mut self, id: Uuid) -> bool {
-        self.resources.shift_remove(&id).is_some()
-    }
-
-    pub fn list_resource(&self) -> Vec<(Uuid, &str)> {
-        self.resources
-            .iter()
-            .map(|(id, res)| (*id, res.name.as_str()))
-            .collect()
-    }
-
-    pub fn get_resource(&self, id: Uuid) -> Option<&Resource> {
-        self.resources.get(&id)
-    }
-
-    pub fn get_resource_mut(&mut self, id: Uuid) -> Option<&mut Resource> {
-        self.resources.get_mut(&id)
-    }
-
-    pub fn modify_resource(
-        &mut self,
-        id: Uuid,
-        new_name: Option<String>,
-        new_path: Option<String>,
-        new_type: Option<ResourceType>,
-    ) -> bool {
-        if let Some(resource) = self.resources.get_mut(&id) {
-            if let Some(name) = new_name {
-                resource.name = name;
-            }
-            if let Some(path) = new_path {
-                resource.file_path = path;
-            }
-            if let Some(res_type) = new_type {
-                resource.resource_type = res_type;
-            }
-            true
-        } else {
-            false
-        }
-    }
-
-    pub fn get_resource_by_name(&self, name: &str) -> Option<&Resource> {
-        self.resources
-            .iter()
-            .find(|(_, res)| res.name == name)
-            .map(|(_, res)| res)
-    }
-
-    pub fn get_entity_by_name(&self, name: &str) -> Option<&Entity> {
-        self.entities
-            .iter()
-            .find(|(_, ent)| ent.name == name)
-            .map(|(_, ent)| ent)
     }
 
     // Add methods to work with shared entities
@@ -356,7 +280,10 @@ pub struct Entity {
     pub id: Uuid,
     pub name: String,
     pub attributes: IndexMap<Uuid, Attribute>,
-    pub resource_list: Vec<Uuid>,
+    // Resource paths
+    pub images: Vec<PathBuf>,      // Multiple images (sprites, textures)
+    pub sounds: Vec<PathBuf>,      // Multiple sounds (effects, music)
+    pub script: Option<PathBuf>,   // Single script per entity
 }
 
 impl Entity {
@@ -365,7 +292,9 @@ impl Entity {
             id,
             name: name.to_string(),
             attributes: IndexMap::new(),
-            resource_list: Vec::new(),
+            images: Vec::new(),
+            sounds: Vec::new(),
+            script: None,
         }
     }
 
@@ -373,14 +302,66 @@ impl Entity {
         self.name = new_name.to_string();
     }
 
-    pub fn attach_resource(&mut self, resource_id: Uuid) {
-        if !self.resource_list.contains(&resource_id) {
-            self.resource_list.push(resource_id);
+    // Resource management methods
+    pub fn add_image(&mut self, path: PathBuf) {
+        if !self.images.contains(&path) {
+            self.images.push(path);
         }
     }
 
-    pub fn detach_resource(&mut self, resource_id: Uuid) {
-        self.resource_list.retain(|&id| id != resource_id);
+    pub fn remove_image(&mut self, path: &PathBuf) {
+        self.images.retain(|p| p != path);
+    }
+
+    pub fn add_sound(&mut self, path: PathBuf) {
+        if !self.sounds.contains(&path) {
+            self.sounds.push(path);
+        }
+    }
+
+    pub fn remove_sound(&mut self, path: &PathBuf) {
+        self.sounds.retain(|p| p != path);
+    }
+
+    pub fn set_script(&mut self, path: PathBuf) {
+        self.script = Some(path);
+    }
+
+    pub fn remove_script(&mut self) {
+        self.script = None;
+    }
+
+    // Helper methods to check resource existence
+    pub fn has_image(&self, path: &PathBuf) -> bool {
+        self.images.contains(path)
+    }
+
+    pub fn has_sound(&self, path: &PathBuf) -> bool {
+        self.sounds.contains(path)
+    }
+
+    pub fn has_script(&self) -> bool {
+        self.script.is_some()
+    }
+
+    pub fn list_images(&self) -> &Vec<PathBuf> {
+        &self.images
+    }
+
+    pub fn list_sounds(&self) -> &Vec<PathBuf> {
+        &self.sounds
+    }
+
+    pub fn get_image(&self, index: usize) -> Option<&PathBuf> {
+        self.images.get(index)
+    }
+
+    pub fn get_sound(&self, index: usize) -> Option<&PathBuf> {
+        self.sounds.get(index)
+    }
+
+    pub fn get_script(&self) -> Option<&PathBuf> {
+        self.script.as_ref()
     }
 
     // Attribute management
@@ -538,66 +519,6 @@ impl fmt::Display for AttributeValue {
             AttributeValue::String(value) => write!(f, "{}", value),
             AttributeValue::Boolean(value) => write!(f, "{}", value),
             AttributeValue::Vector2(x, y) => write!(f, "{}, {}", x, y),
-        }
-    }
-}
-
-// =============== Resource ===============
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct Resource {
-    pub id: Uuid,
-    pub name: String,
-    pub file_path: String,
-    pub resource_type: ResourceType,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-pub enum ResourceType {
-    Image,
-    Sound,
-    Script,
-}
-
-impl Resource {
-    pub fn display(&self) {
-        match self.resource_type {
-            ResourceType::Image => println!("Displaying image: {}", self.file_path),
-            _ => println!("Cannot display this resource type"),
-        }
-    }
-
-    pub fn play(&self, audio_engine: &mut AudioEngine, scene_id: Uuid) -> Result<Uuid, String> {
-        match self.resource_type {
-            ResourceType::Sound => audio_engine.play_scene_sound(scene_id, self.id),
-            _ => Err("Resource is not a sound".to_string()),
-        }
-    }
-
-    pub fn pause(&self, audio_engine: &mut AudioEngine, sound_id: Uuid) -> Result<(), String> {
-        match self.resource_type {
-            ResourceType::Sound => audio_engine.pause(sound_id),
-            _ => Err("Can only pause sound resources".to_string()),
-        }
-    }
-
-    pub fn stop(&self, audio_engine: &mut AudioEngine, sound_id: Uuid) -> Result<(), String> {
-        match self.resource_type {
-            ResourceType::Sound => audio_engine.stop(sound_id),
-            _ => Err("Can only stop sound resources".to_string()),
-        }
-    }
-
-    pub fn resume(&self, audio_engine: &mut AudioEngine, sound_id: Uuid) -> Result<(), String> {
-        match self.resource_type {
-            ResourceType::Sound => audio_engine.resume(sound_id),
-            _ => Err("Can only resume sound resources".to_string()),
-        }
-    }
-
-    pub fn edit(&self) {
-        match self.resource_type {
-            ResourceType::Script => println!("Editing script: {}", self.file_path),
-            _ => println!("Can only edit script resources"),
         }
     }
 }

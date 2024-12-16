@@ -4,14 +4,14 @@ use std::path::PathBuf;
 use crate::gui::gui_state::GuiState;
 
 pub struct FileMenu {
-    temp_project_path: String,
+    temp_project_path: PathBuf,
     error_message: String,
 }
 
 impl FileMenu {
     pub fn new() -> Self {
         Self {
-            temp_project_path: String::new(),
+            temp_project_path: PathBuf::new(),
             error_message: String::new(),
         }
     }
@@ -63,22 +63,25 @@ impl FileMenu {
             .order(egui::Order::Foreground)
             .show(ctx, |ui| {
                 ui.label("Project Path:");
-                ui.text_edit_singleline(&mut self.temp_project_path);
+                let mut path_str = self.temp_project_path.to_string_lossy().into_owned();
+                if ui.text_edit_singleline(&mut path_str).changed() {
+                    self.temp_project_path = PathBuf::from(&path_str);
+                }
+                
                 ui.horizontal(|ui| {
                     if ui.button("Create").clicked() {
-                        let path = PathBuf::from(&self.temp_project_path);
-                        if path.exists() {
+                        if self.temp_project_path.exists() {
                             self.error_message = "Error: Project path already exists.".to_string();
                         } else {
-                            match ProjectManager::create_project(&path) {
+                            match ProjectManager::create_project(&self.temp_project_path) {
                                 Ok(_) => {
 
                                     // Load the created project
-                                    match ProjectManager::load_project(&path) {
+                                    match ProjectManager::load_project(&self.temp_project_path) {
                                         Ok(metadata) => {
 
                                             gui_state.project_name = metadata.project_name.clone();
-                                            gui_state.project_path = metadata.project_path.clone();
+                                            gui_state.project_path = metadata.project_path.clone().into();
                                             gui_state.load_project = true;
 
                                             gui_state.show_new_project_popup = false;
@@ -119,18 +122,23 @@ impl FileMenu {
             .order(egui::Order::Foreground)
             .show(ctx, |ui| {
                 ui.label("Project Path:");
-                ui.text_edit_singleline(&mut self.temp_project_path);
+                let mut path_str = self.temp_project_path.to_string_lossy().into_owned();
+                if ui.text_edit_singleline(&mut path_str).changed() {
+                    self.temp_project_path = PathBuf::from(&path_str);
+                }
+                
                 ui.horizontal(|ui| {
                     if ui.button("Open").clicked() {
-                        let path = PathBuf::from(&self.temp_project_path);
-                        if !path.exists() {
+                        if !self.temp_project_path.exists() {
                             self.error_message = "Error: Path does not exist.".to_string();
                         } else {
-                            match ProjectManager::load_project_full(&path) {
-                                Ok((metadata, scene_manager)) => {
+                            match ProjectManager::load_project_full(&self.temp_project_path) {
+                                Ok(loaded_project) => {
+                                    let metadata = loaded_project.metadata;
+                                    let scene_manager = loaded_project.scene_manager;
 
                                     gui_state.project_name = metadata.project_name.clone();
-                                    gui_state.project_path = metadata.project_path.clone();
+                                    gui_state.project_path = metadata.project_path.clone().into();
                                     gui_state.load_project = true;
 
                                     gui_state.project_metadata = Some(metadata);
@@ -170,11 +178,9 @@ impl FileMenu {
             return;
         }
 
-        let path = PathBuf::from(&gui_state.project_path);
-
-        match ProjectManager::load_project(&path) {
+        match ProjectManager::load_project(&gui_state.project_path) {
             Ok(metadata) => {
-                match ProjectManager::save_project(&path, &metadata) {
+                match ProjectManager::save_project(&gui_state.project_path, &metadata) {
                     Ok(_) => println!("Project saved successfully."),
                     Err(err) => println!("Error saving project: {}", err),
                 }
