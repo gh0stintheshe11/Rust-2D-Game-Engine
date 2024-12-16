@@ -1,7 +1,9 @@
+use std::path::{Path, PathBuf};
 use image::GenericImageView;
 use std::collections::HashMap;
 use uuid::Uuid;
-use crate::ecs::{Scene, ResourceType};
+use crate::ecs::Scene;
+use sha2::{Sha256, Digest};
 
 #[derive(Clone)]
 pub struct Camera {
@@ -41,9 +43,9 @@ impl Camera {
 
 #[derive(Debug, Clone)]
 pub struct TextureInfo {
-    data: Vec<u8>,
-    dimensions: (u32, u32), // Original width and height in pixels
-    aspect_ratio: f32,
+    pub data: Vec<u8>,
+    pub dimensions: (u32, u32), // Original width and height in pixels
+    pub aspect_ratio: f32,
 }
 
 // Layers for rendering order
@@ -168,26 +170,50 @@ impl Animation {
 pub struct RenderEngine {
     viewport_size: (f32, f32),
     last_frame_time: std::time::Instant,
-    scene_texture_cache: HashMap<Uuid, HashMap<Uuid, TextureInfo>>, // scene_id -> (resource_id -> texture)
-    direct_textures: HashMap<String, TextureInfo>, // For UI/preview
+    pub texture_cache: HashMap<Uuid, TextureInfo>, // Make texture_cache public
     pub camera: Camera,
 }
 
 impl RenderEngine {
-    pub fn new() -> Self {
-        Self {
-            viewport_size: (0.0, 0.0),
-            last_frame_time: std::time::Instant::now(),
-            scene_texture_cache: HashMap::new(),
-            direct_textures: HashMap::new(),
-            camera: Camera::new(),
+    // Generate deterministic UUID from path
+    fn path_to_uuid(path: &Path) -> Uuid {
+        let mut hasher = Sha256::new();
+        hasher.update(path.to_string_lossy().as_bytes());
+        let result = hasher.finalize();
+        
+        let mut bytes = [0u8; 16];
+        bytes.copy_from_slice(&result[..16]);
+        bytes[6] = (bytes[6] & 0x0f) | 0x40;
+        bytes[8] = (bytes[8] & 0x3f) | 0x80;
+        
+        Uuid::from_bytes(bytes)
+    }
+
+    // Load texture and return its ID
+    fn load_texture(&mut self, path: &Path) -> Result<Uuid, String> {
+        let texture_id = Self::path_to_uuid(path);
+        
+        if self.texture_cache.contains_key(&texture_id) {
+            return Ok(texture_id);
         }
+
+        let texture = self.load_texture_from_path(path)?;
+        self.texture_cache.insert(texture_id, texture);
+        
+        Ok(texture_id)
+    }
+
+    // Get texture data using path
+    pub fn get_texture(&self, path: &Path) -> Option<(&Vec<u8>, (u32, u32))> {
+        let texture_id = Self::path_to_uuid(path);
+        self.texture_cache.get(&texture_id)
+            .map(|info| (&info.data, info.dimensions))
     }
 
     // Core loading functionality
-    fn load_texture_from_path(&self, path: &str) -> Result<TextureInfo, String> {
+    fn load_texture_from_path(&self, path: &Path) -> Result<TextureInfo, String> {
         let img = image::open(path)
-            .map_err(|e| format!("Failed to load image {}: {}", path, e))?;
+            .map_err(|e| format!("Failed to load image {:?}: {}", path, e))?;
 
         let dimensions = img.dimensions();
         let aspect_ratio = dimensions.0 as f32 / dimensions.1 as f32;
@@ -200,45 +226,111 @@ impl RenderEngine {
         })
     }
 
-    // For scene resources
-    pub fn load_scene_textures(&mut self, scene: &Scene) -> Result<(), String> {
-        let mut scene_cache = HashMap::new();
-        
-        for (resource_id, resource) in scene.resources.iter()
-            .filter(|(_, r)| r.resource_type == ResourceType::Image)
-        {
-            let texture = self.load_texture_from_path(&resource.file_path)?;
-            scene_cache.insert(*resource_id, texture);
+    // Modified render method
+    pub fn render(&mut self, scene: &Scene) -> Vec<(Uuid, (f32, f32), (f32, f32), RenderLayer)> {
+        let mut render_queue = Vec::new();
+
+        for (_, entity) in &scene.entities {
+            if let Some(image_path) = entity.get_image(0) {
+                // Try to load the texture if it's not in cache
+                let texture_id = Self::path_to_uuid(Path::new(image_path));
+                
+                if !self.texture_cache.contains_key(&texture_id) {
+                    // Load the texture if not found
+                    if let Ok(_) = self.load_texture(Path::new(image_path)) {
+                        println!("Loaded texture: {}", image_path.to_string_lossy());
+                    }
+                }
+
+                // Get transform components
+                let transform = Transform {
+                    position: entity
+                        .get_attribute_by_name("position")
+                        .and_then(|attr| {
+                            if let crate::ecs::AttributeValue::Vector2(x, y) = attr.value {
+                                Some((x, y))
+                            } else {
+                                None
+                            }
+                        })
+                        .unwrap_or((0.0, 0.0)),
+
+                    rotation: entity
+                        .get_attribute_by_name("rotation")
+                        .and_then(|attr| {
+                            if let crate::ecs::AttributeValue::Float(r) = attr.value {
+                                Some(r)
+                            } else {
+                                None
+                            }
+                        })
+                        .unwrap_or(0.0),
+
+                    scale: entity
+                        .get_attribute_by_name("scale")
+                        .and_then(|attr| {
+                            if let crate::ecs::AttributeValue::Vector2(sx, sy) = attr.value {
+                                Some((sx, sy))
+                            } else {
+                                None
+                            }
+                        })
+                        .unwrap_or((1.0, 1.0)),
+                };
+
+                if let Some(texture_info) = self.texture_cache.get(&texture_id) {
+                    let screen_pos = self.camera.world_to_screen(transform.position);
+                    let width = texture_info.dimensions.0 as f32 * self.camera.zoom * transform.scale.0;
+                    let height = texture_info.dimensions.1 as f32 * self.camera.zoom * transform.scale.1;
+
+                    // Update visibility check to be consistent in all directions
+                    if (screen_pos.0 + width >= 0.0 && screen_pos.0 <= self.viewport_size.0) &&  // Horizontal bounds
+                       (screen_pos.1 + height >= 0.0 && screen_pos.1 <= self.viewport_size.1)     // Vertical bounds
+                    {
+                        let layer = entity
+                            .get_attribute_by_name("layer")
+                            .and_then(|attr| {
+                                if let crate::ecs::AttributeValue::Integer(layer) = attr.value {
+                                    Some(match layer {
+                                        0 => RenderLayer::Background,
+                                        1 => RenderLayer::Game,
+                                        2 => RenderLayer::UI,
+                                        3 => RenderLayer::Debug,
+                                        _ => RenderLayer::Game,
+                                    })
+                                } else {
+                                    None
+                                }
+                            })
+                            .unwrap_or(RenderLayer::Game);
+
+                        render_queue.push((
+                            texture_id,
+                            screen_pos,
+                            (width, height),
+                            layer
+                        ));
+                    }
+                }
+            }
         }
 
-        self.scene_texture_cache.insert(scene.id, scene_cache);
-        Ok(())
+        render_queue.sort_by_key(|(_, _, _, layer)| *layer);
+        render_queue
     }
 
-    // For UI/preview (direct usage)
-    pub fn load_direct_texture(&mut self, path: &str) -> Result<(), String> {
-        if !self.direct_textures.contains_key(path) {
-            let texture = self.load_texture_from_path(path)?;
-            self.direct_textures.insert(path.to_string(), texture);
+    pub fn new() -> Self {
+        Self {
+            viewport_size: (0.0, 0.0),
+            last_frame_time: std::time::Instant::now(),
+            texture_cache: HashMap::new(),
+            camera: Camera::new(),
         }
-        Ok(())
-    }
-
-    // Get texture data methods
-    pub fn get_scene_texture(&self, scene_id: Uuid, resource_id: Uuid) -> Option<(&Vec<u8>, (u32, u32))> {
-        self.scene_texture_cache.get(&scene_id)?
-            .get(&resource_id)
-            .map(|info| (&info.data, info.dimensions))
-    }
-
-    pub fn get_direct_texture(&self, path: &str) -> Option<(&Vec<u8>, (u32, u32))> {
-        self.direct_textures.get(path)
-            .map(|info| (&info.data, info.dimensions))
     }
 
     // Memory management
     pub fn cleanup_direct_textures(&mut self) {
-        self.direct_textures.clear();
+        self.texture_cache.clear();
     }
 
     // Keep existing methods unchanged
@@ -250,113 +342,73 @@ impl RenderEngine {
         self.viewport_size
     }
 
-    // Modified to use scene texture cache
-    pub fn render(
-        &mut self,
-        scene: &Scene,
-    ) -> Vec<(Uuid, (f32, f32), (f32, f32), RenderLayer)> {
-        let mut render_queue = Vec::new();
-
-        let scene_textures = if let Some(textures) = self.scene_texture_cache.get(&scene.id) {
-            textures
-        } else {
-            return render_queue;
-        };
-
-        for (_, entity) in &scene.entities {
-            // Get transform components
-            let transform = Transform {
-                position: entity
-                    .get_attribute_by_name("position")
-                    .and_then(|attr| {
-                        if let crate::ecs::AttributeValue::Vector2(x, y) = attr.value {
-                            Some((x, y))
-                        } else {
-                            None
-                        }
-                    })
-                    .unwrap_or((0.0, 0.0)),
-
-                rotation: entity
-                    .get_attribute_by_name("rotation")
-                    .and_then(|attr| {
-                        if let crate::ecs::AttributeValue::Float(r) = attr.value {
-                            Some(r)
-                        } else {
-                            None
-                        }
-                    })
-                    .unwrap_or(0.0),
-
-                scale: entity
-                    .get_attribute_by_name("scale")
-                    .and_then(|attr| {
-                        if let crate::ecs::AttributeValue::Vector2(sx, sy) = attr.value {
-                            Some((sx, sy))
-                        } else {
-                            None
-                        }
-                    })
-                    .unwrap_or((1.0, 1.0)),
-            };
-
-            let sprite_resource = entity.get_attribute_by_name("sprite").and_then(|attr| {
-                if let crate::ecs::AttributeValue::String(resource_id) = &attr.value {
-                    Uuid::parse_str(&resource_id).ok()
-                } else {
-                    None
-                }
-            });
-
-            let layer = entity
-                .get_attribute_by_name("layer")
-                .and_then(|attr| {
-                    if let crate::ecs::AttributeValue::Integer(layer) = attr.value {
-                        Some(match layer {
-                            0 => RenderLayer::Background,
-                            1 => RenderLayer::Game,
-                            2 => RenderLayer::UI,
-                            3 => RenderLayer::Debug,
-                            _ => RenderLayer::Game,
-                        })
-                    } else {
-                        None
-                    }
-                })
-                .unwrap_or(RenderLayer::Game);
-
-            if let Some(sprite_id) = sprite_resource {
-                let screen_pos = self.camera.world_to_screen(transform.position);
-
-                if let Some(texture_info) = scene_textures.get(&sprite_id) {
-                    // Apply transform scale to the texture dimensions
-                    let width =
-                        texture_info.dimensions.0 as f32 * self.camera.zoom * transform.scale.0;
-                    let height =
-                        texture_info.dimensions.1 as f32 * self.camera.zoom * transform.scale.1;
-
-                    // Basic visibility check
-                    if screen_pos.0 + width >= 0.0
-                        && screen_pos.0 <= self.viewport_size.0
-                        && screen_pos.1 + height >= 0.0
-                        && screen_pos.1 <= self.viewport_size.1
-                    {
-                        render_queue.push((sprite_id, screen_pos, (width, height), layer));
-                    }
-                }
-            }
-        }
-
-        render_queue.sort_by_key(|(_, _, _, layer)| *layer);
-        render_queue
+    // Full cleanup including camera reset
+    pub fn cleanup(&mut self) {
+        self.texture_cache.clear();
+        self.camera.reset();
     }
 
-    pub fn cleanup(&mut self) {
-        // Clear texture caches
-        self.scene_texture_cache.clear();
+    // Remove specific texture
+    pub fn unload_texture(&mut self, path: &Path) {
+        let texture_id = Self::path_to_uuid(path);
+        self.texture_cache.remove(&texture_id);
+    }
+
+    // Just clear caches
+    pub fn clear_cache(&mut self) {
+        self.texture_cache.clear();
+    }
+
+    // Monitor memory usage
+    pub fn get_memory_usage(&self) -> usize {
+        self.texture_cache.values()
+            .map(|tex| tex.data.len())
+            .sum()
+    }
+
+    // Add this public method
+    pub fn get_texture_info(&self, texture_id: &Uuid) -> Option<&TextureInfo> {
+        self.texture_cache.get(texture_id)
+    }
+
+    // Add this new method to draw grid
+    pub fn get_grid_lines(&self) -> Vec<((f32, f32), (f32, f32))> {
+        let mut lines = Vec::new();
+        let grid_size = 50.0;
         
-        // Reset camera
-        self.camera.reset();
+        // Calculate grid boundaries in world space
+        let left = (-self.viewport_size.0 / 2.0 - self.camera.position.0) * self.camera.zoom;
+        let right = (self.viewport_size.0 / 2.0 - self.camera.position.0) * self.camera.zoom;
+        let top = (-self.viewport_size.1 / 2.0 - self.camera.position.1) * self.camera.zoom;
+        let bottom = (self.viewport_size.1 / 2.0 - self.camera.position.1) * self.camera.zoom;
+
+        // Adjust grid start/end to ensure coverage
+        let start_x = ((left - grid_size) / grid_size).floor() * grid_size;
+        let end_x = ((right + grid_size) / grid_size).ceil() * grid_size;
+        let start_y = ((top - grid_size) / grid_size).floor() * grid_size;
+        let end_y = ((bottom + grid_size) / grid_size).ceil() * grid_size;
+
+        // Draw vertical lines
+        for x in (start_x as i32..=end_x as i32).step_by(grid_size as usize) {
+            let world_x = x as f32;
+            let screen_pos = self.camera.world_to_screen((world_x, 0.0));
+            lines.push((
+                (screen_pos.0, 0.0),
+                (screen_pos.0, self.viewport_size.1)
+            ));
+        }
+
+        // Draw horizontal lines
+        for y in (start_y as i32..=end_y as i32).step_by(grid_size as usize) {
+            let world_y = y as f32;
+            let screen_pos = self.camera.world_to_screen((0.0, world_y));
+            lines.push((
+                (0.0, screen_pos.1),
+                (self.viewport_size.0, screen_pos.1)
+            ));
+        }
+
+        lines
     }
 }
 

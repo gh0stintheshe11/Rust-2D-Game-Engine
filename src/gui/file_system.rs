@@ -77,17 +77,16 @@ impl FileSystem {
             stroke: egui::Stroke::NONE,
         }
         .show(ui, |ui| {
-            let root_path = PathBuf::from(&gui_state.project_path);
-
-            if !ProjectManager::is_valid_project_directory(&root_path) {
-                ui.label("Invalid project directory. Please create or open a valid project.");
-            } else {
-                egui::ScrollArea::both()
-                    .auto_shrink([false; 2])
-                    .show(ui, |ui| {
-                        self.render_file_tree(ui, &root_path, 0, gui_state);
-                    });
+            if !gui_state.load_project {
+                ui.label("No project opened.");
+                return;
             }
+            let path = gui_state.project_path.clone();
+            egui::ScrollArea::both()
+                .auto_shrink([false; 2])
+                .show(ui, |ui| {
+                    self.render_file_tree(ui, &path, 0, gui_state);
+                });
         });
 
         // Return file content if selected
@@ -150,10 +149,9 @@ impl FileSystem {
                 ui.horizontal(|ui| {
                     ui.add_space(depth as f32 * 4.0);
 
-                    let selected = self
-                        .selected_file
-                        .as_ref()
-                        .map_or(false, |selected_path| selected_path == &file_path);
+                    let selected = self.selected_file.as_ref().map_or(false, |selected_path| 
+                        selected_path == &file_path
+                    );
 
                     let response = ui.selectable_label(selected, format!("{}", file_name));
 
@@ -163,16 +161,16 @@ impl FileSystem {
                         println!("Selected file: {}", file_name);
                     }
 
-                    // Handle right-click context menu
                     response.context_menu(|ui| {
                         if ui.button("Delete").clicked() {
-                            // TODO: check if it has references, display a popup shows "failed to remove"
                             if let Err(err) = fs::remove_file(&file_path) {
                                 println!("Failed to delete file: {}", err);
                             } else {
                                 println!("Deleted file: {}", file_name);
-                                // Reset selected item if the deleted file was selected
-                                if matches!(&gui_state.selected_item, SelectedItem::File(selected_path) if selected_path == &file_path) {
+                                if matches!(&gui_state.selected_item, 
+                                    SelectedItem::File(selected_path) 
+                                    if selected_path == &file_path) 
+                                {
                                     gui_state.selected_item = SelectedItem::None;
                                 }
                                 if self.selected_file == Some(file_path.clone()) {
@@ -206,11 +204,12 @@ impl FileSystem {
 
     fn try_read_code_file(&self) -> Option<(PathBuf, String)> {
         if let Some(path) = &self.selected_file {
-            // for rs and lua files
-            if path.extension()?.to_str()? == "rs" || path.extension()?.to_str()? == "lua" {
-                return fs::read_to_string(path)
-                    .ok()
-                    .map(|content| (path.clone(), content));
+            if let Some(ext) = path.extension().and_then(|ext| ext.to_str()) {
+                if ext == "rs" || ext == "lua" {
+                    return fs::read_to_string(path)
+                        .ok()
+                        .map(|content| (path.clone(), content));
+                }
             }
         }
         None

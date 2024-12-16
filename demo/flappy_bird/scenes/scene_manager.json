@@ -1,15 +1,15 @@
 {
   "scenes": {
-    "41d2288f-2b5f-48a5-91ad-2d015711fd3a": {
-      "id": "c24019be-e51e-45a3-a3f8-0c3ed00881ea",
+    "2ace0aec-aa3a-421c-bdd3-938aceb6a666": {
+      "id": "89a2f5ee-1211-40b5-a98d-83693abae12f",
       "name": "game_main",
       "entities": {
-        "d771b234-8ac7-40ad-8d26-978fd140885e": {
-          "id": "d771b234-8ac7-40ad-8d26-978fd140885e",
+        "907a8f36-c371-4df6-8cba-be279f47c50f": {
+          "id": "907a8f36-c371-4df6-8cba-be279f47c50f",
           "name": "main_camera",
           "attributes": {
-            "738fe760-7f45-412b-a6d2-f854d5452434": {
-              "id": "738fe760-7f45-412b-a6d2-f854d5452434",
+            "039c639d-700c-4ebf-8da6-dd8562ea5ea1": {
+              "id": "039c639d-700c-4ebf-8da6-dd8562ea5ea1",
               "name": "position",
               "data_type": "Vector2",
               "value": {
@@ -19,24 +19,24 @@
                 ]
               }
             },
-            "c865e30e-21ec-40e6-a00d-22921b290f2b": {
-              "id": "c865e30e-21ec-40e6-a00d-22921b290f2b",
+            "f444e22a-d258-4192-8464-09ee776670dd": {
+              "id": "f444e22a-d258-4192-8464-09ee776670dd",
               "name": "zoom",
               "data_type": "Float",
               "value": {
                 "Float": 1.0
               }
             },
-            "079aa5af-b5e5-4936-a421-1282531b2d41": {
-              "id": "079aa5af-b5e5-4936-a421-1282531b2d41",
+            "c8a1bf85-e4b3-477a-9d5e-35018da74568": {
+              "id": "c8a1bf85-e4b3-477a-9d5e-35018da74568",
               "name": "rotation",
               "data_type": "Float",
               "value": {
                 "Float": 0.0
               }
             },
-            "cdcd0ef0-73d3-48fb-8d37-c26b8996a746": {
-              "id": "cdcd0ef0-73d3-48fb-8d37-c26b8996a746",
+            "1f03f75f-5533-4636-85ee-d793a6aa152d": {
+              "id": "1f03f75f-5533-4636-85ee-d793a6aa152d",
               "name": "is_camera",
               "data_type": "Boolean",
               "value": {
@@ -44,375 +44,286 @@
               }
             }
           },
-          "resource_list": []
+          "images": [],
+          "sounds": [],
+          "script": null
         },
-        "c2a86b34-3407-46b3-a554-2908f920d3a8": {
-          "id": "c2a86b34-3407-46b3-a554-2908f920d3a8",
+        "3f04514b-bf7d-4e29-b65e-3d6957e5a083": {
+          "id": "3f04514b-bf7d-4e29-b65e-3d6957e5a083",
           "name": "bird",
           "attributes": {
-            "e4b58b30-5307-4dae-8893-51a2c3a9abf5": {
-              "id": "e4b58b30-5307-4dae-8893-51a2c3a9abf5",
+            "866c0fc5-2e04-4318-82b0-dcf805d91472": {
+              "id": "866c0fc5-2e04-4318-82b0-dcf805d91472",
               "name": "position",
               "data_type": "Vector2",
               "value": {
                 "Vector2": [
-                  0.0,
-                  0.0
+                  200.0,
+                  200.0
                 ]
               }
             },
-            "bec37cba-9984-4983-99ca-4860c19b9b99": {
-              "id": "bec37cba-9984-4983-99ca-4860c19b9b99",
+            "52c070dd-4907-4197-baad-2b76ca07c022": {
+              "id": "52c070dd-4907-4197-baad-2b76ca07c022",
               "name": "is_movable",
               "data_type": "Boolean",
               "value": {
-                "Boolean": false
+                "Boolean": true
               }
             },
-            "d3fd1f22-4915-4431-8382-88244e6144f6": {
-              "id": "d3fd1f22-4915-4431-8382-88244e6144f6",
+            "3890f0b9-de67-4da1-9d87-07527d31d9c7": {
+              "id": "3890f0b9-de67-4da1-9d87-07527d31d9c7",
               "name": "has_gravity",
               "data_type": "Boolean",
               "value": {
-                "Boolean": false
+                "Boolean": true
               }
             },
-            "24544d74-1c05-4ddc-859d-203a55013e34": {
-              "id": "24544d74-1c05-4ddc-859d-203a55013e34",
+            "86d1f6c9-bf44-4147-a216-47ca21299127": {
+              "id": "86d1f6c9-bf44-4147-a216-47ca21299127",
               "name": "creates_gravity",
               "data_type": "Boolean",
               "value": {
                 "Boolean": false
               }
             },
-            "50bfb906-7498-4e83-be0e-79380e691bc6": {
-              "id": "50bfb906-7498-4e83-be0e-79380e691bc6",
+            "b8be0eb4-c011-4f32-8fb2-11d1504b131f": {
+              "id": "b8be0eb4-c011-4f32-8fb2-11d1504b131f",
               "name": "has_collision",
               "data_type": "Boolean",
               "value": {
                 "Boolean": true
               }
             },
-            "11ec05a9-c161-43c9-8383-e80755b87520": {
-              "id": "11ec05a9-c161-43c9-8383-e80755b87520",
+            "95de3c89-06a5-4d13-a5cc-af7fdb39b50a": {
+              "id": "95de3c89-06a5-4d13-a5cc-af7fdb39b50a",
               "name": "friction",
               "data_type": "Float",
               "value": {
                 "Float": 0.5
               }
             },
-            "cbde7591-9cce-4245-9693-a6a3fba118ce": {
-              "id": "cbde7591-9cce-4245-9693-a6a3fba118ce",
+            "9db157de-9654-4013-8a42-c36e4845db7b": {
+              "id": "9db157de-9654-4013-8a42-c36e4845db7b",
               "name": "restitution",
               "data_type": "Float",
               "value": {
                 "Float": 0.0
               }
             },
-            "6b9033fb-3f38-4e25-9ed9-f69373d63d75": {
-              "id": "6b9033fb-3f38-4e25-9ed9-f69373d63d75",
+            "fc047487-38e5-4938-a9c5-6410f7ad895e": {
+              "id": "fc047487-38e5-4938-a9c5-6410f7ad895e",
               "name": "density",
               "data_type": "Float",
               "value": {
                 "Float": 1.0
               }
             },
-            "bf2130c9-a3b9-456c-b79d-47714a7a87e1": {
-              "id": "bf2130c9-a3b9-456c-b79d-47714a7a87e1",
+            "d9a70d6d-7023-4eb9-8018-c8a55ed569fa": {
+              "id": "d9a70d6d-7023-4eb9-8018-c8a55ed569fa",
               "name": "can_rotate",
-              "data_type": "Boolean",
-              "value": {
-                "Boolean": false
-              }
-            }
-          },
-          "resource_list": []
-        },
-        "e56eeede-b4a7-4094-8d0c-a12ddb83f72c": {
-          "id": "e56eeede-b4a7-4094-8d0c-a12ddb83f72c",
-          "name": "bg",
-          "attributes": {},
-          "resource_list": []
-        },
-        "22c9de36-a972-42ad-87ce-b496a9cdb037": {
-          "id": "22c9de36-a972-42ad-87ce-b496a9cdb037",
-          "name": "pipes",
-          "attributes": {
-            "5d48c275-8421-4913-90ac-f1456679d2b2": {
-              "id": "5d48c275-8421-4913-90ac-f1456679d2b2",
-              "name": "position",
-              "data_type": "Vector2",
-              "value": {
-                "Vector2": [
-                  0.0,
-                  0.0
-                ]
-              }
-            },
-            "74e1673a-79fe-4b78-bd20-856cedaff538": {
-              "id": "74e1673a-79fe-4b78-bd20-856cedaff538",
-              "name": "is_movable",
-              "data_type": "Boolean",
-              "value": {
-                "Boolean": false
-              }
-            },
-            "1a5277a1-eedd-4645-aa60-9ba5bedbbcfa": {
-              "id": "1a5277a1-eedd-4645-aa60-9ba5bedbbcfa",
-              "name": "has_gravity",
-              "data_type": "Boolean",
-              "value": {
-                "Boolean": false
-              }
-            },
-            "cd8d96c9-5009-4996-8f73-14bc8a9e1f79": {
-              "id": "cd8d96c9-5009-4996-8f73-14bc8a9e1f79",
-              "name": "creates_gravity",
-              "data_type": "Boolean",
-              "value": {
-                "Boolean": false
-              }
-            },
-            "e9f6d96f-6223-4edd-8d1b-e1987f9b37ba": {
-              "id": "e9f6d96f-6223-4edd-8d1b-e1987f9b37ba",
-              "name": "has_collision",
               "data_type": "Boolean",
               "value": {
                 "Boolean": true
               }
-            },
-            "99625d83-dfac-4384-8af6-e0148c8c6a90": {
-              "id": "99625d83-dfac-4384-8af6-e0148c8c6a90",
-              "name": "friction",
-              "data_type": "Float",
-              "value": {
-                "Float": 0.5
-              }
-            },
-            "4dd9d974-2e53-4cf7-af05-bfa297c3db3c": {
-              "id": "4dd9d974-2e53-4cf7-af05-bfa297c3db3c",
-              "name": "restitution",
-              "data_type": "Float",
-              "value": {
-                "Float": 0.0
-              }
-            },
-            "85fd3ab5-9aad-48cd-97ff-8473b68a0eb6": {
-              "id": "85fd3ab5-9aad-48cd-97ff-8473b68a0eb6",
-              "name": "density",
-              "data_type": "Float",
-              "value": {
-                "Float": 1.0
-              }
-            },
-            "de1f132f-9f1e-4fe1-9e7b-315d04cea52c": {
-              "id": "de1f132f-9f1e-4fe1-9e7b-315d04cea52c",
-              "name": "can_rotate",
-              "data_type": "Boolean",
-              "value": {
-                "Boolean": false
-              }
             }
           },
-          "resource_list": []
+          "images": [
+            "/home/lang/Rust-2D-Game-Engine/demo/flappy_bird/assets/images/bird1.png",
+            "/home/lang/Rust-2D-Game-Engine/demo/flappy_bird/assets/images/bird2.png",
+            "/home/lang/Rust-2D-Game-Engine/demo/flappy_bird/assets/images/bird3.png"
+          ],
+          "sounds": [],
+          "script": null
         },
-        "073e50db-54a3-4ac3-ab1e-99c3307ac7dd": {
-          "id": "073e50db-54a3-4ac3-ab1e-99c3307ac7dd",
+        "bb27a94f-35e0-44c4-9363-bae8be0637e0": {
+          "id": "bb27a94f-35e0-44c4-9363-bae8be0637e0",
           "name": "ground",
           "attributes": {
-            "c7e29675-79ee-4cb3-9c08-81f718e7f361": {
-              "id": "c7e29675-79ee-4cb3-9c08-81f718e7f361",
+            "4b1ab44e-93f9-4d45-91b5-788ea13ba369": {
+              "id": "4b1ab44e-93f9-4d45-91b5-788ea13ba369",
               "name": "position",
               "data_type": "Vector2",
               "value": {
                 "Vector2": [
-                  0.0,
-                  0.0
+                  150.0,
+                  100.0
                 ]
               }
             },
-            "493a197a-e249-4e68-87fc-1383e45635d4": {
-              "id": "493a197a-e249-4e68-87fc-1383e45635d4",
+            "129b0721-3675-4697-9df5-fb26598ffc43": {
+              "id": "129b0721-3675-4697-9df5-fb26598ffc43",
               "name": "is_movable",
               "data_type": "Boolean",
               "value": {
-                "Boolean": false
+                "Boolean": true
               }
             },
-            "f82caa5c-7d76-41ed-9c39-48d3bf212122": {
-              "id": "f82caa5c-7d76-41ed-9c39-48d3bf212122",
+            "9ee4f313-a2b2-4004-9113-61797cb888d4": {
+              "id": "9ee4f313-a2b2-4004-9113-61797cb888d4",
               "name": "has_gravity",
               "data_type": "Boolean",
               "value": {
-                "Boolean": false
+                "Boolean": true
               }
             },
-            "bdcffb0f-66d8-4fdf-b26a-7511fdd49a17": {
-              "id": "bdcffb0f-66d8-4fdf-b26a-7511fdd49a17",
+            "6c6c11c5-bf76-493c-9e64-17e4eea58506": {
+              "id": "6c6c11c5-bf76-493c-9e64-17e4eea58506",
               "name": "creates_gravity",
               "data_type": "Boolean",
               "value": {
                 "Boolean": false
               }
             },
-            "f48808bf-7771-468d-9035-bf47494b9847": {
-              "id": "f48808bf-7771-468d-9035-bf47494b9847",
+            "5bdb6ecc-ef1b-4e08-a801-6852c76c55f0": {
+              "id": "5bdb6ecc-ef1b-4e08-a801-6852c76c55f0",
               "name": "has_collision",
               "data_type": "Boolean",
               "value": {
                 "Boolean": true
               }
             },
-            "8f521133-d89e-48f6-a07a-3e39f31852a4": {
-              "id": "8f521133-d89e-48f6-a07a-3e39f31852a4",
+            "80872edb-3719-4f8b-b37d-325fee89b7f2": {
+              "id": "80872edb-3719-4f8b-b37d-325fee89b7f2",
               "name": "friction",
               "data_type": "Float",
               "value": {
                 "Float": 0.5
               }
             },
-            "48705b76-0e56-4997-92f4-c9a63c3d0047": {
-              "id": "48705b76-0e56-4997-92f4-c9a63c3d0047",
+            "921f4dc0-3548-40c4-acca-de914184f478": {
+              "id": "921f4dc0-3548-40c4-acca-de914184f478",
               "name": "restitution",
               "data_type": "Float",
               "value": {
                 "Float": 0.0
               }
             },
-            "8c99b873-a478-40b8-a526-714392f0fb37": {
-              "id": "8c99b873-a478-40b8-a526-714392f0fb37",
+            "83d30751-bdda-49c0-9a46-057bd4ea50ed": {
+              "id": "83d30751-bdda-49c0-9a46-057bd4ea50ed",
               "name": "density",
               "data_type": "Float",
               "value": {
                 "Float": 1.0
               }
             },
-            "f771d6aa-614a-4edf-8034-e8872b36b991": {
-              "id": "f771d6aa-614a-4edf-8034-e8872b36b991",
+            "a0b504df-de2b-4e9e-9c5a-9dbcb5d818a2": {
+              "id": "a0b504df-de2b-4e9e-9c5a-9dbcb5d818a2",
               "name": "can_rotate",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            }
+          },
+          "images": [
+            "/home/lang/Rust-2D-Game-Engine/demo/flappy_bird/assets/images/ground.png"
+          ],
+          "sounds": [],
+          "script": null
+        },
+        "baaf73ca-ebfb-41cd-aedf-03ca0d1d5b83": {
+          "id": "baaf73ca-ebfb-41cd-aedf-03ca0d1d5b83",
+          "name": "pipe",
+          "attributes": {
+            "88ba65b1-c25b-4a0c-9b06-4195283863a4": {
+              "id": "88ba65b1-c25b-4a0c-9b06-4195283863a4",
+              "name": "position",
+              "data_type": "Vector2",
+              "value": {
+                "Vector2": [
+                  300.0,
+                  100.0
+                ]
+              }
+            },
+            "5163d3d7-380c-45b3-9c44-b7762ef53474": {
+              "id": "5163d3d7-380c-45b3-9c44-b7762ef53474",
+              "name": "is_movable",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "3c92e55f-9376-4447-8dac-728962e585a6": {
+              "id": "3c92e55f-9376-4447-8dac-728962e585a6",
+              "name": "has_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "d2609678-04b4-4533-8c60-2b213543038f": {
+              "id": "d2609678-04b4-4533-8c60-2b213543038f",
+              "name": "creates_gravity",
               "data_type": "Boolean",
               "value": {
                 "Boolean": false
               }
-            }
-          },
-          "resource_list": []
-        }
-      },
-      "resources": {
-        "2d9c1da8-78a2-47f9-b30c-bb704e3d53e5": {
-          "id": "2d9c1da8-78a2-47f9-b30c-bb704e3d53e5",
-          "name": "bg",
-          "file_path": "/home/lang/Rust-2D-Game-Engine/demo/flappy_bird/assets/images/bg.png",
-          "resource_type": "Image"
-        }
-      },
-      "shared_entity_refs": [],
-      "default_camera": "d771b234-8ac7-40ad-8d26-978fd140885e"
-    },
-    "22409291-752b-40ba-ab3f-5e4937bb4028": {
-      "id": "e167fc90-bc22-4bb1-ac1c-51151c25a597",
-      "name": "game_start",
-      "entities": {
-        "d3ef0f53-cf31-4c88-afee-fc067f2792bd": {
-          "id": "d3ef0f53-cf31-4c88-afee-fc067f2792bd",
-          "name": "main_camera",
-          "attributes": {
-            "14a9989d-6c27-4e6b-8b01-b3b5e899cbc8": {
-              "id": "14a9989d-6c27-4e6b-8b01-b3b5e899cbc8",
-              "name": "position",
-              "data_type": "Vector2",
+            },
+            "58078edc-c928-4f75-b4df-eb33e0ba13b4": {
+              "id": "58078edc-c928-4f75-b4df-eb33e0ba13b4",
+              "name": "has_collision",
+              "data_type": "Boolean",
               "value": {
-                "Vector2": [
-                  0.0,
-                  0.0
-                ]
+                "Boolean": true
               }
             },
-            "0f97082f-f90e-4192-9a0f-2147894dca2b": {
-              "id": "0f97082f-f90e-4192-9a0f-2147894dca2b",
-              "name": "zoom",
+            "55315f43-6310-439d-98a3-8ca025c4c4c8": {
+              "id": "55315f43-6310-439d-98a3-8ca025c4c4c8",
+              "name": "friction",
               "data_type": "Float",
               "value": {
-                "Float": 1.0
+                "Float": 0.5
               }
             },
-            "55c4c8a6-9d72-446f-bad7-976b46bedbeb": {
-              "id": "55c4c8a6-9d72-446f-bad7-976b46bedbeb",
-              "name": "rotation",
+            "b52e2879-0a38-485b-9328-170e31a9fc25": {
+              "id": "b52e2879-0a38-485b-9328-170e31a9fc25",
+              "name": "restitution",
               "data_type": "Float",
               "value": {
                 "Float": 0.0
               }
             },
-            "8dc83efc-16d8-47d3-baa7-e9e242c9f4b3": {
-              "id": "8dc83efc-16d8-47d3-baa7-e9e242c9f4b3",
-              "name": "is_camera",
+            "55586ae3-878a-4983-976c-180cef147d54": {
+              "id": "55586ae3-878a-4983-976c-180cef147d54",
+              "name": "density",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "bd55f82b-7088-48e1-bff4-b6144cda8ff6": {
+              "id": "bd55f82b-7088-48e1-bff4-b6144cda8ff6",
+              "name": "can_rotate",
               "data_type": "Boolean",
               "value": {
                 "Boolean": true
               }
             }
           },
-          "resource_list": []
+          "images": [
+            "/home/lang/Rust-2D-Game-Engine/demo/flappy_bird/assets/images/top_pipe.png",
+            "/home/lang/Rust-2D-Game-Engine/demo/flappy_bird/assets/images/bottom_pipe.png"
+          ],
+          "sounds": [],
+          "script": null
+        },
+        "4b177504-4ed2-4aae-bbf5-03aa10ecd8d4": {
+          "id": "4b177504-4ed2-4aae-bbf5-03aa10ecd8d4",
+          "name": "background",
+          "attributes": {},
+          "images": [
+            "/home/lang/Rust-2D-Game-Engine/demo/flappy_bird/assets/images/bg.png"
+          ],
+          "sounds": [],
+          "script": null
         }
       },
-      "resources": {},
       "shared_entity_refs": [],
-      "default_camera": "d3ef0f53-cf31-4c88-afee-fc067f2792bd"
-    },
-    "11729b96-1182-4b5a-bb0e-e9ddfaf9da70": {
-      "id": "407fa332-785e-45ca-a56f-82e450f9c0ea",
-      "name": "game_end",
-      "entities": {
-        "152fcf12-078e-48c8-a277-7479fdf057f2": {
-          "id": "152fcf12-078e-48c8-a277-7479fdf057f2",
-          "name": "main_camera",
-          "attributes": {
-            "a11a1732-48fd-4dd6-8c9d-53eb2b5437c2": {
-              "id": "a11a1732-48fd-4dd6-8c9d-53eb2b5437c2",
-              "name": "position",
-              "data_type": "Vector2",
-              "value": {
-                "Vector2": [
-                  0.0,
-                  0.0
-                ]
-              }
-            },
-            "c2a57fc5-9696-489c-b7f1-200b5a308603": {
-              "id": "c2a57fc5-9696-489c-b7f1-200b5a308603",
-              "name": "zoom",
-              "data_type": "Float",
-              "value": {
-                "Float": 1.0
-              }
-            },
-            "0aff4dfc-de08-40f2-82b7-4777799ce42b": {
-              "id": "0aff4dfc-de08-40f2-82b7-4777799ce42b",
-              "name": "rotation",
-              "data_type": "Float",
-              "value": {
-                "Float": 0.0
-              }
-            },
-            "9ef20540-3cf3-4e32-9ebf-fa615f89b263": {
-              "id": "9ef20540-3cf3-4e32-9ebf-fa615f89b263",
-              "name": "is_camera",
-              "data_type": "Boolean",
-              "value": {
-                "Boolean": true
-              }
-            }
-          },
-          "resource_list": []
-        }
-      },
-      "resources": {},
-      "shared_entity_refs": [],
-      "default_camera": "152fcf12-078e-48c8-a277-7479fdf057f2"
+      "default_camera": "907a8f36-c371-4df6-8cba-be279f47c50f"
     }
   },
   "shared_entities": {},
-  "active_scene": null
+  "active_scene": "2ace0aec-aa3a-421c-bdd3-938aceb6a666"
 }

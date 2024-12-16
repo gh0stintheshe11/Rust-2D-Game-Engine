@@ -1,8 +1,7 @@
 use crate::gui::gui_state::GuiState;
 use crate::project_manager::ProjectManager;
-use std::path::Path;
-use crate::ecs::ResourceType;
-
+use std::path::{Path, PathBuf};
+use crate::ecs::Entity;
 
 pub fn save_project(gui_state: &GuiState) {
     if let (Some(scene_manager), Some(project_metadata)) = (
@@ -10,7 +9,7 @@ pub fn save_project(gui_state: &GuiState) {
         &gui_state.project_metadata,
     ) {
         match ProjectManager::save_project_full(
-            Path::new(&gui_state.project_path),
+            &gui_state.project_path,
             project_metadata,
             scene_manager,
         ) {
@@ -26,27 +25,24 @@ pub fn is_valid_identifier(name: &str) -> bool {
     !name.is_empty() && name.chars().all(|c| c.is_alphanumeric() || c == '_')
 }
 
-pub fn truncate_path(path: &str) -> String {
-    // Maximum length for display
+pub fn truncate_path(path: &Path) -> String {
+    let path_str = path.to_string_lossy();
     const MAX_LENGTH: usize = 30;
-    if path.len() > MAX_LENGTH {
-        let start = &path[..10];
-        let end = &path[path.len() - 10..];
+    if path_str.len() > MAX_LENGTH {
+        let start = &path_str[..10];
+        let end = &path_str[path_str.len() - 10..];
         format!("{}...{}", start, end)
     } else {
-        path.to_string()
+        path_str.to_string()
     }
 }
 
-pub fn truncate_related_path(project_path: &str, full_path: &str) -> String {
-    const MAX_LENGTH: usize = 30;
-    let relative_path = if full_path.starts_with(project_path) {
-        full_path[project_path.len()..].trim_start_matches(std::path::MAIN_SEPARATOR).to_string()
+pub fn truncate_related_path(project_path: &Path, full_path: &Path) -> String {
+    if let Ok(relative_path) = full_path.strip_prefix(project_path) {
+        truncate_path(relative_path)
     } else {
-        full_path.to_string()
-    };
-
-    truncate_path(&relative_path)
+        truncate_path(full_path)
+    }
 }
 
 pub fn is_valid_asset_file(path: &Path) -> bool {
@@ -64,15 +60,17 @@ pub fn is_valid_asset_file(path: &Path) -> bool {
     }
 }
 
-pub fn resource_type_from_extension(path: &Path) -> Option<ResourceType> {
-    match path.extension().and_then(|ext| ext.to_str()) {
-        Some(ext) => match ext.to_lowercase().as_str() {
-            "png" | "jpg" | "jpeg" | "gif" => Some(ResourceType::Image),
-            "wav" | "mp3" | "ogg" => Some(ResourceType::Sound),
-            "lua" => Some(ResourceType::Script),
-            _ => None,
-        },
-        None => None,
+pub fn get_icon_for_file(path: &Path) -> &'static str {
+    let extension = path
+        .extension()
+        .and_then(std::ffi::OsStr::to_str)
+        .unwrap_or("");
+
+    match extension.to_lowercase().as_str() {
+        "png" | "jpg" | "jpeg" => "🖼️",
+        "wav" | "mp3" | "ogg" => "🔊",
+        "rs" | "lua" => "📄",
+        _ => "❓"
     }
 }
 

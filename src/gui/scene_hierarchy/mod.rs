@@ -83,7 +83,7 @@ impl SceneHierarchy {
             fill: egui::Color32::TRANSPARENT,
             stroke: egui::Stroke::NONE,
         }.show(ui, |ui| {
-            egui::ScrollArea::vertical()
+            egui::ScrollArea::both()
                 .auto_shrink([false; 2])
                 .show(ui, |ui| {
                     SceneItem::show_scenes(ui, ctx, self, gui_state);

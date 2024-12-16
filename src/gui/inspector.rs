@@ -1,8 +1,8 @@
 use eframe::egui;
 use crate::gui::gui_state::{GuiState, SelectedItem};
-use crate::ecs::{AttributeValue, AttributeType, Entity, Resource, ResourceType};
+use crate::ecs::{AttributeValue, AttributeType, Entity};
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use uuid::Uuid;
 use crate::project_manager::ProjectManager;
 use crate::gui::scene_hierarchy::utils;
@@ -22,6 +22,7 @@ pub struct Inspector {
     metadata_error_message: String,
     data_updated: bool,
     audio_engine: AudioEngine,
+    delete_mode: bool,
 }
 
 impl Inspector {
@@ -35,27 +36,47 @@ impl Inspector {
             metadata_error_message: String::new(),
             data_updated: false,
             audio_engine: AudioEngine::new(),
+            delete_mode: false,
         }
     }
 
     pub fn show(&mut self, ctx: &egui::Context, ui: &mut egui::Ui, gui_state: &mut GuiState) {
-        egui::ScrollArea::vertical()
-            .auto_shrink([false, false])
-            .show(ui, |ui| {
-                match &gui_state.selected_item {
-                    SelectedItem::Scene(scene_id) => self.show_scene_details(ui, *scene_id, gui_state),
-                    SelectedItem::Entity(scene_id, entity_id) => {
-                        self.show_entity_details(ui, ctx, *scene_id, *entity_id, gui_state)
-                    }
-                    SelectedItem::Resource(scene_id, resource_id) => {
-                        self.show_resource_details(ui, ctx, *scene_id, *resource_id, gui_state)
-                    }
-                    SelectedItem::File(file_path) => self.show_file_details(ui, file_path),
-                    SelectedItem::None => {
-                        ui.label("No item selected.");
+        match &gui_state.selected_item {
+            SelectedItem::Entity(scene_id, entity_id) => {
+                let scene_id = *scene_id;
+                let entity_id = *entity_id;
+                
+                // First show entity details
+                self.show_entity_details(ui, ctx, scene_id, entity_id, gui_state);
+                
+                // Then get a new borrow for images and sounds
+                if let Some(scene_manager) = &gui_state.scene_manager {
+                    if let Some(scene) = scene_manager.get_scene(scene_id) {
+                        if let Some(entity) = scene.get_entity(entity_id) {
+                            ui.separator();
+                            ui.label("Images:");
+                            for path in &entity.images {
+                                ui.label(path.to_string_lossy());
+                            }
+                            
+                            ui.separator();
+                            ui.label("Sounds:");
+                            for path in &entity.sounds {
+                                ui.label(path.to_string_lossy());
+                            }
+                        }
                     }
                 }
-            });
+            }
+            SelectedItem::Scene(scene_id) => self.show_scene_details(ui, *scene_id, gui_state),
+            SelectedItem::File(file_path) => self.show_file_details(ui, file_path),
+            SelectedItem::Asset(scene_id, entity_id, asset_path) => {
+                self.show_file_details(ui, asset_path);
+            }
+            SelectedItem::None => {
+                ui.label("No item selected.");
+            }
+        }
     }
 
     // Display scene information
@@ -67,7 +88,6 @@ impl Inspector {
                 ui.label(format!("Name: {}", scene.name));
                 ui.label(format!("ID: {}", scene_id));
                 ui.label(format!("Number of Entities: {}", scene.entities.len()));
-                ui.label(format!("Number of Resources: {}", scene.resources.len()));
             } else {
                 ui.label("Scene not found.");
             }
@@ -149,7 +169,7 @@ impl Inspector {
                             // Show file info
                             ui.separator();
                             ui.label("Path:");
-                            ui.label(format!("{}", file_path.display()));
+                            ui.label(format!("{}", file_path.to_string_lossy()));
                             ui.separator();
                             ui.label(format!("Size: {}", format_file_size(metadata.len())));
                             ui.separator();
@@ -159,10 +179,8 @@ impl Inspector {
                     "mp3" | "wav" | "ogg" => {
                         ui.horizontal(|ui| {
                             if ui.button("▶ Play").clicked() {
-                                if let Some(path_str) = file_path.to_str() {
-                                    if let Err(e) = self.audio_engine.play_sound_immediate(path_str) {
-                                        println!("Failed to play sound: {}", e);
-                                    }
+                                if let Err(e) = self.audio_engine.play_sound_immediate(file_path) {
+                                    println!("Failed to play sound: {}", e);
                                 }
                             }
                             
@@ -173,35 +191,33 @@ impl Inspector {
                         
                         ui.separator();
                         ui.label("Path:");
-                        ui.label(format!("{}", file_path.display()));
+                        ui.label(format!("{}", file_path.to_string_lossy()));
                         ui.separator();
                         
-                        if let Some(path_str) = file_path.to_str() {
-                            match self.audio_engine.get_audio_duration(path_str) {
-                                Ok(duration) => {
-                                    let duration_text = {
-                                        let total_seconds = duration.round() as i64;
-                                        let seconds = total_seconds % 60;
-                                        let minutes = (total_seconds / 60) % 60;
-                                        let hours = (total_seconds / 3600) % 24;
-                                        let days = total_seconds / 86400;
+                        match self.audio_engine.get_audio_duration(file_path) {
+                            Ok(duration) => {
+                                let duration_text = {
+                                    let total_seconds = duration.round() as i64;
+                                    let seconds = total_seconds % 60;
+                                    let minutes = (total_seconds / 60) % 60;
+                                    let hours = (total_seconds / 3600) % 24;
+                                    let days = total_seconds / 86400;
 
-                                        if days > 0 {
-                                            format!("Duration: {}d {}h {}m {}s", days, hours, minutes, seconds)
-                                        } else if hours > 0 {
-                                            format!("Duration: {}h {}m {}s", hours, minutes, seconds)
-                                        } else if minutes > 0 {
-                                            format!("Duration: {}m {}s", minutes, seconds)
-                                        } else {
-                                            format!("Duration: {}s", seconds)
-                                        }
-                                    };
-                                    ui.label(duration_text);
-                                    ui.separator();
-                                }
-                                Err(e) => {
-                                    println!("Failed to get audio duration: {}", e);
-                                }
+                                    if days > 0 {
+                                        format!("Duration: {}d {}h {}m {}s", days, hours, minutes, seconds)
+                                    } else if hours > 0 {
+                                        format!("Duration: {}h {}m {}s", hours, minutes, seconds)
+                                    } else if minutes > 0 {
+                                        format!("Duration: {}m {}s", minutes, seconds)
+                                    } else {
+                                        format!("Duration: {}s", seconds)
+                                    }
+                                };
+                                ui.label(duration_text);
+                                ui.separator();
+                            }
+                            Err(e) => {
+                                println!("Failed to get audio duration: {}", e);
                             }
                         }
                         
@@ -213,14 +229,14 @@ impl Inspector {
                         }
                         ui.separator();
                         ui.label("Path:");
-                        ui.label(format!("{}", file_path.display()));
+                        ui.label(format!("{}", file_path.to_string_lossy()));
                         ui.separator();
                         ui.label(format!("Size: {}", format_file_size(metadata.len())));
                     }
                     "ttf" | "otf" => {
                         ui.separator();
                         ui.label("Path:");
-                        ui.label(format!("{}", file_path.display()));
+                        ui.label(format!("{}", file_path.to_string_lossy()));
                         ui.separator();
                         ui.label(format!("Size: {}", format_file_size(metadata.len())));
                     }
@@ -228,7 +244,7 @@ impl Inspector {
                         ui.label("Unsupported file type.");
                         ui.separator();
                         ui.label("Path:");
-                        ui.label(format!("{}", file_path.display()));
+                        ui.label(format!("{}", file_path.to_string_lossy()));
                         ui.separator();
                         ui.label(format!("Size: {}", format_file_size(metadata.len())));
                     }
@@ -239,99 +255,6 @@ impl Inspector {
         } else {
             ui.label("Failed to retrieve file metadata.");
         }
-    }
-
-    /// Display resource information
-    fn show_resource_details(
-        &mut self,
-        ui: &mut egui::Ui,
-        ctx: &egui::Context,
-        scene_id: Uuid,
-        resource_id: Uuid,
-        gui_state: &mut GuiState,
-    ) {
-        // Get files in assets folder
-        let available_files = {
-            let assets_path = Path::new(&gui_state.project_path).join("assets");
-            self.get_files_recursively(&assets_path)
-                .into_iter()
-                .filter(|file| utils::is_valid_asset_file(Path::new(file)))
-                .collect::<Vec<_>>()
-        };
-
-        let mut data_updated = false;
-
-        if let Some(scene_manager) = &mut gui_state.scene_manager {
-            if let Some(scene) = scene_manager.get_scene_mut(scene_id) {
-                if let Some(resource) = scene.get_resource_mut(resource_id) {
-                    ui.label("Resource Details");
-                    ui.separator();
-                    ui.label(format!("Name: {}", resource.name));
-                    ui.label(format!("ID: {}", resource_id));
-                    ui.label(format!("Scene ID: {}", scene_id));
-                    ui.label(format!("Resource Type: {:?}", resource.resource_type));
-                    ui.separator();
-
-                    if available_files.is_empty() {
-                        ui.label("No files found under 'assets' directory.");
-                    } else {
-                        ui.label("Select a file:");
-                        let selected_file = self
-                            .editing_states
-                            .entry(resource_id)
-                            .or_insert_with(|| resource.file_path.clone());
-
-                        let truncated_path = utils::truncate_related_path(&gui_state.project_path, selected_file);
-
-                        egui::ComboBox::new(resource_id, "")
-                            .selected_text(truncated_path)
-                            .show_ui(ui, |ui| {
-                                for file in available_files.iter() {
-                                    if ui.selectable_value(selected_file, file.clone(), file).clicked() {
-                                        resource.file_path = file.clone();
-                                        if let Some(resource_type) = utils::resource_type_from_extension(Path::new(file)) {
-                                            resource.resource_type = resource_type;
-                                        }
-                                        println!("Updated resource file to: {}", resource.file_path);
-
-                                        data_updated = true;
-                                    }
-                                }
-                            });
-                    }
-                } else {
-                    ui.label("Resource not found.");
-                }
-            } else {
-                ui.label("Scene not found.");
-            }
-        } else {
-            ui.label("Scene manager is not initialized.");
-        }
-
-        if data_updated {
-            utils::save_project(gui_state);
-            println!("Save updated resource.");
-        }
-    }
-
-    fn get_files_recursively(&self, dir: &Path) -> Vec<String> {
-        let mut files = Vec::new();
-        if dir.exists() {
-            let _ = fs::read_dir(dir).map(|entries| {
-                for entry in entries.flatten() {
-                    let path = entry.path();
-                    if path.is_file() {
-                        if let Some(path_str) = path.to_str() {
-                            files.push(path_str.to_string());
-                        }
-                    } else if path.is_dir() {
-                        files.extend(self.get_files_recursively(&path));
-                    }
-                }
-            });
-        }
-        files
     }
 
     /// Display entity information
@@ -346,25 +269,37 @@ impl Inspector {
         if let Some(scene_manager) = &mut gui_state.scene_manager {
             if let Some(scene) = scene_manager.get_scene_mut(scene_id) {
                 if let Some(entity) = scene.get_entity_mut(entity_id) {
-                    ui.label("Entity Details");
+                    ui.label(format!("{}", entity.name));
                     ui.separator();
-                    // ui.label(format!("Name: {}", entity.name));
-                    // ui.label(format!("ID: {}", entity_id));
-                    // ui.label(format!("Scene ID: {}", scene_id));
-
+                    ui.label(format!("ID: {}", entity_id));
+                    ui.separator();
+                    ui.label(format!("Scene ID: {}", scene_id));
+                    ui.separator();
 
                     for (&attribute_id, attribute) in &entity.attributes.clone() {
                         self.display_attribute(ui, attribute_id, &attribute.name, &attribute.value, entity);
                     }
 
-                    // Add Metadata Button
-                    if ui.button("Add Metadata").clicked() {
-                        self.show_metadata_popup = true;
-                        self.metadata_new_name.clear();
-                        self.metadata_new_type = AttributeType::String;
-                        self.metadata_new_value = AttributeValue::String(String::new());
-                        self.metadata_error_message.clear();
-                    }
+                    // Buttons in same row with even spacing
+                    ui.horizontal(|ui| {
+                        let available_width = ui.available_width();
+                        let button_width = 20.0; // 10.0 is spacing between buttons
+                        
+                        ui.add_space((available_width - 2.0 * button_width - 4.0) / 2.0);
+                        if ui.add_sized([button_width, 20.0], egui::Button::new("➕")).clicked() {
+                            self.show_metadata_popup = true;
+                            self.metadata_new_name.clear();
+                            self.metadata_new_type = AttributeType::String;
+                            self.metadata_new_value = AttributeValue::String(String::new());
+                            self.metadata_error_message.clear();
+                        }
+
+                        ui.add_space(4.0);
+
+                        if ui.add_sized([button_width, 20.0], egui::Button::new(if self.delete_mode { "⭕" } else { "➖" })).clicked() {
+                            self.delete_mode = !self.delete_mode;
+                        }
+                    });
 
                     if self.show_metadata_popup {
                         self.show_metadata_popup(ctx, ui, entity);
@@ -384,7 +319,7 @@ impl Inspector {
             self.data_updated = false;
             if let Some(scene_manager) = &gui_state.scene_manager {
                 if let Err(err) = ProjectManager::save_project_full(
-                    Path::new(&gui_state.project_path),
+                    &gui_state.project_path,
                     gui_state.project_metadata.as_ref().unwrap(),
                     scene_manager,
                 ) {
@@ -400,14 +335,15 @@ impl Inspector {
     /// Add metadata popup, type must be in Entity's attribute types
     // TODO: handle Vector2
     fn show_metadata_popup(&mut self, ctx: &egui::Context, ui: &mut egui::Ui, entity: &mut Entity) {
-        egui::Window::new("Add Metadata")
+        egui::Window::new("Add Attribute")
             .collapsible(false)
             .resizable(false)
+            .order(egui::Order::Foreground)
             .show(ctx, |ui| {
-                ui.label("Enter Metadata Name:");
+                ui.label("Enter Attribute Name:");
                 ui.text_edit_singleline(&mut self.metadata_new_name);
 
-                ui.label("Select Metadata Type:");
+                ui.label("Select Attribute Type:");
                 egui::ComboBox::from_label("Type")
                     .selected_text(format!("{:?}", self.metadata_new_value))
                     .show_ui(ui, |ui| {
@@ -511,21 +447,80 @@ impl Inspector {
             .clone();
 
         ui.horizontal(|ui| {
-            ui.label(attribute_name);
-
-            let response = ui.text_edit_singleline(self.editing_states.get_mut(&attribute_id).unwrap());
-
-            // Check and save value if the input field lost focus
-            if response.lost_focus() {
-                if let Some(new_value) = self.parse_attribute_value(&temp_value, attribute_value) {
-                    entity.modify_attribute(attribute_id, None, None, Some(new_value));
+            ui.add_space(4.0);
+            // Only show delete button in delete mode
+            if self.delete_mode {
+                if ui.small_button("❌").clicked() {
+                    entity.delete_attribute(attribute_id);
                     self.editing_states.remove(&attribute_id);
                     self.data_updated = true;
-                } else {
-                    self.editing_states.remove(&attribute_id);
+                    return;
                 }
             }
+            
+            let input_width = 80.0; // Fixed width for input
+            let total_spacing = 16.0; // Left and right margins
+            let available_width = ui.available_width() - input_width - total_spacing;
+            
+            // Get the text layout for the full name
+            let font = egui::TextStyle::Body.resolve(ui.style());
+            let text_layout = ui.fonts(|f| f.layout_no_wrap(attribute_name.to_string(), font.clone(), egui::Color32::WHITE));
+            
+            // Left side with label
+            ui.scope(|ui| {
+                ui.set_width(available_width);
+                let display_name = if text_layout.rect.width() > available_width {
+                    let mut fit_chars = attribute_name.len();
+                    for (i, _) in attribute_name.char_indices() {
+                        let test_text = format!("{}...", &attribute_name[..i]);
+                        let test_layout = ui.fonts(|f| f.layout_no_wrap(test_text, font.clone(), egui::Color32::WHITE));
+                        if test_layout.rect.width() > available_width {
+                            fit_chars = i.saturating_sub(1);
+                            break;
+                        }
+                    }
+                    format!("{}...", &attribute_name[..fit_chars])
+                } else {
+                    attribute_name.to_string()
+                };
+                
+                ui.label(egui::RichText::new(display_name).strong())
+                    .on_hover_text(attribute_name);
+            });
+
+            // Right side with fixed-width input
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
+                ui.set_width(input_width);
+                
+                match attribute_value {
+                    AttributeValue::Boolean(_) => {
+                        let mut value = temp_value.parse::<bool>().unwrap_or(false);
+                        if ui.checkbox(&mut value, "").changed() {
+                            entity.modify_attribute(attribute_id, None, None, Some(AttributeValue::Boolean(value)));
+                            self.editing_states.insert(attribute_id, value.to_string());
+                            self.data_updated = true;
+                        }
+                    }
+                    _ => {
+                        let response = ui.add(
+                            egui::TextEdit::singleline(self.editing_states.get_mut(&attribute_id).unwrap())
+                                .desired_width(input_width)
+                        );
+
+                        if response.lost_focus() {
+                            if let Some(new_value) = self.parse_attribute_value(&temp_value, attribute_value) {
+                                entity.modify_attribute(attribute_id, None, None, Some(new_value));
+                                self.editing_states.remove(&attribute_id);
+                                self.data_updated = true;
+                            } else {
+                                self.editing_states.remove(&attribute_id);
+                            }
+                        }
+                    }
+                }
+            });
         });
+        ui.separator();
     }
 
     /// Validate for new attribute name

@@ -15,29 +15,48 @@ impl EntityItem {
         scene_id: &Uuid,
         entities: &IndexMap<Uuid, crate::ecs::Entity>,
     ) {
-
-        // Sort entity by name for displaying
         let mut sorted_entities: Vec<(&Uuid, &crate::ecs::Entity)> = entities.iter().collect();
         sorted_entities.sort_by(|(_, entity_a), (_, entity_b)| {
             entity_a.name.to_lowercase().cmp(&entity_b.name.to_lowercase())
         });
 
         for (entity_id, entity) in sorted_entities {
-
-            // Filter by search_query for displaying
             if !hierarchy.search_query.is_empty()
-                && !entity.name.to_lowercase().contains(&hierarchy.search_query.to_lowercase()) { continue; }
+                && !entity.name.to_lowercase().contains(&hierarchy.search_query.to_lowercase()) {
+                continue;
+            }
 
             let header_id = ui.make_persistent_id(entity_id);
 
-            // Show as collapsable if has resources, otherwise show as label.
-            if !entity.resource_list.is_empty() {
+            // Show as collapsable if has images or sounds, otherwise show as label
+            if !entity.images.is_empty() || !entity.sounds.is_empty() {
                 egui::collapsing_header::CollapsingState::load_with_default_open(ctx, header_id, true)
                     .show_header(ui, |ui| {
                         EntityItem::tree_item_entity(ui, scene_id, entity_id, &entity.name, hierarchy, gui_state);
                     })
                     .body(|ui| {
-                        ResourceItem::show_resources(ui, scene_id, entity_id, &entity.resource_list, hierarchy, gui_state);
+                        if !entity.images.is_empty() {
+                            for path in &entity.images {
+                                let filename = path.file_name()
+                                    .unwrap_or_default()
+                                    .to_string_lossy()
+                                    .to_string();
+                                ui.horizontal(|ui| {
+                                    ui.label(format!("🔆 {}", filename));
+                                });
+                            }
+                        }
+                        if !entity.sounds.is_empty() {
+                            for path in &entity.sounds {
+                                let filename = path.file_name()
+                                    .unwrap_or_default()
+                                    .to_string_lossy()
+                                    .to_string();
+                                ui.horizontal(|ui| {
+                                    ui.label(format!("🎵 {}", filename));
+                                });
+                            }
+                        }
                     });
             } else {
                 ui.horizontal(|ui| {
@@ -47,28 +66,46 @@ impl EntityItem {
         }
     }
 
-    fn tree_item_entity(ui: &mut Ui, scene_id: &Uuid, entity_id: &Uuid, entity_name: &str, hierarchy: &mut SceneHierarchy, gui_state: &mut GuiState) {
+    pub fn tree_item_entity(
+        ui: &mut Ui,
+        scene_id: &Uuid,
+        entity_id: &Uuid,
+        entity_name: &str,
+        hierarchy: &mut SceneHierarchy,
+        gui_state: &mut GuiState,
+    ) {
         let selected = matches!(
             gui_state.scene_panel_selected_item,
             ScenePanelSelectedItem::Entity(s_id, e_id) if s_id == *scene_id && e_id == *entity_id
         );
 
-        let response = ui.selectable_label(selected, format!("📌 {}", entity_name));
+        // Just show the filename without path
+        let display_name = if let Some(name) = entity_name.split('/').last() {
+            name
+        } else {
+            entity_name
+        };
+
+        let response = ui.selectable_label(selected, format!("🖼 {}", display_name));
         if response.clicked() {
             gui_state.selected_item = SelectedItem::Entity(*scene_id, *entity_id);
             gui_state.scene_panel_selected_item = ScenePanelSelectedItem::Entity(*scene_id, *entity_id);
         }
 
         response.context_menu(|ui| {
-            if ui.button("Manage Resources").clicked() {
-                hierarchy.popup_manager.manage_resources_entity = Some((*scene_id, *entity_id));
-                hierarchy.popup_manager.manage_resource_popup_active = true;
+            if ui.button("Attach Asset").clicked() {
+                hierarchy.popup_manager.resource_selection = Some((*scene_id, *entity_id));
+                hierarchy.popup_manager.resource_selection_popup_active = true;
+                ui.close_menu();
+            }
+            if ui.button("Detach Asset").clicked() {
+                hierarchy.popup_manager.manage_assets_entity = Some((*scene_id, *entity_id));
+                hierarchy.popup_manager.manage_assets_popup_active = true;
                 ui.close_menu();
             }
             if ui.button("Rename").clicked() {
                 hierarchy.popup_manager.entity_rename_entity = Some((*scene_id, *entity_id));
                 hierarchy.popup_manager.rename_input = entity_name.to_string();
-                hierarchy.popup_manager.start_rename_entity(*scene_id, *entity_id, entity_name.to_string());
                 ui.close_menu();
             }
             if ui.button("Delete").clicked() {

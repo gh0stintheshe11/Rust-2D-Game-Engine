@@ -4,18 +4,18 @@ use std::path::PathBuf;
 use uuid::Uuid;
 
 pub enum SelectedItem {
-    Scene(Uuid),
-    Entity(Uuid, Uuid), // (Scene ID, Entity ID)
-    Resource(Uuid, Uuid), // (Scene ID, Resource ID)
-    File(PathBuf),
     None,
+    Scene(Uuid),
+    Entity(Uuid, Uuid),  // (Scene ID, Entity ID)
+    Asset(Uuid, Uuid, PathBuf),  // (Scene ID, Entity ID, Asset Path)
+    File(PathBuf),
 }
 
 pub enum ScenePanelSelectedItem {
-    Scene(Uuid),
-    Entity(Uuid, Uuid), // (Scene ID, Entity ID)
-    Resource(Uuid, Uuid), // (Scene ID, Resource ID)
     None,
+    Scene(Uuid),
+    Entity(Uuid, Uuid),
+    Asset(Uuid, Uuid, PathBuf),  // (Scene ID, Entity ID, Asset Path)
 }
 
 pub struct GuiState {
@@ -24,8 +24,8 @@ pub struct GuiState {
     pub show_open_project_popup: bool,
     pub load_project: bool,            // Track if the project should be loaded
     pub project_name: String,          // Store the project name input
-    pub project_path: String,          // Store the project path input
-    pub project_metadata: Option<ProjectMetadata>,
+    pub project_path: PathBuf,         // Store the project path input
+    pub project_metadata: Option<ProjectMetadata>,  // Store loaded project metadata
     pub scene_manager: Option<SceneManager>,
 
     pub show_hierarchy_filesystem: bool,
@@ -45,7 +45,7 @@ impl GuiState {
             show_open_project_popup: false,
             load_project: false,
             project_name: String::new(),
-            project_path: String::new(),
+            project_path: PathBuf::new(),
             project_metadata: None,
             scene_manager: None,
 
@@ -58,5 +58,4 @@ impl GuiState {
             scene_panel_selected_item: ScenePanelSelectedItem::None,
         }
     }
-
 }
