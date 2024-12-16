@@ -1,6 +1,7 @@
 use crate::gui::gui_state::GuiState;
 use crate::project_manager::ProjectManager;
 use std::path::Path;
+use crate::ecs::ResourceType;
 
 
 pub fn save_project(gui_state: &GuiState) {
@@ -34,5 +35,43 @@ pub fn truncate_path(path: &str) -> String {
         format!("{}...{}", start, end)
     } else {
         path.to_string()
+    }
+}
+
+pub fn truncate_related_path(project_path: &str, full_path: &str) -> String {
+    const MAX_LENGTH: usize = 30;
+    let relative_path = if full_path.starts_with(project_path) {
+        full_path[project_path.len()..].trim_start_matches(std::path::MAIN_SEPARATOR).to_string()
+    } else {
+        full_path.to_string()
+    };
+
+    truncate_path(&relative_path)
+}
+
+pub fn is_valid_asset_file(path: &Path) -> bool {
+    match path.extension().and_then(|ext| ext.to_str()) {
+        Some(ext) => {
+            let valid_extensions = [
+                "png", "jpg", "jpeg", "gif", // Image files
+                "wav", "mp3", "ogg",         // Sound files
+                "ttf", "otf",                // Font files
+                "lua",                       // Script files
+            ];
+            valid_extensions.contains(&ext.to_lowercase().as_str())
+        }
+        None => false,
+    }
+}
+
+pub fn resource_type_from_extension(path: &Path) -> Option<ResourceType> {
+    match path.extension().and_then(|ext| ext.to_str()) {
+        Some(ext) => match ext.to_lowercase().as_str() {
+            "png" | "jpg" | "jpeg" | "gif" => Some(ResourceType::Image),
+            "wav" | "mp3" | "ogg" => Some(ResourceType::Sound),
+            "lua" => Some(ResourceType::Script),
+            _ => None,
+        },
+        None => None,
     }
 }
