@@ -343,7 +343,7 @@ pub enum AssetType {
 
 impl AssetType {
     // Returns the valid file extensions for each asset type
-    fn valid_extensions(&self) -> &[&str] {
+    pub fn valid_extensions(&self) -> &[&str] {
         match self {
             AssetType::Image => &["png", "jpg", "jpeg", "gif"],
             AssetType::Sound => &["wav", "mp3", "ogg"],
