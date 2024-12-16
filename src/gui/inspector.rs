@@ -39,19 +39,23 @@ impl Inspector {
     }
 
     pub fn show(&mut self, ctx: &egui::Context, ui: &mut egui::Ui, gui_state: &mut GuiState) {
-        match &gui_state.selected_item {
-            SelectedItem::Scene(scene_id) => self.show_scene_details(ui, *scene_id, gui_state),
-            SelectedItem::Entity(scene_id, entity_id) => {
-                self.show_entity_details(ui, ctx, *scene_id, *entity_id, gui_state)
-            }
-            SelectedItem::Resource(scene_id, resource_id) => {
-                self.show_resource_details(ui, ctx, *scene_id, *resource_id, gui_state)
-            }
-            SelectedItem::File(file_path) => self.show_file_details(ui, file_path),
-            SelectedItem::None => {
-                ui.label("No item selected.");
-            }
-        }
+        egui::ScrollArea::vertical()
+            .auto_shrink([false, false])
+            .show(ui, |ui| {
+                match &gui_state.selected_item {
+                    SelectedItem::Scene(scene_id) => self.show_scene_details(ui, *scene_id, gui_state),
+                    SelectedItem::Entity(scene_id, entity_id) => {
+                        self.show_entity_details(ui, ctx, *scene_id, *entity_id, gui_state)
+                    }
+                    SelectedItem::Resource(scene_id, resource_id) => {
+                        self.show_resource_details(ui, ctx, *scene_id, *resource_id, gui_state)
+                    }
+                    SelectedItem::File(file_path) => self.show_file_details(ui, file_path),
+                    SelectedItem::None => {
+                        ui.label("No item selected.");
+                    }
+                }
+            });
     }
 
     // Display scene information
@@ -74,7 +78,6 @@ impl Inspector {
 
     // Display file information
     fn show_file_details(&mut self, ui: &mut egui::Ui, file_path: &Path) {
-
         if let Ok(metadata) = fs::metadata(file_path) {
             if metadata.is_file() {
                 let extension = file_path
@@ -84,44 +87,75 @@ impl Inspector {
                     .to_lowercase();
 
                 match extension.as_str() {
-                    // Handle image files
                     "png" | "jpg" | "jpeg" | "gif" => {
-                        // Try to load and display the image first
                         if let Ok(img) = image::open(file_path) {
                             let width = img.width();
                             let height = img.height();
                             let aspect_ratio = width as f32 / height as f32;
 
-                            // Show image preview first
+                            // Show image preview with size constraints
                             let rgba_img = img.to_rgba8();
                             let image = ColorImage::from_rgba_unmultiplied(
                                 [width as usize, height as usize],
                                 rgba_img.as_raw(),
                             );
 
+                            // Calculate display size with maximum dimensions
                             let available_width = ui.available_width();
-                            let display_width = available_width.min(200.0);
-                            let display_height = display_width / aspect_ratio;
+                            let max_preview_width = available_width.min(400.0); // Maximum width of 400 pixels
+                            let max_preview_height = 300.0; // Maximum height of 300 pixels
+
+                            let mut display_width;
+                            let mut display_height;
+
+                            if aspect_ratio > 1.0 {
+                                // Wide image
+                                display_width = max_preview_width;
+                                display_height = display_width / aspect_ratio;
+                                if display_height > max_preview_height {
+                                    display_height = max_preview_height;
+                                    display_width = display_height * aspect_ratio;
+                                }
+                            } else {
+                                // Tall image
+                                display_height = max_preview_height;
+                                display_width = display_height * aspect_ratio;
+                                if display_width > max_preview_width {
+                                    display_width = max_preview_width;
+                                    display_height = display_width / aspect_ratio;
+                                }
+                            }
 
                             let texture = ui.ctx().load_texture(
                                 "preview_image",
                                 image,
                                 TextureOptions::default(),
                             );
-                            ui.image((texture.id(), Vec2::new(display_width, display_height)));
-                            
-                            // Then show details with separators
+
+                            // Center the image
+                            let available_width = ui.available_width();
+                            let padding = ((available_width - display_width) / 2.0).max(0.0);
+                            ui.add_space(8.0);
+                            ui.horizontal(|ui| {
+                                ui.add_space(padding);
+                                egui::Frame::none()
+                                    .stroke(egui::Stroke::new(1.0, egui::Color32::GRAY))
+                                    .show(ui, |ui| {
+                                        ui.image((texture.id(), Vec2::new(display_width, display_height)));
+                                    });
+                            });
+                            ui.add_space(8.0);
+
+                            // Show file info
                             ui.separator();
-                            ui.label(format!("Dimensions: {}x{} pixels", width, height));
-                            ui.separator();
-                            ui.label(format!("Aspect Ratio: {:.3}", aspect_ratio));
+                            ui.label("Path:");
+                            ui.label(format!("{}", file_path.display()));
                             ui.separator();
                             ui.label(format!("Size: {}", format_file_size(metadata.len())));
                             ui.separator();
-                            ui.label(format!("Path: {}", file_path.display()));
+                            ui.label(format!("Dimensions: {} x {} pixels", width, height));
                         }
                     }
-                    // Handle sound files
                     "mp3" | "wav" | "ogg" => {
                         ui.horizontal(|ui| {
                             if ui.button("▶ Play").clicked() {
@@ -137,12 +171,11 @@ impl Inspector {
                             }
                         });
                         
-                        // Show audio file details
                         ui.separator();
-                        ui.label(format!("Path: {}", file_path.display()));
+                        ui.label("Path:");
+                        ui.label(format!("{}", file_path.display()));
                         ui.separator();
                         
-                        // Add duration information
                         if let Some(path_str) = file_path.to_str() {
                             match self.audio_engine.get_audio_duration(path_str) {
                                 Ok(duration) => {
@@ -174,14 +207,30 @@ impl Inspector {
                         
                         ui.label(format!("Size: {}", format_file_size(metadata.len())));
                     }
-                    // Handle script files
                     "lua" | "rs" => {
                         if ui.button("Edit Script").clicked() {
                             // TODO: switch to editor panel
                         }
+                        ui.separator();
+                        ui.label("Path:");
+                        ui.label(format!("{}", file_path.display()));
+                        ui.separator();
+                        ui.label(format!("Size: {}", format_file_size(metadata.len())));
+                    }
+                    "ttf" | "otf" => {
+                        ui.separator();
+                        ui.label("Path:");
+                        ui.label(format!("{}", file_path.display()));
+                        ui.separator();
+                        ui.label(format!("Size: {}", format_file_size(metadata.len())));
                     }
                     _ => {
                         ui.label("Unsupported file type.");
+                        ui.separator();
+                        ui.label("Path:");
+                        ui.label(format!("{}", file_path.display()));
+                        ui.separator();
+                        ui.label(format!("Size: {}", format_file_size(metadata.len())));
                     }
                 }
             } else {

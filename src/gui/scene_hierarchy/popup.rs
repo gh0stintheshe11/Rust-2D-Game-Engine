@@ -23,6 +23,7 @@ pub struct PopupManager {
     pub manage_resources_scene: Option<Uuid>,// Track selected scene for manage resource (scene_id)
     pub resource_rename_inputs: std::collections::HashMap<Uuid, String>,
     pub resource_editing_states: std::collections::HashMap<Uuid, bool>, // Track editing states for each resource
+    pub create_resource_type: ResourceType,
 }
 
 impl PopupManager {
@@ -42,6 +43,7 @@ impl PopupManager {
             manage_resources_scene: None,
             resource_rename_inputs: std::collections::HashMap::new(),
             resource_editing_states: std::collections::HashMap::new(),
+            create_resource_type: ResourceType::Image,
         }
     }
 
@@ -190,6 +192,19 @@ impl PopupManager {
 
                 ui.add_space(10.0);
 
+                if self.create_item_type == "Resource" {
+                    ui.separator();
+                    ui.label("Resource Type:");
+                    ui.horizontal(|ui| {
+                        ui.selectable_value(&mut self.create_resource_type, ResourceType::Image, "Image");
+                        ui.selectable_value(&mut self.create_resource_type, ResourceType::Sound, "Sound");
+                        ui.selectable_value(&mut self.create_resource_type, ResourceType::Script, "Script");
+                        // Add more resource types as needed
+                    });
+                }
+
+                ui.separator();
+
                 ui.horizontal(|ui| {
                     ui.label("Name:");
                     ui.text_edit_singleline(&mut self.create_item_name);
@@ -246,6 +261,7 @@ impl PopupManager {
         self.create_popup_active = false;
         self.create_item_name.clear();
         self.error_message.clear();
+        self.create_resource_type = ResourceType::Image; // Reset to default type
     }
 
     /// Create a new scene
@@ -400,16 +416,16 @@ impl PopupManager {
             }
         };
 
-        // Create the new resource
-        let new_resource_id = scene.create_resource(name, "", ResourceType::Image);
+        // Create the new resource with the name as the path and selected type
+        let new_resource_id = scene.create_resource(name, name, self.create_resource_type.clone());
 
         // Update selection state
         gui_state.scene_panel_selected_item = ScenePanelSelectedItem::Resource(scene_id, new_resource_id);
         gui_state.selected_item = SelectedItem::Resource(scene_id, new_resource_id);
 
         println!(
-            "Created new resource '{}' with ID: {:?}",
-            name, new_resource_id
+            "Created new resource '{}' of type {:?} with ID: {:?}",
+            name, self.create_resource_type, new_resource_id
         );
 
         // Save the project

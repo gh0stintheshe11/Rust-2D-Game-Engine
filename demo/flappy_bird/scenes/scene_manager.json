@@ -2,7 +2,7 @@
   "scenes": {
     "41d2288f-2b5f-48a5-91ad-2d015711fd3a": {
       "id": "c24019be-e51e-45a3-a3f8-0c3ed00881ea",
-      "name": "main_game",
+      "name": "game_main",
       "entities": {
         "d771b234-8ac7-40ad-8d26-978fd140885e": {
           "id": "d771b234-8ac7-40ad-8d26-978fd140885e",
@@ -299,9 +299,118 @@
           "resource_list": []
         }
       },
-      "resources": {},
+      "resources": {
+        "2d9c1da8-78a2-47f9-b30c-bb704e3d53e5": {
+          "id": "2d9c1da8-78a2-47f9-b30c-bb704e3d53e5",
+          "name": "bg",
+          "file_path": "/home/lang/Rust-2D-Game-Engine/demo/flappy_bird/assets/images/bg.png",
+          "resource_type": "Image"
+        }
+      },
       "shared_entity_refs": [],
       "default_camera": "d771b234-8ac7-40ad-8d26-978fd140885e"
+    },
+    "22409291-752b-40ba-ab3f-5e4937bb4028": {
+      "id": "e167fc90-bc22-4bb1-ac1c-51151c25a597",
+      "name": "game_start",
+      "entities": {
+        "d3ef0f53-cf31-4c88-afee-fc067f2792bd": {
+          "id": "d3ef0f53-cf31-4c88-afee-fc067f2792bd",
+          "name": "main_camera",
+          "attributes": {
+            "14a9989d-6c27-4e6b-8b01-b3b5e899cbc8": {
+              "id": "14a9989d-6c27-4e6b-8b01-b3b5e899cbc8",
+              "name": "position",
+              "data_type": "Vector2",
+              "value": {
+                "Vector2": [
+                  0.0,
+                  0.0
+                ]
+              }
+            },
+            "0f97082f-f90e-4192-9a0f-2147894dca2b": {
+              "id": "0f97082f-f90e-4192-9a0f-2147894dca2b",
+              "name": "zoom",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "55c4c8a6-9d72-446f-bad7-976b46bedbeb": {
+              "id": "55c4c8a6-9d72-446f-bad7-976b46bedbeb",
+              "name": "rotation",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "8dc83efc-16d8-47d3-baa7-e9e242c9f4b3": {
+              "id": "8dc83efc-16d8-47d3-baa7-e9e242c9f4b3",
+              "name": "is_camera",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            }
+          },
+          "resource_list": []
+        }
+      },
+      "resources": {},
+      "shared_entity_refs": [],
+      "default_camera": "d3ef0f53-cf31-4c88-afee-fc067f2792bd"
+    },
+    "11729b96-1182-4b5a-bb0e-e9ddfaf9da70": {
+      "id": "407fa332-785e-45ca-a56f-82e450f9c0ea",
+      "name": "game_end",
+      "entities": {
+        "152fcf12-078e-48c8-a277-7479fdf057f2": {
+          "id": "152fcf12-078e-48c8-a277-7479fdf057f2",
+          "name": "main_camera",
+          "attributes": {
+            "a11a1732-48fd-4dd6-8c9d-53eb2b5437c2": {
+              "id": "a11a1732-48fd-4dd6-8c9d-53eb2b5437c2",
+              "name": "position",
+              "data_type": "Vector2",
+              "value": {
+                "Vector2": [
+                  0.0,
+                  0.0
+                ]
+              }
+            },
+            "c2a57fc5-9696-489c-b7f1-200b5a308603": {
+              "id": "c2a57fc5-9696-489c-b7f1-200b5a308603",
+              "name": "zoom",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "0aff4dfc-de08-40f2-82b7-4777799ce42b": {
+              "id": "0aff4dfc-de08-40f2-82b7-4777799ce42b",
+              "name": "rotation",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "9ef20540-3cf3-4e32-9ebf-fa615f89b263": {
+              "id": "9ef20540-3cf3-4e32-9ebf-fa615f89b263",
+              "name": "is_camera",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            }
+          },
+          "resource_list": []
+        }
+      },
+      "resources": {},
+      "shared_entity_refs": [],
+      "default_camera": "152fcf12-078e-48c8-a277-7479fdf057f2"
     }
   },
   "shared_entities": {},
