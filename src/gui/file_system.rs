@@ -148,7 +148,7 @@ impl FileSystem {
 
                 // Render files
                 ui.horizontal(|ui| {
-                    ui.add_space(depth as f32 * 10.0);
+                    ui.add_space(depth as f32 * 4.0);
 
                     let selected = self
                         .selected_file
