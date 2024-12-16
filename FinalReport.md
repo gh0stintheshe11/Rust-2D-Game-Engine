@@ -740,6 +740,45 @@ _An intuitive, real-time development interface powered by [egui](https://crates.
 
 - Provides customizable views and layouts, allowing developers to tailor the interface to their specific project needs and preferences.
 
+#### Menu
+- Project Management:
+  - Create, load, and work with projects.
+  - Automatic saving
+- Customization Options:
+    - Dark Mode
+    - Show or hide panels
+    - Debug Overlay
+- File Import
+- Editor Switching
+#### Scene
+- Scene Organization:
+    - Add Scenes, Entities, Resources, and preset attributes like cameras or physics.
+    - Entity/Resource addition
+- Context Menu Management:
+    - Right-click Scenes to rename, delete, or manage attached resources.
+    - Ensure resources are not attached to any entity before deletion; otherwise, deletion is restricted.
+    - Right-click Entities to attach/detach multiple resources or rename them.
+    - Right-click Resources to detach or rename them.
+- Resource Highlights:
+    - Selecting a resource highlights all instances with the same ID across the project.
+- Tree Structure:
+    - Organize and view items in a collapsible tree format, sorted alphabetically.
+- Filter entities by name for quick navigation.
+- Clicking any Scene, Entity, or Resource displays its details in the Inspector Panel.
+#### File Panel
+- File Navigation:
+    - View all files within the project folder in a collapsible tree structure, sorted alphabetically.
+    - Select any file to view its details in the Inspector Panel.
+- Context Menu Actions:
+    - Right-click files to delete them.
+- Filtering:
+    - Quickly filter files by name to locate specific items.
+#### Inspector Panel
+- Entity Customization:
+  - Modify entity data or add new attributes directly.
+- Resource Management:
+    - Link resources to specific files seamlessly.
+
 ### Comprehensive Unit Testing
 
 _A rigorous testing framework ensuring the reliability, performance, and correctness of each engine component._
@@ -977,8 +1016,6 @@ Similar to delete an entity, right click the script you wish to delete and click
 `File`->`Build and Run`
 
 ## Reproducibility Guide
-
-> Reproducibility Guide: What are the commands needed to set up the runtime environment, if any, and to build the project, so that its features can be used by a user or a developer? Note: The instructor will follow the steps you have included in this section, step-by-step, with no deviation. The instructor has access to a Ubuntu Linux server and a macOS Sonoma laptop computer.
 
 Run `cargo run` in the terminal at the root directory of our project if you wish to use the debug version. Otherwise, run `cargo build --release` and execute the generated `target/release/rust-2d-game-engine` executable.
 
