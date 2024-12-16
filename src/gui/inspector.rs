@@ -96,6 +96,9 @@ impl Inspector {
         let available_files = {
             let assets_path = Path::new(&gui_state.project_path).join("assets");
             self.get_files_recursively(&assets_path)
+                .into_iter()
+                .filter(|file| utils::is_valid_asset_file(Path::new(file)))
+                .collect::<Vec<_>>()
         };
 
         let mut data_updated = false;
@@ -108,7 +111,7 @@ impl Inspector {
                     ui.label(format!("Name: {}", resource.name));
                     ui.label(format!("ID: {}", resource_id));
                     ui.label(format!("Scene ID: {}", scene_id));
-
+                    ui.label(format!("Resource Type: {:?}", resource.resource_type));
                     ui.separator();
 
                     if available_files.is_empty() {
@@ -128,6 +131,9 @@ impl Inspector {
                                 for file in available_files.iter() {
                                     if ui.selectable_value(selected_file, file.clone(), file).clicked() {
                                         resource.file_path = file.clone();
+                                        if let Some(resource_type) = utils::resource_type_from_extension(Path::new(file)) {
+                                            resource.resource_type = resource_type;
+                                        }
                                         println!("Updated resource file to: {}", resource.file_path);
 
                                         data_updated = true;
