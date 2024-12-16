@@ -1,15 +1,18 @@
-use rodio::{Decoder, OutputStream, OutputStreamHandle, Sink};
+use rodio::{Decoder, OutputStream, OutputStreamHandle, Sink, Source};
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::collections::HashMap;
 use uuid::Uuid;
 use crate::ecs::{Scene, Resource, ResourceType};
+use lofty::{Probe, AudioFile};
 
 pub struct AudioEngine {
     stream: OutputStream,
     stream_handle: OutputStreamHandle,
     active_sounds: HashMap<Uuid, Sink>,
     scene_sound_cache: HashMap<Uuid, HashMap<Uuid, Vec<u8>>>,
+    immediate_sink: Option<Sink>,
+    duration_cache: HashMap<String, f32>,
 }
 
 impl AudioEngine {
@@ -20,6 +23,8 @@ impl AudioEngine {
             stream_handle,
             active_sounds: HashMap::new(),
             scene_sound_cache: HashMap::new(),
+            immediate_sink: None,
+            duration_cache: HashMap::new(),
         }
     }
 
@@ -79,12 +84,6 @@ impl AudioEngine {
         Ok(id)
     }
 
-    // Play a sound file directly (with cleanup)
-    pub fn play_sound(&mut self, path: &str) -> Result<Uuid, String> {
-        let data = self.load_sound(path)?;
-        self.play_sound_data(&data, true)  // Set cleanup to true
-    }
-
     // Play a cached scene sound (no cleanup needed)
     pub fn play_scene_sound(&mut self, scene_id: Uuid, resource_id: Uuid) -> Result<Uuid, String> {
         let data = self.scene_sound_cache
@@ -95,6 +94,29 @@ impl AudioEngine {
             .clone();
         
         self.play_sound_data(&data, false)  // No cleanup for cached sounds
+    }
+
+    // Play a sound file immediately without tracking it
+    pub fn play_sound_immediate(&mut self, path: &str) -> Result<(), String> {
+        // Stop any existing immediate playback
+        if let Some(sink) = &self.immediate_sink {
+            sink.stop();
+        }
+
+        let file = File::open(path)
+            .map_err(|e| format!("Failed to open sound file {}: {}", path, e))?;
+        
+        let reader = BufReader::new(file);
+        let source = Decoder::new(reader)
+            .map_err(|e| format!("Failed to decode sound: {}", e))?;
+
+        let sink = Sink::try_new(&self.stream_handle)
+            .map_err(|e| format!("Failed to create sink: {}", e))?;
+        
+        sink.append(source);
+        self.immediate_sink = Some(sink);
+        
+        Ok(())
     }
 
     // === Control Operations ===
@@ -169,28 +191,27 @@ impl AudioEngine {
         // Clear sound buffers and caches
         self.scene_sound_cache.clear();
     }
-}
 
-// Scene integration
-impl Scene {
-    pub fn play_sound(&self, resource_id: Uuid, audio_engine: &mut AudioEngine) -> Result<Uuid, String> {
-        let resource = self.resources.get(&resource_id)
-            .ok_or("Resource not found")?;
-            
-        if resource.resource_type != ResourceType::Sound {
-            return Err("Resource is not a sound".to_string());
+    // Stop immediate mode playback
+    pub fn stop_immediate(&mut self) {
+        if let Some(sink) = &self.immediate_sink {
+            sink.stop();
         }
-
-        audio_engine.play_sound(&resource.file_path)
+        self.immediate_sink = None;
     }
-}
 
-// Resource trait implementation
-impl Resource {
-    pub fn play_as_resource(&self, audio_engine: &mut AudioEngine) -> Result<Uuid, String> {
-        match self.resource_type {
-            ResourceType::Sound => audio_engine.play_sound(&self.file_path),
-            _ => Err("Resource is not a sound".to_string()),
-        }
+    pub fn get_audio_duration(&self, path: &str) -> Result<f32, String> {
+        // Open and probe the file
+        let tagged_file = Probe::open(path)
+            .map_err(|e| format!("Failed to open audio file: {}", e))?
+            .read()
+            .map_err(|e| format!("Failed to read audio file: {}", e))?;
+
+        // Get the properties (including duration)
+        let properties = tagged_file.properties();
+        let duration = properties.duration();
+        
+        // Convert duration to seconds
+        Ok(duration.as_secs_f32())
     }
 }

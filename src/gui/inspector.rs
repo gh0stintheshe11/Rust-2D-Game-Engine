@@ -8,6 +8,9 @@ use crate::project_manager::ProjectManager;
 use crate::gui::scene_hierarchy::utils;
 use std::fs;
 use crate::audio_engine::AudioEngine;
+use eframe::egui::{ColorImage, TextureOptions, Vec2};
+use image;
+use crate::gui::scene_hierarchy::utils::format_file_size;
 
 pub struct Inspector {
     // Maps attribute's id to its editing state value
@@ -18,6 +21,7 @@ pub struct Inspector {
     metadata_new_value: AttributeValue,
     metadata_error_message: String,
     data_updated: bool,
+    audio_engine: AudioEngine,
 }
 
 impl Inspector {
@@ -30,6 +34,7 @@ impl Inspector {
             metadata_new_value: AttributeValue::String(String::new()),
             metadata_error_message: String::new(),
             data_updated: false,
+            audio_engine: AudioEngine::new(),
         }
     }
 
@@ -68,51 +73,106 @@ impl Inspector {
     }
 
     // Display file information
-    fn show_file_details(&self, ui: &mut egui::Ui, file_path: &Path) {
-        ui.label("File Details");
-        ui.separator();
-        ui.label(format!("Path: {}", file_path.display()));
+    fn show_file_details(&mut self, ui: &mut egui::Ui, file_path: &Path) {
 
         if let Ok(metadata) = fs::metadata(file_path) {
             if metadata.is_file() {
-                ui.label(format!("Size: {} bytes", metadata.len()));
+                let extension = file_path
+                    .extension()
+                    .and_then(|ext| ext.to_str())
+                    .unwrap_or("")
+                    .to_lowercase();
 
-                let id = Uuid::new_v4();
-
-                let extension = file_path.extension().and_then(|ext| ext.to_str()).unwrap_or("").to_lowercase();
                 match extension.as_str() {
                     // Handle image files
                     "png" | "jpg" | "jpeg" | "gif" => {
-                        let resource = Resource {
-                            id,
-                            name: id.to_string(),
-                            file_path: file_path.to_str().unwrap().to_string(),
-                            resource_type: ResourceType::Image,
-                        };
-                        resource.display();
+                        // Try to load and display the image first
+                        if let Ok(img) = image::open(file_path) {
+                            let width = img.width();
+                            let height = img.height();
+                            let aspect_ratio = width as f32 / height as f32;
+
+                            // Show image preview first
+                            let rgba_img = img.to_rgba8();
+                            let image = ColorImage::from_rgba_unmultiplied(
+                                [width as usize, height as usize],
+                                rgba_img.as_raw(),
+                            );
+
+                            let available_width = ui.available_width();
+                            let display_width = available_width.min(200.0);
+                            let display_height = display_width / aspect_ratio;
+
+                            let texture = ui.ctx().load_texture(
+                                "preview_image",
+                                image,
+                                TextureOptions::default(),
+                            );
+                            ui.image((texture.id(), Vec2::new(display_width, display_height)));
+                            
+                            // Then show details with separators
+                            ui.separator();
+                            ui.label(format!("Dimensions: {}x{} pixels", width, height));
+                            ui.separator();
+                            ui.label(format!("Aspect Ratio: {:.3}", aspect_ratio));
+                            ui.separator();
+                            ui.label(format!("Size: {}", format_file_size(metadata.len())));
+                            ui.separator();
+                            ui.label(format!("Path: {}", file_path.display()));
+                        }
                     }
                     // Handle sound files
                     "mp3" | "wav" | "ogg" => {
-
-                        let resource = Resource {
-                            id,
-                            name: id.to_string(),
-                            file_path: file_path.to_str().unwrap().to_string(),
-                            resource_type: ResourceType::Sound,
-                        };
-
                         ui.horizontal(|ui| {
-                            if ui.button("Play").clicked() {
-                                // resource.play();
+                            if ui.button("▶ Play").clicked() {
+                                if let Some(path_str) = file_path.to_str() {
+                                    if let Err(e) = self.audio_engine.play_sound_immediate(path_str) {
+                                        println!("Failed to play sound: {}", e);
+                                    }
+                                }
                             }
-                            if ui.button("Pause").clicked() {
-                                // resource.pause();
-                                // resource.resume();
-                            }
-                            if ui.button("Stop").clicked() {
-                                // resource.stop();
+                            
+                            if ui.button("⏹ Stop").clicked() {
+                                self.audio_engine.stop_immediate();
                             }
                         });
+                        
+                        // Show audio file details
+                        ui.separator();
+                        ui.label(format!("Path: {}", file_path.display()));
+                        ui.separator();
+                        
+                        // Add duration information
+                        if let Some(path_str) = file_path.to_str() {
+                            match self.audio_engine.get_audio_duration(path_str) {
+                                Ok(duration) => {
+                                    let duration_text = {
+                                        let total_seconds = duration.round() as i64;
+                                        let seconds = total_seconds % 60;
+                                        let minutes = (total_seconds / 60) % 60;
+                                        let hours = (total_seconds / 3600) % 24;
+                                        let days = total_seconds / 86400;
+
+                                        if days > 0 {
+                                            format!("Duration: {}d {}h {}m {}s", days, hours, minutes, seconds)
+                                        } else if hours > 0 {
+                                            format!("Duration: {}h {}m {}s", hours, minutes, seconds)
+                                        } else if minutes > 0 {
+                                            format!("Duration: {}m {}s", minutes, seconds)
+                                        } else {
+                                            format!("Duration: {}s", seconds)
+                                        }
+                                    };
+                                    ui.label(duration_text);
+                                    ui.separator();
+                                }
+                                Err(e) => {
+                                    println!("Failed to get audio duration: {}", e);
+                                }
+                            }
+                        }
+                        
+                        ui.label(format!("Size: {}", format_file_size(metadata.len())));
                     }
                     // Handle script files
                     "lua" | "rs" => {
@@ -124,7 +184,6 @@ impl Inspector {
                         ui.label("Unsupported file type.");
                     }
                 }
-
             } else {
                 ui.label("Not a file.");
             }

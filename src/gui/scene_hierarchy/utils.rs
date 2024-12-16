@@ -75,3 +75,19 @@ pub fn resource_type_from_extension(path: &Path) -> Option<ResourceType> {
         None => None,
     }
 }
+
+pub fn format_file_size(size_in_bytes: u64) -> String {
+    const KB: u64 = 1024;
+    const MB: u64 = KB * 1024;
+    const GB: u64 = MB * 1024;
+
+    if size_in_bytes >= GB {
+        format!("{:.2} GB", size_in_bytes as f64 / GB as f64)
+    } else if size_in_bytes >= MB {
+        format!("{:.2} MB", size_in_bytes as f64 / MB as f64)
+    } else if size_in_bytes >= KB {
+        format!("{:.2} KB", size_in_bytes as f64 / KB as f64)
+    } else {
+        format!("{} B", size_in_bytes)
+    }
+}
