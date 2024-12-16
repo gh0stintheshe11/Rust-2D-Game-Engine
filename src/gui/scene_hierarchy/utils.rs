@@ -36,3 +36,14 @@ pub fn truncate_path(path: &str) -> String {
         path.to_string()
     }
 }
+
+pub fn truncate_related_path(project_path: &str, full_path: &str) -> String {
+    const MAX_LENGTH: usize = 30;
+    let relative_path = if full_path.starts_with(project_path) {
+        full_path[project_path.len()..].trim_start_matches(std::path::MAIN_SEPARATOR).to_string()
+    } else {
+        full_path.to_string()
+    };
+
+    truncate_path(&relative_path)
+}

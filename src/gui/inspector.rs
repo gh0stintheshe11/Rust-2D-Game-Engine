@@ -120,7 +120,7 @@ impl Inspector {
                             .entry(resource_id)
                             .or_insert_with(|| resource.file_path.clone());
 
-                        let truncated_path = utils::truncate_path(selected_file);
+                        let truncated_path = utils::truncate_related_path(&gui_state.project_path, selected_file);
 
                         egui::ComboBox::new(resource_id, "")
                             .selected_text(truncated_path)
