@@ -2,6 +2,7 @@ use eframe::egui;
 use std::fs;
 use std::path::{Path, PathBuf};
 use crate::gui::gui_state::{GuiState, SelectedItem};
+use crate::project_manager::ProjectManager;
 
 pub struct FileSystem {
     search_query: String,
@@ -17,10 +18,9 @@ impl FileSystem {
     }
 
     pub fn show(&mut self, ctx: &egui::Context, ui: &mut egui::Ui, gui_state: &mut GuiState) -> Option<(PathBuf, String)> {
-        // Check if the project path exists
         let root_path = PathBuf::from(&gui_state.project_path);
-        if !root_path.exists() {
-            ui.label("Project path does not exist. Please create or open a project.");
+        if !ProjectManager::is_valid_project_directory(&root_path) {
+            ui.label("Invalid project directory. Please create or open a valid project.");
             return None;
         }
 

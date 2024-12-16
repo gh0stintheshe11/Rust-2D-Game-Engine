@@ -22,6 +22,9 @@ pub struct ProjectMetadata {
 pub struct ProjectManager;
 
 impl ProjectManager {
+    // Add constant definition
+    const PROJECT_FILE_NAME: &'static str = "project.epm";
+
     // Creates a new game project at the specified path
     // Sets up folder structure, creates initial files, and initializes scene manager
     pub fn create_project(project_path: &Path) -> Result<(), String> {
@@ -74,7 +77,7 @@ impl ProjectManager {
 
     // Creates and writes the project metadata file (project.json)
     fn create_metadata_file(base_path: &Path, metadata: &ProjectMetadata) -> Result<(), String> {
-        let file_path = base_path.join("project.json");
+        let file_path = base_path.join(Self::PROJECT_FILE_NAME);
         let json = serde_json::to_string_pretty(metadata)
             .map_err(|e| format!("Failed to serialize metadata: {}", e))?;
         let mut file = File::create(&file_path)
@@ -154,18 +157,27 @@ my_game_engine = {{ path = "../path/to/engine" }}
 
     // Loads project metadata from project.json
     pub fn load_project(project_path: &Path) -> Result<ProjectMetadata, String> {
-        let file_path = project_path.join("project.json");
+        let file_path = project_path.join(Self::PROJECT_FILE_NAME);
         let file = File::open(&file_path)
             .map_err(|e| format!("Failed to open file: {}", e))?;
-        let metadata: ProjectMetadata = serde_json::from_reader(file)
+        
+        let mut metadata: ProjectMetadata = serde_json::from_reader(file)
             .map_err(|e| format!("Failed to read metadata: {}", e))?;
-
+        
+        // Always update project_path to current path
+        metadata.project_path = project_path.to_str()
+            .ok_or("Invalid project path")?
+            .to_string();
+        
+        // Save the updated metadata back to file
+        Self::save_project(project_path, &metadata)?;
+        
         Ok(metadata)
     }
 
     // Saves project metadata to project.json
     pub fn save_project(project_path: &Path, metadata: &ProjectMetadata) -> Result<(), String> {
-        let file_path = project_path.join("project.json");
+        let file_path = project_path.join(Self::PROJECT_FILE_NAME);
         let json = serde_json::to_string_pretty(metadata)
             .map_err(|e| format!("Failed to serialize metadata: {}", e))?;
         let mut file = File::create(&file_path)
@@ -329,6 +341,11 @@ my_game_engine = {{ path = "../path/to/engine" }}
         Self::save_project(project_path, metadata)?;
         Self::save_scene_hierarchy(project_path, scene_manager)?;
         Ok(())
+    }
+
+    // Add new helper method
+    pub fn is_valid_project_directory(path: &Path) -> bool {
+        path.join(Self::PROJECT_FILE_NAME).exists()
     }
 }
 
