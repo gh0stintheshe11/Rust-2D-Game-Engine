@@ -77,7 +77,7 @@ impl FileSystem {
             stroke: egui::Stroke::NONE,
         }
         .show(ui, |ui| {
-            if !gui_state.project_loaded {
+            if !gui_state.load_project {
                 ui.label("No project opened.");
                 return;
             }

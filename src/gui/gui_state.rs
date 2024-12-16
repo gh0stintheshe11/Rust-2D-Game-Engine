@@ -35,8 +35,6 @@ pub struct GuiState {
 
     pub selected_item: SelectedItem,
     pub scene_panel_selected_item: ScenePanelSelectedItem,
-    
-    pub project_loaded: bool,  // New field to track if project is successfully loaded
 }
 
 impl GuiState {
@@ -50,7 +48,6 @@ impl GuiState {
             project_path: PathBuf::new(),
             project_metadata: None,
             scene_manager: None,
-            project_loaded: false,  // Initialize as false
 
             show_hierarchy_filesystem: true,
             show_inspector: true,
@@ -60,17 +57,5 @@ impl GuiState {
             selected_item: SelectedItem::None,
             scene_panel_selected_item: ScenePanelSelectedItem::None,
         }
-    }
-
-    pub fn has_valid_project(&self) -> bool {
-        self.project_loaded && self.scene_manager.is_some()
-    }
-
-    pub fn get_scene_manager(&mut self) -> Option<&mut SceneManager> {
-        self.scene_manager.as_mut()
-    }
-
-    pub fn set_scene_manager(&mut self, scene_manager: SceneManager) {
-        self.scene_manager = Some(scene_manager);
     }
 }

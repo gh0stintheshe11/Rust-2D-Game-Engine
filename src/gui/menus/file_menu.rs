@@ -141,7 +141,6 @@ impl FileMenu {
                                     gui_state.project_name = metadata.project_name.clone();
                                     gui_state.project_path = metadata.project_path.clone().into();
                                     gui_state.load_project = true;
-                                    gui_state.project_loaded = true;
 
                                     gui_state.project_metadata = Some(metadata);
                                     gui_state.scene_manager = Some(scene_manager);
