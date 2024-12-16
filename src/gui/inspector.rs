@@ -1,12 +1,13 @@
 use eframe::egui;
 use crate::gui::gui_state::{GuiState, SelectedItem};
-use crate::ecs::{AttributeValue, AttributeType, Entity};
+use crate::ecs::{AttributeValue, AttributeType, Entity, Resource, ResourceType};
 use std::collections::HashMap;
 use std::path::Path;
 use uuid::Uuid;
 use crate::project_manager::ProjectManager;
 use crate::gui::scene_hierarchy::utils;
 use std::fs;
+use crate::audio_engine::AudioEngine;
 
 pub struct Inspector {
     // Maps attribute's id to its editing state value
@@ -72,9 +73,58 @@ impl Inspector {
         ui.separator();
         ui.label(format!("Path: {}", file_path.display()));
 
-        if let Ok(metadata) = std::fs::metadata(file_path) {
+        if let Ok(metadata) = fs::metadata(file_path) {
             if metadata.is_file() {
                 ui.label(format!("Size: {} bytes", metadata.len()));
+
+                let id = Uuid::new_v4();
+
+                let extension = file_path.extension().and_then(|ext| ext.to_str()).unwrap_or("").to_lowercase();
+                match extension.as_str() {
+                    // Handle image files
+                    "png" | "jpg" | "jpeg" | "gif" => {
+                        let resource = Resource {
+                            id,
+                            name: id.to_string(),
+                            file_path: file_path.to_str().unwrap().to_string(),
+                            resource_type: ResourceType::Image,
+                        };
+                        resource.display();
+                    }
+                    // Handle sound files
+                    "mp3" | "wav" | "ogg" => {
+
+                        let resource = Resource {
+                            id,
+                            name: id.to_string(),
+                            file_path: file_path.to_str().unwrap().to_string(),
+                            resource_type: ResourceType::Sound,
+                        };
+
+                        ui.horizontal(|ui| {
+                            if ui.button("Play").clicked() {
+                                // resource.play();
+                            }
+                            if ui.button("Pause").clicked() {
+                                // resource.pause();
+                                // resource.resume();
+                            }
+                            if ui.button("Stop").clicked() {
+                                // resource.stop();
+                            }
+                        });
+                    }
+                    // Handle script files
+                    "lua" | "rs" => {
+                        if ui.button("Edit Script").clicked() {
+                            // TODO: switch to editor panel
+                        }
+                    }
+                    _ => {
+                        ui.label("Unsupported file type.");
+                    }
+                }
+
             } else {
                 ui.label("Not a file.");
             }
