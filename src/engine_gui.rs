@@ -112,18 +112,18 @@ impl EngineGui {
         self.set_theme(ctx);
 
         let main_window_frame = egui::Frame {
-            inner_margin: egui::Margin::symmetric(spacing, spacing),
+            inner_margin: egui::Margin::ZERO,
             outer_margin: egui::Margin::ZERO,
             rounding: egui::Rounding::ZERO,
             shadow: eframe::epaint::Shadow::NONE,
-            fill: default_fill,
-            stroke: ctx.style().visuals.widgets.noninteractive.bg_stroke,
+            fill: egui::Color32::TRANSPARENT,
+            stroke: egui::Stroke::NONE,
         };
 
         // Viewport (Center)
         egui::Window::new("Main Window")
             .frame(main_window_frame)
-            .anchor(egui::Align2::LEFT_TOP, egui::vec2(0.0, 0.0))
+            .anchor(egui::Align2::LEFT_TOP, egui::vec2(spacing, spacing))
             .resizable(false)
             .collapsible(false)
             .movable(false)
@@ -165,7 +165,14 @@ impl EngineGui {
                         .resizable(true)
                         .min_width(min_side_panel_width)
                         .max_width(available_rect.width() * 0.4)
-                        .frame(egui::Frame::none().inner_margin(egui::Margin::ZERO))
+                        .frame(egui::Frame {
+                            inner_margin: egui::Margin::ZERO,
+                            outer_margin: egui::Margin::ZERO,
+                            rounding: egui::Rounding::ZERO,
+                            shadow: eframe::epaint::Shadow::NONE,
+                            fill: egui::Color32::TRANSPARENT,
+                            stroke: egui::Stroke::NONE,
+                        })
                         .show_inside(ui, |ui| {
                             // Use vertical layout to split the panel
                             egui::TopBottomPanel::top("scene_panel")
@@ -173,31 +180,59 @@ impl EngineGui {
                                 .min_height(200.0)
                                 .max_height(ui.available_height() * 0.75)
                                 .default_height(ui.available_height() * 0.5)
+                                .frame(egui::Frame {
+                                    inner_margin: egui::Margin::ZERO,
+                                    outer_margin: egui::Margin::ZERO,
+                                    rounding: egui::Rounding::ZERO,
+                                    shadow: eframe::epaint::Shadow::NONE,
+                                    fill: egui::Color32::TRANSPARENT,
+                                    stroke: egui::Stroke::NONE,
+                                })
                                 .show_inside(ui, |ui| {
-                                    ui.heading("Scene");
-                                    ui.separator();
                                     self.scene_hierarchy.show(ctx, ui, &mut self.gui_state);
                                 });
 
                             // Add the file system view in the bottom part
-                            egui::CentralPanel::default().show_inside(ui, |ui| {
-                                ui.heading("Files");
-                                ui.separator();
-                                if let Some((path, content)) = self.file_system.show(ctx, ui, &mut self.gui_state) {
-                                    self.editor_content = content;
-                                    self.current_edited_file = Some(path);
-                                }
-                            });
+                            egui::CentralPanel::default()
+                                .frame(egui::Frame {
+                                    inner_margin: egui::Margin::ZERO,
+                                    outer_margin: egui::Margin::ZERO,
+                                    rounding: egui::Rounding::ZERO,
+                                    shadow: eframe::epaint::Shadow::NONE,
+                                    fill: egui::Color32::TRANSPARENT,
+                                    stroke: egui::Stroke::NONE,
+                                })
+                                .show_inside(ui, |ui| {
+                                    if let Some((path, content)) = self.file_system.show(ctx, ui, &mut self.gui_state) {
+                                        self.editor_content = content;
+                                        self.current_edited_file = Some(path);
+                                    }
+                                });
                         });
                 }
 
                 // Right panel (Inspector)
                 if self.gui_state.show_inspector {
+
+                    let inspector_margin = egui::Margin {
+                        left: 6.0,
+                        right: 4.0,
+                        top: 0.0,
+                        bottom: 4.0,
+                    };
+                    
                     egui::SidePanel::right("right_panel")
                         .resizable(true)
                         .min_width(min_side_panel_width)
                         .max_width(available_rect.width() * 0.4)
-                        .frame(egui::Frame::none().inner_margin(egui::Margin::symmetric(8.0, 0.0)))
+                        .frame(egui::Frame {
+                            inner_margin: egui::Margin::ZERO,
+                            outer_margin: inspector_margin,
+                            rounding: egui::Rounding::ZERO,
+                            shadow: eframe::epaint::Shadow::NONE,
+                            fill: egui::Color32::TRANSPARENT,
+                            stroke: egui::Stroke::NONE,
+                        })
                         .show_inside(ui, |ui| {
                             ui.heading("Inspector");
                             ui.separator();
@@ -505,12 +540,18 @@ impl EngineGui {
 
 impl eframe::App for EngineGui {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::CentralPanel::default().show(ctx, |ui| {
-            let rect = ui.max_rect();
-            ui.painter()
-                .rect_filled(rect, 0.0, self.get_background_color());
-
-            self.show_windows(ctx);
-        });
+        egui::CentralPanel::default()
+            .frame(egui::Frame {
+                inner_margin: egui::Margin::ZERO,
+                outer_margin: egui::Margin::ZERO,
+                rounding: egui::Rounding::ZERO,
+                shadow: eframe::epaint::Shadow::NONE,
+                fill: self.get_background_color(),
+                stroke: egui::Stroke::NONE,
+            })
+            .show(ctx, |ui| {
+                let rect = ui.max_rect();
+                self.show_windows(ctx);
+            });
     }
 }

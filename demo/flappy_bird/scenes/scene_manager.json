@@ -1,5 +1,57 @@
 {
-  "scenes": {},
+  "scenes": {
+    "41d2288f-2b5f-48a5-91ad-2d015711fd3a": {
+      "id": "c24019be-e51e-45a3-a3f8-0c3ed00881ea",
+      "name": "main_game",
+      "entities": {
+        "d771b234-8ac7-40ad-8d26-978fd140885e": {
+          "id": "d771b234-8ac7-40ad-8d26-978fd140885e",
+          "name": "main_camera",
+          "attributes": {
+            "738fe760-7f45-412b-a6d2-f854d5452434": {
+              "id": "738fe760-7f45-412b-a6d2-f854d5452434",
+              "name": "position",
+              "data_type": "Vector2",
+              "value": {
+                "Vector2": [
+                  0.0,
+                  0.0
+                ]
+              }
+            },
+            "c865e30e-21ec-40e6-a00d-22921b290f2b": {
+              "id": "c865e30e-21ec-40e6-a00d-22921b290f2b",
+              "name": "zoom",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "079aa5af-b5e5-4936-a421-1282531b2d41": {
+              "id": "079aa5af-b5e5-4936-a421-1282531b2d41",
+              "name": "rotation",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "cdcd0ef0-73d3-48fb-8d37-c26b8996a746": {
+              "id": "cdcd0ef0-73d3-48fb-8d37-c26b8996a746",
+              "name": "is_camera",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            }
+          },
+          "resource_list": []
+        }
+      },
+      "resources": {},
+      "shared_entity_refs": [],
+      "default_camera": "d771b234-8ac7-40ad-8d26-978fd140885e"
+    }
+  },
   "shared_entities": {},
   "active_scene": null
 }
