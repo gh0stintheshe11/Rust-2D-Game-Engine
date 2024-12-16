@@ -461,72 +461,41 @@ impl EngineGui {
     }
 
     fn render_scene(&mut self, ui: &mut egui::Ui) {
-        // Get the actual game viewport area (excluding UI areas)
-        let viewport_margin_top = 40.0;     // Space for control buttons
-        let viewport_margin_bottom = 80.0;  // Space for debug overlay
+        let content_rect = ui.available_rect_before_wrap();
         
-        let available_rect = ui.available_rect_before_wrap();
-        let viewport_rect = egui::Rect::from_min_max(
-            egui::pos2(
-                available_rect.min.x,
-                available_rect.min.y + viewport_margin_top
-            ),
-            egui::pos2(
-                available_rect.max.x,
-                available_rect.max.y - viewport_margin_bottom
-            )
-        );
-
-        // Update render engine with actual viewport dimensions
+        // Update render engine with the full viewport dimensions first
         self.render_engine.update_viewport_size(
-            viewport_rect.width(),
-            viewport_rect.height()
+            content_rect.width(),
+            content_rect.height()
         );
 
-        // Draw a background for the viewport (optional)
-        ui.painter().rect_filled(
-            viewport_rect,
-            0.0,
-            egui::Color32::from_gray(20)
-        );
-
-        // Draw grid
+        // Draw grid and game content using the full viewport area
         let grid_lines = self.render_engine.get_grid_lines();
         for (start, end) in grid_lines {
             ui.painter().line_segment(
                 [
-                    egui::pos2(
-                        viewport_rect.min.x + start.0,
-                        viewport_rect.min.y + start.1
-                    ),
-                    egui::pos2(
-                        viewport_rect.min.x + end.0,
-                        viewport_rect.min.y + end.1
-                    )
+                    egui::pos2(content_rect.min.x + start.0, content_rect.min.y + start.1),
+                    egui::pos2(content_rect.min.x + end.0, content_rect.min.y + end.1)
                 ],
                 egui::Stroke::new(0.5, egui::Color32::from_gray(60))
             );
         }
 
-        // If we have a scene manager and active scene, render it
+        // Render game content
         if let Some(scene_manager) = &self.gui_state.scene_manager {
             if let Some(active_scene) = scene_manager.get_active_scene() {
-                // Get the render queue from render engine
                 let render_queue = self.render_engine.render(active_scene);
                 
-                // Draw each entity in the render queue
                 for (texture_id, pos, size, _layer) in render_queue {
                     if let Some(texture_info) = self.render_engine.texture_cache.get(&texture_id) {
-                        // Create the destination rectangle for the image
                         let rect = egui::Rect::from_min_size(
                             egui::pos2(
-                                viewport_rect.min.x + pos.0,  // Center the position
-                                viewport_rect.min.y + pos.1,
+                                content_rect.min.x + pos.0,
+                                content_rect.min.y + pos.1,
                             ),
                             egui::vec2(size.0, size.1),
                         );
 
-                        // Draw the image using the texture data
                         let texture = ui.ctx().load_texture(
                             format!("texture_{}", texture_id),
                             egui::ColorImage::from_rgba_unmultiplied(
@@ -547,26 +516,10 @@ impl EngineGui {
                         );
                     }
                 }
-            } else {
-                // Draw placeholder when no active scene
-                ui.painter().text(
-                    egui::pos2(viewport_rect.max.x/2.0, viewport_rect.max.y/2.0),
-                    egui::Align2::CENTER_CENTER,
-                    "No active scene",
-                    egui::FontId::default(),
-                    egui::Color32::GRAY,
-                );
             }
-        } else {
-            // Draw placeholder when no scene manager
-            ui.painter().text(
-                egui::pos2(viewport_rect.max.x/2.0, viewport_rect.max.y/2.0),
-                egui::Align2::CENTER_CENTER,
-                "No scene manager available",
-                egui::FontId::default(),
-                egui::Color32::GRAY,
-            );
         }
+
+        // After rendering the game content, add the UI elements on top
     }
 
     fn set_theme(&mut self, ctx: &egui::Context) {

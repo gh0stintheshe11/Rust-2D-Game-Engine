@@ -283,9 +283,11 @@ impl RenderEngine {
                     let width = texture_info.dimensions.0 as f32 * self.camera.zoom * transform.scale.0;
                     let height = texture_info.dimensions.1 as f32 * self.camera.zoom * transform.scale.1;
 
-                    // Update visibility check to be consistent in all directions
-                    if (screen_pos.0 + width >= 0.0 && screen_pos.0 <= self.viewport_size.0) &&  // Horizontal bounds
-                       (screen_pos.1 + height >= 0.0 && screen_pos.1 <= self.viewport_size.1)     // Vertical bounds
+                    // Only remove when completely outside viewport
+                    if screen_pos.0 <= self.viewport_size.0  // Not completely off right edge
+                        && screen_pos.0 + width >= 0.0       // Not completely off left edge
+                        && screen_pos.1 <= self.viewport_size.1  // Not completely off bottom edge
+                        && screen_pos.1 + height >= 0.0         // Not completely off top edge
                     {
                         let layer = entity
                             .get_attribute_by_name("layer")
@@ -374,40 +376,49 @@ impl RenderEngine {
     // Add this new method to draw grid
     pub fn get_grid_lines(&self) -> Vec<((f32, f32), (f32, f32))> {
         let mut lines = Vec::new();
-        let grid_size = 50.0;
+        let grid_size = 32.0;
         
-        // Calculate grid boundaries in world space
-        let left = (-self.viewport_size.0 / 2.0 - self.camera.position.0) * self.camera.zoom;
-        let right = (self.viewport_size.0 / 2.0 - self.camera.position.0) * self.camera.zoom;
-        let top = (-self.viewport_size.1 / 2.0 - self.camera.position.1) * self.camera.zoom;
-        let bottom = (self.viewport_size.1 / 2.0 - self.camera.position.1) * self.camera.zoom;
-
-        // Adjust grid start/end to ensure coverage
-        let start_x = ((left - grid_size) / grid_size).floor() * grid_size;
-        let end_x = ((right + grid_size) / grid_size).ceil() * grid_size;
-        let start_y = ((top - grid_size) / grid_size).floor() * grid_size;
-        let end_y = ((bottom + grid_size) / grid_size).ceil() * grid_size;
-
-        // Draw vertical lines
-        for x in (start_x as i32..=end_x as i32).step_by(grid_size as usize) {
-            let world_x = x as f32;
-            let screen_pos = self.camera.world_to_screen((world_x, 0.0));
+        // Get viewport dimensions
+        let width = self.viewport_size.0;
+        let height = self.viewport_size.1;
+        
+        // Calculate padding based on viewport size
+        let padding_factor = 3.0; // Adjust this if needed
+        let view_padding_x = width * padding_factor;
+        let view_padding_y = height * padding_factor;
+        
+        let total_width = width + view_padding_x * 2.0;
+        let total_height = height + view_padding_y * 2.0;
+        
+        let num_vertical_lines = (total_width / grid_size).ceil() as i32;
+        let num_horizontal_lines = (total_height / grid_size).ceil() as i32;
+        
+        // Calculate camera offset
+        let camera_x_offset = self.camera.position.0 % grid_size;
+        let camera_y_offset = self.camera.position.1 % grid_size;
+        
+        // Calculate starting positions
+        let start_x = -view_padding_x - camera_x_offset;
+        let start_y = -view_padding_y - camera_y_offset;
+        
+        // Vertical lines
+        for i in 0..=num_vertical_lines {
+            let x = start_x + (i as f32 * grid_size);
             lines.push((
-                (screen_pos.0, 0.0),
-                (screen_pos.0, self.viewport_size.1)
+                (x, start_y),
+                (x, start_y + total_height)
             ));
         }
-
-        // Draw horizontal lines
-        for y in (start_y as i32..=end_y as i32).step_by(grid_size as usize) {
-            let world_y = y as f32;
-            let screen_pos = self.camera.world_to_screen((0.0, world_y));
+        
+        // Horizontal lines
+        for i in 0..=num_horizontal_lines {
+            let y = start_y + (i as f32 * grid_size);
             lines.push((
-                (0.0, screen_pos.1),
-                (self.viewport_size.0, screen_pos.1)
+                (start_x, y),
+                (start_x + total_width, y)
             ));
         }
-
+        
         lines
     }
 }
