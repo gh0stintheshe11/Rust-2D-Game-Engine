@@ -18,7 +18,7 @@ impl ResourceItem {
         gui_state: &mut GuiState,
     ) {
         // Show Images
-        for path in &entity.images {
+        for path in entity.list_images() {
             let selected = matches!(
                 &gui_state.scene_panel_selected_item,
                 ScenePanelSelectedItem::Asset(s_id, e_id, ref p)
@@ -41,9 +41,11 @@ impl ResourceItem {
             response.context_menu(|ui| {
                 if ui.button("Remove").clicked() {
                     if let Some(scene_manager) = &mut gui_state.scene_manager {
-                        if let Some(scene) = scene_manager.scenes.get_mut(&scene_id) {
-                            if let Some(entity) = scene.get_entity_mut(entity_id) {
-                                entity.images.retain(|p| p != &path_clone);
+                        if let Some(scene) = scene_manager.get_scene_mut(scene_id) {
+                            if let Ok(entity) = scene.get_entity_mut(entity_id) {
+                                if let Err(e) = entity.remove_image(&path_clone) {
+                                    eprintln!("Failed to remove image: {}", e);
+                                }
                             }
                         }
                     }
@@ -53,7 +55,7 @@ impl ResourceItem {
         }
 
         // Show Sounds
-        for path in &entity.sounds {
+        for path in entity.list_sounds() {
             let selected = matches!(
                 &gui_state.scene_panel_selected_item,
                 ScenePanelSelectedItem::Asset(s_id, e_id, ref p)
@@ -76,9 +78,11 @@ impl ResourceItem {
             response.context_menu(|ui| {
                 if ui.button("Remove").clicked() {
                     if let Some(scene_manager) = &mut gui_state.scene_manager {
-                        if let Some(scene) = scene_manager.scenes.get_mut(&scene_id) {
-                            if let Some(entity) = scene.get_entity_mut(entity_id) {
-                                entity.sounds.retain(|p| p != &path_clone);
+                        if let Some(scene) = scene_manager.get_scene_mut(scene_id) {
+                            if let Ok(entity) = scene.get_entity_mut(entity_id) {
+                                if let Err(e) = entity.remove_sound(&path_clone) {
+                                    eprintln!("Failed to remove sound: {}", e);
+                                }
                             }
                         }
                     }
@@ -88,37 +92,41 @@ impl ResourceItem {
         }
 
         // Show Script if exists
-        if let Some(script_path) = &entity.script {
-            let selected = matches!(
-                &gui_state.scene_panel_selected_item,
-                ScenePanelSelectedItem::Asset(s_id, e_id, ref p)
-                if *s_id == scene_id && *e_id == entity_id && p == script_path
-            );
+        if entity.has_script() {
+            if let Some(script_path) = entity.get_script() {
+                let selected = matches!(
+                    &gui_state.scene_panel_selected_item,
+                    ScenePanelSelectedItem::Asset(s_id, e_id, ref p)
+                    if *s_id == scene_id && *e_id == entity_id && p == script_path
+                );
 
-            let path_display = script_path.to_string_lossy();
-            let response = ui.selectable_label(
-                selected, 
-                format!("{} {}", get_icon_for_file(script_path), path_display)
-            );
-            
-            if response.clicked() {
-                gui_state.selected_item = SelectedItem::Asset(scene_id, entity_id, script_path.clone());
-                gui_state.scene_panel_selected_item = 
-                    ScenePanelSelectedItem::Asset(scene_id, entity_id, script_path.clone());
-            }
+                let path_display = script_path.to_string_lossy();
+                let response = ui.selectable_label(
+                    selected, 
+                    format!("{} {}", get_icon_for_file(script_path), path_display)
+                );
+                
+                if response.clicked() {
+                    gui_state.selected_item = SelectedItem::Asset(scene_id, entity_id, script_path.clone());
+                    gui_state.scene_panel_selected_item = 
+                        ScenePanelSelectedItem::Asset(scene_id, entity_id, script_path.clone());
+                }
 
-            response.context_menu(|ui| {
-                if ui.button("Remove").clicked() {
-                    if let Some(scene_manager) = &mut gui_state.scene_manager {
-                        if let Some(scene) = scene_manager.scenes.get_mut(&scene_id) {
-                            if let Some(entity) = scene.get_entity_mut(entity_id) {
-                                entity.script = None;
+                response.context_menu(|ui| {
+                    if ui.button("Remove").clicked() {
+                        if let Some(scene_manager) = &mut gui_state.scene_manager {
+                            if let Some(scene) = scene_manager.get_scene_mut(scene_id) {
+                                if let Ok(entity) = scene.get_entity_mut(entity_id) {
+                                    if let Err(e) = entity.remove_script() {
+                                        eprintln!("Failed to remove script: {}", e);
+                                    }
+                                }
                             }
                         }
+                        ui.close_menu();
                     }
-                    ui.close_menu();
-                }
-            });
+                });
+            }
         }
     }
 }

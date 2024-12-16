@@ -52,7 +52,7 @@ impl Inspector {
                 // Then get a new borrow for images and sounds
                 if let Some(scene_manager) = &gui_state.scene_manager {
                     if let Some(scene) = scene_manager.get_scene(scene_id) {
-                        if let Some(entity) = scene.get_entity(entity_id) {
+                        if let Ok(entity) = scene.get_entity(entity_id) {
                             ui.separator();
                             ui.label("Images:");
                             for path in &entity.images {
@@ -268,7 +268,7 @@ impl Inspector {
     ) {
         if let Some(scene_manager) = &mut gui_state.scene_manager {
             if let Some(scene) = scene_manager.get_scene_mut(scene_id) {
-                if let Some(entity) = scene.get_entity_mut(entity_id) {
+                if let Ok(entity) = scene.get_entity_mut(entity_id) {
                     ui.label(format!("{}", entity.name));
                     ui.separator();
                     ui.label(format!("ID: {}", entity_id));
@@ -401,20 +401,20 @@ impl Inspector {
                             let attr_type = self.metadata_new_type.clone();
 
                             match entity.create_attribute(&full_name, attr_type, value) {
-                                attribute_id => {
+                                Ok(attribute_id) => {
                                     println!("Created {} with ID: {}", full_name, attribute_id);
                                     self.data_updated = true;
+                                    self.show_metadata_popup = false;
+                                    self.metadata_new_name.clear();
+                                    self.metadata_new_type = AttributeType::String;
+                                    self.metadata_new_value = AttributeValue::String(String::new());
+                                    self.metadata_error_message.clear();
                                 }
-                                _ => {
-                                    println!("Failed to create {}", full_name);
+                                Err(error) => {
+                                    println!("Failed to create {}: {}", full_name, error);
+                                    self.metadata_error_message = error;
                                 }
                             }
-
-                            self.show_metadata_popup = false;
-                            self.metadata_new_name.clear();
-                            self.metadata_new_type = AttributeType::String;
-                            self.metadata_new_value = AttributeValue::String(String::new());
-                            self.metadata_error_message.clear();
                         } else {
                             self.metadata_error_message = "Invalid identifier name. Use alphanumeric or underscores.".to_string();
                         }

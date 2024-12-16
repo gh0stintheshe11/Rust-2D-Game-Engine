@@ -111,12 +111,11 @@ impl PopupManager {
             let new_name = self.rename_input.trim().to_string();
             if let Some(entity_id) = entity_id {
                 // Rename entity
-                if let Some(entity) = scene_manager
-                    .get_scene_mut(scene_id)
-                    .and_then(|scene| scene.get_entity_mut(entity_id))
-                {
-                    entity.name = new_name;
-                    println!("Renamed entity to: {}", entity.name);
+                if let Some(scene) = scene_manager.get_scene_mut(scene_id) {
+                    if let Ok(entity) = scene.get_entity_mut(entity_id) {
+                        entity.name = new_name;
+                        println!("Renamed entity to: {}", entity.name);
+                    }
                 }
             } else {
                 // Rename scene
@@ -125,12 +124,8 @@ impl PopupManager {
                     println!("Renamed scene to: {}", scene.name);
                 }
             }
-
-            // Save project
             utils::save_project(gui_state);
-
         }
-
         self.reset_rename();
     }
 
@@ -253,17 +248,22 @@ impl PopupManager {
         }
 
         // Create the new scene
-        let new_scene_id = scene_manager.create_scene(name);
+        match scene_manager.create_scene(name) {
+            Ok(new_scene_id) => {
+                // Update selection state
+                gui_state.scene_panel_selected_item = ScenePanelSelectedItem::Scene(new_scene_id);
+                gui_state.selected_item = SelectedItem::Scene(new_scene_id);
 
-        // Update selection state
-        gui_state.scene_panel_selected_item = ScenePanelSelectedItem::Scene(new_scene_id);
-        gui_state.selected_item = SelectedItem::Scene(new_scene_id);
+                println!("Created new scene '{}' with ID: {:?}", name, new_scene_id);
 
-        println!("Created new scene '{}' with ID: {:?}", name, new_scene_id);
-
-        // Save the project
-        utils::save_project(gui_state);
-        self.reset_create_popup();
+                // Save the project
+                utils::save_project(gui_state);
+                self.reset_create_popup();
+            }
+            Err(e) => {
+                self.error_message = format!("Failed to create scene: {}", e);
+            }
+        }
     }
 
     /// Create a new entity under the selected scene
@@ -285,16 +285,15 @@ impl PopupManager {
         }
 
         let scene_id = match &gui_state.scene_panel_selected_item {
-            ScenePanelSelectedItem::Scene(scene_id) => scene_id,
+            ScenePanelSelectedItem::Scene(scene_id) => *scene_id,
             _ => {
-                println!("Selected item is not a Scene.");
                 self.error_message = "Please select a scene first to add the entity.".to_string();
                 return;
             }
         };
 
         // Get the selected scene
-        let scene = match scene_manager.get_scene_mut(*scene_id) {
+        let scene = match scene_manager.get_scene_mut(scene_id) {
             Some(scene) => scene,
             None => {
                 self.error_message = "The selected scene could not be found.".to_string();
@@ -307,40 +306,42 @@ impl PopupManager {
             "Empty" => scene.create_entity(name),
             "Camera" => scene.create_camera(name),
             "Physics" => {
-                let entity_id = scene.create_entity(name);
-                if let Some(entity) = scene.get_entity_mut(entity_id) {
-                    if let Some(predefined) = PREDEFINED_ENTITIES.iter().find(|e| e.name == "Physics") {
-                        for (attr_name, attr_type, attr_value) in predefined.attributes.iter() {
-                            entity.create_attribute(attr_name, attr_type.clone(), attr_value.clone());
+                match scene.create_entity(name) {
+                    Ok(entity_id) => {
+                        if let Ok(entity) = scene.get_entity_mut(entity_id) {
+                            if let Some(predefined) = PREDEFINED_ENTITIES.iter().find(|e| e.name == "Physics") {
+                                for (attr_name, attr_type, attr_value) in predefined.attributes.iter() {
+                                    let _ = entity.create_attribute(attr_name, attr_type.clone(), attr_value.clone());
+                                }
+                            }
                         }
+                        Ok(entity_id)
                     }
+                    Err(e) => Err(e)
                 }
-                entity_id
             },
             _ => scene.create_entity(name),
         };
 
-        let scene_id = match &gui_state.scene_panel_selected_item {
-            ScenePanelSelectedItem::Scene(scene_id) => *scene_id,
-            _ => {
-                println!("Selected item is not a Scene.");
-                self.error_message = "Please select a scene first to add the entity.".to_string();
-                return;
+        match new_entity_id {
+            Ok(entity_id) => {
+                // Update selection
+                gui_state.scene_panel_selected_item = ScenePanelSelectedItem::Entity(scene_id, entity_id);
+                gui_state.selected_item = SelectedItem::Entity(scene_id, entity_id);
+
+                println!(
+                    "Created new entity '{}' with type '{}' and ID: {:?}",
+                    name, entity_type, entity_id
+                );
+
+                // Save the project
+                utils::save_project(gui_state);
+                self.reset_create_popup();
             }
-        };
-
-        // Update selection
-        gui_state.scene_panel_selected_item = ScenePanelSelectedItem::Entity(scene_id, new_entity_id);
-        gui_state.selected_item = SelectedItem::Entity(scene_id, new_entity_id);
-
-        println!(
-            "Created new entity '{}' with type '{}' and ID: {:?}",
-            name, entity_type, new_entity_id
-        );
-
-        // Save the project
-        utils::save_project(gui_state);
-        self.reset_create_popup();
+            Err(e) => {
+                self.error_message = format!("Failed to create entity: {}", e);
+            }
+        }
     }
 
     pub fn render_popups(&mut self, ctx: &egui::Context, ui: &mut egui::Ui, gui_state: &mut GuiState) {
@@ -418,7 +419,7 @@ impl PopupManager {
                                     if let Some(filename) = resource_path.file_name() {
                                         if ui.button(filename.to_string_lossy().to_string()).clicked() {
                                             if let Some(scene) = scene_manager.get_scene_mut(scene_id) {
-                                                if let Some(entity) = scene.get_entity_mut(entity_id) {
+                                                if let Ok(entity) = scene.get_entity_mut(entity_id) {
                                                     match self.selected_resource_type.as_str() {
                                                         "Images" => {
                                                             // Check if image is already attached
@@ -464,7 +465,7 @@ impl PopupManager {
                 .order(egui::Order::Foreground)
                 .show(ctx, |ui| {
                     if let Some(scene) = scene_manager.get_scene_mut(scene_id) {
-                        if let Some(entity) = scene.get_entity_mut(entity_id) {
+                        if let Ok(entity) = scene.get_entity_mut(entity_id) {
                             // Images section as collapsing header
                             if !entity.images.is_empty() {
                                 egui::CollapsingHeader::new("Images")

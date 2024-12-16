@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 use image::GenericImageView;
 use std::collections::HashMap;
 use uuid::Uuid;
-use crate::ecs::Scene;
+use crate::ecs::{AttributeValue, Scene};
 use sha2::{Sha256, Digest};
 
 #[derive(Clone)]
@@ -46,15 +46,6 @@ pub struct TextureInfo {
     pub data: Vec<u8>,
     pub dimensions: (u32, u32), // Original width and height in pixels
     pub aspect_ratio: f32,
-}
-
-// Layers for rendering order
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub enum RenderLayer {
-    Background = 0,
-    Game = 1,
-    UI = 2,
-    Debug = 3,
 }
 
 // Animation support with enhanced controls
@@ -226,54 +217,40 @@ impl RenderEngine {
         })
     }
 
-    // Modified render method
-    pub fn render(&mut self, scene: &Scene) -> Vec<(Uuid, (f32, f32), (f32, f32), RenderLayer)> {
+    // Modified render method to use z coordinate for ordering
+    pub fn render(&mut self, scene: &Scene) -> Vec<(Uuid, (f32, f32), (f32, f32), f32)> {
         let mut render_queue = Vec::new();
 
         for (_, entity) in &scene.entities {
-            if let Some(image_path) = entity.get_image(0) {
-                // Try to load the texture if it's not in cache
+            if let Ok(image_path) = entity.get_image(0) {
                 let texture_id = Self::path_to_uuid(Path::new(image_path));
                 
                 if !self.texture_cache.contains_key(&texture_id) {
-                    // Load the texture if not found
                     if let Ok(_) = self.load_texture(Path::new(image_path)) {
                         println!("Loaded texture: {}", image_path.to_string_lossy());
                     }
                 }
 
-                // Get transform components
-                let transform = Transform {
-                    position: entity
-                        .get_attribute_by_name("position")
-                        .and_then(|attr| {
-                            if let crate::ecs::AttributeValue::Vector2(x, y) = attr.value {
-                                Some((x, y))
-                            } else {
-                                None
-                            }
-                        })
-                        .unwrap_or((0.0, 0.0)),
+                // Get position including z coordinate
+                let x = entity.get_x();
+                let y = entity.get_y();
+                let z = entity.get_z();
 
+                let transform = Transform {
+                    position: (x, y),
                     rotation: entity
                         .get_attribute_by_name("rotation")
-                        .and_then(|attr| {
-                            if let crate::ecs::AttributeValue::Float(r) = attr.value {
-                                Some(r)
-                            } else {
-                                None
-                            }
+                        .and_then(|attr| match attr.value {
+                            AttributeValue::Float(r) => Ok(r),
+                            _ => Err("Invalid rotation attribute type".to_string())
                         })
                         .unwrap_or(0.0),
 
                     scale: entity
                         .get_attribute_by_name("scale")
-                        .and_then(|attr| {
-                            if let crate::ecs::AttributeValue::Vector2(sx, sy) = attr.value {
-                                Some((sx, sy))
-                            } else {
-                                None
-                            }
+                        .and_then(|attr| match attr.value {
+                            AttributeValue::Vector2(sx, sy) => Ok((sx, sy)),
+                            _ => Err("Invalid scale attribute type".to_string())
                         })
                         .unwrap_or((1.0, 1.0)),
                 };
@@ -283,41 +260,25 @@ impl RenderEngine {
                     let width = texture_info.dimensions.0 as f32 * self.camera.zoom * transform.scale.0;
                     let height = texture_info.dimensions.1 as f32 * self.camera.zoom * transform.scale.1;
 
-                    // Only remove when completely outside viewport
-                    if screen_pos.0 <= self.viewport_size.0  // Not completely off right edge
-                        && screen_pos.0 + width >= 0.0       // Not completely off left edge
-                        && screen_pos.1 <= self.viewport_size.1  // Not completely off bottom edge
-                        && screen_pos.1 + height >= 0.0         // Not completely off top edge
+                    // Viewport culling
+                    if screen_pos.0 <= self.viewport_size.0
+                        && screen_pos.0 + width >= 0.0
+                        && screen_pos.1 <= self.viewport_size.1
+                        && screen_pos.1 + height >= 0.0
                     {
-                        let layer = entity
-                            .get_attribute_by_name("layer")
-                            .and_then(|attr| {
-                                if let crate::ecs::AttributeValue::Integer(layer) = attr.value {
-                                    Some(match layer {
-                                        0 => RenderLayer::Background,
-                                        1 => RenderLayer::Game,
-                                        2 => RenderLayer::UI,
-                                        3 => RenderLayer::Debug,
-                                        _ => RenderLayer::Game,
-                                    })
-                                } else {
-                                    None
-                                }
-                            })
-                            .unwrap_or(RenderLayer::Game);
-
                         render_queue.push((
                             texture_id,
                             screen_pos,
                             (width, height),
-                            layer
+                            z  // Use z coordinate directly for ordering
                         ));
                     }
                 }
             }
         }
 
-        render_queue.sort_by_key(|(_, _, _, layer)| *layer);
+        // Sort by z coordinate (lower z values are rendered first)
+        render_queue.sort_by(|a, b| a.3.partial_cmp(&b.3).unwrap_or(std::cmp::Ordering::Equal));
         render_queue
     }
 

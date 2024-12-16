@@ -115,7 +115,7 @@ impl PhysicsEngine {
 
     fn create_collider(&self, entity: &Entity, density: f32, friction: f32, restitution: f32) -> Collider {
         // Get first image path from entity (assuming first image is the sprite)
-        let collider_builder = if let Some(image_path) = entity.get_image(0) {
+        let collider_builder = if let Ok(image_path) = entity.get_image(0) {
             // Get image dimensions
             if let Ok(img) = image::open(image_path) {
                 let (width, height) = img.dimensions();
@@ -145,12 +145,12 @@ impl PhysicsEngine {
 
     pub fn add_entity(&mut self, entity: &Entity) {
         // Store position attribute ID for quick updates
-        if let Some(pos_attr) = entity.get_attribute_by_name("position") {
+        if let Ok(pos_attr) = entity.get_attribute_by_name("position") {
             self.entity_position_attrs.insert(entity.id, pos_attr.id);
         }
         
         // Get physics properties from entity attributes
-        let position = if let Some(pos_attr) = entity.get_attribute_by_name("position") {
+        let position = if let Ok(pos_attr) = entity.get_attribute_by_name("position") {
             if let AttributeValue::Vector2(x, y) = pos_attr.value {
                 vector![x, y]
             } else {
@@ -161,31 +161,31 @@ impl PhysicsEngine {
         };
 
         let is_movable = entity.get_attribute_by_name("is_movable")
-            .and_then(|attr| if let AttributeValue::Boolean(v) = attr.value { Some(v) } else { None })
+            .and_then(|attr| if let AttributeValue::Boolean(v) = attr.value { Ok(v) } else { Err("Attribute value is not a boolean".to_string()) })
             .unwrap_or(false);
 
         let affected_by_gravity = entity.get_attribute_by_name("has_gravity")
-            .and_then(|attr| if let AttributeValue::Boolean(v) = attr.value { Some(v) } else { None })
+            .and_then(|attr| if let AttributeValue::Boolean(v) = attr.value { Ok(v) } else { Err("Attribute value is not a boolean".to_string()) })
             .unwrap_or(false);
 
         let has_collision = entity.get_attribute_by_name("has_collision")
-            .and_then(|attr| if let AttributeValue::Boolean(v) = attr.value { Some(v) } else { None })
+            .and_then(|attr| if let AttributeValue::Boolean(v) = attr.value { Ok(v) } else { Err("Attribute value is not a boolean".to_string()) })
             .unwrap_or(true);
 
         let friction = entity.get_attribute_by_name("friction")
-            .and_then(|attr| if let AttributeValue::Float(v) = attr.value { Some(v) } else { None })
+            .and_then(|attr| if let AttributeValue::Float(v) = attr.value { Ok(v) } else { Err("Attribute value is not a float".to_string()) })
             .unwrap_or(0.5);
 
         let restitution = entity.get_attribute_by_name("restitution")
-            .and_then(|attr| if let AttributeValue::Float(v) = attr.value { Some(v) } else { None })
+            .and_then(|attr| if let AttributeValue::Float(v) = attr.value { Ok(v) } else { Err("Attribute value is not a float".to_string()) })
             .unwrap_or(0.0);
 
         let density = entity.get_attribute_by_name("density")
-            .and_then(|attr| if let AttributeValue::Float(v) = attr.value { Some(v) } else { None })
+            .and_then(|attr| if let AttributeValue::Float(v) = attr.value { Ok(v) } else { Err("Attribute value is not a float".to_string()) })
             .unwrap_or(1.0);
 
         let can_rotate = entity.get_attribute_by_name("can_rotate")
-            .and_then(|attr| if let AttributeValue::Boolean(v) = attr.value { Some(v) } else { None })
+            .and_then(|attr| if let AttributeValue::Boolean(v) = attr.value { Ok(v) } else { Err("Attribute value is not a boolean".to_string()) })
             .unwrap_or(false);
 
         // Create rigid body
@@ -244,9 +244,9 @@ impl PhysicsEngine {
     pub fn step(&mut self, scene: &mut Scene) -> Vec<(Uuid, Uuid, AttributeValue)> {
         // Process custom gravity fields
         for (_, entity1) in &scene.entities {
-            if let Some(creates_gravity) = entity1.get_attribute_by_name("creates_gravity") {
+            if let Ok(creates_gravity) = entity1.get_attribute_by_name("creates_gravity") {
                 if let AttributeValue::Boolean(true) = creates_gravity.value {
-                    let pos1 = if let Some(pos) = entity1.get_attribute_by_name("position") {
+                    let pos1 = if let Ok(pos) = entity1.get_attribute_by_name("position") {
                         if let AttributeValue::Vector2(x, y) = pos.value {
                             vector![x, y]
                         } else {
@@ -262,7 +262,7 @@ impl PhysicsEngine {
                             continue;
                         }
 
-                        if let Some(affected_by_gravity) = entity2.get_attribute_by_name("has_gravity") {
+                        if let Ok(affected_by_gravity) = entity2.get_attribute_by_name("has_gravity") {
                             if let AttributeValue::Boolean(true) = affected_by_gravity.value {
                                 if let Some(rb_handle) = self.entity_to_body.get(&entity2.id) {
                                     if let Some(rb) = self.rigid_body_set.get_mut(*rb_handle) {

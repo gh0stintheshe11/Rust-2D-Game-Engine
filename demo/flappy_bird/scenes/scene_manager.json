@@ -1,15 +1,112 @@
 {
   "scenes": {
-    "2ace0aec-aa3a-421c-bdd3-938aceb6a666": {
-      "id": "89a2f5ee-1211-40b5-a98d-83693abae12f",
+    "b1939472-9161-4248-837d-748f751235cd": {
+      "id": "615a20c4-dcd9-4d1f-9afa-95706181f165",
       "name": "game_main",
       "entities": {
-        "907a8f36-c371-4df6-8cba-be279f47c50f": {
-          "id": "907a8f36-c371-4df6-8cba-be279f47c50f",
+        "f6d53823-df08-4e71-ad3e-249f71b4cf67": {
+          "id": "f6d53823-df08-4e71-ad3e-249f71b4cf67",
           "name": "main_camera",
           "attributes": {
-            "039c639d-700c-4ebf-8da6-dd8562ea5ea1": {
-              "id": "039c639d-700c-4ebf-8da6-dd8562ea5ea1",
+            "e2c5338f-3a2b-4a6e-842b-69293783f0f9": {
+              "id": "e2c5338f-3a2b-4a6e-842b-69293783f0f9",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "f9e54705-6627-4963-b33f-1c1e52843076": {
+              "id": "f9e54705-6627-4963-b33f-1c1e52843076",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "9a0100cc-21b2-475e-8c9e-6ead8542c658": {
+              "id": "9a0100cc-21b2-475e-8c9e-6ead8542c658",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "ab408ff2-b4a2-427a-8e57-f4ccd84fc694": {
+              "id": "ab408ff2-b4a2-427a-8e57-f4ccd84fc694",
+              "name": "zoom",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "91d0c6fe-5db3-4532-8518-dac813fa94a9": {
+              "id": "91d0c6fe-5db3-4532-8518-dac813fa94a9",
+              "name": "rotation",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "03241ec1-d49e-41d3-afcb-096574ae4ecd": {
+              "id": "03241ec1-d49e-41d3-afcb-096574ae4ecd",
+              "name": "is_camera",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "922491d1-3b09-4c7d-803b-a6af1dc0663e": {
+              "id": "922491d1-3b09-4c7d-803b-a6af1dc0663e",
+              "name": "metadata_width",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "95669f75-7dee-4997-a5d6-759b0af878c3": {
+              "id": "95669f75-7dee-4997-a5d6-759b0af878c3",
+              "name": "metadata_height",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            }
+          },
+          "images": [],
+          "sounds": [],
+          "script": null
+        },
+        "7680ebc5-dc6b-41df-9b32-9fa7d042df6c": {
+          "id": "7680ebc5-dc6b-41df-9b32-9fa7d042df6c",
+          "name": "bird",
+          "attributes": {
+            "bf90f9db-bb02-4c9e-80a9-fe40b0895e10": {
+              "id": "bf90f9db-bb02-4c9e-80a9-fe40b0895e10",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 30.0
+              }
+            },
+            "8d637f7d-86c6-4697-8e75-ba5054b08043": {
+              "id": "8d637f7d-86c6-4697-8e75-ba5054b08043",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 120.0
+              }
+            },
+            "7f393831-456e-4d24-8be2-f29ad9db9db6": {
+              "id": "7f393831-456e-4d24-8be2-f29ad9db9db6",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 4.0
+              }
+            },
+            "46fe5f80-6c46-455a-a388-056fba0b3ff1": {
+              "id": "46fe5f80-6c46-455a-a388-056fba0b3ff1",
               "name": "position",
               "data_type": "Vector2",
               "value": {
@@ -19,108 +116,64 @@
                 ]
               }
             },
-            "f444e22a-d258-4192-8464-09ee776670dd": {
-              "id": "f444e22a-d258-4192-8464-09ee776670dd",
-              "name": "zoom",
-              "data_type": "Float",
-              "value": {
-                "Float": 1.0
-              }
-            },
-            "c8a1bf85-e4b3-477a-9d5e-35018da74568": {
-              "id": "c8a1bf85-e4b3-477a-9d5e-35018da74568",
-              "name": "rotation",
-              "data_type": "Float",
-              "value": {
-                "Float": 0.0
-              }
-            },
-            "1f03f75f-5533-4636-85ee-d793a6aa152d": {
-              "id": "1f03f75f-5533-4636-85ee-d793a6aa152d",
-              "name": "is_camera",
-              "data_type": "Boolean",
-              "value": {
-                "Boolean": true
-              }
-            }
-          },
-          "images": [],
-          "sounds": [],
-          "script": null
-        },
-        "3f04514b-bf7d-4e29-b65e-3d6957e5a083": {
-          "id": "3f04514b-bf7d-4e29-b65e-3d6957e5a083",
-          "name": "bird",
-          "attributes": {
-            "866c0fc5-2e04-4318-82b0-dcf805d91472": {
-              "id": "866c0fc5-2e04-4318-82b0-dcf805d91472",
-              "name": "position",
-              "data_type": "Vector2",
-              "value": {
-                "Vector2": [
-                  200.0,
-                  200.0
-                ]
-              }
-            },
-            "52c070dd-4907-4197-baad-2b76ca07c022": {
-              "id": "52c070dd-4907-4197-baad-2b76ca07c022",
+            "1c9ce528-ebae-4619-8fd1-1eb9293cfde9": {
+              "id": "1c9ce528-ebae-4619-8fd1-1eb9293cfde9",
               "name": "is_movable",
               "data_type": "Boolean",
               "value": {
                 "Boolean": true
               }
             },
-            "3890f0b9-de67-4da1-9d87-07527d31d9c7": {
-              "id": "3890f0b9-de67-4da1-9d87-07527d31d9c7",
+            "72a50a0d-303c-43b8-9c66-5cba3a58f1e6": {
+              "id": "72a50a0d-303c-43b8-9c66-5cba3a58f1e6",
               "name": "has_gravity",
               "data_type": "Boolean",
               "value": {
                 "Boolean": true
               }
             },
-            "86d1f6c9-bf44-4147-a216-47ca21299127": {
-              "id": "86d1f6c9-bf44-4147-a216-47ca21299127",
+            "1aab5b3d-2c35-49ce-8468-fe144474a60c": {
+              "id": "1aab5b3d-2c35-49ce-8468-fe144474a60c",
               "name": "creates_gravity",
               "data_type": "Boolean",
               "value": {
                 "Boolean": false
               }
             },
-            "b8be0eb4-c011-4f32-8fb2-11d1504b131f": {
-              "id": "b8be0eb4-c011-4f32-8fb2-11d1504b131f",
+            "cc72d27e-196f-4f79-82b8-3543c3019b50": {
+              "id": "cc72d27e-196f-4f79-82b8-3543c3019b50",
               "name": "has_collision",
               "data_type": "Boolean",
               "value": {
                 "Boolean": true
               }
             },
-            "95de3c89-06a5-4d13-a5cc-af7fdb39b50a": {
-              "id": "95de3c89-06a5-4d13-a5cc-af7fdb39b50a",
+            "36a22562-07e9-4e84-9a86-86f61ae51d9e": {
+              "id": "36a22562-07e9-4e84-9a86-86f61ae51d9e",
               "name": "friction",
               "data_type": "Float",
               "value": {
                 "Float": 0.5
               }
             },
-            "9db157de-9654-4013-8a42-c36e4845db7b": {
-              "id": "9db157de-9654-4013-8a42-c36e4845db7b",
+            "58162d42-f6fa-4218-970d-c4145752f245": {
+              "id": "58162d42-f6fa-4218-970d-c4145752f245",
               "name": "restitution",
               "data_type": "Float",
               "value": {
                 "Float": 0.0
               }
             },
-            "fc047487-38e5-4938-a9c5-6410f7ad895e": {
-              "id": "fc047487-38e5-4938-a9c5-6410f7ad895e",
+            "e4c2afbc-ab88-4967-8ff2-8a5beb160250": {
+              "id": "e4c2afbc-ab88-4967-8ff2-8a5beb160250",
               "name": "density",
               "data_type": "Float",
               "value": {
                 "Float": 1.0
               }
             },
-            "d9a70d6d-7023-4eb9-8018-c8a55ed569fa": {
-              "id": "d9a70d6d-7023-4eb9-8018-c8a55ed569fa",
+            "9d987c2a-459d-4dfa-9339-a9d9bbd38db1": {
+              "id": "9d987c2a-459d-4dfa-9339-a9d9bbd38db1",
               "name": "can_rotate",
               "data_type": "Boolean",
               "value": {
@@ -134,79 +187,103 @@
           "sounds": [],
           "script": null
         },
-        "bb27a94f-35e0-44c4-9363-bae8be0637e0": {
-          "id": "bb27a94f-35e0-44c4-9363-bae8be0637e0",
-          "name": "ground",
+        "f4786a0b-7a6d-4e8a-87a8-3de8b7f2db86": {
+          "id": "f4786a0b-7a6d-4e8a-87a8-3de8b7f2db86",
+          "name": "ground_1",
           "attributes": {
-            "4b1ab44e-93f9-4d45-91b5-788ea13ba369": {
-              "id": "4b1ab44e-93f9-4d45-91b5-788ea13ba369",
+            "478ea582-35df-4af4-918b-caeb60003f76": {
+              "id": "478ea582-35df-4af4-918b-caeb60003f76",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": -5.0
+              }
+            },
+            "b93017c7-2741-4a78-9dc4-7da7aa7b0a9f": {
+              "id": "b93017c7-2741-4a78-9dc4-7da7aa7b0a9f",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 250.0
+              }
+            },
+            "3546fcf0-d66e-4920-bca6-13ef51b742a3": {
+              "id": "3546fcf0-d66e-4920-bca6-13ef51b742a3",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "c5405215-288f-41e8-9c11-328c644fa738": {
+              "id": "c5405215-288f-41e8-9c11-328c644fa738",
               "name": "position",
               "data_type": "Vector2",
               "value": {
                 "Vector2": [
-                  -10.0,
-                  220.0
+                  0.0,
+                  0.0
                 ]
               }
             },
-            "129b0721-3675-4697-9df5-fb26598ffc43": {
-              "id": "129b0721-3675-4697-9df5-fb26598ffc43",
+            "4bbcc01a-f119-4bb1-a108-12e017b1a60a": {
+              "id": "4bbcc01a-f119-4bb1-a108-12e017b1a60a",
               "name": "is_movable",
               "data_type": "Boolean",
               "value": {
                 "Boolean": true
               }
             },
-            "9ee4f313-a2b2-4004-9113-61797cb888d4": {
-              "id": "9ee4f313-a2b2-4004-9113-61797cb888d4",
+            "f45dedcf-7c3f-4aac-b725-22fd21b2f166": {
+              "id": "f45dedcf-7c3f-4aac-b725-22fd21b2f166",
               "name": "has_gravity",
               "data_type": "Boolean",
               "value": {
                 "Boolean": true
               }
             },
-            "6c6c11c5-bf76-493c-9e64-17e4eea58506": {
-              "id": "6c6c11c5-bf76-493c-9e64-17e4eea58506",
+            "7e0d2aed-337a-48d1-bcc0-c199484b773c": {
+              "id": "7e0d2aed-337a-48d1-bcc0-c199484b773c",
               "name": "creates_gravity",
               "data_type": "Boolean",
               "value": {
                 "Boolean": false
               }
             },
-            "5bdb6ecc-ef1b-4e08-a801-6852c76c55f0": {
-              "id": "5bdb6ecc-ef1b-4e08-a801-6852c76c55f0",
+            "46ff5cff-d655-401e-b4aa-256cf6a79d0a": {
+              "id": "46ff5cff-d655-401e-b4aa-256cf6a79d0a",
               "name": "has_collision",
               "data_type": "Boolean",
               "value": {
                 "Boolean": true
               }
             },
-            "80872edb-3719-4f8b-b37d-325fee89b7f2": {
-              "id": "80872edb-3719-4f8b-b37d-325fee89b7f2",
+            "79d12bae-8ccf-4373-a1aa-1438a911e485": {
+              "id": "79d12bae-8ccf-4373-a1aa-1438a911e485",
               "name": "friction",
               "data_type": "Float",
               "value": {
                 "Float": 0.5
               }
             },
-            "921f4dc0-3548-40c4-acca-de914184f478": {
-              "id": "921f4dc0-3548-40c4-acca-de914184f478",
+            "2eb58bc3-40ef-412d-bf86-99b4f1a7e9b0": {
+              "id": "2eb58bc3-40ef-412d-bf86-99b4f1a7e9b0",
               "name": "restitution",
               "data_type": "Float",
               "value": {
                 "Float": 0.0
               }
             },
-            "83d30751-bdda-49c0-9a46-057bd4ea50ed": {
-              "id": "83d30751-bdda-49c0-9a46-057bd4ea50ed",
+            "8cd968bb-c569-4c2c-9469-ca2add9fcd9d": {
+              "id": "8cd968bb-c569-4c2c-9469-ca2add9fcd9d",
               "name": "density",
               "data_type": "Float",
               "value": {
                 "Float": 1.0
               }
             },
-            "a0b504df-de2b-4e9e-9c5a-9dbcb5d818a2": {
-              "id": "a0b504df-de2b-4e9e-9c5a-9dbcb5d818a2",
+            "80c0aa80-76f9-401f-9c7f-7e1ac6d425f8": {
+              "id": "80c0aa80-76f9-401f-9c7f-7e1ac6d425f8",
               "name": "can_rotate",
               "data_type": "Boolean",
               "value": {
@@ -220,89 +297,138 @@
           "sounds": [],
           "script": null
         },
-        "4b177504-4ed2-4aae-bbf5-03aa10ecd8d4": {
-          "id": "4b177504-4ed2-4aae-bbf5-03aa10ecd8d4",
+        "f8522a5d-c9e0-46f5-8510-aff9b90d14e0": {
+          "id": "f8522a5d-c9e0-46f5-8510-aff9b90d14e0",
           "name": "background",
-          "attributes": {},
+          "attributes": {
+            "9ff25525-498f-42cd-9d2e-273be9e80072": {
+              "id": "9ff25525-498f-42cd-9d2e-273be9e80072",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "a6493a1d-31f2-451e-92d5-8a99f971f494": {
+              "id": "a6493a1d-31f2-451e-92d5-8a99f971f494",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "24c91671-94f5-4d3f-84c4-1ab7d39b6958": {
+              "id": "24c91671-94f5-4d3f-84c4-1ab7d39b6958",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            }
+          },
           "images": [
             "/home/lang/Rust-2D-Game-Engine/demo/flappy_bird/assets/images/bg.png"
           ],
           "sounds": [],
           "script": null
         },
-        "977a78d7-29f1-4121-a3c5-3a396390ecbf": {
-          "id": "977a78d7-29f1-4121-a3c5-3a396390ecbf",
-          "name": "top_pipe",
+        "bcf90e25-4228-409c-9802-2d9927c8f6d5": {
+          "id": "bcf90e25-4228-409c-9802-2d9927c8f6d5",
+          "name": "top_pipe1",
           "attributes": {
-            "4ccac6ab-7cac-4a39-a5a4-c95e6f191cdc": {
-              "id": "4ccac6ab-7cac-4a39-a5a4-c95e6f191cdc",
+            "1917c38c-430c-48ae-bf97-9443617447f4": {
+              "id": "1917c38c-430c-48ae-bf97-9443617447f4",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 200.0
+              }
+            },
+            "6f222f79-a177-4f5d-a7e4-927fc12a1f4b": {
+              "id": "6f222f79-a177-4f5d-a7e4-927fc12a1f4b",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": -140.0
+              }
+            },
+            "7a3fa9fb-9e29-4a6f-aa50-9cd63a62c0af": {
+              "id": "7a3fa9fb-9e29-4a6f-aa50-9cd63a62c0af",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "fcca5abc-9cc5-4705-9ad2-db7277900299": {
+              "id": "fcca5abc-9cc5-4705-9ad2-db7277900299",
               "name": "position",
               "data_type": "Vector2",
               "value": {
                 "Vector2": [
-                  100.0,
-                  -100.0
+                  0.0,
+                  0.0
                 ]
               }
             },
-            "e1e999a6-5fe8-420c-86c3-94bdca32e611": {
-              "id": "e1e999a6-5fe8-420c-86c3-94bdca32e611",
+            "16ca2078-79cb-4949-bc99-2e11cf64a323": {
+              "id": "16ca2078-79cb-4949-bc99-2e11cf64a323",
               "name": "is_movable",
               "data_type": "Boolean",
               "value": {
                 "Boolean": true
               }
             },
-            "f94c1bf9-7105-4dda-ac97-ebaa1431e4a1": {
-              "id": "f94c1bf9-7105-4dda-ac97-ebaa1431e4a1",
+            "60110df8-b8d3-47a2-af0e-0d62b86ad1b9": {
+              "id": "60110df8-b8d3-47a2-af0e-0d62b86ad1b9",
               "name": "has_gravity",
               "data_type": "Boolean",
               "value": {
                 "Boolean": true
               }
             },
-            "258d5d5f-72f9-4667-992a-d4e39de4339f": {
-              "id": "258d5d5f-72f9-4667-992a-d4e39de4339f",
+            "c329ed57-900b-402e-a77b-33bafbd25778": {
+              "id": "c329ed57-900b-402e-a77b-33bafbd25778",
               "name": "creates_gravity",
               "data_type": "Boolean",
               "value": {
                 "Boolean": false
               }
             },
-            "1a41c239-f014-488c-a38a-8e1c8d86224c": {
-              "id": "1a41c239-f014-488c-a38a-8e1c8d86224c",
+            "12960a73-5142-423b-958c-85ec6cdcb990": {
+              "id": "12960a73-5142-423b-958c-85ec6cdcb990",
               "name": "has_collision",
               "data_type": "Boolean",
               "value": {
                 "Boolean": true
               }
             },
-            "3e02bcba-6240-42cb-8479-3a715d6514e1": {
-              "id": "3e02bcba-6240-42cb-8479-3a715d6514e1",
+            "3d6b7692-2d46-4083-a8b6-d654c140dc79": {
+              "id": "3d6b7692-2d46-4083-a8b6-d654c140dc79",
               "name": "friction",
               "data_type": "Float",
               "value": {
                 "Float": 0.5
               }
             },
-            "b63305a4-e5d9-4145-9ed5-2d3009986df5": {
-              "id": "b63305a4-e5d9-4145-9ed5-2d3009986df5",
+            "7494051c-686d-441b-98bc-67b74550be52": {
+              "id": "7494051c-686d-441b-98bc-67b74550be52",
               "name": "restitution",
               "data_type": "Float",
               "value": {
                 "Float": 0.0
               }
             },
-            "7d9cbe62-d468-4dfd-ad16-17f3b389200c": {
-              "id": "7d9cbe62-d468-4dfd-ad16-17f3b389200c",
+            "0a6e77e0-4858-46db-9578-c25598c5602a": {
+              "id": "0a6e77e0-4858-46db-9578-c25598c5602a",
               "name": "density",
               "data_type": "Float",
               "value": {
                 "Float": 1.0
               }
             },
-            "ba77f6d5-fd80-4a93-8e77-ca370b27bb23": {
-              "id": "ba77f6d5-fd80-4a93-8e77-ca370b27bb23",
+            "8be93cfa-1431-4957-9dfb-035ab15cd7d9": {
+              "id": "8be93cfa-1431-4957-9dfb-035ab15cd7d9",
               "name": "can_rotate",
               "data_type": "Boolean",
               "value": {
@@ -316,79 +442,433 @@
           "sounds": [],
           "script": null
         },
-        "056d9744-7af7-40a9-9036-7275010d9b42": {
-          "id": "056d9744-7af7-40a9-9036-7275010d9b42",
-          "name": "bottom_pipe",
+        "2d5d16f3-b559-4e99-8523-a1940db88e7c": {
+          "id": "2d5d16f3-b559-4e99-8523-a1940db88e7c",
+          "name": "bottom_pipe1",
           "attributes": {
-            "4fa191c0-82bc-413d-b1f6-3ced381c93f9": {
-              "id": "4fa191c0-82bc-413d-b1f6-3ced381c93f9",
+            "ee26c824-329b-4b61-af74-8dab8e225201": {
+              "id": "ee26c824-329b-4b61-af74-8dab8e225201",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 200.0
+              }
+            },
+            "82ba1758-d087-45c5-aa44-d6fa196fb1b4": {
+              "id": "82ba1758-d087-45c5-aa44-d6fa196fb1b4",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 90.0
+              }
+            },
+            "0cdee10d-75d9-404b-801b-ad87cdbc2083": {
+              "id": "0cdee10d-75d9-404b-801b-ad87cdbc2083",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "f594368c-176d-4613-965a-a7042cd9d6b1": {
+              "id": "f594368c-176d-4613-965a-a7042cd9d6b1",
               "name": "position",
               "data_type": "Vector2",
               "value": {
                 "Vector2": [
-                  100.0,
-                  100.0
+                  0.0,
+                  0.0
                 ]
               }
             },
-            "81caeddc-5383-4a99-94e7-b3f9ce11e10c": {
-              "id": "81caeddc-5383-4a99-94e7-b3f9ce11e10c",
+            "f2bf073e-dfbc-4941-bdf5-56129df4b936": {
+              "id": "f2bf073e-dfbc-4941-bdf5-56129df4b936",
               "name": "is_movable",
               "data_type": "Boolean",
               "value": {
                 "Boolean": true
               }
             },
-            "b9fa21d2-916b-436c-84a1-430eb87f09a0": {
-              "id": "b9fa21d2-916b-436c-84a1-430eb87f09a0",
+            "a660f3a3-301c-42e4-a581-97fee9cbb826": {
+              "id": "a660f3a3-301c-42e4-a581-97fee9cbb826",
               "name": "has_gravity",
               "data_type": "Boolean",
               "value": {
                 "Boolean": true
               }
             },
-            "0a372c12-80bd-4fe1-9627-190833f73966": {
-              "id": "0a372c12-80bd-4fe1-9627-190833f73966",
+            "0c4d3531-50aa-4ec0-a757-eaee0858c1bb": {
+              "id": "0c4d3531-50aa-4ec0-a757-eaee0858c1bb",
               "name": "creates_gravity",
               "data_type": "Boolean",
               "value": {
                 "Boolean": false
               }
             },
-            "3048cc87-21a2-444d-b2ca-8dde66d7c783": {
-              "id": "3048cc87-21a2-444d-b2ca-8dde66d7c783",
+            "b4abbc04-9442-4097-9367-f2f24c1bcd3b": {
+              "id": "b4abbc04-9442-4097-9367-f2f24c1bcd3b",
               "name": "has_collision",
               "data_type": "Boolean",
               "value": {
                 "Boolean": true
               }
             },
-            "94445f51-d6c3-4614-9d97-7edf04f38ef2": {
-              "id": "94445f51-d6c3-4614-9d97-7edf04f38ef2",
+            "e944dbaa-1e63-4654-b6b9-bc4c8f84a483": {
+              "id": "e944dbaa-1e63-4654-b6b9-bc4c8f84a483",
               "name": "friction",
               "data_type": "Float",
               "value": {
                 "Float": 0.5
               }
             },
-            "6a8af325-cc14-4bcb-847d-17c7f41c5d34": {
-              "id": "6a8af325-cc14-4bcb-847d-17c7f41c5d34",
+            "0ba586c3-58a0-42c5-83bd-e9b151dbdfab": {
+              "id": "0ba586c3-58a0-42c5-83bd-e9b151dbdfab",
               "name": "restitution",
               "data_type": "Float",
               "value": {
                 "Float": 0.0
               }
             },
-            "037f1e62-1192-4f43-a1d4-0433c9ec5b63": {
-              "id": "037f1e62-1192-4f43-a1d4-0433c9ec5b63",
+            "070641df-d089-429f-add8-33a7f7c4f113": {
+              "id": "070641df-d089-429f-add8-33a7f7c4f113",
               "name": "density",
               "data_type": "Float",
               "value": {
                 "Float": 1.0
               }
             },
-            "45cfa99b-c05e-4f3d-adaa-e6d1d34e4857": {
-              "id": "45cfa99b-c05e-4f3d-adaa-e6d1d34e4857",
+            "55f9832e-810d-4550-ae3d-cec010cbe4d7": {
+              "id": "55f9832e-810d-4550-ae3d-cec010cbe4d7",
+              "name": "can_rotate",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            }
+          },
+          "images": [
+            "/home/lang/Rust-2D-Game-Engine/demo/flappy_bird/assets/images/bottom_pipe.png"
+          ],
+          "sounds": [],
+          "script": null
+        },
+        "3a2c6702-3f9d-4181-9989-cf39c6373669": {
+          "id": "3a2c6702-3f9d-4181-9989-cf39c6373669",
+          "name": "ground_2",
+          "attributes": {
+            "bd4ed85d-182d-483c-99e1-e60e53330322": {
+              "id": "bd4ed85d-182d-483c-99e1-e60e53330322",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 163.0
+              }
+            },
+            "01f12335-a25c-4d57-bb43-6a464f143f3f": {
+              "id": "01f12335-a25c-4d57-bb43-6a464f143f3f",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 250.0
+              }
+            },
+            "041f4263-cbff-442b-b7db-c261fb5b8943": {
+              "id": "041f4263-cbff-442b-b7db-c261fb5b8943",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "8b44bed8-c286-47f5-b5c6-415f9eaed361": {
+              "id": "8b44bed8-c286-47f5-b5c6-415f9eaed361",
+              "name": "position",
+              "data_type": "Vector2",
+              "value": {
+                "Vector2": [
+                  0.0,
+                  0.0
+                ]
+              }
+            },
+            "f05067da-2078-44c1-b8c3-262edadeb1db": {
+              "id": "f05067da-2078-44c1-b8c3-262edadeb1db",
+              "name": "is_movable",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "f5bc979d-294d-493a-8fe4-86ae6f01b690": {
+              "id": "f5bc979d-294d-493a-8fe4-86ae6f01b690",
+              "name": "has_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "37292c2d-ef67-486b-88f9-ac8dfdb7387f": {
+              "id": "37292c2d-ef67-486b-88f9-ac8dfdb7387f",
+              "name": "creates_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "f0e8bb7b-f1d1-430d-8585-e2c867d82c2e": {
+              "id": "f0e8bb7b-f1d1-430d-8585-e2c867d82c2e",
+              "name": "has_collision",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "bc39c9d5-f526-474c-b3c7-6e9da08f85e2": {
+              "id": "bc39c9d5-f526-474c-b3c7-6e9da08f85e2",
+              "name": "friction",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.5
+              }
+            },
+            "1e99ad05-4b80-4003-8a1c-549edc48fd2d": {
+              "id": "1e99ad05-4b80-4003-8a1c-549edc48fd2d",
+              "name": "restitution",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "46c71df1-9503-4fb9-a9d8-76b86c3e84c1": {
+              "id": "46c71df1-9503-4fb9-a9d8-76b86c3e84c1",
+              "name": "density",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "f034c1b0-7de0-49a8-8ba3-d82f4d611bcd": {
+              "id": "f034c1b0-7de0-49a8-8ba3-d82f4d611bcd",
+              "name": "can_rotate",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            }
+          },
+          "images": [
+            "/home/lang/Rust-2D-Game-Engine/demo/flappy_bird/assets/images/ground.png"
+          ],
+          "sounds": [],
+          "script": null
+        },
+        "935f252b-7bf2-4822-999b-241fd54a9c05": {
+          "id": "935f252b-7bf2-4822-999b-241fd54a9c05",
+          "name": "top_pipe2",
+          "attributes": {
+            "5c1eb0c9-8a1b-451a-b7b4-295b9866585a": {
+              "id": "5c1eb0c9-8a1b-451a-b7b4-295b9866585a",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 320.0
+              }
+            },
+            "86108228-610d-41af-910f-fab794e80ad2": {
+              "id": "86108228-610d-41af-910f-fab794e80ad2",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": -2.0
+              }
+            },
+            "dd2166c9-09a4-457b-9aaf-478fe3a27b4a": {
+              "id": "dd2166c9-09a4-457b-9aaf-478fe3a27b4a",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "d0fdf946-8770-4446-b020-e67f62eb9544": {
+              "id": "d0fdf946-8770-4446-b020-e67f62eb9544",
+              "name": "position",
+              "data_type": "Vector2",
+              "value": {
+                "Vector2": [
+                  0.0,
+                  0.0
+                ]
+              }
+            },
+            "3c20a5e1-0824-4194-a92a-6b3b27b673f7": {
+              "id": "3c20a5e1-0824-4194-a92a-6b3b27b673f7",
+              "name": "is_movable",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "b93074af-90bd-455e-a6bd-1b03875bb553": {
+              "id": "b93074af-90bd-455e-a6bd-1b03875bb553",
+              "name": "has_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "5dfc64d1-422a-4cb3-983d-1de494fb1bf9": {
+              "id": "5dfc64d1-422a-4cb3-983d-1de494fb1bf9",
+              "name": "creates_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "28d9f48d-cf3d-4a3b-b477-e1fd57260fcd": {
+              "id": "28d9f48d-cf3d-4a3b-b477-e1fd57260fcd",
+              "name": "has_collision",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "e4a53add-a823-40f0-b6cd-d0a10cbccd95": {
+              "id": "e4a53add-a823-40f0-b6cd-d0a10cbccd95",
+              "name": "friction",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.5
+              }
+            },
+            "62a7b361-f513-4c17-aa1f-d649cabecd8c": {
+              "id": "62a7b361-f513-4c17-aa1f-d649cabecd8c",
+              "name": "restitution",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "57640028-f69f-4203-9f7c-25dd807a754f": {
+              "id": "57640028-f69f-4203-9f7c-25dd807a754f",
+              "name": "density",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "f048ee0d-1c52-4274-aea4-3e85710b597d": {
+              "id": "f048ee0d-1c52-4274-aea4-3e85710b597d",
+              "name": "can_rotate",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            }
+          },
+          "images": [
+            "/home/lang/Rust-2D-Game-Engine/demo/flappy_bird/assets/images/top_pipe.png"
+          ],
+          "sounds": [],
+          "script": null
+        },
+        "8db58598-d0f6-40cd-bc83-95ab34db365f": {
+          "id": "8db58598-d0f6-40cd-bc83-95ab34db365f",
+          "name": "bottom_pipe2",
+          "attributes": {
+            "ed9f127f-8c2e-4212-9f92-284343cf2043": {
+              "id": "ed9f127f-8c2e-4212-9f92-284343cf2043",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 320.0
+              }
+            },
+            "ee298501-7288-49d0-b1c6-6c6ba6b44758": {
+              "id": "ee298501-7288-49d0-b1c6-6c6ba6b44758",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 228.0
+              }
+            },
+            "21ac6473-3e48-4ec7-aa3a-80edaaa33082": {
+              "id": "21ac6473-3e48-4ec7-aa3a-80edaaa33082",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "7a95025c-4ae1-4d17-9f0a-58962676fa7e": {
+              "id": "7a95025c-4ae1-4d17-9f0a-58962676fa7e",
+              "name": "position",
+              "data_type": "Vector2",
+              "value": {
+                "Vector2": [
+                  0.0,
+                  0.0
+                ]
+              }
+            },
+            "c739abbc-7dc1-4e49-a774-034528fe9788": {
+              "id": "c739abbc-7dc1-4e49-a774-034528fe9788",
+              "name": "is_movable",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "c3eca66c-2891-40c4-a541-5edbd0018d88": {
+              "id": "c3eca66c-2891-40c4-a541-5edbd0018d88",
+              "name": "has_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "44d172a8-d568-4496-b550-8d2b47feb47c": {
+              "id": "44d172a8-d568-4496-b550-8d2b47feb47c",
+              "name": "creates_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "9994fc25-19e0-4bfa-b5df-e510ba251d15": {
+              "id": "9994fc25-19e0-4bfa-b5df-e510ba251d15",
+              "name": "has_collision",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "048c55f2-f221-40b7-bfb7-69cc7b20ad74": {
+              "id": "048c55f2-f221-40b7-bfb7-69cc7b20ad74",
+              "name": "friction",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.5
+              }
+            },
+            "7905ae97-1715-41dc-aa1a-309422628e00": {
+              "id": "7905ae97-1715-41dc-aa1a-309422628e00",
+              "name": "restitution",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "f27efd26-07bd-40f5-9fd7-f4620c848eb5": {
+              "id": "f27efd26-07bd-40f5-9fd7-f4620c848eb5",
+              "name": "density",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "a87f1171-e956-42c1-b339-0eca1983bfc6": {
+              "id": "a87f1171-e956-42c1-b339-0eca1983bfc6",
               "name": "can_rotate",
               "data_type": "Boolean",
               "value": {
@@ -404,9 +884,9 @@
         }
       },
       "shared_entity_refs": [],
-      "default_camera": "907a8f36-c371-4df6-8cba-be279f47c50f"
+      "default_camera": "f6d53823-df08-4e71-ad3e-249f71b4cf67"
     }
   },
   "shared_entities": {},
-  "active_scene": "2ace0aec-aa3a-421c-bdd3-938aceb6a666"
+  "active_scene": "b1939472-9161-4248-837d-748f751235cd"
 }
