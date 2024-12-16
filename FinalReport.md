@@ -2,9 +2,7 @@
 
 ## Team Members
 
-> #TODO: write preferred emails
-
-- [Lang Sun - 1003584971 - ](https://github.com/gh0stintheshe11)
+- [Lang Sun - 1003584971 ](https://github.com/gh0stintheshe11)
 - [Feiyang Fan - 1005146913 - feiyang.fan@mail.utoronto.ca](https://github.com/feiyangfan)
 - [Jie Peng(Frank) Chen - 997532861 - jp.chen@mail.utoronto.ca](https://github.com/frankjc2022)
 
@@ -612,6 +610,7 @@ _A responsive, platform-agnostic input management system that ensures smooth and
 _The Project Manager handles game project creation, loading, saving, building, and asset importing. It provides a structured way to manage game projects and their assets._
 
 #### Project Structure
+
 ```
 game_project/
 ├── assets/
@@ -668,30 +667,37 @@ classDiagram
 ```
 
 #### Usage
+
 See [Project Manager Usage](#project-manager-usage) in [Users Guide](#users-guide).
 
 #### Supported Asset Types
 
 ##### Images
+
 - Formats: PNG, JPG, JPEG, GIF
 - Directory: `assets/images/`
 
 ##### Sounds
+
 - Formats: WAV, MP3, OGG
 - Directory: `assets/sounds/`
 
 ##### Fonts
+
 - Formats: TTF, OTF
 - Directory: `assets/fonts/`
 
 ##### Scripts
+
 - Formats: LUA
 - Directory: `assets/scripts/`
 
 #### Technical Details
 
 ##### Project Metadata
+
 Stores essential project information in `project.json`:
+
 - Project name
 - Version
 - Project path
@@ -699,28 +705,34 @@ Stores essential project information in `project.json`:
 - Active scene ID (UUID)
 
 ##### Scene Management
+
 - Serializes scene hierarchy to `scenes/scene_manager.json`
 - Tracks active scene across sessions
 - Maintains scene relationships and shared entities
 
 ##### Asset Management
+
 - Automatic file type validation
 - Duplicate file detection
 - Organized asset directory structure
 - Clear error messages for invalid imports
 
 ##### Build Process
+
 - Compiles Rust code with `cargo build --release`
 - Copies assets to target directory
 - Creates a ready-to-run game executable
 
 #### Best Practices
+
 1. **Asset Organization**
+
    - Use appropriate file formats for each asset type
    - Keep assets in their designated directories
    - Avoid duplicate file names
 
 2. **Project Structure**
+
    - Maintain clean directory hierarchy
    - Follow the recommended file organization
    - Handle asset import errors gracefully
@@ -741,43 +753,50 @@ _An intuitive, real-time development interface powered by [egui](https://crates.
 - Provides customizable views and layouts, allowing developers to tailor the interface to their specific project needs and preferences.
 
 #### Menu
+
 - Project Management:
   - Create, load, and work with projects.
   - Automatic saving
 - Customization Options:
-    - Dark Mode
-    - Show or hide panels
-    - Debug Overlay
+  - Dark Mode
+  - Show or hide panels
+  - Debug Overlay
 - File Import
 - Editor Switching
+
 #### Scene
+
 - Scene Organization:
-    - Add Scenes, Entities, Resources, and preset attributes like cameras or physics.
-    - Entity/Resource addition
+  - Add Scenes, Entities, Resources, and preset attributes like cameras or physics.
+  - Entity/Resource addition
 - Context Menu Management:
-    - Right-click Scenes to rename, delete, or manage attached resources.
-    - Ensure resources are not attached to any entity before deletion; otherwise, deletion is restricted.
-    - Right-click Entities to attach/detach multiple resources or rename them.
-    - Right-click Resources to detach or rename them.
+  - Right-click Scenes to rename, delete, or manage attached resources.
+  - Ensure resources are not attached to any entity before deletion; otherwise, deletion is restricted.
+  - Right-click Entities to attach/detach multiple resources or rename them.
+  - Right-click Resources to detach or rename them.
 - Resource Highlights:
-    - Selecting a resource highlights all instances with the same ID across the project.
+  - Selecting a resource highlights all instances with the same ID across the project.
 - Tree Structure:
-    - Organize and view items in a collapsible tree format, sorted alphabetically.
+  - Organize and view items in a collapsible tree format, sorted alphabetically.
 - Filter entities by name for quick navigation.
 - Clicking any Scene, Entity, or Resource displays its details in the Inspector Panel.
+
 #### File Panel
+
 - File Navigation:
-    - View all files within the project folder in a collapsible tree structure, sorted alphabetically.
-    - Select any file to view its details in the Inspector Panel.
+  - View all files within the project folder in a collapsible tree structure, sorted alphabetically.
+  - Select any file to view its details in the Inspector Panel.
 - Context Menu Actions:
-    - Right-click files to delete them.
+  - Right-click files to delete them.
 - Filtering:
-    - Quickly filter files by name to locate specific items.
+  - Quickly filter files by name to locate specific items.
+
 #### Inspector Panel
+
 - Entity Customization:
   - Modify entity data or add new attributes directly.
 - Resource Management:
-    - Link resources to specific files seamlessly.
+  - Link resources to specific files seamlessly.
 
 ### Comprehensive Unit Testing
 
@@ -922,6 +941,7 @@ To use the `AudioEngine` for game audio:
 #### Project Manager Usage
 
 ##### Project Creation and Management
+
 ```rust
 // Create a new game project
 let project_path = Path::new("path/to/my_game");
@@ -935,6 +955,7 @@ ProjectManager::save_project_full(project_path, &metadata, &scene_manager)?;
 ```
 
 ##### Asset Import
+
 ```rust
 // Import an image
 let image_path = Path::new("path/to/sprite.png");
@@ -954,6 +975,7 @@ let relative_path = ProjectManager::import_asset(
 ```
 
 ##### Scene Management
+
 ```rust
 // Load scene hierarchy
 let scene_manager = ProjectManager::load_scene_hierarchy(project_path)?;
@@ -965,6 +987,7 @@ ProjectManager::save_scene_hierarchy(project_path, &scene_manager)?;
 ```
 
 ##### Build System
+
 ```rust
 // Build the project
 ProjectManager::build_project(project_path)?;
@@ -974,46 +997,68 @@ ProjectManager::build_project(project_path)?;
 
 #### Create new project
 
-To create a new project, click on `File`->`New`->enter your project name and path you wish to save it in->press `Create`.
-![alt text](final_report_assets/project_create_open.png)
+To create a new project, click on `File`->`New Project`->enter your project name and path you wish to save it in->press `Create`.
+![alt text](final_report_assets/newproject.png)
 
 #### Open project
 
-To open a project, click on `File`->`Open`->enter your project path.
+To open a project, click on `File`->`Open Project`->enter your project path.
 
-#### Create new entity
+#### Save project
 
-`Edit`->`Add...`->`New entity`
+To save a project, click on `File`->`Save Project`->enter your project path.
+
+#### Dark/Light mode
+
+`View` -> `View` -> `Appearance`
+
+#### Panel customization
+
+`View` -> `Panels`
+
+#### Debug overlay
+
+`View` -> `Debug Overlay`
+
+#### Create new scene
+
+Top left Scene panel ->`+`-> select `Scene` -> enter name and click `Create`
+![alt text](final_report_assets/new_scene.png)
+
+#### Scene camera control
+Right click and hold to move around. Middle mouse button to zoom in and out.
+
+#### Create new entity/camera/physics
+
+Top left Scene panel ->`+`-> select `Entity`/`Camera`/`Physics` -> enter name and click `Create` (There must be at least one scene first)
 ![alt text](final_report_assets/new_entity.png)
 
-#### Delete entity
+#### Create new resource(image/sound/script)
 
-Right click on the entity you wish to delete, then click on `Delete`.
-![alt text](final_report_assets/delete_entity.png)
+![alt text](final_report_assets/new_resource.png)
 
-#### Add attributes to entity
+#### Import new resources(image/sound/script)
+![alt text](final_report_assets/import_resources.png)
 
-Select an entity, then click on `Add attribute` at the top left panel.
-Enter attribute name, select attribute types, and enter attribute value. Click on `Save`
-![alt text](final_report_assets/entity_attr.png)
+#### Edit/rename/delete entity
 
-#### Create new script
+Right click on the entity you wish to edit.
+![alt text](final_report_assets/edit_entity.png)
 
-`Edit`->`Add...`->`New script`. Select the script you just created at the bottom right panel. Then at the top right panel, input your Lua script.
-![alt text](final_report_assets/new_script.png)
+#### Add/Edit metadatas
 
-#### Delete new script
+Select an entity/resource, then click on `Add Metadata` at the right inspector panel.
+Enter name, select types, and enter value. Click on `Save`
+![alt text](final_report_assets/edit_entity.png)
+![alt text](final_report_assets/edit_data.png)
 
-Similar to delete an entity, right click the script you wish to delete and click on `Delete`
-
-#### Import font, scene, audio, and video
-
-`File`->`Import...`
-![alt text](final_report_assets/import.png)
+#### Editor
+At the top right corner, click on `Editor` to switch to editor view
+![alt text](final_report_assets/editor.png)
 
 #### Build and Run your game
 
-`File`->`Build and Run`
+`Project`->`Build Project`
 
 ## Reproducibility Guide
 
