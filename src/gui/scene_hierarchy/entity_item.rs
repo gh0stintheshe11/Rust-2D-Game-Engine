@@ -15,40 +15,40 @@ impl EntityItem {
         scene_id: &Uuid,
         entities: &IndexMap<Uuid, crate::ecs::Entity>,
     ) {
-
-        // Sort entity by name for displaying
         let mut sorted_entities: Vec<(&Uuid, &crate::ecs::Entity)> = entities.iter().collect();
         sorted_entities.sort_by(|(_, entity_a), (_, entity_b)| {
             entity_a.name.to_lowercase().cmp(&entity_b.name.to_lowercase())
         });
 
         for (entity_id, entity) in sorted_entities {
-
-            // Filter by search_query for displaying
             if !hierarchy.search_query.is_empty()
-                && !entity.name.to_lowercase().contains(&hierarchy.search_query.to_lowercase()) { continue; }
+                && !entity.name.to_lowercase().contains(&hierarchy.search_query.to_lowercase()) {
+                continue;
+            }
 
             let header_id = ui.make_persistent_id(entity_id);
 
-            // Show as collapsable if has images or sounds, otherwise show as label.
+            // Show as collapsable if has images or sounds, otherwise show as label
             if !entity.images.is_empty() || !entity.sounds.is_empty() {
                 egui::collapsing_header::CollapsingState::load_with_default_open(ctx, header_id, true)
                     .show_header(ui, |ui| {
                         EntityItem::tree_item_entity(ui, scene_id, entity_id, &entity.name, hierarchy, gui_state);
                     })
                     .body(|ui| {
-                        if !entity.images.is_empty() {
-                            ui.label("Images:");
-                            for path in &entity.images {
-                                ui.label(path.to_string_lossy().to_string());
+                        ui.indent("assets", |ui| {
+                            if !entity.images.is_empty() {
+                                ui.label("Images:");
+                                for path in &entity.images {
+                                    ui.label(path.file_name().unwrap_or_default().to_string_lossy().to_string());
+                                }
                             }
-                        }
-                        if !entity.sounds.is_empty() {
-                            ui.label("Sounds:");
-                            for path in &entity.sounds {
-                                ui.label(path.to_string_lossy().to_string());
+                            if !entity.sounds.is_empty() {
+                                ui.label("Sounds:");
+                                for path in &entity.sounds {
+                                    ui.label(path.file_name().unwrap_or_default().to_string_lossy().to_string());
+                                }
                             }
-                        }
+                        });
                     });
             } else {
                 ui.horizontal(|ui| {
