@@ -43,9 +43,9 @@ impl Camera {
 
 #[derive(Debug, Clone)]
 pub struct TextureInfo {
-    data: Vec<u8>,
-    dimensions: (u32, u32), // Original width and height in pixels
-    aspect_ratio: f32,
+    pub data: Vec<u8>,
+    pub dimensions: (u32, u32), // Original width and height in pixels
+    pub aspect_ratio: f32,
 }
 
 // Layers for rendering order
@@ -170,7 +170,7 @@ impl Animation {
 pub struct RenderEngine {
     viewport_size: (f32, f32),
     last_frame_time: std::time::Instant,
-    texture_cache: HashMap<Uuid, TextureInfo>, // TextureID -> Loaded texture data
+    pub texture_cache: HashMap<Uuid, TextureInfo>, // Make texture_cache public
     pub camera: Camera,
 }
 
@@ -227,61 +227,65 @@ impl RenderEngine {
     }
 
     // Modified render method
-    pub fn render(&mut self, scene: &Scene) 
-        -> Vec<(Uuid, (f32, f32), (f32, f32), RenderLayer)> 
-    {
+    pub fn render(&mut self, scene: &Scene) -> Vec<(Uuid, (f32, f32), (f32, f32), RenderLayer)> {
         let mut render_queue = Vec::new();
 
         for (_, entity) in &scene.entities {
-            // Get transform components
-            let transform = Transform {
-                position: entity
-                    .get_attribute_by_name("position")
-                    .and_then(|attr| {
-                        if let crate::ecs::AttributeValue::Vector2(x, y) = attr.value {
-                            Some((x, y))
-                        } else {
-                            None
-                        }
-                    })
-                    .unwrap_or((0.0, 0.0)),
-
-                rotation: entity
-                    .get_attribute_by_name("rotation")
-                    .and_then(|attr| {
-                        if let crate::ecs::AttributeValue::Float(r) = attr.value {
-                            Some(r)
-                        } else {
-                            None
-                        }
-                    })
-                    .unwrap_or(0.0),
-
-                scale: entity
-                    .get_attribute_by_name("scale")
-                    .and_then(|attr| {
-                        if let crate::ecs::AttributeValue::Vector2(sx, sy) = attr.value {
-                            Some((sx, sy))
-                        } else {
-                            None
-                        }
-                    })
-                    .unwrap_or((1.0, 1.0)),
-            };
-
             if let Some(image_path) = entity.get_image(0) {
-                let texture_id = Self::path_to_uuid(image_path);
+                // Try to load the texture if it's not in cache
+                let texture_id = Self::path_to_uuid(Path::new(image_path));
                 
+                if !self.texture_cache.contains_key(&texture_id) {
+                    // Load the texture if not found
+                    if let Ok(_) = self.load_texture(Path::new(image_path)) {
+                        println!("Loaded texture: {}", image_path.to_string_lossy());
+                    }
+                }
+
+                // Get transform components
+                let transform = Transform {
+                    position: entity
+                        .get_attribute_by_name("position")
+                        .and_then(|attr| {
+                            if let crate::ecs::AttributeValue::Vector2(x, y) = attr.value {
+                                Some((x, y))
+                            } else {
+                                None
+                            }
+                        })
+                        .unwrap_or((0.0, 0.0)),
+
+                    rotation: entity
+                        .get_attribute_by_name("rotation")
+                        .and_then(|attr| {
+                            if let crate::ecs::AttributeValue::Float(r) = attr.value {
+                                Some(r)
+                            } else {
+                                None
+                            }
+                        })
+                        .unwrap_or(0.0),
+
+                    scale: entity
+                        .get_attribute_by_name("scale")
+                        .and_then(|attr| {
+                            if let crate::ecs::AttributeValue::Vector2(sx, sy) = attr.value {
+                                Some((sx, sy))
+                            } else {
+                                None
+                            }
+                        })
+                        .unwrap_or((1.0, 1.0)),
+                };
+
                 if let Some(texture_info) = self.texture_cache.get(&texture_id) {
                     let screen_pos = self.camera.world_to_screen(transform.position);
                     let width = texture_info.dimensions.0 as f32 * self.camera.zoom * transform.scale.0;
                     let height = texture_info.dimensions.1 as f32 * self.camera.zoom * transform.scale.1;
 
-                    // Basic visibility check
-                    if screen_pos.0 + width >= 0.0
-                        && screen_pos.0 <= self.viewport_size.0
-                        && screen_pos.1 + height >= 0.0
-                        && screen_pos.1 <= self.viewport_size.1
+                    // Update visibility check to be consistent in all directions
+                    if (screen_pos.0 + width >= 0.0 && screen_pos.0 <= self.viewport_size.0) &&  // Horizontal bounds
+                       (screen_pos.1 + height >= 0.0 && screen_pos.1 <= self.viewport_size.1)     // Vertical bounds
                     {
                         let layer = entity
                             .get_attribute_by_name("layer")
@@ -360,6 +364,51 @@ impl RenderEngine {
         self.texture_cache.values()
             .map(|tex| tex.data.len())
             .sum()
+    }
+
+    // Add this public method
+    pub fn get_texture_info(&self, texture_id: &Uuid) -> Option<&TextureInfo> {
+        self.texture_cache.get(texture_id)
+    }
+
+    // Add this new method to draw grid
+    pub fn get_grid_lines(&self) -> Vec<((f32, f32), (f32, f32))> {
+        let mut lines = Vec::new();
+        let grid_size = 50.0;
+        
+        // Calculate grid boundaries in world space
+        let left = (-self.viewport_size.0 / 2.0 - self.camera.position.0) * self.camera.zoom;
+        let right = (self.viewport_size.0 / 2.0 - self.camera.position.0) * self.camera.zoom;
+        let top = (-self.viewport_size.1 / 2.0 - self.camera.position.1) * self.camera.zoom;
+        let bottom = (self.viewport_size.1 / 2.0 - self.camera.position.1) * self.camera.zoom;
+
+        // Adjust grid start/end to ensure coverage
+        let start_x = ((left - grid_size) / grid_size).floor() * grid_size;
+        let end_x = ((right + grid_size) / grid_size).ceil() * grid_size;
+        let start_y = ((top - grid_size) / grid_size).floor() * grid_size;
+        let end_y = ((bottom + grid_size) / grid_size).ceil() * grid_size;
+
+        // Draw vertical lines
+        for x in (start_x as i32..=end_x as i32).step_by(grid_size as usize) {
+            let world_x = x as f32;
+            let screen_pos = self.camera.world_to_screen((world_x, 0.0));
+            lines.push((
+                (screen_pos.0, 0.0),
+                (screen_pos.0, self.viewport_size.1)
+            ));
+        }
+
+        // Draw horizontal lines
+        for y in (start_y as i32..=end_y as i32).step_by(grid_size as usize) {
+            let world_y = y as f32;
+            let screen_pos = self.camera.world_to_screen((0.0, world_y));
+            lines.push((
+                (0.0, screen_pos.1),
+                (self.viewport_size.0, screen_pos.1)
+            ));
+        }
+
+        lines
     }
 }
 

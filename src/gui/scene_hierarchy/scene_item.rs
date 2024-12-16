@@ -53,26 +53,33 @@ impl SceneItem {
         hierarchy: &mut SceneHierarchy,
         gui_state: &mut GuiState,
     ) {
-        let selected = matches!(
-            gui_state.scene_panel_selected_item,
-            ScenePanelSelectedItem::Scene(s_id) if s_id == *scene_id
-        );
+        ui.horizontal(|ui| {
+            let selected = matches!(
+                gui_state.scene_panel_selected_item,
+                ScenePanelSelectedItem::Scene(s_id) if s_id == *scene_id
+            );
 
-        let response = ui.selectable_label(selected, scene_name);
-        if response.clicked() {
-            gui_state.selected_item = SelectedItem::Scene(*scene_id);
-            gui_state.scene_panel_selected_item = ScenePanelSelectedItem::Scene(*scene_id);
-        }
+            let response = ui.selectable_label(selected, scene_name);
+            if response.clicked() {
+                gui_state.selected_item = SelectedItem::Scene(*scene_id);
+                gui_state.scene_panel_selected_item = ScenePanelSelectedItem::Scene(*scene_id);
+            }
 
-        response.context_menu(|ui| {
-            if ui.button("Rename").clicked() {
-                hierarchy.popup_manager.start_rename_scene(*scene_id, scene_name.to_string());
-                ui.close_menu();
-            }
-            if ui.button("Delete").clicked() {
-                gui_state.scene_manager.as_mut().unwrap().delete_scene(*scene_id);
-                ui.close_menu();
-            }
+            response.context_menu(|ui| {
+                if ui.button("Rename").clicked() {
+                    hierarchy.popup_manager.start_rename_scene(*scene_id, scene_name.to_string());
+                    ui.close_menu();
+                }
+                if ui.button("Delete").clicked() {
+                    gui_state.scene_manager.as_mut().unwrap().delete_scene(*scene_id);
+                    ui.close_menu();
+                }
+                if ui.button("Set Active").clicked() {
+                    if let Some(scene_manager) = &mut gui_state.scene_manager {
+                        let _ = scene_manager.set_active_scene(*scene_id);
+                    }
+                }
+            });
         });
     }
 }

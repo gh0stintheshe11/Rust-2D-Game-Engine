@@ -58,8 +58,8 @@
               "data_type": "Vector2",
               "value": {
                 "Vector2": [
-                  0.0,
-                  0.0
+                  200.0,
+                  200.0
                 ]
               }
             },
@@ -146,8 +146,8 @@
               "data_type": "Vector2",
               "value": {
                 "Vector2": [
-                  0.0,
-                  0.0
+                  150.0,
+                  100.0
                 ]
               }
             },
@@ -232,8 +232,8 @@
               "data_type": "Vector2",
               "value": {
                 "Vector2": [
-                  0.0,
-                  0.0
+                  300.0,
+                  100.0
                 ]
               }
             },
@@ -325,5 +325,5 @@
     }
   },
   "shared_entities": {},
-  "active_scene": null
+  "active_scene": "2ace0aec-aa3a-421c-bdd3-938aceb6a666"
 }
