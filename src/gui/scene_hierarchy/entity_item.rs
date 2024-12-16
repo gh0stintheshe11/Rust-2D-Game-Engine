@@ -37,15 +37,21 @@ impl EntityItem {
                     .body(|ui| {
                         ui.indent("assets", |ui| {
                             if !entity.images.is_empty() {
-                                ui.label("Images:");
                                 for path in &entity.images {
-                                    ui.label(path.file_name().unwrap_or_default().to_string_lossy().to_string());
+                                    let filename = path.file_name()
+                                        .unwrap_or_default()
+                                        .to_string_lossy()
+                                        .to_string();
+                                    ui.label(format!("🖼 {}", filename));
                                 }
                             }
                             if !entity.sounds.is_empty() {
-                                ui.label("Sounds:");
                                 for path in &entity.sounds {
-                                    ui.label(path.file_name().unwrap_or_default().to_string_lossy().to_string());
+                                    let filename = path.file_name()
+                                        .unwrap_or_default()
+                                        .to_string_lossy()
+                                        .to_string();
+                                    ui.label(format!("🔊 {}", filename));
                                 }
                             }
                         });
@@ -71,14 +77,26 @@ impl EntityItem {
             ScenePanelSelectedItem::Entity(s_id, e_id) if s_id == *scene_id && e_id == *entity_id
         );
 
-        let response = ui.selectable_label(selected, format!("📌 {}", entity_name));
+        // Just show the filename without path
+        let display_name = if let Some(name) = entity_name.split('/').last() {
+            name
+        } else {
+            entity_name
+        };
+
+        let response = ui.selectable_label(selected, format!("📌 {}", display_name));
         if response.clicked() {
             gui_state.selected_item = SelectedItem::Entity(*scene_id, *entity_id);
             gui_state.scene_panel_selected_item = ScenePanelSelectedItem::Entity(*scene_id, *entity_id);
         }
 
         response.context_menu(|ui| {
-            if ui.button("Manage Assets").clicked() {
+            if ui.button("Attach Asset").clicked() {
+                hierarchy.popup_manager.resource_selection = Some((*scene_id, *entity_id));
+                hierarchy.popup_manager.resource_selection_popup_active = true;
+                ui.close_menu();
+            }
+            if ui.button("Detach Asset").clicked() {
                 hierarchy.popup_manager.manage_assets_entity = Some((*scene_id, *entity_id));
                 hierarchy.popup_manager.manage_assets_popup_active = true;
                 ui.close_menu();

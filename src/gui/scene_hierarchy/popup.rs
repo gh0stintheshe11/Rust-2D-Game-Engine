@@ -4,7 +4,7 @@ use crate::gui::scene_hierarchy::predefined_entities::PREDEFINED_ENTITIES;
 use crate::gui::scene_hierarchy::utils;
 use crate::project_manager::ProjectManager;
 use eframe::egui::{Context, Ui};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
 
@@ -20,6 +20,10 @@ pub struct PopupManager {
     pub create_entity_name: String,
     pub manage_assets_entity: Option<(Uuid, Uuid)>,
     pub manage_assets_popup_active: bool,
+    pub resource_selection: Option<(Uuid, Uuid)>,
+    pub resource_selection_popup_active: bool,
+    pub selected_resource_type: String,
+    pub available_resources: Vec<std::path::PathBuf>,
 }
 
 impl PopupManager {
@@ -36,6 +40,10 @@ impl PopupManager {
             create_entity_name: String::new(),
             manage_assets_entity: None,
             manage_assets_popup_active: false,
+            resource_selection: None,
+            resource_selection_popup_active: false,
+            selected_resource_type: "Images".to_string(),
+            available_resources: Vec::new(),
         }
     }
 
@@ -350,6 +358,103 @@ impl PopupManager {
         if self.create_popup_active {
             self.render_create_popup(ctx, ui, gui_state);
         }
+
+        // Render manage assets popup
+        if self.manage_assets_popup_active {
+            if let Some(scene_manager) = &mut gui_state.scene_manager {
+                self.show_manage_assets_popup(ctx, scene_manager);
+            }
+        }
+
+        // Render resource selection popup
+        if self.resource_selection.is_some() {
+            if let Some(scene_manager) = &mut gui_state.scene_manager {
+                self.show_resource_selection_popup(ctx, scene_manager, &gui_state.project_path);
+            }
+        }
+    }
+
+    pub fn show_resource_selection_popup(
+        &mut self,
+        ctx: &egui::Context,
+        scene_manager: &mut SceneManager,
+        project_path: &Path,
+    ) {
+        if let Some((scene_id, entity_id)) = self.resource_selection {
+            egui::Window::new("Attach Resource")
+                .open(&mut self.resource_selection_popup_active)
+                .collapsible(false)
+                .resizable(false)
+                .show(ctx, |ui| {
+                    // Resource type dropdown
+                    egui::CollapsingHeader::new("Resource Type")
+                        .default_open(true)
+                        .show(ui, |ui| {
+                            egui::ComboBox::from_label("")
+                                .selected_text(&self.selected_resource_type)
+                                .show_ui(ui, |ui| {
+                                    ui.selectable_value(&mut self.selected_resource_type, "Images".to_string(), "Images");
+                                    ui.selectable_value(&mut self.selected_resource_type, "Sounds".to_string(), "Sounds");
+                                    ui.selectable_value(&mut self.selected_resource_type, "Scripts".to_string(), "Scripts");
+                                });
+                        });
+
+                    // Update available resources when type changes
+                    let resource_path = match self.selected_resource_type.as_str() {
+                        "Images" => project_path.join("assets").join("images"),
+                        "Sounds" => project_path.join("assets").join("sounds"),
+                        "Scripts" => project_path.join("assets").join("scripts"),
+                        _ => project_path.join("assets"),
+                    };
+
+                    // Read directory and update available resources
+                    if let Ok(entries) = std::fs::read_dir(resource_path) {
+                        self.available_resources = entries
+                            .filter_map(|e| e.ok())
+                            .map(|e| e.path())
+                            .collect();
+                    }
+
+                    // Show resource list in a collapsing header
+                    egui::CollapsingHeader::new("Available Resources")
+                        .default_open(true)
+                        .show(ui, |ui| {
+                            egui::ScrollArea::vertical().show(ui, |ui| {
+                                for resource_path in &self.available_resources {
+                                    if let Some(filename) = resource_path.file_name() {
+                                        if ui.button(filename.to_string_lossy().to_string()).clicked() {
+                                            if let Some(scene) = scene_manager.get_scene_mut(scene_id) {
+                                                if let Some(entity) = scene.get_entity_mut(entity_id) {
+                                                    match self.selected_resource_type.as_str() {
+                                                        "Images" => {
+                                                            // Check if image is already attached
+                                                            if !entity.images.contains(resource_path) {
+                                                                entity.images.push(resource_path.clone());
+                                                            }
+                                                        },
+                                                        "Sounds" => {
+                                                            // Check if sound is already attached
+                                                            if !entity.sounds.contains(resource_path) {
+                                                                entity.sounds.push(resource_path.clone());
+                                                            }
+                                                        },
+                                                        "Scripts" => println!("Script selected: {:?}", resource_path),
+                                                        _ => {}
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            });
+                        });
+                });
+
+            // If window is closed, reset the selection
+            if !self.resource_selection_popup_active {
+                self.resource_selection = None;
+            }
+        }
     }
 
     pub fn show_manage_assets_popup(
@@ -360,59 +465,51 @@ impl PopupManager {
         if let Some((scene_id, entity_id)) = self.manage_assets_entity {
             egui::Window::new("Manage Assets")
                 .open(&mut self.manage_assets_popup_active)
+                .collapsible(false)
+                .resizable(false)
                 .show(ctx, |ui| {
                     if let Some(scene) = scene_manager.get_scene_mut(scene_id) {
                         if let Some(entity) = scene.get_entity_mut(entity_id) {
-                            // Images section
-                            ui.heading("Images");
-                            let mut images_to_remove = Vec::new();
-                            for (i, path) in entity.images.iter().enumerate() {
-                                ui.horizontal(|ui| {
-                                    ui.label(path.to_string_lossy());
-                                    if ui.button("Remove").clicked() {
-                                        images_to_remove.push(i);
-                                    }
-                                });
-                            }
-                            // Remove images outside the loop
-                            for &i in images_to_remove.iter().rev() {
-                                entity.images.remove(i);
-                            }
-
-                            if ui.button("Add Image").clicked() {
-                                if let Some(path) = rfd::FileDialog::new()
-                                    .add_filter("Images", &["png", "jpg", "jpeg"])
-                                    .pick_file() 
-                                {
-                                    entity.images.push(path);
-                                }
+                            // Images section as collapsing header
+                            if !entity.images.is_empty() {
+                                egui::CollapsingHeader::new("Images")
+                                    .default_open(true)
+                                    .show(ui, |ui| {
+                                        let mut images_to_remove = Vec::new();
+                                        for (i, path) in entity.images.iter().enumerate() {
+                                            ui.horizontal(|ui| {
+                                                ui.label(path.file_name().unwrap_or_default().to_string_lossy().to_string());
+                                                if ui.button("Remove").clicked() {
+                                                    images_to_remove.push(i);
+                                                }
+                                            });
+                                        }
+                                        // Remove images outside the loop
+                                        for &i in images_to_remove.iter().rev() {
+                                            entity.images.remove(i);
+                                        }
+                                    });
                             }
 
-                            ui.separator();
-
-                            // Sounds section
-                            ui.heading("Sounds");
-                            let mut sounds_to_remove = Vec::new();
-                            for (i, path) in entity.sounds.iter().enumerate() {
-                                ui.horizontal(|ui| {
-                                    ui.label(path.to_string_lossy());
-                                    if ui.button("Remove").clicked() {
-                                        sounds_to_remove.push(i);
-                                    }
-                                });
-                            }
-                            // Remove sounds outside the loop
-                            for &i in sounds_to_remove.iter().rev() {
-                                entity.sounds.remove(i);
-                            }
-
-                            if ui.button("Add Sound").clicked() {
-                                if let Some(path) = rfd::FileDialog::new()
-                                    .add_filter("Audio", &["wav", "mp3", "ogg"])
-                                    .pick_file() 
-                                {
-                                    entity.sounds.push(path);
-                                }
+                            // Sounds section as collapsing header
+                            if !entity.sounds.is_empty() {
+                                egui::CollapsingHeader::new("Sounds")
+                                    .default_open(true)
+                                    .show(ui, |ui| {
+                                        let mut sounds_to_remove = Vec::new();
+                                        for (i, path) in entity.sounds.iter().enumerate() {
+                                            ui.horizontal(|ui| {
+                                                ui.label(path.file_name().unwrap_or_default().to_string_lossy().to_string());
+                                                if ui.button("Remove").clicked() {
+                                                    sounds_to_remove.push(i);
+                                                }
+                                            });
+                                        }
+                                        // Remove sounds outside the loop
+                                        for &i in sounds_to_remove.iter().rev() {
+                                            entity.sounds.remove(i);
+                                        }
+                                    });
                             }
                         }
                     }

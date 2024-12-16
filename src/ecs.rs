@@ -11,8 +11,7 @@ use std::path::PathBuf;
 //      └── Manages both Entities and Resources directly
 //          Entity
 //          └── Manages its own Attributes
-//          Resource
-//          └── (Has its specific operations like play/display/edit)
+//          └── Resource
 
 // =============== Scene Manager (Top Level) ===============
 #[derive(Serialize, Deserialize, Clone, Debug)]
