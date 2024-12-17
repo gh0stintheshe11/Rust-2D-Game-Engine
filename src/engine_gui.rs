@@ -484,6 +484,7 @@ impl EngineGui {
         // Render game content
         if let Some(scene_manager) = &self.gui_state.scene_manager {
             if let Some(active_scene) = scene_manager.get_active_scene() {
+                // First render all game objects
                 let render_queue = self.render_engine.render(active_scene);
                 
                 for (texture_id, pos, size, _layer) in render_queue {
@@ -516,10 +517,20 @@ impl EngineGui {
                         );
                     }
                 }
+
+                // Then draw the game camera bounds
+                let camera_lines = self.render_engine.get_game_camera_bounds(active_scene);
+                for (start, end) in camera_lines {
+                    ui.painter().line_segment(
+                        [
+                            egui::pos2(content_rect.min.x + start.0, content_rect.min.y + start.1),
+                            egui::pos2(content_rect.min.x + end.0, content_rect.min.y + end.1)
+                        ],
+                        egui::Stroke::new(2.0, egui::Color32::RED)
+                    );
+                }
             }
         }
-
-        // After rendering the game content, add the UI elements on top
     }
 
     fn set_theme(&mut self, ctx: &egui::Context) {

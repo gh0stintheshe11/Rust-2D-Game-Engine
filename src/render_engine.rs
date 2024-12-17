@@ -161,7 +161,7 @@ impl Animation {
 pub struct RenderEngine {
     viewport_size: (f32, f32),
     last_frame_time: std::time::Instant,
-    pub texture_cache: HashMap<Uuid, TextureInfo>, // Make texture_cache public
+    pub texture_cache: HashMap<Uuid, TextureInfo>,
     pub camera: Camera,
 }
 
@@ -378,6 +378,34 @@ impl RenderEngine {
                 (start_x, y),
                 (start_x + total_width, y)
             ));
+        }
+        
+        lines
+    }
+
+    // Add this method to get game camera bounds
+    pub fn get_game_camera_bounds(&self, scene: &Scene) -> Vec<((f32, f32), (f32, f32))> {
+        let mut lines = Vec::new();
+        
+        if let Some(camera_id) = scene.default_camera {
+            if let Ok(camera_entity) = scene.get_entity(camera_id) {
+                let x = camera_entity.get_x();
+                let y = camera_entity.get_y();
+                let width = camera_entity.get_camera_width();
+                let height = camera_entity.get_camera_height();
+                
+                // Convert game camera bounds to screen space using editor camera
+                let top_left = self.camera.world_to_screen((x - width/2.0, y - height/2.0));
+                let top_right = self.camera.world_to_screen((x + width/2.0, y - height/2.0));
+                let bottom_left = self.camera.world_to_screen((x - width/2.0, y + height/2.0));
+                let bottom_right = self.camera.world_to_screen((x + width/2.0, y + height/2.0));
+                
+                // Add the lines for the rectangle
+                lines.push((top_left, top_right));
+                lines.push((bottom_left, bottom_right));
+                lines.push((top_left, bottom_left));
+                lines.push((top_right, bottom_right));
+            }
         }
         
         lines

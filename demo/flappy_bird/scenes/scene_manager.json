@@ -13,7 +13,7 @@
               "name": "x",
               "data_type": "Float",
               "value": {
-                "Float": 0.0
+                "Float": 72.0
               }
             },
             "f9e54705-6627-4963-b33f-1c1e52843076": {
@@ -21,7 +21,7 @@
               "name": "y",
               "data_type": "Float",
               "value": {
-                "Float": 0.0
+                "Float": 140.0
               }
             },
             "9a0100cc-21b2-475e-8c9e-6ead8542c658": {
@@ -61,7 +61,7 @@
               "name": "width",
               "data_type": "Float",
               "value": {
-                "Float": 800.0
+                "Float": 144.0
               }
             },
             "4677c7e6-6307-40bd-a356-731bac737c26": {
@@ -69,7 +69,7 @@
               "name": "height",
               "data_type": "Float",
               "value": {
-                "Float": 600.0
+                "Float": 280.0
               }
             }
           },
