@@ -410,6 +410,26 @@ impl RenderEngine {
         
         lines
     }
+
+    // Get viewport from the camera bounds lines
+    pub fn get_game_viewport(&self, scene: &Scene) -> Option<(f32, f32, f32, f32)> {
+        let bounds = self.get_game_camera_bounds(scene);
+        if !bounds.is_empty() {
+            // bounds[0] is (top_left, top_right)
+            // bounds[1] is (bottom_left, bottom_right)
+            let top_left = bounds[0].0;
+            let bottom_right = bounds[1].1;
+            
+            Some((
+                top_left.0,                    // x
+                top_left.1,                    // y
+                bottom_right.0 - top_left.0,   // width
+                bottom_right.1 - top_left.1    // height
+            ))
+        } else {
+            None
+        }
+    }
 }
 
 // Transform component for positioning, scaling, and rotating

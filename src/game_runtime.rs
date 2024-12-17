@@ -6,6 +6,7 @@ use crate::{
     ecs::SceneManager,
 };
 
+#[derive(Debug)]
 pub enum RuntimeState {
     Stopped,  // Not running, initial state
     Playing,  // Game is running
@@ -59,23 +60,20 @@ impl GameRuntime {
     }
 
     pub fn set_state(&mut self, state: RuntimeState) {
+        println!("Setting game state to {:?}", state); // Debug print
         match state {
             RuntimeState::Playing => {
-                // Take a snapshot of entire dev state
-                self.dev_state_snapshot = Some(self.scene_manager.clone());
+                // Don't take a snapshot, just switch to game mode
                 self.input_handler.set_context(InputContext::Game);
+                self.running = true;
             }
             RuntimeState::Paused => {
-                // Keep game state but stop processing
-                // Just keep rendering the current state
+                self.running = true;
             }
             RuntimeState::Stopped => {
-                // Restore entire dev state
-                if let Some(snapshot) = self.dev_state_snapshot.take() {
-                    self.scene_manager = snapshot;
-                }
                 self.input_handler.set_context(InputContext::EngineUI);
                 self.physics_engine.cleanup();
+                self.running = false;
             }
         }
         self.state = state;
@@ -102,16 +100,30 @@ impl GameRuntime {
     }
 
     pub fn run(&mut self) -> Result<(), String> {
+        println!("Attempting to run game..."); // Debug print
+
+        // Debug print the scene list
+        let scenes = self.scene_manager.list_scene();
+        println!("Available scenes: {:?}", scenes);
+
         // Check if there's anything to run
-        if self.scene_manager.list_scene().is_empty() {
-            return Err("Cannot run: No scenes in project. Create a scene first.".to_string());
+        if scenes.is_empty() {
+            // Try to save the current scene first
+            if let Some(scene) = self.scene_manager.get_active_scene() {
+                println!("Found active scene: {}", scene.name);
+                return Ok(());
+            } else {
+                return Err("Cannot run: No scenes in project. Create a scene first.".to_string());
+            }
         }
 
-        // Check if there's an active scene
-        if self.scene_manager.get_active_scene().is_none() {
-            return Err("Cannot run: No active scene selected.".to_string());
+        // If no active scene but we have scenes, set the first one as active
+        if self.scene_manager.get_active_scene().is_none() && !scenes.is_empty() {
+            println!("No active scene, setting first scene as active"); // Debug print
+            self.scene_manager.set_active_scene(scenes[0].0)?;
         }
 
+        println!("Game starting with active scene"); // Debug print
         self.running = true;
         self.state = RuntimeState::Playing;
         Ok(())
