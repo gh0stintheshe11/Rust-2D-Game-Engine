@@ -1,5 +1,20 @@
 # Rust 2D Game Engine
 
+## Table of Contents
+
+- [Introduction](#introduction)
+- [Objective](#objective)
+- [Features](#features)
+- [Rendering Engine](#rendering-engine)
+- [Physics Engine](#physics-engine)
+- [Entity Component System (ECS)](#entity-component-system-ecs)
+- [Script Interpreter](#script-interpreter)
+- [Engine GUI](#engine-gui)
+- [User's Guide](#users-guide)
+- [Reproducibility Guide](#reproducibility-guide)
+- [Contributions](#contributions)
+- [Remarks](#remarks)
+
 ## Team Members
 
 - [Lang Sun - 1003584971 - lang.sun@mail.utoronto.ca](https://github.com/gh0stintheshe11)
@@ -1236,12 +1251,6 @@ _An intuitive, real-time development interface powered by [egui](https://crates.
 - Resource Management:
   - Link resources to specific files seamlessly.
 
-### Comprehensive Unit Testing
-
-_A rigorous testing framework ensuring the reliability, performance, and correctness of each engine component._
-
-- Implements an extensive test suite covering critical aspects of the game engine, with dedicated test modules for each major subsystem.
-
 ## User's Guide
 
 ### In Rust
@@ -1521,7 +1530,7 @@ Run `cargo run` in the terminal at the root directory of our project if you wish
 - [Game Project File Management](#game-project-file-management)
 - [Engine GUI](#engine-gui)
 
-## Lessons Learned and Concluding Remarks
+## Remarks
 
 ### Lesson One: The Importance of Testing Suite
 
