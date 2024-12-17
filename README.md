@@ -10,6 +10,10 @@
   - [Physics Engine](#physics-engine)
   - [Entity Component System (ECS)](#entity-component-system-ecs)
   - [Script Interpreter](#script-interpreter)
+  - [Audio Engine](#audio-engine)
+  - [Input Handler](#input-handler)
+  - [Engine GUI](#engine-gui)
+  - [Project Manager](#project-manager)
   - [Engine GUI](#engine-gui)
 - [User's Guide](#users-guide)
 - [Reproducibility Guide](#reproducibility-guide)
@@ -1049,7 +1053,7 @@ These tests use a constant `TEST_AUDIO_FILE` path, which should point to a valid
 
 See [Game Audio](#game-audio) in [Users Guide](#users-guide).
 
-### [Input Handling](/src/input_handler.rs)
+### [Input Handler](/src/input_handler.rs)
 
 _A responsive, platform-agnostic input management system that ensures smooth and intuitive player interactions._
 
