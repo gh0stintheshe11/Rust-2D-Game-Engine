@@ -2053,9 +2053,9 @@ Overview of the GUI:
 - Clicking any Scene, Entity, or Resource displays its details in the Inspector Panel.
 
     <div style="display: flex; gap: 10px; max-width: 100%; overflow: hidden;">
-        <img src="final_report_assets/modify_scene.png" alt="Remove Attributes" style="max-height: 200px;"/>
-        <img src="final_report_assets/modify_entity.png" alt="Edit Attributes" style="max-height: 400px;"/>
-        <img src="final_report_assets/new_scene.png" alt="Remove Attributes" style="max-height: 400px;"/>
+        <img src="final_report_assets/modify_scene.png" alt="Remove Attributes" style="max-height: 150px;"/>
+        <img src="final_report_assets/modify_entity.png" alt="Edit Attributes" style="max-height: 300px;"/>
+        <img src="final_report_assets/new_scene.png" alt="Remove Attributes" style="max-height: 300px;"/>
     </div>
 
 #### File Panel
@@ -2074,8 +2074,8 @@ Overview of the GUI:
   - Modify entity data or add new attributes directly.
 
     <div style="display: flex; gap: 10px; max-width: 100%; overflow: hidden;">
-        <img src="final_report_assets/edit_add_attr.png" alt="Edit Attributes" style="max-height: 400px;"/>
-        <img src="final_report_assets/remove_attr.png" alt="Remove Attributes" style="max-height: 400px;"/>
+        <img src="final_report_assets/edit_add_attr.png" alt="Edit Attributes" style="max-height: 300px;"/>
+        <img src="final_report_assets/remove_attr.png" alt="Remove Attributes" style="max-height: 300px;"/>
     </div>
 
 - Resource Preview:
@@ -2083,8 +2083,8 @@ Overview of the GUI:
   - Use optimized lib for fast metadata preview
 
     <div style="display: flex; gap: 10px; max-width: 100%; overflow: hidden;">
-        <img src="final_report_assets/inspector_preview.png" alt="Edit Attributes" style="max-height: 400px;"/>
-        <img src="final_report_assets/inspector_sound.png" alt="Remove Attributes" style="max-height: 400px;"/>
+        <img src="final_report_assets/inspector_preview.png" alt="Edit Attributes" style="max-height: 300px;"/>
+        <img src="final_report_assets/inspector_sound.png" alt="Remove Attributes" style="max-height: 300px;"/>
     </div>
 
 ## User's Guide
