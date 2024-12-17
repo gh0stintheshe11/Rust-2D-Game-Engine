@@ -2052,7 +2052,7 @@ Overview of the GUI:
 - Filter entities by name for quick navigation.
 - Clicking any Scene, Entity, or Resource displays its details in the Inspector Panel.
 
-    <div style="display: fix; gap: 10px; max-width: 100%; overflow: hidden;">
+    <div style="display: fix; gap: 1px; max-width: 100%; overflow: hidden;">
         <img src="final_report_assets/modify_scene.png" alt="Remove Attributes" style="max-height: 100px;"/>
         <img src="final_report_assets/modify_entity.png" alt="Edit Attributes" style="max-height: 200px;"/>
         <img src="final_report_assets/new_scene.png" alt="Remove Attributes" style="max-height: 200px;"/>
