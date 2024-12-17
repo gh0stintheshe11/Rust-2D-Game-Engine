@@ -51,7 +51,7 @@ Our project emphasize:
 
 - Streamlining the game development process by enabling rapid iteration and experimentation through intuitive tools, a Lua scripting system, and visual interfaces.
 
-> [!NOTE]
+> [!Warning]
 > Due to time constraint and the complexity of the project, the current state of the engine still contains many bugs and lacks some features. However, most of the core features are implemented and can be used as a reference for building 2D games, which is a solid start for continuous development.
 
 ## Features
@@ -1629,6 +1629,9 @@ Test suite requirements:
 
 _The Input Handler system provides a robust input management solution that handles keyboard, mouse, and modifier inputs while supporting different input contexts (Engine UI and Game)._
 
+> [!CAUTION]
+> Input Handler and Game Runtime are complex systems that are not fully developed and tested. There WILL BE system braking bugs.
+
 #### Core Features
 
 - Context-based input handling (Engine UI vs Game)
@@ -1966,6 +1969,9 @@ project_root/
     └── scene_manager.json
 ```
 
+> [!TIP]
+> The .epm (engine project metadata) file is a simple JSON file that contains the project metadata. It is used as a unique identifier for the project manager to load and save the project.
+
 #### Usage Examples
 
 ```rust
@@ -2014,6 +2020,9 @@ Overview of the GUI:
 
 ![Night GUI Overview](final_report_assets/GUI.png)
 ![Light GUI Overview](final_report_assets/light_mode.png)
+
+> [!IMPORTANT]
+> YES, we DID make a flappy bird game in the engine :)
 
 #### Menu
 
@@ -2099,6 +2108,9 @@ Overview of the GUI:
     </a>
 
 ## User's Guide
+
+> [!WARNING]
+> The engine has gone through many changes since this user guide was written. Some UI and feature are deprecated. Please refer to the code for the latest information.
 
 ### In Rust
 
@@ -2416,3 +2428,6 @@ However, we recognize that this is just the beginning of our journey. The curren
 - Continuously optimizing performance and reliability
 
 We are excited about the potential of this project and view it as an evolving platform. Our passion for game development, Rust, and creating accessible tools drives us to continue improving and expanding the engine.
+
+> [!NOTE]
+> "Your ego is writing checks your body can't cash". Well, I say if your ego never write checks, your body will never know how to cash. This project is ambitious and a bit over the head, but it is because it is pushing the limits, that I have learned things I never thought I could. I will keep developing this engine as a hobby project. - Lang
