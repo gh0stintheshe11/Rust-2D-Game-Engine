@@ -1,162 +1,122 @@
 #[cfg(test)]
 mod tests {
-    use rust_2d_game_engine::render_engine::{RenderEngine, Sprite};
-    use wgpu::ShaderModuleDescriptor;
-    use futures::executor::block_on;
+    use rust_2d_game_engine::render_engine::{RenderEngine, Camera, Transform, TextureInfo};
+    use rust_2d_game_engine::ecs::Scene;
+    use std::path::Path;
 
-    fn create_test_sprite() -> Sprite {
-        Sprite {
-            position: (0.0, 0.0),
-            size: (100.0, 100.0),
-            rotation: 0.0,
-            texture_coords: (0.0, 0.0, 1.0, 1.0),
-        }
+    #[test]
+    fn test_camera_operations() {
+        let mut camera = Camera::new();
+        
+        // Test initial state
+        assert_eq!(camera.position, (0.0, 0.0));
+        assert_eq!(camera.zoom, 1.0);
+        
+        // Test movement
+        camera.move_by(10.0, 5.0);
+        assert_eq!(camera.position, (10.0, 5.0));
+        
+        // Test zoom
+        camera.zoom_by(2.0);
+        assert_eq!(camera.zoom, 2.0);
+        
+        // Test world to screen conversion
+        let screen_pos = camera.world_to_screen((15.0, 10.0));
+        assert_eq!(screen_pos, ((15.0 - 10.0) * 2.0, (10.0 - 5.0) * 2.0));
+        
+        // Test reset
+        camera.reset();
+        assert_eq!(camera.position, (0.0, 0.0));
+        assert_eq!(camera.zoom, 1.0);
     }
 
     #[test]
-    fn test_renderer_initialization() {
-        let _renderer = RenderEngine::new();
-        assert!(true, "Renderer initialized successfully");
-    }
-
-    #[test]
-    fn test_texture_creation() {
-        let _renderer = RenderEngine::new();
-        let texture_extent = wgpu::Extent3d {
-            width: 1024,
-            height: 1024,
-            depth_or_array_layers: 1,
-        };
-
-        assert_eq!(texture_extent.width, 1024);
-        assert_eq!(texture_extent.height, 1024);
-        assert_eq!(texture_extent.depth_or_array_layers, 1);
-    }
-
-    #[test]
-    fn test_render_frame_executes() {
-        let mut renderer = RenderEngine::new();
-        let sprites = vec![create_test_sprite()];
-        let result = renderer.render_frame(&sprites);
-        assert!(result.is_ok(), "render_frame should execute without errors");
-    }
-
-    #[test]
-    fn test_instance_initialization() {
-        let instance_desc = wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::all(),
-            dx12_shader_compiler: wgpu::Dx12Compiler::Fxc,
-            flags: wgpu::InstanceFlags::empty(),
-            gles_minor_version: wgpu::Gles3MinorVersion::default(),
-        };
-        let _instance = wgpu::Instance::new(instance_desc);
-        assert!(true, "Instance should be created successfully");
-    }
-
-    #[test]
-    fn test_request_device() {
-        let instance_desc = wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::all(),
-            dx12_shader_compiler: wgpu::Dx12Compiler::Fxc,
-            flags: wgpu::InstanceFlags::empty(),
-            gles_minor_version: wgpu::Gles3MinorVersion::default(),
-        };
-        let instance = wgpu::Instance::new(instance_desc);
-
-        let adapter = block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::HighPerformance,
-            compatible_surface: None,
-            force_fallback_adapter: false,
-        })).unwrap();
-
-        let (device, _queue) = block_on(adapter.request_device(
-            &wgpu::DeviceDescriptor {
-                label: None,
-                required_features: wgpu::Features::empty(),
-                required_limits: wgpu::Limits::default(),
-                memory_hints: wgpu::MemoryHints::default(),
-            },
-            None,
-        )).unwrap();
-
-        assert!(device.limits().max_texture_dimension_2d > 0);
-    }
-
-    #[test]
-    fn test_error_handling_in_renderer() {
-        let result = std::panic::catch_unwind(|| {
-            let mut renderer = RenderEngine::new();
-            let sprites = vec![create_test_sprite()];
-            renderer.render_frame(&sprites).unwrap();
-        });
-
-        assert!(result.is_ok(), "Renderer should not panic when executing render_frame");
-    }
-
-    #[test]
-    fn test_shader_compilation() {
+    fn test_render_engine_initialization() {
         let renderer = RenderEngine::new();
-        let shader_source = r#"
-            struct VertexInput {
-                @location(0) position: vec3<f32>,
-                @location(1) tex_coords: vec2<f32>,
-            };
-
-            struct VertexOutput {
-                @builtin(position) clip_position: vec4<f32>,
-                @location(0) tex_coords: vec2<f32>,
-            };
-
-            @vertex
-            fn vs_main(in: VertexInput) -> VertexOutput {
-                var out: VertexOutput;
-                out.tex_coords = in.tex_coords;
-                out.clip_position = vec4<f32>(in.position, 1.0);
-                return out;
-            }
-
-            @fragment
-            fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-                return vec4<f32>(1.0, 1.0, 1.0, 1.0);
-            }
-        "#;
-
-        let _shader_module = renderer.device.create_shader_module(ShaderModuleDescriptor {
-            label: Some("Test Shader"),
-            source: wgpu::ShaderSource::Wgsl(shader_source.into()),
-        });
-
-        assert!(true, "Shader compiled successfully");
+        assert_eq!(renderer.get_viewport_size(), (0.0, 0.0));
+        assert!(renderer.texture_cache.is_empty());
     }
 
     #[test]
-    fn test_high_load_rendering() {
+    fn test_viewport_update() {
         let mut renderer = RenderEngine::new();
-        let sprites = vec![create_test_sprite()];
-        for _ in 0..100 {  // Reduced from 10000 to 100 for faster testing
-            renderer.render_frame(&sprites).unwrap();
-        }
-        assert!(true, "Engine handled high-load rendering without crashing");
+        renderer.update_viewport_size(800.0, 600.0);
+        assert_eq!(renderer.get_viewport_size(), (800.0, 600.0));
     }
 
     #[test]
-    fn test_sprite_creation() {
-        let sprite = create_test_sprite();
-        assert_eq!(sprite.position, (0.0, 0.0));
-        assert_eq!(sprite.size, (100.0, 100.0));
-        assert_eq!(sprite.rotation, 0.0);
-        assert_eq!(sprite.texture_coords, (0.0, 0.0, 1.0, 1.0));
+    fn test_transform_operations() {
+        let transform = Transform::new()
+            .with_position(10.0, 20.0)
+            .with_rotation(1.5)
+            .with_scale(2.0, 3.0);
+        
+        assert_eq!(transform.position, (10.0, 20.0));
+        assert_eq!(transform.rotation, 1.5);
+        assert_eq!(transform.scale, (2.0, 3.0));
     }
 
     #[test]
-    fn test_multiple_sprites_rendering() {
+    fn test_texture_cache_operations() {
         let mut renderer = RenderEngine::new();
-        let sprites = vec![
-            create_test_sprite(),
-            create_test_sprite(),
-            create_test_sprite(),
-        ];
-        let result = renderer.render_frame(&sprites);
-        assert!(result.is_ok(), "Should render multiple sprites without errors");
+        
+        // Create a test texture info
+        let texture_info = TextureInfo {
+            data: vec![255; 4], // Simple 1x1 RGBA texture
+            dimensions: (1, 1),
+            aspect_ratio: 1.0,
+        };
+        
+        // Test texture caching
+        let test_path = Path::new("test.png");
+        let texture_id = RenderEngine::path_to_uuid(test_path);
+        renderer.texture_cache.insert(texture_id, texture_info);
+        
+        // Test cache retrieval
+        assert!(renderer.get_texture_info(&texture_id).is_some());
+        
+        // Test cache clearing
+        renderer.clear_cache();
+        assert!(renderer.texture_cache.is_empty());
+    }
+
+    #[test]
+    fn test_grid_lines_generation() {
+        let mut renderer = RenderEngine::new();
+        renderer.update_viewport_size(800.0, 600.0);
+        
+        let grid_lines = renderer.get_grid_lines();
+        assert!(!grid_lines.is_empty(), "Grid lines should be generated");
+    }
+
+    #[test]
+    fn test_camera_bounds() {
+        let mut renderer = RenderEngine::new();
+        let mut scene = Scene::new("test_scene").unwrap();
+        
+        // Create a camera entity
+        let camera_id = scene.create_camera("test_camera").unwrap();
+        scene.default_camera = Some(camera_id);
+        
+        let bounds = renderer.get_game_camera_bounds(&scene);
+        assert!(!bounds.is_empty(), "Camera bounds should be generated");
+    }
+
+    #[test]
+    fn test_memory_usage() {
+        let mut renderer = RenderEngine::new();
+        
+        // Add a test texture to the cache
+        let texture_info = TextureInfo {
+            data: vec![255; 1024], // 1KB of data
+            dimensions: (16, 16),
+            aspect_ratio: 1.0,
+        };
+        
+        let test_path = Path::new("test.png");
+        let texture_id = RenderEngine::path_to_uuid(test_path);
+        renderer.texture_cache.insert(texture_id, texture_info);
+        
+        assert_eq!(renderer.get_memory_usage(), 1024);
     }
 }

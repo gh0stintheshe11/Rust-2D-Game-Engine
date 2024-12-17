@@ -7,3 +7,4 @@ pub mod project_manager;
 pub mod ecs;
 pub mod game_runtime;
 pub mod gui;
+pub mod script_interpreter;

@@ -443,4 +443,16 @@ impl PhysicsEngine {
     pub fn is_stable(&self, entity_id: &Uuid) -> bool {
         !self.is_moving(entity_id)
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.entity_to_body.is_empty() && self.entity_to_collider.is_empty()
+    }
+
+    pub fn has_rigid_body(&self, entity_id: &Uuid) -> bool {
+        self.entity_to_body.contains_key(entity_id)
+    }
+
+    pub fn has_collider(&self, entity_id: &Uuid) -> bool {
+        self.entity_to_collider.contains_key(entity_id)
+    }
 }

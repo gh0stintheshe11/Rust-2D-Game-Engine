@@ -1,8 +1,8 @@
-# Rust 2D Game Engine: Final Report
+# Rust 2D Game Engine
 
 ## Team Members
 
-- [Lang Sun - 1003584971 ](https://github.com/gh0stintheshe11)
+- [Lang Sun - 1003584971 - lang.sun@mail.utoronto.ca](https://github.com/gh0stintheshe11)
 - [Feiyang Fan - 1005146913 - feiyang.fan@mail.utoronto.ca](https://github.com/feiyangfan)
 - [Jie Peng(Frank) Chen - 997532861 - jp.chen@mail.utoronto.ca](https://github.com/frankjc2022)
 

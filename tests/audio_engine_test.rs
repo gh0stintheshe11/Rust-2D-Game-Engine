@@ -3,79 +3,86 @@ mod tests {
     use rust_2d_game_engine::audio_engine::AudioEngine;
     use std::time::Duration;
     use std::thread;
+    use std::path::Path;
 
-    const TEST_AUDIO_FILE: &str = "/Users/lang/Rust-2D-Game-Engine/tests/level-up-22268.mp3";
+    const TEST_AUDIO_FILE: &str = "tests/level-up-22268.mp3";
 
     #[test]
     fn test_audio_engine_initialization() {
-        // Initialize the audio engine
         let audio_engine = AudioEngine::new();
-        
-        // Check if the sink is initialized and not playing anything initially
-        assert!(audio_engine.sink.empty(), "The sink should be empty after initialization.");
+        assert!(audio_engine.list_playing_sounds().is_empty(), "No sounds should be playing initially");
     }
 
     #[test]
     fn test_play_sound() {
-        // Initialize the audio engine
-        let audio_engine = AudioEngine::new();
+        let mut audio_engine = AudioEngine::new();
+        let path = Path::new(TEST_AUDIO_FILE);
 
         // Test audio playback
-        let result = audio_engine.play_sound(TEST_AUDIO_FILE);
-        assert!(result.is_ok(), "Failed to play sound: {:?}", result.err());
-
-        // Wait a bit to ensure the sound starts playing
+        let sound_id = audio_engine.play_sound(path).expect("Failed to play sound");
+        
+        // Wait for playback to start
         thread::sleep(Duration::from_millis(500));
-
-        // Check if the audio is playing
-        assert!(audio_engine.is_playing(), "The audio should be playing after calling play_sound.");
-
-        // Stop the audio
-        audio_engine.sink.stop();
-
-        // Wait for the audio to stop
-        thread::sleep(Duration::from_millis(500));
-
-        // Check if the audio is stopped
-        assert!(!audio_engine.is_playing(), "The audio should have stopped.");
+        
+        // Verify sound is playing
+        assert!(audio_engine.is_playing(sound_id), "The audio should be playing");
+        
+        // Stop the sound
+        audio_engine.stop(sound_id).expect("Failed to stop sound");
+        
+        // Verify sound stopped
+        assert!(audio_engine.is_stopped(sound_id), "The audio should be stopped");
     }
 
     #[test]
-    fn test_is_playing() {
-        let audio_engine = AudioEngine::new();
+    fn test_playback_controls() {
+        let mut audio_engine = AudioEngine::new();
+        let path = Path::new(TEST_AUDIO_FILE);
 
-        // Initially, nothing should be playing
-        assert!(!audio_engine.is_playing(), "No audio should be playing initially.");
-
-        // Play a sound
-        let result = audio_engine.play_sound(TEST_AUDIO_FILE);
-        assert!(result.is_ok(), "Failed to play sound: {:?}", result.err());
-
-        // Wait a bit to ensure the sound starts playing
+        // Play sound and get ID
+        let sound_id = audio_engine.play_sound(path).expect("Failed to play sound");
         thread::sleep(Duration::from_millis(500));
+        
+        // Test pause
+        audio_engine.pause(sound_id).expect("Failed to pause");
+        assert!(audio_engine.is_paused(sound_id), "Audio should be paused");
+        assert!(!audio_engine.is_playing(sound_id), "Audio should not be playing while paused");
+        
+        // Test resume
+        audio_engine.resume(sound_id).expect("Failed to resume");
+        assert!(audio_engine.is_playing(sound_id), "Audio should be playing after resume");
+        assert!(!audio_engine.is_paused(sound_id), "Audio should not be paused");
+        
+        // Test stop
+        audio_engine.stop(sound_id).expect("Failed to stop");
+        assert!(audio_engine.is_stopped(sound_id), "Audio should be stopped");
+    }
 
-        // Check if the sound is playing
-        assert!(audio_engine.is_playing(), "Audio should be playing after starting a sound.");
+    #[test]
+    fn test_immediate_playback() {
+        let mut audio_engine = AudioEngine::new();
+        let path = Path::new(TEST_AUDIO_FILE);
 
-        // Pause the audio
-        audio_engine.pause();
-
-        // Check if the sound stopped playing
-        assert!(!audio_engine.is_playing(), "Audio should not be considered playing when paused.");
-
-        // Resume the audio
-        audio_engine.resume();
-
-        // Check if the sound is playing again
-        assert!(audio_engine.is_playing(), "Audio should be playing after resuming.");
-
-        // Stop the audio
-        audio_engine.sink.stop();
-
-        // Wait a bit to ensure the sound stops
+        // Play immediate sound
+        audio_engine.play_sound_immediate(path).expect("Failed to play immediate sound");
         thread::sleep(Duration::from_millis(500));
+        
+        // Stop immediate sound
+        audio_engine.stop_immediate();
+    }
 
-        // Check if the sound stopped playing
-        assert!(!audio_engine.is_playing(), "Audio should not be playing after stopping.");
+    #[test]
+    fn test_cleanup() {
+        let mut audio_engine = AudioEngine::new();
+        let path = Path::new(TEST_AUDIO_FILE);
+
+        // Load and play sound
+        let sound_id = audio_engine.play_sound(path).expect("Failed to play sound");
+        
+        // Cleanup should stop all sounds and clear caches
+        audio_engine.cleanup();
+        
+        assert!(audio_engine.is_stopped(sound_id), "Sound should be stopped after cleanup");
+        assert_eq!(audio_engine.get_memory_usage(), 0, "Cache should be empty after cleanup");
     }
 }

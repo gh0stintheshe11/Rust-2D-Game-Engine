@@ -6,230 +6,114 @@ mod tests {
     use super::*;
 
     #[test]
-    fn add_valid_integer_attribute_test() {
-        let mut entity_manager = EntityManager::new();
-        let mut entity = entity_manager.create_entity();
-        let result = entity_manager.add_attribute_with_validation(
-            &mut entity,
-            "Health".to_string(),
-            AttributeValueType::Integer(0),
-            "100".to_string(),
-        );
-        assert!(result.is_ok());
-        if let Some(attr) = entity.attributes.get(&"Health".to_string()) {
-            assert_eq!(attr.value_type, AttributeValueType::Integer(100));
-        }
-    }
-
-    #[test]
-    fn add_invalid_integer_attribute_test() {
-        let mut entity_manager = EntityManager::new();
-        let mut entity = entity_manager.create_entity();
-        let result = entity_manager.add_attribute_with_validation(
-            &mut entity,
-            "Health".to_string(),
-            AttributeValueType::Integer(0),
-            "abc".to_string(),
-        );
-        assert!(result.is_err());
-        assert_eq!(result.unwrap_err(), "Invalid integer value: abc");
-    }
-
-    #[test]
-    fn add_valid_float_attribute_test() {
-        let mut entity_manager = EntityManager::new();
-        let mut entity = entity_manager.create_entity();
-        let result = entity_manager.add_attribute_with_validation(
-            &mut entity,
-            "Speed".to_string(),
-            AttributeValueType::Float(0.0),
-            "2.5".to_string(),
-        );
-        assert!(result.is_ok());
-        if let Some(attr) = entity.attributes.get(&"Speed".to_string()) {
-            assert_eq!(attr.value_type, AttributeValueType::Float(2.5));
-        }
-    }
-
-    #[test]
-    fn add_invalid_float_attribute_test() {
-        let mut entity_manager = EntityManager::new();
-        let mut entity = entity_manager.create_entity();
-        let result = entity_manager.add_attribute_with_validation(
-            &mut entity,
-            "Speed".to_string(),
-            AttributeValueType::Float(0.0),
-            "abc".to_string(),
-        );
-        assert!(result.is_err());
-        assert_eq!(result.unwrap_err(), "Invalid float value: abc");
-    }
-
-    #[test]
-    fn modify_valid_integer_attribute_test() {
-        let mut entity_manager = EntityManager::new();
-        let mut entity = entity_manager.create_entity();
-        entity_manager
-            .add_attribute_with_validation(
-                &mut entity,
-                "Health".to_string(),
-                AttributeValueType::Integer(0),
-                "100".to_string(),
-            )
-            .unwrap();
-
-        let modify_result = entity_manager.modify_attribute_with_validation(
-            &mut entity,
-            "Health".to_string(),
-            AttributeValueType::Integer(0),
-            "80".to_string(),
-        );
-        assert!(modify_result.is_ok());
-        if let Some(attr) = entity.attributes.get(&"Health".to_string()) {
-            assert_eq!(attr.value_type, AttributeValueType::Integer(80));
-        }
-    }
-
-    #[test]
-    fn modify_invalid_integer_attribute_test() {
-        let mut entity_manager = EntityManager::new();
-        let mut entity = entity_manager.create_entity();
-        entity_manager
-            .add_attribute_with_validation(
-                &mut entity,
-                "Health".to_string(),
-                AttributeValueType::Integer(0),
-                "100".to_string(),
-            )
-            .unwrap();
-
-        let modify_result = entity_manager.modify_attribute_with_validation(
-            &mut entity,
-            "Health".to_string(),
-            AttributeValueType::Integer(0),
-            "abc".to_string(),
-        );
-        assert!(modify_result.is_err());
-        assert_eq!(modify_result.unwrap_err(), "Invalid integer value: abc");
-    }
-
-    #[test]
-    fn delete_attribute_test() {
-        let mut entity_manager = EntityManager::new();
-        let mut entity = entity_manager.create_entity();
-        entity_manager
-            .add_attribute_with_validation(
-                &mut entity,
-                "Health".to_string(),
-                AttributeValueType::Integer(0),
-                "100".to_string(),
-            )
-            .unwrap();
-
-        // Deleting the attribute
-        entity_manager.delete_attribute(&mut entity, &"Health".to_string());
-
-        assert!(entity.attributes.get(&"Health".to_string()).is_none());
-    }
-
-    #[test]
-    fn modify_clone_and_check_original_unchanged_test() {
-        let mut entity_manager = EntityManager::new();
-        let entity = entity_manager.create_entity();
-        let mut cloned_entity = entity.clone();
-
-        // Add attribute to the cloned entity
-        entity_manager
-            .add_attribute_with_validation(
-                &mut cloned_entity,
-                "Health".to_string(),
-                AttributeValueType::Integer(0),
-                "100".to_string(),
-            )
-            .unwrap();
-
-        // Check if the cloned entity has the "Health" attribute
-        assert!(cloned_entity.attributes.contains_key("Health"));
-
-        // Check that the original entity does NOT have the "Health" attribute
-        assert!(!entity.attributes.contains_key("Health"));
-    }
-
-    #[test]
-    fn modify_original_and_check_clone_unchanged_test() {
-        let mut entity_manager = EntityManager::new();
-        let mut entity = entity_manager.create_entity();
-        let cloned_entity = entity.clone();
-
-        // Add attribute to the original entity
-        entity_manager
-            .add_attribute_with_validation(
-                &mut entity,
-                "Health".to_string(),
-                AttributeValueType::Integer(0),
-                "100".to_string(),
-            )
-            .unwrap();
-
-        // Check if the original entity has the "Health" attribute
-        assert!(entity.attributes.contains_key("Health"));
-
-        // Check that the cloned entity does NOT have the "Health" attribute
-        assert!(!cloned_entity.attributes.contains_key("Health"));
-    }
-
-    #[test]
-    fn copy_entity_test() {
-        let mut entity_manager = EntityManager::new();
+    fn test_entity_creation() {
+        let mut scene = Scene::new("test_scene").unwrap();
+        let entity_id = scene.create_entity("test_entity").unwrap();
         
-        // Create original entity and add attributes
-        let mut original_entity = entity_manager.create_entity();
-        entity_manager
-            .add_attribute_with_validation(
-                &mut original_entity,
-                "Health".to_string(),
-                AttributeValueType::Integer(0),
-                "100".to_string(),
-            )
-            .unwrap();
+        let entity = scene.get_entity(entity_id).unwrap();
+        assert_eq!(entity.name, "test_entity");
+        
+        // Check default position attributes
+        assert_eq!(entity.get_x(), 0.0);
+        assert_eq!(entity.get_y(), 0.0);
+        assert_eq!(entity.get_z(), 0.0);
+    }
 
-        // Copy the original entity
-        let mut copied_entity = entity_manager.copy_entity(&original_entity);
+    #[test]
+    fn test_attribute_management() {
+        let mut scene = Scene::new("test_scene").unwrap();
+        let entity_id = scene.create_entity("test_entity").unwrap();
+        let entity = scene.get_entity_mut(entity_id).unwrap();
+        
+        // Create attribute
+        let attr_id = entity.create_attribute(
+            "Health",
+            AttributeType::Integer,
+            AttributeValue::Integer(100)
+        ).unwrap();
+        
+        // Verify attribute
+        let attr = entity.get_attribute(attr_id).unwrap();
+        assert_eq!(attr.name, "Health");
+        assert_eq!(attr.value, AttributeValue::Integer(100));
+        
+        // Modify attribute
+        entity.modify_attribute(
+            attr_id,
+            None,
+            None,
+            Some(AttributeValue::Integer(80))
+        ).unwrap();
+        
+        // Verify modification
+        let attr = entity.get_attribute(attr_id).unwrap();
+        assert_eq!(attr.value, AttributeValue::Integer(80));
+    }
 
-        // Check that both original and copied entities have the same "Health" attribute
-        assert!(original_entity.attributes.contains_key("Health"));
-        assert!(copied_entity.attributes.contains_key("Health"));
+    #[test]
+    fn test_camera_entity() {
+        let mut scene = Scene::new("test_scene").unwrap();
+        let camera_id = scene.create_camera("main_camera").unwrap();
+        let camera = scene.get_entity(camera_id).unwrap();
+        
+        assert!(camera.is_camera());
+        assert_eq!(camera.get_camera_width(), 800.0);
+        assert_eq!(camera.get_camera_height(), 600.0);
+        assert_eq!(camera.get_camera_zoom(), 1.0);
+        assert_eq!(camera.get_camera_rotation(), 0.0);
+    }
 
-        // Verify that the values of the "Health" attribute are the same
-        assert_eq!(
-            original_entity.attributes.get("Health").unwrap().value_type,
-            AttributeValueType::Integer(100)
-        );
-        assert_eq!(
-            copied_entity.attributes.get("Health").unwrap().value_type,
-            AttributeValueType::Integer(100)
-        );
+    #[test]
+    fn test_physical_entity() {
+        let mut scene = Scene::new("test_scene").unwrap();
+        let physics = PhysicsProperties::default();
+        let entity_id = scene.create_physical_entity(
+            "physical_entity",
+            (10.0, 20.0, 30.0),
+            physics
+        ).unwrap();
+        
+        let entity = scene.get_entity(entity_id).unwrap();
+        assert_eq!(entity.get_position().unwrap(), (10.0, 20.0, 30.0));
+        
+        // Verify physics attributes - Fixed version
+        if let Ok(attr) = entity.get_attribute_by_name("has_collision") {
+            assert_eq!(attr.value, AttributeValue::Boolean(true));
+        } else {
+            panic!("has_collision attribute not found");
+        }
+    }
 
-        // Modify the copied entity's attribute and check that the original is unchanged
-        entity_manager
-            .modify_attribute_with_validation(
-                &mut copied_entity,
-                "Health".to_string(),
-                AttributeValueType::Integer(0),
-                "80".to_string(),
-            )
-            .unwrap();
+    #[test]
+    fn test_scene_management() {
+        let mut scene_manager = SceneManager::new();
+        
+        // Create scene
+        let scene_id = scene_manager.create_scene("test_scene").unwrap();
+        assert!(scene_manager.get_scene(scene_id).is_some());
+        
+        // Set active scene
+        scene_manager.set_active_scene(scene_id).unwrap();
+        assert_eq!(scene_manager.active_scene, Some(scene_id));
+        
+        // Get active scene
+        let active_scene = scene_manager.get_active_scene().unwrap();
+        assert_eq!(active_scene.name, "test_scene");
+    }
 
-        // Check that the copied entity's attribute has changed
-        assert_eq!(
-            copied_entity.attributes.get("Health").unwrap().value_type,
-            AttributeValueType::Integer(80)
-        );
-
-        // Check that the original entity's attribute remains unchanged
-        assert_eq!(
-            original_entity.attributes.get("Health").unwrap().value_type,
-            AttributeValueType::Integer(100)
-        );
+    #[test]
+    fn test_shared_entities() {
+        let mut scene_manager = SceneManager::new();
+        
+        // Create shared entity
+        let shared_id = scene_manager.create_shared_entity("shared_entity").unwrap();
+        
+        // Create scene and add reference to shared entity
+        let scene_id = scene_manager.create_scene("test_scene").unwrap();
+        let scene = scene_manager.get_scene_mut(scene_id).unwrap();
+        scene.add_shared_entity_ref(shared_id).unwrap();
+        
+        // Verify shared entity reference
+        assert!(scene.shared_entity_refs.contains(&shared_id));
     }
 }

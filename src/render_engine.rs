@@ -167,7 +167,7 @@ pub struct RenderEngine {
 
 impl RenderEngine {
     // Generate deterministic UUID from path
-    fn path_to_uuid(path: &Path) -> Uuid {
+    pub fn path_to_uuid(path: &Path) -> Uuid {
         let mut hasher = Sha256::new();
         hasher.update(path.to_string_lossy().as_bytes());
         let result = hasher.finalize();
