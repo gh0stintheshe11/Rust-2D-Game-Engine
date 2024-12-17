@@ -1,10 +1,12 @@
 use rust_2d_game_engine::{
-    ecs::{SceneManager, Entity, Scene},
+    EngineGui,
+    eframe,
+    game_runtime::{Game, GameRuntime},
+    ecs::SceneManager,
     physics_engine::PhysicsEngine,
     render_engine::RenderEngine,
+    input_handler::InputHandler,
     audio_engine::AudioEngine,
-    game_runtime::{GameRuntime, RuntimeState},
-    input_handler::{InputHandler, InputContext},
 };
 use egui::Key;
 use uuid::Uuid;
@@ -13,7 +15,8 @@ pub struct FlappyBird {
     bird_id: Option<Uuid>,
     jump_force: f32,
     gravity: f32,
-    original_scene: Option<Scene>,  // Store the original scene data
+    velocity_y: f32,
+    original_scene: Option<Scene>,
 }
 
 impl FlappyBird {
@@ -22,98 +25,102 @@ impl FlappyBird {
             bird_id: None,
             jump_force: -300.0,
             gravity: 800.0,
+            velocity_y: 0.0,
             original_scene: None,
         }
     }
+}
 
-    pub fn init(&mut self, scene_manager: &mut SceneManager) {
-        // Store the original scene data
+impl Game for FlappyBird {
+    fn init(&mut self, scene_manager: &mut SceneManager) {
+        println!("FlappyBird init called!");
         if let Some(scene) = scene_manager.get_active_scene() {
+            println!("Found active scene: {}", scene.name);
             self.original_scene = Some(scene.clone());
             
-            // Find the bird entity in the runtime scene
+            println!("Searching for bird entity...");
             for (id, entity) in &scene.entities {
+                println!("Checking entity: {} ({})", entity.name, id);
                 if entity.name == "bird" {
                     self.bird_id = Some(*id);
                     println!("Found bird entity with ID: {}", id);
                     break;
                 }
             }
+        } else {
+            println!("No active scene found in init!");
         }
     }
 
-    pub fn reset(&mut self, scene_manager: &mut SceneManager) {
-        // Reset to original scene state
+    fn update(&mut self, scene_manager: &mut SceneManager, input: &InputHandler, delta_time: f32) {
+        println!("FlappyBird update called with delta_time: {}", delta_time);
+        
+        if let Some(bird_id) = self.bird_id {
+            println!("Have bird_id: {}", bird_id);
+            if let Some(scene) = scene_manager.get_active_scene_mut() {
+                println!("Found active scene: {}", scene.name);
+                if let Ok(bird) = scene.get_entity_mut(bird_id) {
+                    // Apply gravity to stored velocity
+                    self.velocity_y += self.gravity * delta_time;
+
+                    // Jump when space is pressed
+                    if input.is_key_just_pressed(Key::Space) {
+                        println!("SPACE pressed - Bird jumping! Current velocity: {}", self.velocity_y);
+                        self.velocity_y = self.jump_force;
+                    }
+
+                    // Update position using stored velocity
+                    let current_y = bird.get_y();
+                    let new_y = current_y + self.velocity_y * delta_time;
+                    println!("Updating bird position: {} -> {} (vel: {})", 
+                        current_y, new_y, self.velocity_y);
+                    bird.set_y(new_y).unwrap();
+                } else {
+                    println!("Failed to get bird entity!");
+                }
+            } else {
+                println!("No active scene found in update!");
+            }
+        } else {
+            println!("No bird_id set!");
+        }
+    }
+
+    fn reset(&mut self, scene_manager: &mut SceneManager) {
+        println!("FlappyBird reset called!");
         if let Some(original) = &self.original_scene {
             if let Some(scene_id) = scene_manager.active_scene {
                 scene_manager.scenes.insert(scene_id, original.clone());
                 
-                // Re-find the bird ID in the new scene instance
                 for (id, entity) in &original.entities {
                     if entity.name == "bird" {
                         self.bird_id = Some(*id);
+                        println!("Reset: Found bird entity with ID: {}", id);
                         break;
                     }
                 }
             }
         }
-    }
-
-    pub fn update(&mut self, scene_manager: &mut SceneManager, input: &InputHandler, delta_time: f32) {
-        if let Some(bird_id) = self.bird_id {
-            if let Some(scene) = scene_manager.get_active_scene_mut() {
-                if let Ok(bird) = scene.get_entity_mut(bird_id) {
-                    // Apply gravity
-                    let mut velocity_y = 0.0;  // Current vertical velocity
-                    velocity_y += self.gravity * delta_time;
-
-                    // Handle jump with SPACE key
-                    if input.is_key_pressed(Key::Space) {
-                        println!("SPACE pressed - Bird jumping!");  // Debug print
-                        velocity_y = self.jump_force;
-                    }
-
-                    // Update position
-                    let current_y = bird.get_y();
-                    bird.set_y(current_y + velocity_y * delta_time).unwrap();
-
-                    // Debug print position
-                    println!("Bird position: ({}, {}), velocity_y: {}", 
-                        bird.get_x(), bird.get_y(), velocity_y);
-                }
-            }
-        }
+        // Reset velocity
+        self.velocity_y = 0.0;
     }
 }
 
 fn main() {
-    // Create engine components
-    let scene_manager = SceneManager::new();
-    let physics_engine = PhysicsEngine::new();
-    let render_engine = RenderEngine::new();
-    let input_handler = InputHandler::new();
-    let audio_engine = AudioEngine::new();
-
-    // Create game runtime with our game
-    let mut game_runtime = GameRuntime::new(
-        scene_manager,
-        physics_engine,
-        render_engine,
-        input_handler,
-        audio_engine,
-        60
-    );
-
-    // Create and initialize our game
-    let mut game = FlappyBird::new();
-    game.init(game_runtime.get_scene_manager());
-
-    // Start the game loop
     let options = eframe::NativeOptions::default();
     eframe::run_native(
         "Flappy Bird",
         options,
-        Box::new(|cc| Box::new(game_runtime)),
+        Box::new(|cc| {
+            // Create the engine GUI first
+            let mut engine = EngineGui::new(cc);
+            
+            // Create and attach the game
+            let game = Box::new(FlappyBird::new());
+            engine.get_game_runtime_mut().set_game(game);
+            
+            Box::new(engine)
+        }),
     ).unwrap();
 }
 

@@ -393,34 +393,39 @@ impl EngineGui {
                                 });
                             });
 
-                            // Update input based on current context
+                            // Handle input based on game state
                             ctx.input(|input| {
-                                if self.game_runtime.get_state() == RuntimeState::Playing {
-                                    // Game is playing - use game runtime input handler
-                                    self.game_runtime.handle_input(input);
-                                } else {
-                                    // Not playing - use engine UI input handler
-                                    self.input_handler.handle_input(input);
+                                match self.game_runtime.get_state() {
+                                    RuntimeState::Playing => {
+                                        // When playing, route input directly to game runtime's input handler
+                                        self.game_runtime.get_input_handler().handle_input(input);
+                                    }
+                                    _ => {
+                                        // When not playing, use engine UI input handler
+                                        self.input_handler.handle_input(input);
+                                    }
                                 }
                             });
 
-                            // Only handle game input if cursor is in viewport
-                            if let Some(cursor_pos) = ui.ctx().input(|i| i.pointer.hover_pos()) {
-                                if viewport_rect.contains(cursor_pos) {
-                                    // Handle camera pan with mouse drag
-                                    if self.input_handler.is_mouse_button_pressed(egui::PointerButton::Secondary) || 
-                                       (self.input_handler.is_mouse_button_pressed(egui::PointerButton::Primary) && 
-                                        ui.ctx().input(|i| i.modifiers.alt)) {
-                                        ui.ctx().input(|i| {
-                                            let delta = i.pointer.delta();
-                                            self.render_engine.camera.move_by(-delta.x, -delta.y);
-                                        });
-                                    }
+                            // Then handle editor viewport controls only when not playing
+                            if self.game_runtime.get_state() != RuntimeState::Playing {
+                                if let Some(cursor_pos) = ui.ctx().input(|i| i.pointer.hover_pos()) {
+                                    if viewport_rect.contains(cursor_pos) {
+                                        // Editor camera controls
+                                        if self.input_handler.is_mouse_button_pressed(egui::PointerButton::Secondary) || 
+                                           (self.input_handler.is_mouse_button_pressed(egui::PointerButton::Primary) && 
+                                            ui.ctx().input(|i| i.modifiers.alt)) {
+                                            ui.ctx().input(|i| {
+                                                let delta = i.pointer.delta();
+                                                self.render_engine.camera.move_by(-delta.x, -delta.y);
+                                            });
+                                        }
 
-                                    // Handle zoom with mouse wheel
-                                    if let Some(scroll_delta) = self.input_handler.get_scroll_delta() {
-                                        let zoom_factor = if scroll_delta.y > 0.0 { 1.1 } else { 0.9 };
-                                        self.render_engine.camera.zoom_by(zoom_factor);
+                                        // Editor zoom control
+                                        if let Some(scroll_delta) = self.input_handler.get_scroll_delta() {
+                                            let zoom_factor = if scroll_delta.y > 0.0 { 1.1 } else { 0.9 };
+                                            self.render_engine.camera.zoom_by(zoom_factor);
+                                        }
                                     }
                                 }
                             }
@@ -606,18 +611,20 @@ impl EngineGui {
 
 impl eframe::App for EngineGui {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // Debug print for input state
-        ctx.input(|input| {
-            if input.key_pressed(egui::Key::T) {
-                println!("T key detected in EngineGui update");
-            }
-            if input.key_pressed(egui::Key::Space) {
-                println!("Space key detected in EngineGui update");
-            }
-        });
-
-        // Update game runtime
-        self.game_runtime.update(ctx);
+        // Only handle input in the game runtime when playing
+        if self.game_runtime.get_state() == RuntimeState::Playing {
+            self.game_runtime.update(ctx);
+        } else {
+            // Otherwise handle input in the engine UI
+            ctx.input(|input| {
+                if input.key_pressed(egui::Key::T) {
+                    println!("T key detected in EngineGui update");
+                }
+                if input.key_pressed(egui::Key::Space) {
+                    println!("Space key detected in EngineGui update");
+                }
+            });
+        }
 
         egui::CentralPanel::default()
             .frame(egui::Frame {

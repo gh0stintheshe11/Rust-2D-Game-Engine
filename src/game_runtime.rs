@@ -76,6 +76,11 @@ impl GameRuntime {
         println!("Setting game state to {:?}", state); // Debug print
         match state {
             RuntimeState::Playing => {
+                // Take dev snapshot before playing
+                if self.dev_state_snapshot.is_none() {
+                    self.dev_state_snapshot = Some(self.scene_manager.clone());
+                }
+                
                 // Switch to game mode only when playing
                 println!("Switching to game input context");
                 self.input_handler.set_context(InputContext::Game);
@@ -153,42 +158,37 @@ impl GameRuntime {
 
     // This will be called from the eframe update loop
     pub fn update(&mut self, ctx: &egui::Context) {
-        // Update input handler first
+        // Update input state first - IMPORTANT!
         ctx.input(|input| {
             self.input_handler.handle_input(input);
         });
 
-        if !self.running {
-            return;
-        }
-
-        // Update game logic
-        if let Some(game) = &mut self.game {
-            game.update(&mut self.scene_manager, &self.input_handler, 1.0/60.0); // Use fixed timestep for now
-        }
-
-        if let Some(scene) = self.scene_manager.get_active_scene_mut() {
-            match self.state {
-                RuntimeState::Playing => {
-                    // Run physics
-                    let physics_updates = self.physics_engine.step(scene);
-                    scene.update_entity_attributes(physics_updates);
-                    // Run audio
-                    self.audio_engine.update();
-                    // Render
-                    self.render_engine.render(scene);
-                }
-                RuntimeState::Paused => {
-                    // Just render current state
-                    self.render_engine.render(scene);
-                }
-                RuntimeState::Stopped => {
-                    self.cleanup_and_reset();
-                }
+        // Only update game logic if we're running and in Playing state
+        if self.running && self.state == RuntimeState::Playing {
+            //println!("Game is running, active inputs: {:?}", self.input_handler.get_all_active_inputs()); // Debug print
+            
+            // Update game logic with the input handler
+            if let Some(game) = &mut self.game {
+                game.update(&mut self.scene_manager, &self.input_handler, 1.0/60.0);
             }
-        } else {
-            // If we lost the active scene, stop the game
-            self.cleanup_and_reset();
+
+            if let Some(scene) = self.scene_manager.get_active_scene_mut() {
+                // Run physics
+                let physics_updates = self.physics_engine.step(scene);
+                scene.update_entity_attributes(physics_updates);
+                // Run audio
+                self.audio_engine.update();
+                // Render
+                self.render_engine.render(scene);
+            } else {
+                // If we lost the active scene, stop the game
+                self.cleanup_and_reset();
+            }
+        } else if self.state == RuntimeState::Paused {
+            // Just render current state if paused
+            if let Some(scene) = self.scene_manager.get_active_scene_mut() {
+                self.render_engine.render(scene);
+            }
         }
     }
 
@@ -223,8 +223,8 @@ impl GameRuntime {
         &self.scene_manager
     }
 
-    pub fn handle_input(&mut self, input: &egui::InputState) {
-        self.input_handler.handle_input(input);
+    pub fn get_input_handler(&mut self) -> &mut InputHandler {
+        &mut self.input_handler
     }
 
     pub fn get_input_context(&self) -> &InputContext {
@@ -233,9 +233,5 @@ impl GameRuntime {
 
     pub fn set_game(&mut self, game: Box<dyn Game>) {
         self.game = Some(game);
-    }
-
-    pub fn get_input_handler(&self) -> &InputHandler {
-        &self.input_handler
     }
 }
