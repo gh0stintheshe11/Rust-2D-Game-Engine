@@ -12,7 +12,6 @@
   - [Script Interpreter](#script-interpreter)
   - [Audio Engine](#audio-engine)
   - [Input Handler](#input-handler)
-  - [Engine GUI](#engine-gui)
   - [Project Manager](#project-manager)
   - [Engine GUI](#engine-gui)
 - [User's Guide](#users-guide)
