@@ -2052,11 +2052,15 @@ Overview of the GUI:
 - Filter entities by name for quick navigation.
 - Clicking any Scene, Entity, or Resource displays its details in the Inspector Panel.
 
-    <div style="display: fix; gap: 1px; max-width: 100%; overflow: hidden;">
-        <img src="final_report_assets/modify_scene.png" alt="Remove Attributes" style="max-height: 100px;"/>
-        <img src="final_report_assets/modify_entity.png" alt="Edit Attributes" style="max-height: 200px;"/>
-        <img src="final_report_assets/new_scene.png" alt="Remove Attributes" style="max-height: 200px;"/>
-    </div>
+    <a href="modify_scene">
+    <img height=200 align="top" src="final_report_assets/modify_scene.png" />
+    </a>
+    <a href="modify_entity">
+    <img height=400 align="top" src="final_report_assets/modify_entity.png" />
+    </a>
+    <a href="new_scene">
+    <img height=400 align="top" src="final_report_assets/new_scene.png" />
+    </a>
 
 #### File Panel
 
@@ -2073,20 +2077,22 @@ Overview of the GUI:
 - Entity Customization:
   - Modify entity data or add new attributes directly.
 
-    <div style="display: fix; gap: 10px; max-width: 100%; overflow: hidden;">
-        <img src="final_report_assets/edit_add_attr.png" alt="Edit Attributes" style="max-height: 200px; align: center;"/>
-        <img src="final_report_assets/remove_attr.png" alt="Remove Attributes" style="max-height: 200px; align: center;"/>
-    </div>
+    <a href="Edit Attributes">
+    <img height=400 align="top" src="final_report_assets/edit_add_attr.png" />
+    </a>
+    <a href="Remove Attributes">
+    <img height=400 align="top" src="final_report_assets/remove_attr.png" />
+    </a>
 
 - Resource Preview:
   - Preview images, sounds, fonts, scripts and thier metadata in the Inspector Panel.
   - Use optimized lib for fast metadata preview
 
     <a href="final_report_assets/inspector_preview.png">
-    <img height=200 align="center" src="final_report_assets/inspector_preview.png" />
+    <img height=400 align="top" src="final_report_assets/inspector_preview.png" />
     </a>
     <a href="final_report_assets/inspector_sound.png">
-    <img height=200 align="center" src="final_report_assets/inspector_sound.png" />
+    <img height=400 align="top" src="final_report_assets/inspector_sound.png" />
     </a>
 
 ## User's Guide
