@@ -623,6 +623,7 @@ _The Entity Component System (ECS) is the core architecture of our game engine, 
 
 #### System Architecture
 
+##### Class Diagram
 ```mermaid
 classDiagram
     SceneManager --> Scene : manages
@@ -754,6 +755,78 @@ classDiagram
     Attribute --> AttributeType : has type
     Attribute --> AttributeValue : has value
     Resource --> PathBuf : uses
+```
+
+##### System Diagram
+```mermaid
+graph TB
+    subgraph ECS["Entity Component System"]
+        direction TB
+        
+        subgraph SceneManagement["Scene Management"]
+            scenes[Scene Registry]
+            active[Active Scene]
+            shared[Shared Entities]
+        end
+
+        subgraph EntitySystem["Entity System"]
+            entity[Entity Management]
+            attributes[Attribute System]
+            resources[Resource Management]
+            physics[Physics Properties]
+        end
+
+        subgraph Components["Component Types"]
+            transform[Transform Component]
+            camera[Camera Component]
+            physical[Physical Component]
+            custom[Custom Attributes]
+        end
+
+        subgraph ResourceSystem["Resource Management"]
+            images[Image Resources]
+            sounds[Sound Resources]
+            scripts[Script Resources]
+        end
+
+        subgraph AttributeSystem["Attribute System"]
+            types[Attribute Types]
+            values[Attribute Values]
+            validation[Validation]
+            updates[Update System]
+        end
+    end
+
+    scenes --> active
+    scenes --> shared
+    
+    entity --> attributes
+    entity --> resources
+    entity --> physics
+    
+    attributes --> types
+    attributes --> values
+    attributes --> validation
+    
+    resources --> images
+    resources --> sounds
+    resources --> scripts
+
+    Components --> EntitySystem
+    AttributeSystem --> EntitySystem
+    EntitySystem --> SceneManagement
+
+    classDef management fill:#f9f,stroke:#333,stroke-width:2px
+    classDef entity fill:#bbf,stroke:#333,stroke-width:1px
+    classDef component fill:#fbb,stroke:#333,stroke-width:1px
+    classDef resource fill:#bfb,stroke:#333,stroke-width:1px
+    classDef attribute fill:#fbf,stroke:#333,stroke-width:1px
+
+    class SceneManagement management
+    class EntitySystem entity
+    class Components component
+    class ResourceSystem resource
+    class AttributeSystem attribute
 ```
 
 #### Core Features
@@ -1201,6 +1274,127 @@ _The Audio Engine is a robust and feature-rich audio management system built on 
 
 #### System Architecture
 
+##### Class Diagram
+```mermaid
+classDiagram
+    AudioEngine --> OutputStream : uses
+    AudioEngine --> OutputStreamHandle : uses
+    AudioEngine --> Sink : manages
+    AudioEngine --> SoundCache : contains
+    AudioEngine --> DurationCache : contains
+    AudioEngine --> Scene : loads from
+    AudioEngine --> Entity : loads from
+
+    class AudioEngine {
+        -stream: OutputStream
+        -stream_handle: OutputStreamHandle
+        -active_sounds: HashMap<Uuid, Sink>
+        -sound_cache: HashMap<Uuid, Vec<u8>>
+        -immediate_sink: Option<Sink>
+        -duration_cache: HashMap<Uuid, f32>
+        
+        +new() Self
+        +load_sound(path: Path) Result<Uuid>
+        +play_sound(path: Path) Result<Uuid>
+        +play_sound_immediate(path: Path) Result<()>
+        +stop(sound_id: Uuid) Result<()>
+        +pause(sound_id: Uuid) Result<()>
+        +resume(sound_id: Uuid) Result<()>
+        +update()
+        +cleanup()
+    }
+
+    class SoundCache {
+        <<interface>>
+        +insert(id: Uuid, data: Vec<u8>)
+        +get(id: Uuid) Option<Vec<u8>>
+        +remove(id: Uuid)
+        +clear()
+    }
+
+    class DurationCache {
+        <<interface>>
+        +insert(id: Uuid, duration: f32)
+        +get(id: Uuid) Option<f32>
+        +remove(id: Uuid)
+        +clear()
+    }
+
+    class PlaybackControl {
+        <<interface>>
+        +stop()
+        +pause()
+        +resume()
+        +is_playing() bool
+        +is_paused() bool
+        +is_stopped() bool
+    }
+
+    class LoadOperations {
+        <<interface>>
+        +load_entity_sounds(entity: Entity)
+        +load_scene_sounds(scene: Scene)
+        +unload_sound(path: Path)
+    }
+
+    class MemoryManagement {
+        <<interface>>
+        +cleanup()
+        +clear_cache()
+        +get_memory_usage() usize
+    }
+
+    class MetadataOperations {
+        <<interface>>
+        +get_audio_duration(path: Path) Result<f32>
+        -path_to_uuid(path: Path) Uuid
+    }
+
+    class StatusTracking {
+        <<interface>>
+        +list_playing_sounds() Vec<Uuid>
+        +update()
+        +stop_all()
+    }
+
+    AudioEngine --|> PlaybackControl : implements
+    AudioEngine --|> LoadOperations : implements
+    AudioEngine --|> MemoryManagement : implements
+    AudioEngine --|> MetadataOperations : implements
+    AudioEngine --|> StatusTracking : implements
+
+    class Sink {
+        <<external>>
+        +append(source: Source)
+        +play()
+        +pause()
+        +stop()
+        +is_paused() bool
+        +empty() bool
+    }
+
+    class OutputStream {
+        <<external>>
+        +try_default() Result<(Self, OutputStreamHandle)>
+    }
+
+    class OutputStreamHandle {
+        <<external>>
+        +play_raw(source: Source)
+    }
+
+    class Scene {
+        <<external>>
+        +entities: IndexMap<Uuid, Entity>
+    }
+
+    class Entity {
+        <<external>>
+        +sounds: Vec<PathBuf>
+    }
+```
+
+##### System Diagram
 ```mermaid
 graph TB
     subgraph AudioEngine["Audio Engine System"]
@@ -1442,8 +1636,9 @@ _The Input Handler system provides a robust input management solution that handl
 - Modifier keys support (Ctrl, Shift, Alt, Cmd)
 - Delta movement calculations for mouse and scroll
 
-#### Technical Implementation
+#### System Architecture
 
+##### Class Diagram
 ```mermaid
 classDiagram
     class InputHandler {
@@ -1500,8 +1695,7 @@ classDiagram
     InputHandler --> Modifiers : contains
 ```
 
-#### System Architecture
-
+##### System Diagram
 ```mermaid
 graph TB
     subgraph InputHandler["Input Handler System"]
@@ -1622,8 +1816,10 @@ The system is built to work seamlessly with egui's input system:
 
 _The Project Manager handles game project creation, loading, saving, building, and asset importing. It provides a structured way to manage game projects and their assets._
 
-#### Core Components
 
+#### System Architecture
+
+##### Class Diagram
 ```mermaid
 classDiagram
     ProjectManager --> ProjectMetadata : manages
@@ -1673,8 +1869,7 @@ classDiagram
     }
 ```
 
-#### System Architecture
-
+##### System Diagram
 ```mermaid
 graph TB
     subgraph ProjectSystem["Project Management System"]
