@@ -1,87 +1,119 @@
 use rust_2d_game_engine::{
-    EngineGui,
-    eframe,
-    ecs::{SceneManager, Scene},
-    input_handler::{InputHandler, InputContext, Key},
+    ecs::{SceneManager, Entity, Scene},
     physics_engine::PhysicsEngine,
+    render_engine::RenderEngine,
+    audio_engine::AudioEngine,
     game_runtime::{GameRuntime, RuntimeState},
-    project_manager::ProjectManager,
+    input_handler::{InputHandler, InputContext},
 };
-use std::{fs, path::Path};
-use serde_json::from_str;
-use rapier2d::prelude::*;
+use egui::Key;
+use uuid::Uuid;
 
-fn main() -> eframe::Result<()> {
-    std::panic::set_hook(Box::new(|panic_info| {
-        eprintln!("Game panicked: {}", panic_info);
-    }));
+pub struct FlappyBird {
+    bird_id: Option<Uuid>,
+    jump_force: f32,
+    gravity: f32,
+    original_scene: Option<Scene>,  // Store the original scene data
+}
 
-    println!("Starting flappy_bird...");
-    
-    let native_options = eframe::NativeOptions {
-        initial_window_size: Some(eframe::egui::vec2(1920.0, 1080.0)),
-        ..Default::default()
-    };
+impl FlappyBird {
+    pub fn new() -> Self {
+        Self {
+            bird_id: None,
+            jump_force: -300.0,
+            gravity: 800.0,
+            original_scene: None,
+        }
+    }
 
-    eframe::run_native(
-        "Flappy Bird",
-        native_options,
-        Box::new(|cc| {
-            let mut engine = EngineGui::new(cc);
+    pub fn init(&mut self, scene_manager: &mut SceneManager) {
+        // Store the original scene data
+        if let Some(scene) = scene_manager.get_active_scene() {
+            self.original_scene = Some(scene.clone());
             
-            // Load the project using ProjectManager
-            let project_path = Path::new("demo/flappy_bird");
-            match ProjectManager::load_project_full(project_path) {
-                Ok(loaded_project) => {
-                    println!("Successfully loaded project");
-                    
-                    // Replace the engine's scene manager with the loaded one
-                    if let Some(scene_manager) = engine.get_scene_manager_mut() {
-                        *scene_manager = loaded_project.scene_manager;
-                        println!("Loaded scenes: {:?}", scene_manager.list_scene());
+            // Find the bird entity in the runtime scene
+            for (id, entity) in &scene.entities {
+                if entity.name == "bird" {
+                    self.bird_id = Some(*id);
+                    println!("Found bird entity with ID: {}", id);
+                    break;
+                }
+            }
+        }
+    }
+
+    pub fn reset(&mut self, scene_manager: &mut SceneManager) {
+        // Reset to original scene state
+        if let Some(original) = &self.original_scene {
+            if let Some(scene_id) = scene_manager.active_scene {
+                scene_manager.scenes.insert(scene_id, original.clone());
+                
+                // Re-find the bird ID in the new scene instance
+                for (id, entity) in &original.entities {
+                    if entity.name == "bird" {
+                        self.bird_id = Some(*id);
+                        break;
                     }
                 }
-                Err(e) => println!("Failed to load project: {}", e),
             }
+        }
+    }
 
-            // Set up input handler with debug prints
-            if let Some(input_handler) = engine.get_input_handler_mut() {
-                println!("Setting up input handler");
-                
-                // Test callback that should always work
-                input_handler.register_key_callback(Key::T, Box::new(|_runtime| {
-                    println!("T key pressed - Basic test");
-                }));
+    pub fn update(&mut self, scene_manager: &mut SceneManager, input: &InputHandler, delta_time: f32) {
+        if let Some(bird_id) = self.bird_id {
+            if let Some(scene) = scene_manager.get_active_scene_mut() {
+                if let Ok(bird) = scene.get_entity_mut(bird_id) {
+                    // Apply gravity
+                    let mut velocity_y = 0.0;  // Current vertical velocity
+                    velocity_y += self.gravity * delta_time;
 
-                // Register game controls
-                input_handler.register_key_callback(Key::Space, Box::new(|runtime| {
-                    println!("Space key pressed - Attempting bird jump");
-                    if let Some(scene_manager) = runtime.get_scene_manager() {
-                        println!("Got scene manager");
-                        if let Some(scene) = scene_manager.get_active_scene() {
-                            println!("Found active scene: {}", scene.name);
-                            if let Some(bird) = scene.get_entity_by_name("bird") {
-                                let current_y = bird.get_y();
-                                bird.set_y(current_y - 10.0);
-                                println!("Bird jumped to y={}", bird.get_y());
-                            } else {
-                                println!("Bird entity not found in scene!");
-                            }
-                        } else {
-                            println!("No active scene found!");
-                        }
-                    } else {
-                        println!("Failed to get scene manager!");
+                    // Handle jump with SPACE key
+                    if input.is_key_pressed(Key::Space) {
+                        println!("SPACE pressed - Bird jumping!");  // Debug print
+                        velocity_y = self.jump_force;
                     }
-                }));
 
-                println!("Input handler setup complete - Try pressing T for basic test");
-            } else {
-                println!("Failed to get input handler!");
+                    // Update position
+                    let current_y = bird.get_y();
+                    bird.set_y(current_y + velocity_y * delta_time).unwrap();
+
+                    // Debug print position
+                    println!("Bird position: ({}, {}), velocity_y: {}", 
+                        bird.get_x(), bird.get_y(), velocity_y);
+                }
             }
-            
-            Box::new(engine)
-        })
-    )
+        }
+    }
+}
+
+fn main() {
+    // Create engine components
+    let scene_manager = SceneManager::new();
+    let physics_engine = PhysicsEngine::new();
+    let render_engine = RenderEngine::new();
+    let input_handler = InputHandler::new();
+    let audio_engine = AudioEngine::new();
+
+    // Create game runtime with our game
+    let mut game_runtime = GameRuntime::new(
+        scene_manager,
+        physics_engine,
+        render_engine,
+        input_handler,
+        audio_engine,
+        60
+    );
+
+    // Create and initialize our game
+    let mut game = FlappyBird::new();
+    game.init(game_runtime.get_scene_manager());
+
+    // Start the game loop
+    let options = eframe::NativeOptions::default();
+    eframe::run_native(
+        "Flappy Bird",
+        options,
+        Box::new(|cc| Box::new(game_runtime)),
+    ).unwrap();
 }
 

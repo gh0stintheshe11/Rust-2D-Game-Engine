@@ -5,12 +5,19 @@ use crate::{
     audio_engine::AudioEngine,
     ecs::SceneManager,
 };
+use std::any::Any;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum RuntimeState {
     Playing,
     Paused,
     Stopped,
+}
+
+pub trait Game: Any {
+    fn init(&mut self, scene_manager: &mut SceneManager);
+    fn update(&mut self, scene_manager: &mut SceneManager, input: &InputHandler, delta_time: f32);
+    fn reset(&mut self, scene_manager: &mut SceneManager);
 }
 
 pub struct GameRuntime {
@@ -23,6 +30,7 @@ pub struct GameRuntime {
     target_fps: u32,
     running: bool,
     state: RuntimeState,
+    game: Option<Box<dyn Game>>,
 }
 
 impl GameRuntime {
@@ -48,6 +56,7 @@ impl GameRuntime {
             target_fps,
             running: false,
             state: RuntimeState::Stopped,
+            game: None,
         }
     }
 
@@ -110,6 +119,11 @@ impl GameRuntime {
     pub fn run(&mut self) -> Result<(), String> {
         println!("Attempting to run game..."); // Debug print
 
+        // Initialize game if we have one
+        if let Some(game) = &mut self.game {
+            game.init(&mut self.scene_manager);
+        }
+
         // Debug print the scene list
         let scenes = self.scene_manager.list_scene();
         println!("Available scenes: {:?}", scenes);
@@ -141,13 +155,16 @@ impl GameRuntime {
     pub fn update(&mut self, ctx: &egui::Context) {
         // Update input handler first
         ctx.input(|input| {
-            println!("GameRuntime updating input handler in context: {:?}", 
-                    self.input_handler.get_context());
             self.input_handler.handle_input(input);
         });
 
         if !self.running {
             return;
+        }
+
+        // Update game logic
+        if let Some(game) = &mut self.game {
+            game.update(&mut self.scene_manager, &self.input_handler, 1.0/60.0); // Use fixed timestep for now
         }
 
         if let Some(scene) = self.scene_manager.get_active_scene_mut() {
@@ -212,5 +229,13 @@ impl GameRuntime {
 
     pub fn get_input_context(&self) -> &InputContext {
         self.input_handler.get_context()
+    }
+
+    pub fn set_game(&mut self, game: Box<dyn Game>) {
+        self.game = Some(game);
+    }
+
+    pub fn get_input_handler(&self) -> &InputHandler {
+        &self.input_handler
     }
 }
