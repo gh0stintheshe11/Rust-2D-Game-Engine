@@ -2007,34 +2007,56 @@ _An intuitive, real-time development interface powered by [egui](https://crates.
 
 - Provides customizable views and layouts, allowing developers to tailor the interface to their specific project needs and preferences.
 
+Overview of the GUI:
+
+![Night GUI Overview](final_report_assets/GUI.png)
+![Light GUI Overview](final_report_assets/light_mode.png)
+
 #### Menu
 
 - Project Management:
-  - Create, load, and work with projects.
+
+  - Create, load, and work with projects.<br>
+
+    ![New Project](final_report_assets/newproject.png)
+
   - Automatic saving
-- Customization Options:
+
+- Customization Options: <br>
+
+    ![Customization Overview](final_report_assets/panel_control.png)
+
   - Dark Mode
   - Show or hide panels
-  - Debug Overlay
+  - Debug Overlay <br>
+
+    ![Debug Overview](final_report_assets/debug_overlay.png)
+
 - File Import
+
+    ![File Import](final_report_assets/import_resources.png)
+
 - Editor Switching
+
+    ![Editor Switching](final_report_assets/editor.png)
 
 #### Scene
 
 - Scene Organization:
-  - Add Scenes, Entities, Resources, and preset attributes like cameras or physics.
-  - Entity/Resource addition
+  - Manage Scenes, Entities, and predefined entities like cameras or physics.
 - Context Menu Management:
-  - Right-click Scenes to rename, delete, or manage attached resources.
-  - Ensure resources are not attached to any entity before deletion; otherwise, deletion is restricted.
-  - Right-click Entities to attach/detach multiple resources or rename them.
-  - Right-click Resources to detach or rename them.
-- Resource Highlights:
-  - Selecting a resource highlights all instances with the same ID across the project.
+  - Right-click Scenes to rename, delete, or set current scene as active.
+  - Right-click Entities to rename/delete or attach/detach multiple resources.
 - Tree Structure:
   - Organize and view items in a collapsible tree format, sorted alphabetically.
 - Filter entities by name for quick navigation.
 - Clicking any Scene, Entity, or Resource displays its details in the Inspector Panel.
+
+    <div style="display: flex; gap: 10px; max-width: 100%; overflow: hidden;">
+        <img src="final_report_assets/modify_scene.png" alt="Remove Attributes" style="max-height: 200px;"/>
+        <img src="final_report_assets/modify_entity.png" alt="Edit Attributes" style="max-height: 400px;"/>
+        <img src="final_report_assets/new_scene.png" alt="Remove Attributes" style="max-height: 400px;"/>
+    </div>
 
 #### File Panel
 
@@ -2050,8 +2072,20 @@ _An intuitive, real-time development interface powered by [egui](https://crates.
 
 - Entity Customization:
   - Modify entity data or add new attributes directly.
-- Resource Management:
-  - Link resources to specific files seamlessly.
+
+    <div style="display: flex; gap: 10px; max-width: 100%; overflow: hidden;">
+        <img src="final_report_assets/edit_add_attr.png" alt="Edit Attributes" style="max-height: 400px;"/>
+        <img src="final_report_assets/remove_attr.png" alt="Remove Attributes" style="max-height: 400px;"/>
+    </div>
+
+- Resource Preview:
+  - Preview images, sounds, fonts, scripts and thier metadata in the Inspector Panel.
+  - Use optimized lib for fast metadata preview
+
+    <div style="display: flex; gap: 10px; max-width: 100%; overflow: hidden;">
+        <img src="final_report_assets/inspector_preview.png" alt="Edit Attributes" style="max-height: 400px;"/>
+        <img src="final_report_assets/inspector_sound.png" alt="Remove Attributes" style="max-height: 400px;"/>
+    </div>
 
 ## User's Guide
 
