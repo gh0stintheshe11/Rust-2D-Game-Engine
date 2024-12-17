@@ -58,54 +58,147 @@ Our project emphasize:
 
 _The Rendering Engine is a sophisticated component responsible for all graphical output in our 2D game engine. It provides efficient texture management, camera controls, and advanced rendering features with robust memory management._
 
-#### Core Components Overview
+#### System Architecture
 
+##### Class Diagram
 ```mermaid
 classDiagram
-    RenderEngine --> Camera
-    RenderEngine --> Transform
-    RenderEngine --> TextureInfo
-    RenderEngine --> Animation
+    RenderEngine --> Camera : contains
+    RenderEngine --> TextureInfo : caches
+    RenderEngine --> Transform : uses
+    RenderEngine --> Animation : manages
+    RenderEngine --> Scene : renders
 
     class RenderEngine {
         -viewport_size: (f32, f32)
+        -last_frame_time: Instant
         -texture_cache: HashMap<Uuid, TextureInfo>
         +camera: Camera
-        +new()
-        +load_texture(path: &Path)
-        +render(scene: &Scene)
+        +new() Self
+        +render(scene: Scene) Vec<RenderCommand>
+        +load_texture(path: Path) Result<Uuid>
         +update_viewport_size(width: f32, height: f32)
-        +get_grid_lines()
-        +get_game_camera_bounds(scene: &Scene)
         +cleanup()
+        +get_memory_usage() usize
+        +get_grid_lines() Vec<Line>
+        +get_game_camera_bounds(scene: Scene) Vec<Line>
+        -path_to_uuid(path: Path) Uuid
+        -load_texture_from_path(path: Path) Result<TextureInfo>
     }
 
     class Camera {
         +position: (f32, f32)
         +zoom: f32
-        +new()
+        +new() Self
         +move_by(dx: f32, dy: f32)
         +zoom_by(factor: f32)
-        +world_to_screen(world_pos: (f32, f32))
+        +world_to_screen(pos: (f32, f32)) (f32, f32)
         +reset()
+    }
+
+    class TextureInfo {
+        +data: Vec<u8>
+        +dimensions: (u32, u32)
+        +aspect_ratio: f32
     }
 
     class Transform {
         +position: (f32, f32)
         +rotation: f32
         +scale: (f32, f32)
-        +new()
-        +with_position(x: f32, y: f32)
-        +with_rotation(angle: f32)
-        +with_scale(sx: f32, sy: f32)
-        +with_uniform_scale(scale: f32)
+        +new() Self
+        +with_position(x: f32, y: f32) Self
+        +with_rotation(angle: f32) Self
+        +with_scale(sx: f32, sy: f32) Self
+        +with_uniform_scale(scale: f32) Self
     }
 
-    class TextureInfo {
-        -data: Vec<u8>
-        -dimensions: (u32, u32)
-        -aspect_ratio: f32
+    class Animation {
+        -frames: Vec<TextureInfo>
+        -frame_duration: f32
+        -current_frame: usize
+        -elapsed_time: f32
+        -is_playing: bool
+        -is_looping: bool
+        -playback_speed: f32
+        +new(frames: Vec<TextureInfo>, duration: f32) Self
+        +update(delta_time: f32)
+        +play()
+        +pause()
+        +stop()
+        +get_current_frame() Option<TextureInfo>
+        +get_progress() f32
     }
+```
+
+##### System Diagram
+```mermaid
+graph TB
+    subgraph RenderingSystem["Rendering System"]
+        direction TB
+        
+        subgraph Core["Core Components"]
+            engine[RenderEngine]
+            camera[Camera]
+            cache["Texture Cache"]
+            transform["Transform System"]
+        end
+
+        subgraph TextureManagement["Texture Management"]
+            loading["Texture Loading"]
+            caching["Texture Caching"]
+            memory["Memory Management"]
+            uuid["UUID Generation"]
+        end
+
+        subgraph RenderPipeline["Render Pipeline"]
+            scene["Scene Processing"]
+            culling["Viewport Culling"]
+            ordering["Z-Order Sorting"]
+            transform_calc["Transform Calculation"]
+            camera_transform["Camera Transform"]
+        end
+
+        subgraph Animation["Animation System"]
+            frames["Frame Management"]
+            timing["Animation Timing"]
+            playback["Playback Control"]
+            state["Animation State"]
+        end
+
+        subgraph Debug["Debug Rendering"]
+            grid["Grid System"]
+            bounds["Camera Bounds"]
+            viewport["Viewport Display"]
+        end
+    end
+
+    scene --> transform_calc
+    transform_calc --> camera_transform
+    camera_transform --> culling
+    culling --> ordering
+
+    loading --> uuid
+    loading --> caching
+    caching --> memory
+
+    frames --> timing
+    timing --> playback
+    playback --> state
+
+    engine --> cache
+    engine --> camera
+    engine --> transform
+
+    classDef core fill:#f9f,stroke:#333,stroke-width:2px
+    classDef pipeline fill:#bbf,stroke:#333,stroke-width:1px
+    classDef management fill:#fbb,stroke:#333,stroke-width:1px
+    classDef debug fill:#bfb,stroke:#333,stroke-width:1px
+
+    class Core core
+    class RenderPipeline pipeline
+    class TextureManagement management
+    class Debug debug
 ```
 
 #### Key Features
@@ -239,42 +332,150 @@ fn test_camera_operations() {
 
 _A sophisticated 2D physics simulation system built on the [rapier2d](https://crates.io/crates/rapier2d) library, providing realistic physics interactions with advanced features like custom gravity fields and automatic collision shape detection._
 
-#### Core Components
+#### System Architecture
 
+##### Class Diagram
 ```mermaid
 classDiagram
-    PhysicsEngine --> RigidBodySet
-    PhysicsEngine --> ColliderSet
-    PhysicsEngine --> EntityMapping
-    PhysicsEngine --> SimulationSystems
+    PhysicsEngine --> RigidBodySet : manages
+    PhysicsEngine --> ColliderSet : manages
+    PhysicsEngine --> PhysicsPipeline : uses
+    PhysicsEngine --> Scene : simulates
+    PhysicsEngine --> Entity : processes
 
     class PhysicsEngine {
         -gravity: Vector<Real>
         -integration_parameters: IntegrationParameters
+        -physics_pipeline: PhysicsPipeline
+        -island_manager: IslandManager
+        -broad_phase: BroadPhaseMultiSap
+        -narrow_phase: NarrowPhase
+        -rigid_body_set: RigidBodySet
+        -collider_set: ColliderSet
         -entity_to_body: HashMap<Uuid, RigidBodyHandle>
         -entity_to_collider: HashMap<Uuid, ColliderHandle>
-        -entity_position_attrs: HashMap<Uuid, Uuid>
-        +new()
-        +step(scene: &mut Scene)
-        +add_entity(entity: &Entity)
-        +remove_entity(entity_id: Uuid)
+        -time_step: f32
+        
+        +new() Self
+        +step(scene: Scene) Vec<Updates>
+        +add_entity(entity: Entity)
+        +remove_entity(id: Uuid)
+        +load_scene(scene: Scene)
         +cleanup()
+        +apply_force(id: Uuid, force: Vector)
+        +apply_impulse(id: Uuid, impulse: Vector)
+        +get_colliding_entities(id: Uuid) Vec<Uuid>
     }
 
-    class SimulationSystems {
-        +physics_pipeline: PhysicsPipeline
-        +island_manager: IslandManager
-        +broad_phase: BroadPhaseMultiSap
-        +narrow_phase: NarrowPhase
-        +ccd_solver: CCDSolver
-        +query_pipeline: QueryPipeline
+    class PhysicsComponents {
+        <<interface>>
+        +RigidBody
+        +Collider
+        +ImpulseJoint
+        +MultibodyJoint
     }
 
-    class EntityMapping {
-        +entity_to_body: HashMap
-        +entity_to_collider: HashMap
-        +entity_position_attrs: HashMap
+    class CollisionSystems {
+        <<interface>>
+        +BroadPhase
+        +NarrowPhase
+        +CCDSolver
+        +QueryPipeline
     }
+
+    class PhysicsProperties {
+        +is_movable: bool
+        +has_gravity: bool
+        +has_collision: bool
+        +friction: f32
+        +restitution: f32
+        +density: f32
+        +can_rotate: bool
+    }
+
+    class SimulationParams {
+        +time_step: f32
+        +gravity: Vector
+        +damping: f32
+        +frequency: f32
+    }
+
+    PhysicsEngine --> PhysicsComponents : uses
+    PhysicsEngine --> CollisionSystems : uses
+    PhysicsEngine --> PhysicsProperties : configures
+    PhysicsEngine --> SimulationParams : uses
+```
+
+##### System Diagram
+
+```mermaid
+graph TB
+    subgraph PhysicsSystem["Physics System"]
+        direction TB
+        
+        subgraph Core["Core Components"]
+            engine[Physics Engine]
+            bodies[Rigid Bodies]
+            colliders[Colliders]
+            joints[Joints]
+        end
+
+        subgraph CollisionDetection["Collision Detection"]
+            broad[Broad Phase]
+            narrow[Narrow Phase]
+            ccd[CCD Solver]
+            query[Query Pipeline]
+        end
+
+        subgraph Simulation["Simulation Pipeline"]
+            integration[Integration]
+            forces[Force Application]
+            constraints[Constraint Solver]
+            velocity[Velocity Solver]
+            position[Position Update]
+        end
+
+        subgraph EntityManagement["Entity Management"]
+            add[Add Entity]
+            remove[Remove Entity]
+            update[Update Properties]
+            mapping[Entity Mapping]
+        end
+
+        subgraph Properties["Physics Properties"]
+            gravity[Gravity Fields]
+            friction[Friction]
+            restitution[Restitution]
+            density[Density]
+        end
+    end
+
+    add --> mapping
+    mapping --> bodies
+    mapping --> colliders
+
+    broad --> narrow
+    narrow --> ccd
+    
+    integration --> forces
+    forces --> constraints
+    constraints --> velocity
+    velocity --> position
+
+    Properties --> Simulation
+    CollisionDetection --> Simulation
+    Simulation --> position
+    position --> update
+
+    classDef core fill:#f9f,stroke:#333,stroke-width:2px
+    classDef detection fill:#bbf,stroke:#333,stroke-width:1px
+    classDef simulation fill:#fbb,stroke:#333,stroke-width:1px
+    classDef management fill:#bfb,stroke:#333,stroke-width:1px
+
+    class Core core
+    class CollisionDetection detection
+    class Simulation simulation
+    class EntityManagement management
 ```
 
 #### Key Features
@@ -996,107 +1197,457 @@ This implementation provides a robust foundation for game logic scripting while 
 
 ### [Audio Engine](/src/audio_engine.rs)
 
-_The Audio Engine is a crucial component of our 2D game engine, responsible for handling sound playback. It utilizes [rodio](https://github.com/RustAudio/rodio), a pure Rust audio playback library, to manage audio streams and control sound output._
+_The Audio Engine is a robust and feature-rich audio management system built on top of `rodio` for the 2D game engine. It provides comprehensive audio playback capabilities with sound caching, entity-based sound management, and detailed playback control._
 
-#### Features
+#### System Architecture
 
-- Simple audio playback from file
-- Pause and resume functionality
-- Ability to check if audio is currently playing
+```mermaid
+graph TB
+    subgraph AudioEngine["Audio Engine System"]
+        direction TB
+        
+        subgraph Core["Core State"]
+            stream["OutputStream"]
+            handle["OutputStreamHandle"]
+            active["Active Sounds Map<br>(UUID → Sink)"]
+            cache["Sound Cache Map<br>(UUID → Vec<u8>)"]
+            immediate["Immediate Sink"]
+            duration["Duration Cache Map<br>(UUID → f32)"]
+        end
 
-#### Implementation Details
+        subgraph Loading["Loading System"]
+            load_sound["load_sound()"]
+            load_entity["load_entity_sounds()"]
+            load_scene["load_scene_sounds()"]
+            path_uuid["path_to_uuid()"]
+        end
 
-The `AudioEngine` struct is the core of our audio system. It contains:
+        subgraph Playback["Playback System"]
+            play["play_sound()"]
+            play_imm["play_sound_immediate()"]
+            stop["stop()"]
+            pause["pause()"]
+            resume["resume()"]
+        end
 
-- An `OutputStream` for audio output
-- An `OutputStreamHandle` for creating new sounds
-- A `Sink` for controlling audio playback
+        subgraph Status["Status System"]
+            is_playing["is_playing()"]
+            is_paused["is_paused()"]
+            is_stopped["is_stopped()"]
+            list_playing["list_playing_sounds()"]
+        end
 
-Key methods include:
+        subgraph Memory["Memory Management"]
+            cleanup["cleanup()"]
+            clear_cache["clear_cache()"]
+            unload["unload_sound()"]
+            get_usage["get_memory_usage()"]
+        end
+    end
 
-- `new()`: Initializes the audio engine with default output stream and sink.
-- `play_sound(file_path: &str)`: Loads and plays an audio file from the given path.
-- `is_playing()`: Checks if audio is currently playing.
-- `pause()`: Pauses the current audio playback.
-- `resume()`: Resumes paused audio playback.
+    subgraph External["External Systems"]
+        FileSystem["File System"]
+        AudioDevice["Audio Device"]
+        Scene["Game Scene"]
+        Entity["Game Entity"]
+    end
 
-The engine uses `BufReader` and `Decoder` from the `rodio` crate to efficiently read and decode audio files.
+    %% Loading Flow
+    FileSystem --> load_sound
+    load_sound --> path_uuid
+    path_uuid --> cache
+    Entity --> load_entity
+    Scene --> load_scene
+    load_entity --> load_sound
+    load_scene --> load_entity
 
-#### Error Handling
+    %% Playback Flow
+    play --> load_sound
+    play --> active
+    play_imm --> immediate
+    stop --> active
+    pause --> active
+    resume --> active
 
-The `play_sound` method returns a `Result`, allowing for graceful error handling if the file is not found or cannot be decoded.
+    %% Status Flow
+    active --> is_playing
+    active --> is_paused
+    active --> is_stopped
+    active --> list_playing
 
-#### Unit Tests
+    %% Memory Management Flow
+    cleanup --> active
+    cleanup --> cache
+    cleanup --> immediate
+    clear_cache --> cache
+    unload --> cache
+    cache --> get_usage
 
-The unit tests ([`audio_engine_test.rs`](tests/audio_engine_test.rs)) thoroughly verify the functionality of the `AudioEngine`:
+    %% Output Flow
+    active --> AudioDevice
+    immediate --> AudioDevice
 
-1. **Initialization Test**:
+    classDef core fill:#f9f,stroke:#333,stroke-width:2px
+    classDef operation fill:#bbf,stroke:#333,stroke-width:1px
+    classDef external fill:#bfb,stroke:#333,stroke-width:1px
+    classDef flow fill:#fbb,stroke:#333,stroke-width:1px
 
-   - Ensures the audio engine initializes correctly with an empty sink.
+    class Core core
+    class Loading,Playback,Status,Memory operation
+    class External external
+    class load_sound,play,stop,cleanup flow
+```
 
-2. **Play Sound Test**:
+#### Core Features
 
-   - Verifies that a sound file can be successfully loaded and played.
-   - Checks that the engine correctly reports when audio is playing.
-   - Confirms that the audio stops playing when explicitly stopped.
+- **Sound Management**
+  - Efficient sound caching using UUID-based identification
+  - Memory-conscious sound loading and unloading
+  - Support for both immediate and controlled playback
+  - Duration caching for audio metadata
 
-3. **Is Playing Test**:
-   - Checks the initial state (not playing).
-   - Verifies correct state after playing a sound.
-   - Tests pause functionality and ensures the engine reports correct state.
-   - Checks resume functionality.
-   - Verifies correct state after stopping the audio.
+- **Playback Control**
+  - Individual sound control (play, pause, resume, stop)
+  - Global playback management
+  - Multiple simultaneous sound streams
+  - Immediate sound playback with auto-interruption
 
-These tests use a constant `TEST_AUDIO_FILE` path, which should point to a valid audio file in the test environment.
+- **Resource Management**
+  - Automatic memory management and cleanup
+  - Cache control and memory usage tracking
+  - Scene-based sound loading
+  - Entity-based sound management
 
-#### Usage
+#### Technical Implementation
 
-See [Game Audio](#game-audio) in [Users Guide](#users-guide).
+##### Core Components
+
+```rust
+pub struct AudioEngine {
+    stream: OutputStream,
+    stream_handle: OutputStreamHandle,
+    active_sounds: HashMap<Uuid, Sink>,
+    sound_cache: HashMap<Uuid, Vec<u8>>,
+    immediate_sink: Option<Sink>,
+    duration_cache: HashMap<Uuid, f32>,
+}
+```
+
+##### Key Systems
+
+1. **Sound Identification**
+   - Uses SHA-256 hashing to generate deterministic UUIDs from file paths
+   - Ensures consistent sound identification across sessions
+
+2. **Caching System**
+   - Two-tier caching system:
+     - Sound data cache (`sound_cache`)
+     - Duration metadata cache (`duration_cache`)
+   - Optimized for memory efficiency with selective loading/unloading
+
+3. **Playback Management**
+   - Supports two playback modes:
+     - Standard playback with unique identifiers
+     - Immediate playback with automatic interruption
+   - Thread-safe playback control using `rodio::Sink`
+
+#### API Reference
+
+##### Loading Operations
+```rust
+fn load_sound(&mut self, path: &Path) -> Result<Uuid, String>
+fn load_entity_sounds(&mut self, entity: &Entity) -> Result<(), String>
+fn load_scene_sounds(&mut self, scene: &Scene) -> Result<(), String>
+```
+
+##### Playback Operations
+```rust
+fn play_sound(&mut self, path: &Path) -> Result<Uuid, String>
+fn play_sound_immediate(&mut self, path: &Path) -> Result<(), String>
+fn stop_immediate(&mut self)
+```
+
+##### Control Operations
+```rust
+fn stop(&mut self, sound_id: Uuid) -> Result<(), String>
+fn pause(&mut self, sound_id: Uuid) -> Result<(), String>
+fn resume(&mut self, sound_id: Uuid) -> Result<(), String>
+```
+
+##### Status Operations
+```rust
+fn is_playing(&self, sound_id: Uuid) -> bool
+fn is_paused(&self, sound_id: Uuid) -> bool
+fn is_stopped(&self, sound_id: Uuid) -> bool
+fn list_playing_sounds(&self) -> Vec<Uuid>
+```
+
+##### Resource Management
+```rust
+fn cleanup(&mut self)
+fn clear_cache(&mut self)
+fn unload_sound(&mut self, path: &Path)
+fn get_memory_usage(&self) -> usize
+```
+
+#### Testing
+
+The audio engine includes comprehensive unit tests covering:
+- Engine initialization
+- Sound playback functionality
+- Playback controls (pause, resume, stop)
+- Immediate playback mode
+- Resource cleanup and management
+
+Test suite requirements:
+- Test audio file: "tests/level-up-22268.mp3"
+- Proper audio output device configuration
+- Sufficient system resources for audio playback
+
+#### Dependencies
+
+- `rodio`: Audio playback and streaming
+- `lofty`: Audio metadata extraction
+- `uuid`: Unique sound identification
+- `sha2`: Path-to-UUID generation
+- Standard Rust libraries (`std::fs`, `std::io`, `std::collections`)
+
+#### Performance Considerations
+
+1. **Memory Management**
+   - Implements smart caching to balance memory usage
+   - Provides explicit cache control methods
+   - Tracks memory usage through `get_memory_usage()`
+
+2. **Resource Cleanup**
+   - Automatic cleanup of completed sounds
+   - Manual cleanup methods for explicit resource management
+   - Scene-based resource management
+
+3. **Thread Safety**
+   - Uses `rodio`'s thread-safe `Sink` implementation
+   - Supports concurrent audio playback
+   - Safe handling of multiple sound streams
 
 ### [Input Handler](/src/input_handler.rs)
 
-_A responsive, platform-agnostic input management system that ensures smooth and intuitive player interactions._
+_The Input Handler system provides a robust input management solution that handles keyboard, mouse, and modifier inputs while supporting different input contexts (Engine UI and Game)._
 
-- Built with the [winit](https://crates.io/crates/winit) crate to provide device support, handling inputs from keyboards, mice, touchscreens, and game controllers.
+#### Core Features
 
-- Implements advanced input mapping and processing with low latency, supporting complex input combinations and gestures.
+- Context-based input handling (Engine UI vs Game)
+- Keyboard input tracking (pressed and just pressed states)
+- Mouse button and position tracking
+- Scroll input detection
+- Modifier keys support (Ctrl, Shift, Alt, Cmd)
+- Delta movement calculations for mouse and scroll
 
-- Offers configurable input schemes and easy integration with the ECS for flexible control mechanisms.
+#### Technical Implementation
+
+```mermaid
+classDiagram
+    class InputHandler {
+        -context: InputContext
+        -keys_pressed: HashSet<Key>
+        -keys_just_pressed: HashSet<Key>
+        -mouse_buttons: Vec<PointerButton>
+        -mouse_pos: egui::Pos2
+        -prev_mouse_pos: egui::Pos2
+        -scroll_delta: egui::Vec2
+        -modifiers: egui::Modifiers
+        
+        +new() Self
+        +get_context() InputContext
+        +set_context(context: InputContext)
+        +handle_input(input: egui::InputState)
+        +is_key_pressed(key: Key) bool
+        +is_key_just_pressed(key: Key) bool
+        +is_mouse_button_pressed(button: PointerButton) bool
+        +get_mouse_pos() egui::Pos2
+        +get_mouse_delta() Option<egui::Vec2>
+        +get_scroll_delta() Option<egui::Vec2>
+        +get_all_active_inputs() Vec<String>
+    }
+
+    class InputContext {
+        <<enumeration>>
+        EngineUI
+        Game
+    }
+
+    class Key {
+        <<external>>
+    }
+
+    class PointerButton {
+        <<external>>
+        Primary
+        Secondary
+        Middle
+    }
+
+    class Modifiers {
+        <<external>>
+        ctrl: bool
+        shift: bool
+        alt: bool
+        command: bool
+    }
+
+    InputHandler --> InputContext : uses
+    InputHandler --> Key : tracks
+    InputHandler --> PointerButton : tracks
+    InputHandler --> Modifiers : contains
+```
+
+#### System Architecture
+
+```mermaid
+graph TB
+    subgraph InputHandler["Input Handler System"]
+        context["Input Context"]
+        keyboard["Keyboard State"]
+        mouse["Mouse State"]
+        modifiers["Modifier Keys"]
+        
+        subgraph KeyboardTracking["Keyboard Tracking"]
+            keys_pressed["Currently Pressed Keys"]
+            keys_just_pressed["Just Pressed Keys"]
+            key_check["Key State Checking"]
+        end
+        
+        subgraph MouseTracking["Mouse Tracking"]
+            pos["Current Position"]
+            prev_pos["Previous Position"]
+            buttons["Button States"]
+            scroll["Scroll Delta"]
+            delta_calc["Delta Calculations"]
+        end
+        
+        subgraph StateManagement["State Management"]
+            handle_input["handle_input()"]
+            state_update["State Updates"]
+            context_switch["Context Switching"]
+        end
+    end
+
+    egui_input["egui::InputState"] --> handle_input
+    handle_input --> state_update
+    
+    state_update --> keyboard
+    state_update --> mouse
+    state_update --> modifiers
+    
+    keyboard --> keys_pressed
+    keyboard --> keys_just_pressed
+    
+    mouse --> pos
+    mouse --> buttons
+    mouse --> scroll
+    
+    pos --> delta_calc
+    prev_pos --> delta_calc
+    
+    context_switch --> context
+
+    classDef core fill:#f9f,stroke:#333,stroke-width:2px
+    classDef tracking fill:#bbf,stroke:#333,stroke-width:1px
+    classDef external fill:#bfb,stroke:#333,stroke-width:1px
+    
+    class InputHandler core
+    class KeyboardTracking,MouseTracking,StateManagement tracking
+    class egui_input external
+```
+
+#### Key Components
+
+1. **Input Context Management**
+   - Supports switching between Engine UI and Game contexts
+   - Context-aware input handling
+   - Debug logging for context changes
+
+2. **Keyboard Input Tracking**
+   - Maintains sets of currently pressed keys
+   - Tracks newly pressed keys each frame
+   - Supports modifier key combinations
+
+3. **Mouse Input Tracking**
+   - Tracks mouse button states (Primary, Secondary, Middle)
+   - Records current and previous mouse positions
+   - Calculates mouse movement delta
+   - Handles scroll input
+
+4. **State Management**
+   - Frame-by-frame state updates
+   - Efficient state storage using HashSet
+   - Delta calculations for continuous inputs
+
+#### Usage
+
+```rust
+let mut input_handler = InputHandler::new();
+
+// Update input state each frame
+input_handler.handle_input(&egui_input_state);
+
+// Check input states
+if input_handler.is_key_pressed(Key::Space) {
+    // Handle space key press
+}
+
+if let Some(delta) = input_handler.get_mouse_delta() {
+    // Handle mouse movement
+}
+
+// Get all active inputs
+let active_inputs = input_handler.get_all_active_inputs();
+```
+
+#### Performance Considerations
+
+- Uses HashSet for efficient key state lookups
+- Minimal memory footprint with optimized state storage
+- Delta calculations only performed when requested
+- Context switching with minimal overhead
+
+#### Integration with egui
+
+The system is built to work seamlessly with egui's input system:
+- Direct integration with `egui::InputState`
+- Compatible with egui's pointer and key handling
+- Supports egui's modifier key system
+
 
 ### [Project Manager](/src/project_manager.rs)
 
 _The Project Manager handles game project creation, loading, saving, building, and asset importing. It provides a structured way to manage game projects and their assets._
 
-#### Project Structure
-
-```
-game_project/
-├── assets/
-│   ├── images/    # PNG, JPG, JPEG, GIF
-│   ├── sounds/    # WAV, MP3, OGG
-│   ├── fonts/     # TTF, OTF
-│   └── scripts/   # LUA scripts
-├── scenes/        # Scene data files
-├── src/          # Rust source files
-│   └── main.rs
-├── Cargo.toml
-└── project.json
-```
-
-#### Core Features
+#### Core Components
 
 ```mermaid
 classDiagram
+    ProjectManager --> ProjectMetadata : manages
+    ProjectManager --> LoadedProject : creates/loads
+    ProjectManager --> SceneManager : manages
+    ProjectManager --> AssetType : handles
+    LoadedProject --> ProjectMetadata : contains
+    LoadedProject --> SceneManager : contains
+
     class ProjectManager {
-        +create_project(project_path: &Path) Result<(), String>
-        +load_project(project_path: &Path) Result<ProjectMetadata, String>
-        +save_project(project_path: &Path, metadata: &ProjectMetadata) Result<(), String>
-        +build_project(project_path: &Path) Result<(), String>
-        +import_asset(project_path: &Path, asset_path: &Path, asset_type: AssetType) Result<String, String>
-        +load_scene_hierarchy(project_path: &Path) Result<SceneManager, String>
-        +save_scene_hierarchy(project_path: &Path, scene_manager: &SceneManager) Result<(), String>
-        +load_project_full(project_path: &Path) Result<(ProjectMetadata, SceneManager), String>
-        +save_project_full(project_path: &Path, metadata: &ProjectMetadata, scene_manager: &SceneManager) Result<(), String>
+        <<static>>
+        +create_project(path: Path) Result<LoadedProject>
+        +load_project(path: Path) Result<ProjectMetadata>
+        +save_project(path: Path, metadata: ProjectMetadata)
+        +build_project(path: Path) Result<()>
+        +import_asset(path: Path, asset_path: Path, type: AssetType)
+        +save_scene_hierarchy(path: Path, manager: SceneManager)
+        +load_scene_hierarchy(path: Path) Result<SceneManager>
+        +load_project_full(path: Path) Result<LoadedProject>
+        +save_project_full(path: Path, metadata: ProjectMetadata, scene_manager: SceneManager)
+        -create_folder_structure(path: Path)
+        -create_metadata_file(path: Path, metadata: ProjectMetadata)
+        -create_main_file(path: Path, name: String)
+        -copy_directory_contents(src: Path, dst: Path)
     }
 
     class ProjectMetadata {
@@ -1107,98 +1658,150 @@ classDiagram
         +active_scene_id: Option<Uuid>
     }
 
+    class LoadedProject {
+        +metadata: ProjectMetadata
+        +scene_manager: SceneManager
+    }
+
     class AssetType {
         <<enumeration>>
         Image
         Sound
         Font
         Script
+        +valid_extensions() [&str]
     }
-
-    ProjectManager ..> AssetType : uses
-    ProjectManager ..> ProjectMetadata : creates/manages
-    ProjectManager ..> SceneManager : manages
-
-    note for ProjectManager "Static methods only\nNo instance state"
-    note for ProjectMetadata "Serializable structure\nStores project info"
-    note for AssetType "Defines supported\nasset types"
 ```
 
-#### Usage
+#### System Architecture
 
-See [Project Manager Usage](#project-manager-usage) in [Users Guide](#users-guide).
+```mermaid
+graph TB
+    subgraph ProjectSystem["Project Management System"]
+        direction TB
+        
+        subgraph Core["Core Components"]
+            metadata["Project Metadata"]
+            scenes["Scene Manager"]
+            assets["Asset Management"]
+            build["Build System"]
+        end
 
-#### Supported Asset Types
+        subgraph FileStructure["Project Structure"]
+            project[".epm File"]
+            folders["Directory Structure"]
+            cargo["Cargo.toml"]
+            main["main.rs"]
+        end
 
-##### Images
+        subgraph AssetManagement["Asset Management"]
+            images["Images"]
+            sounds["Sounds"]
+            fonts["Fonts"]
+            scripts["Scripts"]
+            validation["Extension Validation"]
+        end
 
-- Formats: PNG, JPG, JPEG, GIF
-- Directory: `assets/images/`
+        subgraph Operations["Project Operations"]
+            create["Create Project"]
+            load["Load Project"]
+            save["Save Project"]
+            build_op["Build Project"]
+            import["Import Assets"]
+        end
+    end
 
-##### Sounds
+    create --> FileStructure
+    create --> Core
+    
+    load --> project
+    load --> scenes
+    
+    save --> metadata
+    save --> scenes
+    
+    build_op --> cargo
+    build_op --> assets
+    
+    import --> AssetManagement
+    import --> validation
 
-- Formats: WAV, MP3, OGG
-- Directory: `assets/sounds/`
+    classDef core fill:#f9f,stroke:#333,stroke-width:2px
+    classDef structure fill:#bbf,stroke:#333,stroke-width:1px
+    classDef operations fill:#fbb,stroke:#333,stroke-width:1px
+```
 
-##### Fonts
+#### Key Features
 
-- Formats: TTF, OTF
-- Directory: `assets/fonts/`
+1. **Project Management**
+   - Project creation with standardized structure
+   - Metadata management
+   - Scene hierarchy handling
+   - Full project loading/saving
 
-##### Scripts
+2. **Asset Management**
+   - Supported asset types:
+     - Images (png, jpg, jpeg, gif)
+     - Sounds (wav, mp3, ogg)
+     - Fonts (ttf, otf)
+     - Scripts (lua)
+   - Asset validation and organization
+   - Automatic directory management
 
-- Formats: LUA
-- Directory: `assets/scripts/`
+3. **Build System**
+   - Cargo integration
+   - Asset copying to build directory
+   - Release build support
 
-#### Technical Details
+#### Project Structure
+```
+project_root/
+├── project.epm
+├── Cargo.toml
+├── src/
+│   └── main.rs
+├── assets/
+│   ├── images/
+│   ├── sounds/
+│   ├── fonts/
+│   └── scripts/
+└── scenes/
+    └── scene_manager.json
+```
 
-##### Project Metadata
+#### Usage Examples
 
-Stores essential project information in `project.json`:
+```rust
+// Create new project
+let project = ProjectManager::create_project(path)?;
 
-- Project name
-- Version
-- Project path
-- Default scene
-- Active scene ID (UUID)
+// Load existing project
+let loaded = ProjectManager::load_project_full(path)?;
 
-##### Scene Management
+// Import asset
+ProjectManager::import_asset(
+    project_path,
+    asset_path,
+    AssetType::Image
+)?;
 
-- Serializes scene hierarchy to `scenes/scene_manager.json`
-- Tracks active scene across sessions
-- Maintains scene relationships and shared entities
+// Build project
+ProjectManager::build_project(project_path)?;
+```
 
-##### Asset Management
+#### Error Handling
 
-- Automatic file type validation
-- Duplicate file detection
-- Organized asset directory structure
-- Clear error messages for invalid imports
+- Comprehensive error checking for file operations
+- Validation of project structure
+- Asset type verification
+- Build process error handling
 
-##### Build Process
+#### Performance Considerations
 
-- Compiles Rust code with `cargo build --release`
-- Copies assets to target directory
-- Creates a ready-to-run game executable
-
-#### Best Practices
-
-1. **Asset Organization**
-
-   - Use appropriate file formats for each asset type
-   - Keep assets in their designated directories
-   - Avoid duplicate file names
-
-2. **Project Structure**
-
-   - Maintain clean directory hierarchy
-   - Follow the recommended file organization
-   - Handle asset import errors gracefully
-
-3. **Scene Management**
-   - Save scene changes frequently
-   - Use meaningful scene names
-   - Track active scene properly
+- Lazy loading of assets
+- Efficient file copying during builds
+- Minimal memory footprint for project metadata
+- Optimized scene serialization
 
 ### Engine GUI
 
@@ -1520,19 +2123,25 @@ Run `cargo run` in the terminal at the root directory of our project if you wish
 
 **Lang Sun**:
 
+- [Entity Component System (ECS)](#ecs)
 - [Rendering Engine](#rendering-engine)
 - [Physics Engine](#physics-engine)
-- [Input Handling](#input-handling)
+- [Input Handler](#input-handler)
+- [Project Manager](#project-manager)
+- [Engine GUI](#engine-gui)
+- [Audio Engine](#audio-engine)
+- [Script Interpreter](#script-interpreter)
 
 **Feiyang Fan**:
 
 - [Entity Component System (ECS)](#ecs)
 - [Audio Engine](#audio-engine)
+- [Script Interpreter](#script-interpreter)
 
 **Frank Chen**:
 
-- [Script Interpreter](#script-interpreter)
-- [Game Project File Management](#game-project-file-management)
+- [Entity Component System (ECS)](#ecs)
+- [Project Manager](#project-manager)
 - [Engine GUI](#engine-gui)
 
 ## Remarks
