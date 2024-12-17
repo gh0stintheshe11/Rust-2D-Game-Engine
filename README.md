@@ -36,7 +36,7 @@ Our project emphasize:
 
 ### [Rendering Engine](/src/render_engine.rs)
 
-_The Rendering Engine is a crucial component of our 2D game engine, responsible for handling all graphical output. It utilizes [`wgpu`](https://github.com/gfx-rs/wgpu), a cross-platform, safe, and modern graphics API, to provide efficient and flexible rendering capabilities._
+_The Rendering Engine is a sophisticated component responsible for all graphical output in our 2D game engine. It provides efficient texture management, camera controls, and advanced rendering features with robust memory management._
 
 #### Core Components Overview
 
@@ -46,18 +46,18 @@ classDiagram
     RenderEngine --> Transform
     RenderEngine --> TextureInfo
     RenderEngine --> Animation
-    RenderEngine ..> RenderLayer
 
     class RenderEngine {
         -viewport_size: (f32, f32)
-        -last_frame_time: Instant
-        -textures: HashMap<Uuid, TextureInfo>
+        -texture_cache: HashMap<Uuid, TextureInfo>
         +camera: Camera
         +new()
-        +load_texture(resource: Resource)
+        +load_texture(path: &Path)
+        +render(scene: &Scene)
         +update_viewport_size(width: f32, height: f32)
-        +render(scene: Scene)
-        +get_texture_data(id: Uuid)
+        +get_grid_lines()
+        +get_game_camera_bounds(scene: &Scene)
+        +cleanup()
     }
 
     class Camera {
@@ -67,6 +67,7 @@ classDiagram
         +move_by(dx: f32, dy: f32)
         +zoom_by(factor: f32)
         +world_to_screen(world_pos: (f32, f32))
+        +reset()
     }
 
     class Transform {
@@ -85,278 +86,388 @@ classDiagram
         -dimensions: (u32, u32)
         -aspect_ratio: f32
     }
-
-    class Animation {
-        -frames: Vec<TextureInfo>
-        -frame_duration: f32
-        -current_frame: usize
-        -elapsed_time: f32
-        -is_playing: bool
-        -is_looping: bool
-        -playback_speed: f32
-        +new(frames: Vec<TextureInfo>, duration: f32)
-        +update(delta_time: f32)
-        +play()
-        +pause()
-        +stop()
-        +set_looping(looping: bool)
-        +set_speed(speed: f32)
-        +set_frame(frame: usize)
-    }
-
-    class RenderLayer {
-        <<enumeration>>
-        Background
-        Game
-        UI
-        Debug
-    }
 ```
 
-#### Setting up a Basic Scene
+#### Key Features
 
+##### 1. Advanced Camera System
 ```rust
-// Initialize engine
-let mut render_engine = RenderEngine::new();
+let mut camera = Camera::new();
 
-// Set up camera
-render_engine.camera.move_by(0.0, 0.0);  // Center camera
-render_engine.camera.zoom_by(1.0);       // Default zoom
+// Pan camera
+camera.move_by(10.0, 5.0);
 
-// Load and position a sprite
-let sprite_id = render_engine.load_texture(&player_resource)?;
+// Zoom with clamping (0.1x to 10.0x)
+camera.zoom_by(2.0);
+
+// Convert world coordinates to screen space
+let screen_pos = camera.world_to_screen((15.0, 10.0));
+
+// Reset camera to default state
+camera.reset();
+```
+
+##### 2. Efficient Texture Management
+```rust
+// Load and cache texture with UUID based on path
+let texture_id = render_engine.load_texture(Path::new("sprites/player.png"))?;
+
+// Access texture information
+if let Some(texture_info) = render_engine.get_texture_info(&texture_id) {
+    let dimensions = texture_info.dimensions;
+    let aspect_ratio = texture_info.aspect_ratio;
+}
+
+// Memory management
+render_engine.cleanup_direct_textures();  // Clear all textures
+render_engine.unload_texture(path);       // Remove specific texture
+let memory_usage = render_engine.get_memory_usage();  // Monitor memory usage
+```
+
+##### 3. Transform System
+```rust
 let transform = Transform::new()
-    .with_position(100.0, 100.0)
-    .with_uniform_scale(1.0);
+    .with_position(10.0, 20.0)
+    .with_rotation(1.5)
+    .with_scale(2.0, 3.0);
+
+// Uniform scaling
+let uniform_transform = Transform::new()
+    .with_uniform_scale(2.0);
 ```
 
-#### Camera System
+##### 4. Scene Rendering
+```rust
+// Update viewport size
+render_engine.update_viewport_size(800.0, 600.0);
 
-The camera system provides viewport control with:
+// Render scene with z-ordering
+let render_queue = render_engine.render(&scene);
 
-- Pan/move functionality
-- Zoom control (0.1x to 10.0x)
+// Generate editor grid
+let grid_lines = render_engine.get_grid_lines();
+
+// Get game camera bounds
+let camera_bounds = render_engine.get_game_camera_bounds(&scene);
+```
+
+#### Technical Details
+
+##### 1. Texture Caching
+- Uses SHA-256 hashing for deterministic UUID generation from file paths
+- Implements efficient texture info caching with dimensions and aspect ratio
+- Provides memory usage monitoring and cleanup utilities
+
+##### 2. Viewport Management
+- Supports dynamic viewport resizing
+- Implements efficient culling for off-screen objects
+- Maintains aspect ratio consistency across different screen sizes
+
+##### 3. Camera Controls
+- Smooth camera movement and zoom controls
 - World-to-screen coordinate conversion
+- Camera bounds visualization for editor mode
+
+##### 4. Grid System
+- Dynamic grid generation based on viewport size
+- Automatic grid scaling with camera zoom
+- Optional grid overlay for editor mode
+
+#### Unit Testing
+
+The rendering engine includes comprehensive unit tests covering:
+
+1. Camera Operations
+- Initial state verification
+- Movement and zoom functionality
+- Coordinate conversion accuracy
+- Reset functionality
+
+2. Render Engine Core
+- Initialization checks
+- Viewport management
+- Transform operations
+- Texture cache operations
+
+3. Grid and Bounds
+- Grid line generation
+- Camera bounds calculation
+- Viewport calculations
+
+4. Memory Management
+- Texture cache operations
+- Memory usage tracking
+- Cleanup procedures
 
 ```rust
-// Smooth camera follow
-let player_pos = player.get_position();
-camera.move_by(
-    (player_pos.0 - camera.position.0) * 0.1,  // Smooth X follow
-    (player_pos.1 - camera.position.1) * 0.1   // Smooth Y follow
-);
-
-// Zoom to fit scene
-camera.zoom_by(0.8);  // Zoom out
-camera.zoom_by(1.2);  // Zoom in
-```
-
-#### Transform System
-
-Handles object positioning and manipulation:
-
-- Position (x, y coordinates)
-- Rotation (in radians)
-- Scale (width, height multipliers)
-
-```rust
-// Create and modify transform
-let mut transform = Transform::new()
-    .with_position(100.0, 100.0)
-    .with_rotation(0.0)
-    .with_scale(1.0, 1.0);
-
-// Scale sprite without modifying original image
-transform.scale = (0.5, 0.5);  // Half size
-transform.scale = (2.0, 2.0);  // Double size
-
-// Rotate sprite
-transform.rotation = std::f32::consts::PI * 0.5;  // 90 degrees
-```
-
-#### Layer System
-
-Manages rendering order with four predefined layers:
-
-- Background (0)
-- Game (1)
-- UI (2)
-- Debug (3)
-
-```rust
-// Create entities in different layers
-let background = Entity::new()
-    .with_sprite(background_texture)
-    .with_layer(RenderLayer::Background);
-
-let player = Entity::new()
-    .with_sprite(player_texture)
-    .with_layer(RenderLayer::Game);
-
-let health_bar = Entity::new()
-    .with_sprite(ui_texture)
-    .with_layer(RenderLayer::UI);
-```
-
-#### Texture Management
-
-- Supports PNG and JPEG formats
-- Maintains original dimensions and aspect ratios
-- Efficient texture data storage and retrieval
-
-#### Animation Support
-
-Optional animation system with:
-
-- Frame-based animation
-- Playback controls (play/pause/stop)
-- Looping options
-- Variable playback speed
-- Frame selection
-
-```rust
-// Create and control animation
-let mut player_animation = Animation::new(walk_frames, 1.0/12.0);  // 12 FPS
-
-// Basic controls
-player_animation.play();      // Start playing
-player_animation.pause();     // Pause at current frame
-player_animation.stop();      // Stop and reset to first frame
-
-// Advanced controls
-player_animation.set_looping(true);   // Loop animation
-player_animation.set_speed(2.0);      // Play at double speed
-player_animation.set_frame(3);        // Jump to specific frame
+#[test]
+fn test_camera_operations() {
+    let mut camera = Camera::new();
+    
+    camera.move_by(10.0, 5.0);
+    assert_eq!(camera.position, (10.0, 5.0));
+    
+    camera.zoom_by(2.0);
+    assert_eq!(camera.zoom, 2.0);
+    
+    let screen_pos = camera.world_to_screen((15.0, 10.0));
+    assert_eq!(screen_pos, ((15.0 - 10.0) * 2.0, (10.0 - 5.0) * 2.0));
+}
 ```
 
 ### [Physics Engine](/src/physics_engine.rs)
 
-_A robust 2D physics simulation system built on the [rapier2d](https://crates.io/crates/rapier2d) library, delivering realistic and responsive environmental interactions._
+_A sophisticated 2D physics simulation system built on the [rapier2d](https://crates.io/crates/rapier2d) library, providing realistic physics interactions with advanced features like custom gravity fields and automatic collision shape detection._
 
-- Gravity simulation
-
-- Integrates advanced physics calculations with support for collision detection, response, and physical simulations.
-
-- Offers rigid body dynamics, including dynamic and static body creation with customizable physical properties like mass, friction, and restitution.
-
-- Supports diverse collider geometries (spherical, cuboid, capsule) to accommodate varied game design requirements, from simple arcade-style to more intricate physics scenarios.
-
-#### Implementation Details
-
-The `PhysicsEngine` struct encapsulates all necessary components for physics simulation:
-
-- `PhysicsPipeline`: Manages the overall physics simulation process
-- `RigidBodySet` and `ColliderSet`: Store rigid bodies and their colliders
-- `IslandManager`, `BroadPhase`, and `NarrowPhase`: Handle collision detection
-- `ImpulseJointSet` and `MultibodyJointSet`: Manage object constraints
-- `CCDSolver`: Handles continuous collision detection
-- `QueryPipeline`: Allows for spatial queries
-
-Key methods include:
-
-- `new()`: Initializes the physics engine with default settings
-- `step()`: Advances the physics simulation by one time step
-- `add_rigid_body()`: Adds a new rigid body to the simulation
-- `handle_collisions()`: Detects and processes collisions between objects
-
-#### Unit Tests
-
-The test suite in [`physics_engine_test.rs`](tests/physics_engine_test.rs) verifies various aspects of the physics simulation:
-
-1. **Initialization** - `test_initialization`:
-
-   - Checks correct gravity setting and empty initial state
-
-2. **Rigid Body Addition**:
-
-   - `test_add_dynamic_rigid_body_with_collider`: Verifies dynamic body creation
-   - `test_add_static_rigid_body_with_collider`: Checks static body creation
-   - `test_add_invalid_rigid_body`: Ensures invalid bodies are not added
-
-3. **Gravity Simulation** - `test_simulation_under_gravity`:
-
-   - Confirms objects fall under gravity
-
-4. **Collision Detection** - `test_collision_detection`:
-
-   - Verifies collisions between dynamic and static bodies
-
-5. **Multiple Body Simulation** - `test_multiple_bodies_falling`:
-
-   - Tests behavior of multiple dynamic bodies
-
-6. **Collider Shapes** - `test_different_collider_shapes`:
-
-   - Checks various collider shapes (ball, cuboid, capsule)
-
-7. **Custom Properties** - `test_rigid_body_with_custom_properties`:
-
-   - Tests bodies with custom mass and restitution
-
-8. **Collision Events** - `test_collision_events`:
-   - Ensures collision events are properly detected and reported
-
-#### Usage
-
-See [Physics Engine Usage](#physics-engine-usage) in [Users Guide](#users-guide).
-
-### [Entity Component System (ECS)](/src/ecs.rs)
-
-_The Entity Component System (ECS) is the core architecture of our game engine, providing a flexible and efficient way to create and manage game objects. It follows a composition-over-inheritance pattern, making it easy to create complex game objects without deep inheritance hierarchies._
-
-#### System Overview
+#### Core Components
 
 ```mermaid
 classDiagram
-    class SceneManager {
-        +scenes: HashMap<Uuid, Scene>
-        +shared_entities: HashMap<Uuid, Entity>
-        +active_scene: Option<Uuid>
+    PhysicsEngine --> RigidBodySet
+    PhysicsEngine --> ColliderSet
+    PhysicsEngine --> EntityMapping
+    PhysicsEngine --> SimulationSystems
+
+    class PhysicsEngine {
+        -gravity: Vector<Real>
+        -integration_parameters: IntegrationParameters
+        -entity_to_body: HashMap<Uuid, RigidBodyHandle>
+        -entity_to_collider: HashMap<Uuid, ColliderHandle>
+        -entity_position_attrs: HashMap<Uuid, Uuid>
         +new()
-        +create_scene(name: str)
-        +delete_scene(id: Uuid)
-        +create_shared_entity(name: str)
-        +delete_shared_entity(id: Uuid)
-        +set_active_scene(id: Uuid)
-        +get_active_scene()
+        +step(scene: &mut Scene)
+        +add_entity(entity: &Entity)
+        +remove_entity(entity_id: Uuid)
+        +cleanup()
+    }
+
+    class SimulationSystems {
+        +physics_pipeline: PhysicsPipeline
+        +island_manager: IslandManager
+        +broad_phase: BroadPhaseMultiSap
+        +narrow_phase: NarrowPhase
+        +ccd_solver: CCDSolver
+        +query_pipeline: QueryPipeline
+    }
+
+    class EntityMapping {
+        +entity_to_body: HashMap
+        +entity_to_collider: HashMap
+        +entity_position_attrs: HashMap
+    }
+```
+
+#### Key Features
+
+##### 1. Intelligent Collider Generation
+```rust
+fn create_collider(&self, entity: &Entity, density: f32, friction: f32, restitution: f32) -> Collider {
+    // Automatically determines collider shape based on sprite dimensions
+    if let Ok(image_path) = entity.get_image(0) {
+        if let Ok(img) = image::open(image_path) {
+            let (width, height) = img.dimensions();
+            
+            // Use circle for square-ish sprites
+            if (width as f32 / height as f32).abs() > 0.9 
+               && (width as f32 / height as f32).abs() < 1.1 {
+                ColliderBuilder::ball(width as f32 / 2.0)
+            } else {
+                // Use box for rectangular sprites
+                ColliderBuilder::cuboid(width as f32 / 2.0, height as f32 / 2.0)
+            }
+        }
+    }
+}
+```
+
+##### 2. Custom Gravity Fields
+```rust
+// Process custom gravity fields in step()
+for (_, entity1) in &scene.entities {
+    if let AttributeValue::Boolean(true) = creates_gravity.value {
+        // Calculate and apply gravitational forces to other entities
+        let force = direction * (1.0 / (distance * distance));
+        rb.add_force(force * 10.0, true);
+    }
+}
+```
+
+##### 3. Advanced Physics Controls
+```rust
+// Velocity control
+physics_engine.set_velocity(&entity_id, vector![10.0, 0.0]);
+
+// Force application
+physics_engine.apply_force(&entity_id, vector![0.0, -9.81]);
+
+// Impulse application
+physics_engine.apply_impulse(&entity_id, vector![5.0, 0.0]);
+
+// Angular motion
+physics_engine.set_angular_velocity(&entity_id, 1.5);
+physics_engine.apply_torque(&entity_id, 0.5);
+```
+
+#### Technical Details
+
+##### 1. Entity Physics Properties
+- Dynamic/static body type
+- Gravity influence
+- Collision detection
+- Friction and restitution
+- Density
+- Rotation locking
+- Custom gravity field generation
+
+##### 2. Collision System
+- Broad phase using spatial partitioning
+- Narrow phase for precise collision detection
+- Continuous collision detection for fast objects
+- Collision event reporting
+- Multiple collision shape support
+
+##### 3. Performance Optimizations
+- Efficient entity-to-physics mappings
+- Cached position attribute IDs
+- Optimized collision detection pipeline
+- Memory-efficient cleanup system
+
+#### Unit Testing
+
+The comprehensive test suite verifies:
+
+1. **Basic Functionality**
+```rust
+#[test]
+fn test_initialization() {
+    let physics_engine = PhysicsEngine::new();
+    assert_eq!(physics_engine.get_time_step(), 1.0 / 60.0);
+    assert!(physics_engine.is_empty());
+}
+```
+
+2. **Entity Physics**
+```rust
+#[test]
+fn test_physical_entity_creation() {
+    let mut scene = Scene::new("test_scene").unwrap();
+    let mut physics_engine = PhysicsEngine::new();
+
+    let physics_props = PhysicsProperties {
+        is_movable: true,
+        affected_by_gravity: true,
+        has_collision: true,
+        ..Default::default()
+    };
+
+    let entity_id = scene.create_physical_entity(
+        "test_entity",
+        (0.0, 10.0, 0.0),
+        physics_props
+    ).unwrap();
+
+    physics_engine.add_entity(scene.get_entity(entity_id).unwrap());
+    assert!(physics_engine.has_rigid_body(&entity_id));
+}
+```
+
+3. **Gravity and Collisions**
+```rust
+#[test]
+fn test_gravity_simulation() {
+    // ... test code ...
+    assert!(
+        final_y < initial_y - 1.0,
+        "Entity should have fallen due to gravity"
+    );
+}
+
+#[test]
+fn test_collision_detection() {
+    // ... test code ...
+    assert!(collision_detected, "Collision should have been detected");
+}
+```
+
+#### Usage Examples
+
+See [Physics Engine Usage](#physics-engine-usage) in [Users Guide](#users-guide) for detailed implementation examples and best practices.
+
+
+I'll help update the ECS section of the README with the latest code changes. Here's the revised version that reflects the current implementation:
+
+### [Entity Component System (ECS)](/src/ecs.rs)
+
+_The Entity Component System (ECS) is the core architecture of our game engine, implementing a sophisticated hierarchical design with scene management, entity handling, and component organization. It uses IndexMap for deterministic ordering and includes advanced features for camera and physics entities._
+
+#### System Architecture
+
+```mermaid
+classDiagram
+    SceneManager --> Scene : manages
+    SceneManager --> Entity : manages shared
+    Scene --> Entity : contains local
+    Scene --> SharedEntityRef : references
+    Entity --> Attribute : has
+    Entity --> Resource : has
+    Entity --> PhysicsProperties : may have
+
+    class SceneManager {
+        +scenes: IndexMap<Uuid, Scene>
+        +shared_entities: IndexMap<Uuid, Entity>
+        +active_scene: Option<Uuid>
+        +new() Self
+        +create_scene(name: str) Result<Uuid>
+        +delete_scene(id: Uuid) Result<bool>
+        +list_scene() Vec<(Uuid, str)>
+        +get_scene(id: Uuid) Option<Scene>
+        +create_shared_entity(name: str) Result<Uuid>
+        +delete_shared_entity(id: Uuid) Result<bool>
+        +get_shared_entity(id: Uuid) Option<Entity>
+        +set_active_scene(id: Uuid) Result<()>
+        +get_active_scene() Option<Scene>
     }
 
     class Scene {
         +id: Uuid
         +name: String
-        +entities: HashMap<Uuid, Entity>
-        +resources: HashMap<Uuid, Resource>
+        +entities: IndexMap<Uuid, Entity>
         +shared_entity_refs: Vec<Uuid>
-        +new(name: str)
-        +modify_scene(new_name: str)
-        +create_entity(name: str)
-        +create_resource(name: str, path: str, type: ResourceType)
-        +add_shared_entity_ref(id: Uuid)
-        +remove_shared_entity_ref(id: Uuid)
+        +default_camera: Option<Uuid>
+        +new(name: str) Result<Scene>
+        +create_entity(name: str) Result<Uuid>
+        +create_camera(name: str) Result<Uuid>
+        +create_physical_entity(name: str, position: (f32,f32,f32), physics: PhysicsProperties) Result<Uuid>
+        +add_shared_entity_ref(id: Uuid) Result<()>
+        +get_all_entities(scene_manager: SceneManager) Vec<Entity>
     }
 
     class Entity {
         +id: Uuid
         +name: String
-        +attributes: HashMap<Uuid, Attribute>
-        +resource_list: Vec<Uuid>
-        +new(id: Uuid, name: str)
-        +change_entity_name(new_name: str)
-        +attach_resource(resource_id: Uuid)
-        +detach_resource(resource_id: Uuid)
-        +create_attribute(name: str, type: AttributeType, value: AttributeValue)
+        +attributes: IndexMap<Uuid, Attribute>
+        +images: Vec<PathBuf>
+        +sounds: Vec<PathBuf>
+        +script: Option<PathBuf>
+        +new(id: Uuid, name: str) Result<Entity>
+        +new_camera(id: Uuid, name: str) Result<Entity>
+        +new_physical(id: Uuid, name: str, position: (f32,f32,f32), physics: PhysicsProperties) Result<Entity>
+        +add_image(path: PathBuf) Result<()>
+        +add_sound(path: PathBuf) Result<()>
+        +set_script(path: PathBuf) Result<()>
+        +create_attribute(name: str, type: AttributeType, value: AttributeValue) Result<Uuid>
     }
 
     class Resource {
-        +id: Uuid
-        +name: String
-        +file_path: String
-        +resource_type: ResourceType
-        +display()
-        +play()
-        +pause()
-        +stop()
-        +edit()
+        +images: Vec<PathBuf>
+        +sounds: Vec<PathBuf>
+        +script: Option<PathBuf>
+        +add_image(path: PathBuf)
+        +remove_image(path: PathBuf)
+        +add_sound(path: PathBuf)
+        +remove_sound(path: PathBuf)
+        +set_script(path: PathBuf)
+        +remove_script()
     }
 
     class Attribute {
@@ -364,13 +475,6 @@ classDiagram
         +name: String
         +data_type: AttributeType
         +value: AttributeValue
-    }
-
-    class ResourceType {
-        <<enumeration>>
-        Image
-        Sound
-        Script
     }
 
     class AttributeType {
@@ -382,159 +486,493 @@ classDiagram
         Vector2
     }
 
-    SceneManager "1" --> "*" Scene : manages scenes
-    SceneManager "1" --> "*" Entity : manages shared entities
-    Scene "1" --> "*" Entity : contains local entities
-    Scene ..> Entity : references shared entities
-    Scene "1" --> "*" Resource : contains
-    Entity "1" --> "*" Attribute : has
-    Entity "1" --> "*" Resource : references
-    Resource --> "1" ResourceType : has type
-    Attribute --> "1" AttributeType : has type
+    class AttributeValue {
+        <<enumeration>>
+        Integer(i32)
+        Float(f32)
+        String(String)
+        Boolean(bool)
+        Vector2(f32, f32)
+    }
+
+    class PhysicsProperties {
+        +is_movable: bool
+        +affected_by_gravity: bool
+        +creates_gravity: bool
+        +has_collision: bool
+        +friction: f32
+        +restitution: f32
+        +density: f32
+        +can_rotate: bool
+        +default() PhysicsProperties
+    }
+
+    class SharedEntityRef {
+        +entity_id: Uuid
+        +scene_id: Uuid
+    }
+
+    %% Special Entity Types
+    class CameraEntity {
+        <<interface>>
+        +width: f32
+        +height: f32
+        +zoom: f32
+        +rotation: f32
+        +is_camera: bool
+    }
+
+    class PhysicalEntity {
+        <<interface>>
+        +position: (f32,f32,f32)
+        +physics: PhysicsProperties
+    }
+
+    Entity --|> CameraEntity : implements
+    Entity --|> PhysicalEntity : implements
+    Attribute --> AttributeType : has type
+    Attribute --> AttributeValue : has value
+    Resource --> PathBuf : uses
 ```
 
-ECS implementation consists of four main parts:
+#### Core Features
 
-1. **Scene Manager**
+##### 1. **Scene Management**
+   - Hierarchical scene organization
+   - Shared entity support across scenes
+   - Active scene tracking
+   - Default camera per scene
+   - Scene-level entity management
 
-   - Top-level controller managing multiple scenes and shared entities
-   - Handles scene creation, deletion, and switching
-   - Maintains shared entities accessible across scenes
-   - Tracks active scene for easy access
-   - Example: Managing different levels, menus, or game states
+##### 2. **Entity System**
+   - Three specialized entity types:
+     - Basic entities with core attributes
+     - Camera entities with view properties
+     - Physical entities with physics attributes
+   - Protected core attributes
+   - Resource attachment system
+   - Type-safe attribute management
 
-2. **Scene**
+##### 3. **Resource Management**
+   - Multiple resource types per entity:
+     - Images (sprites, textures)
+     - Sounds (effects, music)
+     - Scripts (behavior)
+   - Resource validation and path management
+   - Clean-up handling for unused resources
 
-   - Container for entities, resources, and shared entity references
-   - Manages the game world state
-   - Can reference shared entities from the scene manager
-   - Example: A game level containing players, enemies, and items
-
-3. **Entity**
-
-   - Can be either scene-specific or shared across scenes
-   - Holds attributes and resource references
-   - Can represent anything from players to UI elements
-   - Example: A player character with position, health, and sprite
-
-4. **Components**
-   - **Attributes**: Data components (position, health, speed)
-   - **Resources**: External assets (images, sounds, scripts)
-
-#### Key Features
-
-##### 1. Hierarchical Structure
-
-```
-SceneManager
-├── Shared Entities
-│   └── Entity 1 (e.g., "GlobalPlayer")
-│       ├── Attributes
-│       └── Resources
-└── Scenes
-    └── Scene 1 (e.g., "Level1")
-        ├── Local Entities
-        │   └── Entity 2 (e.g., "Enemy")
-        ├── Resources
-        └── Shared Entity References
-```
-
-##### 2. Flexible Component System
-
-- **Attributes**: Store entity-specific data
-
-  ```rust
-  // Position component
-  entity.create_attribute("position", AttributeType::Vector2, Vector2(0.0, 0.0));
-
-  // Health component
-  entity.create_attribute("health", AttributeType::Integer, Integer(100));
-  ```
-
-##### 3. Resource Management
-
-- **Centralized Resource Handling**: Resources are managed at the scene level
-- **Reference System**: Entities reference resources by ID
-- **Type Safety**: Resources are typed (Image, Sound, Script)
-  ```rust
-  // Create and reference a resource
-  let texture_id = scene.create_resource("player", "player.png", ResourceType::Image);
-  player.attach_resource(texture_id);
-  ```
-
-#### Usage
-
-See [Creating a Player Character](#creating-a-player-character-with-ecs), [Creating and Using Shared Entities](#creating-and-using-shared-entities-with-ecs), and [Creating an Interactive Object](#creating-an-interactive-object-with-ecs) in [Users Guide](#users-guide)
-
-#### Best Practices and Tips
-
-1. **Entity Design**
-
-   - Use shared entities for objects that persist across scenes
-   - Keep scene-specific entities local to their scenes
-   - Use meaningful names for entities and attributes
-
-2. **Resource Management**
-
-   - Share resources between entities when possible
-   - Clean up unused resources
-   - Use appropriate resource types
-
-3. **Scene Organization**
-   - Divide complex games into multiple scenes
-   - Use scene transitions for level management
-   - Keep scene hierarchies clean and logical
-
-### [Script Interpreter](/src/script_interpreter.rs)
-
-_The Script Interpreter is a crucial component of our 2D game engine, enabling the integration of `lua` scripting capabilities, which is a simple and popular choice in the game industry. It utilizes [rlua](https://github.com/Kampfkarren/rlua), a high-level Lua binding for Rust, to provide a seamless interface between Rust and Lua._
-
-#### Features
-
-- Run Lua scripts within the Rust environment
-- Pass data between Rust and Lua
-- Execute complex Lua scripts for game logic
-- Handle Lua errors gracefully
+##### 4. **Attribute System**
+   - Type-safe attribute handling
+   - Protected core attributes
+   - Custom attribute support
+   - Attribute modification tracking
+   - Vector2 support for 2D operations
 
 #### Implementation Details
 
-The core of the script interpreter is the [`run_lua_script`](/src/script_interpreter.rs#L4) function in [`script_interpreter.rs`](/src/script_interpreter.rs), which initializes a new Lua context and executes the provided Lua script.
+##### 1. **Data Structures**
+   - Uses `IndexMap` for deterministic ordering
+   - UUID-based entity and attribute identification
+   - Vector-based resource storage
+   - Enum-based attribute types and values
 
-#### Unit Tests
+##### 2. **Type Safety**
+   - Strong type checking for attributes
+   - Protected core attributes
+   - Safe resource path handling
+   - Error handling with Result types
 
-The test suite in [`script_interpreter_test.rs`](tests/script_interpreter_test.rs) verifies various aspects of the Lua integration:
+##### 3. **Performance Considerations**
+   - Parallel processing support via Rayon
+   - Efficient entity lookup
+   - Optimized resource management
+   - Clean entity hierarchies
 
-1. **Simple Script Execution** - `test_run_simple_script` :
+#### Testing Coverage
 
-   - Runs a basic Lua script that performs addition, ensuring basic Lua scripts can be executed without errors.
+The ECS includes comprehensive unit tests covering:
 
-2. **Error Handling** - `test_run_script_with_error`:
+##### 1. **Entity Management**
+   - Basic entity creation and modification
+   - Attribute management
+   - Resource attachment
+   - Position handling
 
-   - Verifies that Lua handles undefined variables correctly by treating them as `nil`.
+##### 2. **Scene Operations**
+   - Scene creation and management
+   - Active scene handling
+   - Shared entity references
+   - Camera management
 
-3. **Math Operations** - `test_lua_math_operations`:
+##### 3. **Specialized Entities**
+   - Camera entity creation and properties
+   - Physical entity attributes
+   - Protected attribute handling
+   - Resource management
 
-   - Verifies complex mathematical operations can be performed accurately in Lua.
+##### 4. **Error Handling**
+   - Invalid operation detection
+   - Resource path validation
+   - Attribute type safety
+   - Protected attribute enforcement
 
-4. **Data Passing (Rust to Lua)** - `test_pass_data_to_lua`:
+#### Advanced Usage Examples
 
-   - Demonstrates passing data from Rust to Lua.
+##### 1. Complete Game Scene Setup
+```rust
+// Initialize scene manager and create a game level
+let mut scene_manager = SceneManager::new();
+let level_id = scene_manager.create_scene("Level_1")?;
+let scene = scene_manager.get_scene_mut(level_id)?;
 
-5. **Data Returning (Lua to Rust)** - `test_return_data_from_lua`:
+// Setup player with physics
+let player_physics = PhysicsProperties {
+    is_movable: true,
+    affected_by_gravity: true,
+    has_collision: true,
+    friction: 0.2,
+    density: 1.0,
+    ..Default::default()
+};
 
-   - Shows how to call Lua functions from Rust and retrieve results.
+let player_id = scene.create_physical_entity(
+    "Player",
+    (100.0, 100.0, 0.0),
+    player_physics
+)?;
 
-6. **Complex Script Execution** - `test_complex_script`:
+// Add player resources
+let player = scene.get_entity_mut(player_id)?;
+player.add_image(PathBuf::from("assets/player/idle.png"))?;
+player.add_image(PathBuf::from("assets/player/walk.png"))?;
+player.add_sound(PathBuf::from("assets/sounds/jump.wav"))?;
+player.set_script(PathBuf::from("scripts/player_controller.lua"))?;
+```
 
-   - Tests a more complex script involving object manipulation and function definitions.
+##### 2. Advanced Camera Management
+```rust
+// Create and configure a camera with custom settings
+let camera_id = scene.create_camera("MainCamera")?;
+let camera = scene.get_entity_mut(camera_id)?;
 
-7. **Error Handling in Lua** - `test_handle_error_in_lua_script`:
+camera.set_camera_size(1920.0, 1080.0)?;
+camera.set_camera_zoom(1.5)?;
+camera.set_camera_rotation(45.0)?;
 
-   - Verifies Lua's behavior with potential runtime errors, such as division by zero.
+// Make it the default camera for the scene
+scene.default_camera = Some(camera_id);
+```
 
-#### Usage
+##### 3. Shared Entity Implementation
+```rust
+// Create a shared UI element across scenes
+let ui_element_id = scene_manager.create_shared_entity("HealthBar")?;
+let ui_element = scene_manager.get_shared_entity_mut(ui_element_id)?;
 
-See [Script Interpreter for Game Logic](#script-interpreter-for-game-logic) in [Users Guide](#users-guide).
+// Add UI attributes
+ui_element.create_attribute("health", AttributeType::Integer, AttributeValue::Integer(100))?;
+ui_element.create_attribute("position", AttributeType::Vector2, AttributeValue::Vector2(10.0, 10.0))?;
+
+// Share across multiple scenes
+let level1_id = scene_manager.create_scene("Level1")?;
+let level2_id = scene_manager.create_scene("Level2")?;
+
+scene_manager.get_scene_mut(level1_id)?.add_shared_entity_ref(ui_element_id)?;
+scene_manager.get_scene_mut(level2_id)?.add_shared_entity_ref(ui_element_id)?;
+```
+
+#### Advanced Testing Scenarios
+
+##### 1. Resource Management Tests
+```rust
+#[test]
+fn test_resource_management() {
+    let mut scene = Scene::new("test_scene").unwrap();
+    let entity_id = scene.create_entity("resource_entity").unwrap();
+    let entity = scene.get_entity_mut(entity_id).unwrap();
+    
+    // Test image management
+    let image_path = PathBuf::from("test.png");
+    entity.add_image(image_path.clone()).unwrap();
+    assert!(entity.has_image(&image_path));
+    
+    // Test sound management
+    let sound_path = PathBuf::from("test.wav");
+    entity.add_sound(sound_path.clone()).unwrap();
+    assert!(entity.has_sound(&sound_path));
+    
+    // Test script management
+    let script_path = PathBuf::from("test.lua");
+    entity.set_script(script_path.clone()).unwrap();
+    assert!(entity.has_script());
+}
+```
+
+##### 2. Complex Entity Attribute Tests
+```rust
+#[test]
+fn test_complex_attributes() {
+    let mut scene = Scene::new("test_scene").unwrap();
+    let entity_id = scene.create_entity("test_entity").unwrap();
+    let entity = scene.get_entity_mut(entity_id).unwrap();
+    
+    // Test vector2 attribute
+    let pos_id = entity.create_attribute(
+        "position",
+        AttributeType::Vector2,
+        AttributeValue::Vector2(10.0, 20.0)
+    ).unwrap();
+    
+    // Test attribute protection
+    assert!(entity.delete_attribute(pos_id).is_ok());
+    assert!(entity.get_attribute_by_name("x")
+        .and_then(|attr| entity.delete_attribute(attr.id))
+        .is_err());
+}
+```
+
+#### Performance Optimization Guidelines
+
+##### 1. **Entity Management**
+```rust
+// Batch entity updates for better performance
+scene.update_entity_attributes(vec![
+    (entity1_id, attr1_id, AttributeValue::Float(1.0)),
+    (entity2_id, attr2_id, AttributeValue::Float(2.0)),
+    (entity3_id, attr3_id, AttributeValue::Float(3.0)),
+])?;
+```
+
+##### 2. **Resource Pooling**
+```rust
+// Share resources across entities
+let shared_texture = PathBuf::from("shared_texture.png");
+for entity_id in entity_ids {
+    if let Ok(entity) = scene.get_entity_mut(entity_id) {
+        entity.add_image(shared_texture.clone())?;
+    }
+}
+```
+
+##### 3. **Scene Optimization**
+```rust
+// Efficient scene querying
+let entities = scene.get_all_entities(&scene_manager);
+entities.par_iter().for_each(|entity| {
+    // Parallel processing of entities
+    // ...
+});
+```
+
+#### Error Handling Best Practices
+
+##### 1. **Resource Validation**
+```rust
+impl Entity {
+    fn validate_resource_path(path: &PathBuf) -> Result<(), String> {
+        if !path.exists() {
+            return Err(format!("Resource path does not exist: {:?}", path));
+        }
+        Ok(())
+    }
+}
+```
+
+##### 2. **Attribute Safety**
+```rust
+impl Entity {
+    fn validate_attribute_value(
+        attr_type: &AttributeType,
+        value: &AttributeValue
+    ) -> Result<(), String> {
+        match (attr_type, value) {
+            (AttributeType::Integer, AttributeValue::Integer(_)) => Ok(()),
+            (AttributeType::Float, AttributeValue::Float(_)) => Ok(()),
+            // ... other validations
+            _ => Err("Type mismatch".to_string())
+        }
+    }
+}
+```
+
+This ECS implementation provides a robust foundation for game development while maintaining flexibility, type safety, and performance. The comprehensive test suite ensures reliability and correct behavior across all system components.
+
+
+I'll help update the Script Interpreter section of the README with more technical details based on the provided code. Here's the revised version:
+
+### [Script Interpreter](/src/script_interpreter.rs)
+
+_The Script Interpreter provides a robust Lua scripting integration for the game engine, leveraging the [rlua](https://github.com/Kampfkarren/rlua) crate to enable safe and efficient Rust-Lua interoperability. This system allows developers to write game logic in Lua while maintaining the performance benefits of Rust._
+
+#### Core Implementation
+
+```rust
+/// Initializes the Lua interpreter and executes a script
+pub fn run_lua_script(script: &str) -> Result<()> {
+    let lua = Lua::new(); // Initialize new Lua context
+    lua.load(script).exec()?; // Load and execute script
+    Ok(())
+}
+```
+
+#### Technical Features
+
+1. **Safe Lua Context Management**
+   - Automatic memory management through RAII
+   - Protected script execution with error handling
+   - Isolated Lua environments for each script
+
+2. **Bidirectional Data Flow**
+   - Pass Rust data to Lua globals
+   - Execute Lua functions from Rust
+   - Retrieve Lua values in Rust with type safety
+
+3. **Error Handling**
+   - Graceful handling of undefined variables
+   - Runtime error detection and reporting
+   - Type conversion safety checks
+
+#### Comprehensive Test Suite
+
+The test suite provides extensive coverage of the scripting system:
+
+##### 1. Basic Script Execution
+```rust:tests/script_interpreter_test.rs
+#[test]
+fn test_run_simple_script() {
+    let script = r#"
+        x = 10
+        y = 20
+        result = x + y
+    "#;
+    assert!(script_interpreter::run_lua_script(script).is_ok());
+}
+```
+
+##### 2. Nil Value Handling
+```rust:tests/script_interpreter_test.rs
+#[test]
+fn test_run_script_with_error() {
+    let lua = Lua::new();
+    let script = r#"
+        x = 10
+        if y == nil then
+            y = 0  // Default value for undefined
+        end
+        result = x + y
+    "#;
+    assert!(lua.load(script).exec().is_ok());
+}
+```
+
+##### 3. Mathematical Operations
+```rust:tests/script_interpreter_test.rs
+#[test]
+fn test_lua_math_operations() {
+    let script = r#"
+        result = (10 * 5) / 2 - 7
+    "#;
+    let lua = Lua::new();
+    lua.load(script).exec().unwrap();
+    let result: f64 = lua.globals().get("result").unwrap();
+    assert_eq!(result, 18.0);
+}
+```
+
+##### 4. Rust-to-Lua Data Transfer
+```rust:tests/script_interpreter_test.rs
+#[test]
+fn test_pass_data_to_lua() {
+    let lua = Lua::new();
+    let globals = lua.globals();
+    globals.set("x", 50).unwrap();
+    globals.set("y", 100).unwrap();
+    
+    lua.load("result = x + y").exec().unwrap();
+    let result: i32 = lua.globals().get("result").unwrap();
+    assert_eq!(result, 150);
+}
+```
+
+##### 5. Lua-to-Rust Function Calls
+```rust:tests/script_interpreter_test.rs
+#[test]
+fn test_return_data_from_lua() {
+    let lua = Lua::new();
+    lua.load(r#"
+        function add(a, b)
+            return a + b
+        end
+    "#).exec().unwrap();
+
+    let add: rlua::Function = lua.globals().get("add").unwrap();
+    let result: i32 = add.call((10, 20)).unwrap();
+    assert_eq!(result, 30);
+}
+```
+
+##### 6. Complex Object Manipulation
+```rust:tests/script_interpreter_test.rs
+#[test]
+fn test_complex_script() {
+    let script = r#"
+        obj = {
+            x = 0,
+            y = 0,
+            vx = 1,
+            vy = 1
+        }
+
+        function update_position(obj)
+            obj.x = obj.x + obj.vx
+            obj.y = obj.y + obj.vy
+        end
+
+        update_position(obj)
+    "#;
+    // ... test implementation
+}
+```
+
+##### 7. Error Handling Verification
+```rust:tests/script_interpreter_test.rs
+#[test]
+fn test_handle_error_in_lua_script() {
+    let lua = Lua::new();
+    let script = r#"
+        function divide(a, b)
+            return a / b
+        end
+        result = divide(10, 0)
+    "#;
+    // Verifies Lua's infinity handling for division by zero
+}
+```
+
+#### Technical Considerations
+
+1. **Memory Safety**
+   - Lua context is automatically cleaned up when `Lua` instance is dropped
+   - All Lua values are properly garbage collected
+   - Safe handling of Rust-Lua value conversions
+
+2. **Performance Optimization**
+   - Single Lua context per script execution
+   - Efficient value conversion between Rust and Lua
+   - Minimal memory allocation overhead
+
+3. **Error Recovery**
+   - Graceful handling of runtime errors
+   - Type mismatch detection
+   - Protected execution of Lua code
+
+4. **Type Safety**
+   - Strong type checking for Rust-Lua conversions
+   - Safe handling of nil values
+   - Proper numeric type conversions
+
+This implementation provides a robust foundation for game logic scripting while maintaining the safety guarantees of Rust.
+
 
 ### [Audio Engine](/src/audio_engine.rs)
 
