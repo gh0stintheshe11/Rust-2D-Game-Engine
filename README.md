@@ -2053,13 +2053,13 @@ Overview of the GUI:
 - Clicking any Scene, Entity, or Resource displays its details in the Inspector Panel.
 
     <a href="modify_scene">
-    <img height=200 align="top" src="final_report_assets/modify_scene.png" />
+    <img height=150 align="top" src="final_report_assets/modify_scene.png" />
     </a>
     <a href="modify_entity">
-    <img height=400 align="top" src="final_report_assets/modify_entity.png" />
+    <img height=300 align="top" src="final_report_assets/modify_entity.png" />
     </a>
     <a href="new_scene">
-    <img height=400 align="top" src="final_report_assets/new_scene.png" />
+    <img height=300 align="top" src="final_report_assets/new_scene.png" />
     </a>
 
 #### File Panel
@@ -2078,10 +2078,10 @@ Overview of the GUI:
   - Modify entity data or add new attributes directly.
 
     <a href="Edit Attributes">
-    <img height=400 align="top" src="final_report_assets/edit_add_attr.png" />
+    <img height=300 align="top" src="final_report_assets/edit_add_attr.png" />
     </a>
     <a href="Remove Attributes">
-    <img height=400 align="top" src="final_report_assets/remove_attr.png" />
+    <img height=300 align="top" src="final_report_assets/remove_attr.png" />
     </a>
 
 - Resource Preview:
@@ -2089,10 +2089,10 @@ Overview of the GUI:
   - Use optimized lib for fast metadata preview
 
     <a href="final_report_assets/inspector_preview.png">
-    <img height=400 align="top" src="final_report_assets/inspector_preview.png" />
+    <img height=300 align="top" src="final_report_assets/inspector_preview.png" />
     </a>
     <a href="final_report_assets/inspector_sound.png">
-    <img height=400 align="top" src="final_report_assets/inspector_sound.png" />
+    <img height=300 align="top" src="final_report_assets/inspector_sound.png" />
     </a>
 
 ## User's Guide
