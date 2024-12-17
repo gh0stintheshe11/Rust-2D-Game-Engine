@@ -2,7 +2,7 @@
 use serde::{Deserialize, Serialize};
 use std::fs::{self, File};
 use std::io::Write;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use uuid::Uuid;
 use crate::ecs::SceneManager;
@@ -330,8 +330,56 @@ my_game_engine = {{ path = "../path/to/engine" }}
         let json = fs::read_to_string(&scene_file)
             .map_err(|e| format!("Failed to read scene hierarchy: {}", e))?;
             
-        let scene_manager: SceneManager = serde_json::from_str(&json)
+        let mut scene_manager: SceneManager = serde_json::from_str(&json)
             .map_err(|e| format!("Failed to parse scene hierarchy: {}", e))?;
+
+        // ======== update resource paths in entities ========
+        let asset_paths = [
+            ("images", "assets/images"),
+            ("sounds", "assets/sounds"),
+            ("fonts", "assets/fonts"),
+            ("scripts", "assets/scripts"),
+        ];
+
+        // Helper function to update asset paths
+        fn update_asset_path(original_path: &str, project_path: &Path, asset_type: &str) -> String {
+            if let Some(pos) = original_path.rfind(&format!("/{}", asset_type)) {
+                // Extract the relative asset path after 'assets/{type}'
+                let relative_path = &original_path[pos..];
+                format!("{}/{}", project_path.display(), &relative_path[1..])
+            } else {
+                original_path.to_string()
+            }
+        }
+
+        // Update paths
+        for (_, scene) in scene_manager.scenes.iter_mut() {
+            for (_, entity) in scene.entities.iter_mut() {
+                // Update images
+                for image in entity.images.iter_mut() {
+                    let updated_path = update_asset_path(image.to_str().unwrap_or(""), project_path, asset_paths[0].1);
+                    *image = PathBuf::from(updated_path);
+                }
+
+                // Update sounds
+                for sound in entity.sounds.iter_mut() {
+                    let updated_path = update_asset_path(sound.to_str().unwrap_or(""), project_path, asset_paths[1].1);
+                    *sound = PathBuf::from(updated_path);
+                }
+
+                // Update fonts
+                // for font in entity.fonts.iter_mut() {
+                //     let updated_path = update_asset_path(font.to_str().unwrap_or(""), project_path, asset_paths[1].1);
+                //     *font = PathBuf::from(updated_path);
+                // }
+
+                // Update script
+                // if let Some(script) = entity.script.as_mut() {
+                //     let updated_path = update_asset_path(script.to_str().unwrap_or(""), project_path, asset_paths[3].1);
+                //     *script = PathBuf::from(updated_path);
+                // }
+            }
+        }
 
         Ok(scene_manager)
     }
