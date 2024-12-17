@@ -2074,8 +2074,8 @@ Overview of the GUI:
   - Modify entity data or add new attributes directly.
 
     <div style="display: fix; gap: 10px; max-width: 100%; overflow: hidden;">
-        <img src="final_report_assets/edit_add_attr.png" alt="Edit Attributes" style="max-height: 200px;"/>
-        <img src="final_report_assets/remove_attr.png" alt="Remove Attributes" style="max-height: 200px;"/>
+        <img src="final_report_assets/edit_add_attr.png" alt="Edit Attributes" style="max-height: 200px; align: center;"/>
+        <img src="final_report_assets/remove_attr.png" alt="Remove Attributes" style="max-height: 200px; align: center;"/>
     </div>
 
 - Resource Preview:
@@ -2083,8 +2083,8 @@ Overview of the GUI:
   - Use optimized lib for fast metadata preview
 
     <div style="display: fix; gap: 10px; max-width: 100%; overflow: hidden;">
-        <img src="final_report_assets/inspector_preview.png" alt="Edit Attributes" style="max-height: 200px;"/>
-        <img src="final_report_assets/inspector_sound.png" alt="Remove Attributes" style="max-height: 200px;"/>
+        <img src="final_report_assets/inspector_preview.png" alt="Edit Attributes" style="max-height: 200px; align: center;"/>
+        <img src="final_report_assets/inspector_sound.png" alt="Remove Attributes" style="max-height: 200px; align: center;"/>
     </div>
 
 ## User's Guide
