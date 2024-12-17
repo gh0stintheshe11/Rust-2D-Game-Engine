@@ -2082,10 +2082,12 @@ Overview of the GUI:
   - Preview images, sounds, fonts, scripts and thier metadata in the Inspector Panel.
   - Use optimized lib for fast metadata preview
 
-    <div style="display: flex; gap: 1px; max-width: 100%;">
-        <img src="final_report_assets/inspector_preview.png" alt="Edit Attributes"/>
-        <img src="final_report_assets/inspector_sound.png" alt="Remove Attributes"/>
-    </div>
+    <a href="final_report_assets/inspector_preview.png">
+    <img height=200 align="center" src="final_report_assets/inspector_preview.png" />
+    </a>
+    <a href="final_report_assets/inspector_sound.png">
+    <img height=200 align="center" src="final_report_assets/inspector_sound.png" />
+    </a>
 
 ## User's Guide
 
