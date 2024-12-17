@@ -342,6 +342,9 @@ impl EngineGui {
                                     match self.game_runtime.get_state() {
                                         RuntimeState::Stopped => {
                                             if ui.button("▶ Play").clicked() {
+                                                // Sync scene manager before starting
+                                                self.sync_scene_manager_to_runtime();
+                                                
                                                 match self.game_runtime.run() {
                                                     Ok(_) => {
                                                         self.game_runtime.set_state(RuntimeState::Playing);
@@ -581,6 +584,16 @@ impl EngineGui {
             message.into(),
             ConsoleMessageType::Debug,
         ));
+    }
+
+    fn sync_scene_manager_to_runtime(&mut self) {
+        // Get the scene manager from GUI state
+        if let Some(gui_scene_manager) = &self.gui_state.scene_manager {
+            // Update the game runtime's scene manager
+            self.game_runtime.set_scene_manager(gui_scene_manager.clone());
+            println!("Synced scene manager to runtime with {} scenes", 
+                self.game_runtime.get_scene_manager().list_scene().len());
+        }
     }
 }
 

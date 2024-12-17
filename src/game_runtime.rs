@@ -182,4 +182,12 @@ impl GameRuntime {
         // Reset input context
         self.input_handler.set_context(InputContext::EngineUI);
     }
+
+    pub fn set_scene_manager(&mut self, scene_manager: SceneManager) {
+        self.scene_manager = scene_manager;
+    }
+
+    pub fn get_scene_manager(&self) -> &SceneManager {
+        &self.scene_manager
+    }
 }
