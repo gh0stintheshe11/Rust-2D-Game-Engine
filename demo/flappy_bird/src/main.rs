@@ -39,46 +39,45 @@ fn main() -> eframe::Result<()> {
                     if let Some(scene_manager) = engine.get_scene_manager_mut() {
                         *scene_manager = loaded_project.scene_manager;
                         println!("Loaded scenes: {:?}", scene_manager.list_scene());
-                        
-                        // Ensure we have an active scene
-                        if scene_manager.get_active_scene().is_none() {
-                            if let Some((first_id, _)) = scene_manager.list_scene().first() {
-                                println!("Setting first scene as active: {}", first_id);
-                                scene_manager.set_active_scene(*first_id).unwrap();
-                            }
-                        }
                     }
                 }
                 Err(e) => println!("Failed to load project: {}", e),
             }
 
-            // Set up input handler
+            // Set up input handler with debug prints
             if let Some(input_handler) = engine.get_input_handler_mut() {
                 println!("Setting up input handler");
-                input_handler.set_context(InputContext::Game);
                 
-                input_handler.register_key_callback(Key::W, Box::new(|runtime| {
-                    println!("W key pressed");
-                    if let Some(scene) = runtime.scene_manager.get_active_scene_mut() {
-                        if let Some(bird) = scene.get_entity_by_name("bird") {
-                            let current_y = bird.get_y();
-                            bird.set_y(current_y - 5.0);
+                // Test callback that should always work
+                input_handler.register_key_callback(Key::T, Box::new(|_runtime| {
+                    println!("T key pressed - Basic test");
+                }));
+
+                // Register game controls
+                input_handler.register_key_callback(Key::Space, Box::new(|runtime| {
+                    println!("Space key pressed - Attempting bird jump");
+                    if let Some(scene_manager) = runtime.get_scene_manager() {
+                        println!("Got scene manager");
+                        if let Some(scene) = scene_manager.get_active_scene() {
+                            println!("Found active scene: {}", scene.name);
+                            if let Some(bird) = scene.get_entity_by_name("bird") {
+                                let current_y = bird.get_y();
+                                bird.set_y(current_y - 10.0);
+                                println!("Bird jumped to y={}", bird.get_y());
+                            } else {
+                                println!("Bird entity not found in scene!");
+                            }
+                        } else {
+                            println!("No active scene found!");
                         }
+                    } else {
+                        println!("Failed to get scene manager!");
                     }
                 }));
-            }
 
-            // Start the game runtime
-            if let Some(runtime) = engine.get_game_runtime_mut() {
-                println!("Starting game runtime...");
-                runtime.set_state(RuntimeState::Playing);
-                if let Err(e) = runtime.run() {
-                    println!("Failed to start game runtime: {}", e);
-                } else {
-                    println!("Game runtime started successfully");
-                }
+                println!("Input handler setup complete - Try pressing T for basic test");
             } else {
-                println!("Failed to get game runtime!");
+                println!("Failed to get input handler!");
             }
             
             Box::new(engine)

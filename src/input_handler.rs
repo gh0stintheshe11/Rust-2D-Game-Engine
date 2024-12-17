@@ -1,7 +1,7 @@
 use egui::{Key, PointerButton};
 use std::collections::HashSet;
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum InputContext {
     EngineUI,
     Game,
@@ -11,6 +11,7 @@ pub enum InputContext {
 pub struct InputHandler {
     context: InputContext,
     keys_pressed: HashSet<Key>,
+    keys_just_pressed: HashSet<Key>,
     mouse_buttons: Vec<PointerButton>,
     mouse_pos: egui::Pos2,
     prev_mouse_pos: egui::Pos2,
@@ -23,6 +24,7 @@ impl InputHandler {
         InputHandler {
             context: InputContext::EngineUI,
             keys_pressed: HashSet::new(),
+            keys_just_pressed: HashSet::new(),
             mouse_buttons: Vec::new(),
             mouse_pos: egui::pos2(0.0, 0.0),
             prev_mouse_pos: egui::pos2(0.0, 0.0),
@@ -31,7 +33,12 @@ impl InputHandler {
         }
     }
 
+    pub fn get_context(&self) -> &InputContext {
+        &self.context
+    }
+
     pub fn set_context(&mut self, context: InputContext) {
+        println!("Input context changed to: {:?}", context);
         self.context = context;
     }
 
@@ -39,10 +46,18 @@ impl InputHandler {
         // Store modifiers state
         self.modifiers = input.modifiers;
 
+        // Track which keys were just pressed this frame
+        let old_keys = self.keys_pressed.clone();
+        
         // Update key states
         self.keys_pressed.clear();
+        self.keys_just_pressed.clear();
+        
         input.keys_down.iter().for_each(|key| {
             self.keys_pressed.insert(*key);
+            if !old_keys.contains(key) {
+                self.keys_just_pressed.insert(*key);
+            }
         });
 
         // Update mouse position
@@ -67,6 +82,10 @@ impl InputHandler {
 
     pub fn is_key_pressed(&self, key: Key) -> bool {
         self.keys_pressed.contains(&key)
+    }
+
+    pub fn is_key_just_pressed(&self, key: Key) -> bool {
+        self.keys_just_pressed.contains(&key)
     }
 
     pub fn is_mouse_button_pressed(&self, button: PointerButton) -> bool {

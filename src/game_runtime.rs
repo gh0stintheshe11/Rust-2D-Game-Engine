@@ -6,11 +6,11 @@ use crate::{
     ecs::SceneManager,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum RuntimeState {
-    Stopped,  // Not running, initial state
-    Playing,  // Game is running
-    Paused,   // Game is paused but preserves state
+    Playing,
+    Paused,
+    Stopped,
 }
 
 pub struct GameRuntime {
@@ -34,6 +34,10 @@ impl GameRuntime {
         audio_engine: AudioEngine,
         target_fps: u32,
     ) -> Self {
+        // Make sure we start in EngineUI mode
+        let mut input_handler = input_handler;
+        input_handler.set_context(InputContext::EngineUI);
+        
         Self {
             scene_manager,
             dev_state_snapshot: None,
@@ -55,22 +59,26 @@ impl GameRuntime {
         matches!(self.state, RuntimeState::Paused)
     }
 
-    pub fn get_state(&self) -> &RuntimeState {
-        &self.state
+    pub fn get_state(&self) -> RuntimeState {
+        self.state
     }
 
     pub fn set_state(&mut self, state: RuntimeState) {
         println!("Setting game state to {:?}", state); // Debug print
         match state {
             RuntimeState::Playing => {
-                // Don't take a snapshot, just switch to game mode
+                // Switch to game mode only when playing
+                println!("Switching to game input context");
                 self.input_handler.set_context(InputContext::Game);
                 self.running = true;
             }
             RuntimeState::Paused => {
-                self.running = true;
+                // Stay in game mode but paused
+                self.running = false;
             }
             RuntimeState::Stopped => {
+                // Switch back to editor mode
+                println!("Switching back to engine UI input context");
                 self.input_handler.set_context(InputContext::EngineUI);
                 self.physics_engine.cleanup();
                 self.running = false;
@@ -130,7 +138,14 @@ impl GameRuntime {
     }
 
     // This will be called from the eframe update loop
-    pub fn update(&mut self, _ctx: &egui::Context) {
+    pub fn update(&mut self, ctx: &egui::Context) {
+        // Update input handler first
+        ctx.input(|input| {
+            println!("GameRuntime updating input handler in context: {:?}", 
+                    self.input_handler.get_context());
+            self.input_handler.handle_input(input);
+        });
+
         if !self.running {
             return;
         }
@@ -189,5 +204,13 @@ impl GameRuntime {
 
     pub fn get_scene_manager(&self) -> &SceneManager {
         &self.scene_manager
+    }
+
+    pub fn handle_input(&mut self, input: &egui::InputState) {
+        self.input_handler.handle_input(input);
+    }
+
+    pub fn get_input_context(&self) -> &InputContext {
+        self.input_handler.get_context()
     }
 }

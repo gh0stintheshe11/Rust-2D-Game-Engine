@@ -1,7 +1,7 @@
 use crate::{
     physics_engine::PhysicsEngine,
     render_engine::RenderEngine,
-    input_handler::InputHandler,
+    input_handler::{InputHandler, InputContext},
     audio_engine::AudioEngine,
     ecs::SceneManager,
     game_runtime::{GameRuntime, RuntimeState}
@@ -72,7 +72,8 @@ impl EngineGui {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         let gui_state = GuiState::new();
         let render_engine = RenderEngine::new();
-        let input_handler = InputHandler::new();
+        let mut input_handler = InputHandler::new();
+        input_handler.set_context(InputContext::EngineUI);  // Make sure we start in EngineUI mode
         
         // Create GameRuntime with all required components
         let game_runtime = GameRuntime::new(
@@ -392,9 +393,15 @@ impl EngineGui {
                                 });
                             });
 
-                            // Update input handler
-                            ui.ctx().input(|input| {
-                                self.input_handler.handle_input(input);
+                            // Update input based on current context
+                            ctx.input(|input| {
+                                if self.game_runtime.get_state() == RuntimeState::Playing {
+                                    // Game is playing - use game runtime input handler
+                                    self.game_runtime.handle_input(input);
+                                } else {
+                                    // Not playing - use engine UI input handler
+                                    self.input_handler.handle_input(input);
+                                }
                             });
 
                             // Only handle game input if cursor is in viewport
@@ -599,6 +606,19 @@ impl EngineGui {
 
 impl eframe::App for EngineGui {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // Debug print for input state
+        ctx.input(|input| {
+            if input.key_pressed(egui::Key::T) {
+                println!("T key detected in EngineGui update");
+            }
+            if input.key_pressed(egui::Key::Space) {
+                println!("Space key detected in EngineGui update");
+            }
+        });
+
+        // Update game runtime
+        self.game_runtime.update(ctx);
+
         egui::CentralPanel::default()
             .frame(egui::Frame {
                 inner_margin: egui::Margin::ZERO,
