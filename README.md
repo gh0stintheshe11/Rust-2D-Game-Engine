@@ -2,14 +2,15 @@
 
 ## Table of Contents
 
-- [Introduction](#introduction)
+- [Team Members](#team-members)
+- [Motivation](#motivation)
 - [Objective](#objective)
 - [Features](#features)
-- [Rendering Engine](#rendering-engine)
-- [Physics Engine](#physics-engine)
-- [Entity Component System (ECS)](#entity-component-system-ecs)
-- [Script Interpreter](#script-interpreter)
-- [Engine GUI](#engine-gui)
+  - [Rendering Engine](#rendering-engine)
+  - [Physics Engine](#physics-engine)
+  - [Entity Component System (ECS)](#entity-component-system-ecs)
+  - [Script Interpreter](#script-interpreter)
+  - [Engine GUI](#engine-gui)
 - [User's Guide](#users-guide)
 - [Reproducibility Guide](#reproducibility-guide)
 - [Contributions](#contributions)
