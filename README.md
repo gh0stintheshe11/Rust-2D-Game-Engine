@@ -2083,8 +2083,8 @@ Overview of the GUI:
   - Use optimized lib for fast metadata preview
 
     <div>
-        <img src="final_report_assets/inspector_preview.png" alt="Edit Attributes" style="max-height: 200px; display: inline; margin-right: 1px;"/>
-        <img src="final_report_assets/inspector_sound.png" alt="Remove Attributes" style="max-height: 200px; display: inline;"/>
+        <img src="final_report_assets/inspector_preview.png" alt="Edit Attributes" style="max-height: 200px; max-width: 200px; display: inline; margin-right: 1px;"/>
+        <img src="final_report_assets/inspector_sound.png" alt="Remove Attributes" style="max-height: 200px; max-width: 200px; display: inline;"/>
     </div>
 
 ## User's Guide
