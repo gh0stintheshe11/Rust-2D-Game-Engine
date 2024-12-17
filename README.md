@@ -51,6 +51,9 @@ Our project emphasize:
 
 - Streamlining the game development process by enabling rapid iteration and experimentation through intuitive tools, a Lua scripting system, and visual interfaces.
 
+> [!NOTE]
+> Due to time constraint and the complexity of the project, the current state of the engine still contains many bugs and lacks some features. However, most of the core features are implemented and can be used as a reference for building 2D games, which is a solid start for continuous development.
+
 ## Features
 
 ### [Rendering Engine](/src/render_engine.rs)
