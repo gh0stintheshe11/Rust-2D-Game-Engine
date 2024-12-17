@@ -616,9 +616,6 @@ fn test_collision_detection() {
 
 See [Physics Engine Usage](#physics-engine-usage) in [Users Guide](#users-guide) for detailed implementation examples and best practices.
 
-
-I'll help update the ECS section of the README with the latest code changes. Here's the revised version that reflects the current implementation:
-
 ### [Entity Component System (ECS)](/src/ecs.rs)
 
 _The Entity Component System (ECS) is the core architecture of our game engine, implementing a sophisticated hierarchical design with scene management, entity handling, and component organization. It uses IndexMap for deterministic ordering and includes advanced features for camera and physics entities._
@@ -1094,11 +1091,9 @@ impl Entity {
 This ECS implementation provides a robust foundation for game development while maintaining flexibility, type safety, and performance. The comprehensive test suite ensures reliability and correct behavior across all system components.
 
 
-I'll help update the Script Interpreter section of the README with more technical details based on the provided code. Here's the revised version:
-
 ### [Script Interpreter](/src/script_interpreter.rs)
 
-_The Script Interpreter provides a robust Lua scripting integration for the game engine, leveraging the [rlua](https://github.com/Kampfkarren/rlua) crate to enable safe and efficient Rust-Lua interoperability. This system allows developers to write game logic in Lua while maintaining the performance benefits of Rust._
+_The Script Interpreter provides a robust Lua scripting integration for the game engine, leveraging the [rlua](https://crates.io/crates/rlua) crate to enable safe and efficient Rust-Lua interoperability. This system allows developers to write game logic in Lua while maintaining the performance benefits of Rust._
 
 #### Core Implementation
 
@@ -1272,7 +1267,7 @@ This implementation provides a robust foundation for game logic scripting while 
 
 ### [Audio Engine](/src/audio_engine.rs)
 
-_The Audio Engine is a robust and feature-rich audio management system built on top of `rodio` for the 2D game engine. It provides comprehensive audio playback capabilities with sound caching, entity-based sound management, and detailed playback control._
+_The Audio Engine is a robust and feature-rich audio management system built on top of [rodio](https://crates.io/crates/rodio) for the 2D game engine. It provides comprehensive audio playback capabilities with sound caching, entity-based sound management, and detailed playback control._
 
 #### System Architecture
 
