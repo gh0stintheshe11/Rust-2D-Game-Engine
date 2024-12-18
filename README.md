@@ -16,6 +16,7 @@
   - [Engine GUI](#engine-gui)
 - [User's Guide](#users-guide)
 - [Reproducibility Guide](#reproducibility-guide)
+- [Video Demo](#video-demo)
 - [Contributions](#contributions)
 - [Remarks](#remarks)
 
@@ -2364,6 +2365,11 @@ At the top right corner, click on `Editor` to switch to editor view
 ## Reproducibility Guide
 
 Run `cargo run` in the terminal at the root directory of our project if you wish to use the debug version. Otherwise, run `cargo build --release` and execute the generated `target/release/rust-2d-game-engine` executable.
+
+## Video Demo
+[Watch the video demo here.](final_report_assets/demo.mp4)
+
+This video demonstrates the features and functionality of our game engine from a user perspective. Explore the GUI, menu options, and core functionalities in action.
 
 ## Contributions
 
