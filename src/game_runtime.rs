@@ -4,6 +4,7 @@ use crate::{
     input_handler::{InputHandler, InputContext},
     audio_engine::AudioEngine,
     ecs::SceneManager,
+    ecs::AttributeValue,
 };
 use std::any::Any;
 use egui::Rect;
@@ -151,6 +152,9 @@ impl GameRuntime {
             self.scene_manager.set_active_scene(scenes[0].0)?;
         }
 
+        // Load the scene into physics engine
+        self.physics_engine.load_scene(self.scene_manager.get_active_scene().unwrap());
+
         println!("Game starting with active scene"); // Debug print
         self.running = true;
         self.state = RuntimeState::Playing;
@@ -180,7 +184,20 @@ impl GameRuntime {
             if let Some(scene) = self.scene_manager.get_active_scene_mut() {
                 // Run physics
                 let physics_updates = self.physics_engine.step(scene);
-                scene.update_entity_attributes(physics_updates);
+
+                // Filter out those values are NaN
+                let filtered_physics_updates: Vec<(_, _, AttributeValue)> = physics_updates
+                    .into_iter()
+                    .filter(|(_, _, attr)| match attr {
+                        AttributeValue::Float(val) => !val.is_nan(),
+                        AttributeValue::Vector2(x, y) => !x.is_nan() && !y.is_nan(),
+                        _ => true,
+                    })
+                    .collect();
+
+                if let Err(err) = scene.update_entity_attributes(filtered_physics_updates) {
+                    eprintln!("Failed to update entity attributes: {}", err);
+                }
                 // Run audio
                 self.audio_engine.update();
                 // Render
@@ -253,6 +270,8 @@ impl GameRuntime {
                 self.render_engine.render(scene);
             }
         }
+
+        ctx.request_repaint();
     }
 
     pub fn stop(&mut self) {
