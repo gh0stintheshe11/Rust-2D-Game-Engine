@@ -6,6 +6,7 @@ use crate::{
     ecs::SceneManager,
 };
 use std::any::Any;
+use egui::Rect;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum RuntimeState {
@@ -157,7 +158,11 @@ impl GameRuntime {
     }
 
     // This will be called from the eframe update loop
-    pub fn update(&mut self, ctx: &egui::Context) {
+    pub fn update(&mut self, ctx: &egui::Context, ui: &mut egui::Ui, viewport_rect: Rect) {
+
+        // Update viewport of the render engine
+        self.render_engine.update_viewport_size(viewport_rect.width(), viewport_rect.height());
+
         // Update input state first - IMPORTANT!
         ctx.input(|input| {
             self.input_handler.handle_input(input);
@@ -166,7 +171,7 @@ impl GameRuntime {
         // Only update game logic if we're running and in Playing state
         if self.running && self.state == RuntimeState::Playing {
             //println!("Game is running, active inputs: {:?}", self.input_handler.get_all_active_inputs()); // Debug print
-            
+
             // Update game logic with the input handler
             if let Some(game) = &mut self.game {
                 game.update(&mut self.scene_manager, &self.input_handler, 1.0/60.0);
@@ -179,7 +184,65 @@ impl GameRuntime {
                 // Run audio
                 self.audio_engine.update();
                 // Render
-                self.render_engine.render(scene);
+                let render_queue = self.render_engine.render(scene);
+
+                // Function for calculate intersection
+                let calculate_intersection = |rect1: egui::Rect, rect2: egui::Rect| -> Option<egui::Rect> {
+                    let min_x = rect1.min.x.max(rect2.min.x);
+                    let min_y = rect1.min.y.max(rect2.min.y);
+                    let max_x = rect1.max.x.min(rect2.max.x);
+                    let max_y = rect1.max.y.min(rect2.max.y);
+
+                    if min_x < max_x && min_y < max_y {
+                        Some(egui::Rect::from_min_max(
+                            egui::pos2(min_x, min_y),
+                            egui::pos2(max_x, max_y),
+                        ))
+                    } else {
+                        None
+                    }
+                };
+
+                for (texture_id, pos, size, _layer) in render_queue {
+                    if let Some(texture_info) = self.render_engine.texture_cache.get(&texture_id) {
+                        let texture_rect = egui::Rect::from_min_size(
+                            egui::pos2(viewport_rect.min.x + pos.0, viewport_rect.min.y + pos.1),
+                            egui::vec2(size.0, size.1),
+                        );
+
+                        if let Some(intersection) = calculate_intersection(texture_rect, viewport_rect) {
+                            // Adjust UV coordinates for the clipped area
+                            let uv_min = (
+                                (intersection.min.x - texture_rect.min.x) / size.0,
+                                (intersection.min.y - texture_rect.min.y) / size.1,
+                            );
+                            let uv_max = (
+                                (intersection.max.x - texture_rect.min.x) / size.0,
+                                (intersection.max.y - texture_rect.min.y) / size.1,
+                            );
+
+                            // Render only the visible part
+                            let texture = ui.ctx().load_texture(
+                                format!("texture_{}", texture_id),
+                                egui::ColorImage::from_rgba_unmultiplied(
+                                    [texture_info.dimensions.0 as usize, texture_info.dimensions.1 as usize],
+                                    &texture_info.data,
+                                ),
+                                Default::default(),
+                            );
+
+                            ui.painter().image(
+                                texture.id(),
+                                intersection,
+                                egui::Rect::from_min_max(
+                                    egui::pos2(uv_min.0, uv_min.1),
+                                    egui::pos2(uv_max.0, uv_max.1),
+                                ),
+                                egui::Color32::WHITE,
+                            );
+                        }
+                    }
+                }
             } else {
                 // If we lost the active scene, stop the game
                 self.cleanup_and_reset();
