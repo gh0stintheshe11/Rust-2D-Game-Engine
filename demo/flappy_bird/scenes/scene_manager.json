@@ -111,8 +111,8 @@
               "data_type": "Vector2",
               "value": {
                 "Vector2": [
-                  0.0,
-                  0.0
+                  30.0,
+                  120.0
                 ]
               }
             },
@@ -182,7 +182,7 @@
             }
           },
           "images": [
-            "/home/lang/Rust-2D-Game-Engine/demo/flappy_bird/assets/images/bird1.png"
+            "/Users/Frank/Documents/school_work/Rust-2D-Game-Engine/demo/flappy_bird//assets/images/bird1.png"
           ],
           "sounds": [],
           "script": null
@@ -292,7 +292,7 @@
             }
           },
           "images": [
-            "/home/lang/Rust-2D-Game-Engine/demo/flappy_bird/assets/images/ground.png"
+            "/Users/Frank/Documents/school_work/Rust-2D-Game-Engine/demo/flappy_bird//assets/images/ground.png"
           ],
           "sounds": [],
           "script": null
@@ -327,7 +327,7 @@
             }
           },
           "images": [
-            "/home/lang/Rust-2D-Game-Engine/demo/flappy_bird/assets/images/bg.png"
+            "/Users/Frank/Documents/school_work/Rust-2D-Game-Engine/demo/flappy_bird//assets/images/bg.png"
           ],
           "sounds": [],
           "script": null
@@ -437,7 +437,7 @@
             }
           },
           "images": [
-            "/home/lang/Rust-2D-Game-Engine/demo/flappy_bird/assets/images/top_pipe.png"
+            "/Users/Frank/Documents/school_work/Rust-2D-Game-Engine/demo/flappy_bird//assets/images/top_pipe.png"
           ],
           "sounds": [],
           "script": null
@@ -547,7 +547,7 @@
             }
           },
           "images": [
-            "/home/lang/Rust-2D-Game-Engine/demo/flappy_bird/assets/images/bottom_pipe.png"
+            "/Users/Frank/Documents/school_work/Rust-2D-Game-Engine/demo/flappy_bird//assets/images/bottom_pipe.png"
           ],
           "sounds": [],
           "script": null
@@ -657,7 +657,7 @@
             }
           },
           "images": [
-            "/home/lang/Rust-2D-Game-Engine/demo/flappy_bird/assets/images/ground.png"
+            "/Users/Frank/Documents/school_work/Rust-2D-Game-Engine/demo/flappy_bird//assets/images/ground.png"
           ],
           "sounds": [],
           "script": null
@@ -767,7 +767,7 @@
             }
           },
           "images": [
-            "/home/lang/Rust-2D-Game-Engine/demo/flappy_bird/assets/images/top_pipe.png"
+            "/Users/Frank/Documents/school_work/Rust-2D-Game-Engine/demo/flappy_bird//assets/images/top_pipe.png"
           ],
           "sounds": [],
           "script": null
@@ -877,7 +877,7 @@
             }
           },
           "images": [
-            "/home/lang/Rust-2D-Game-Engine/demo/flappy_bird/assets/images/bottom_pipe.png"
+            "/Users/Frank/Documents/school_work/Rust-2D-Game-Engine/demo/flappy_bird//assets/images/bottom_pipe.png"
           ],
           "sounds": [],
           "script": null

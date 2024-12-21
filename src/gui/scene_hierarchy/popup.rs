@@ -433,7 +433,11 @@ impl PopupManager {
                                                                 entity.sounds.push(resource_path.clone());
                                                             }
                                                         },
-                                                        "Scripts" => println!("Script selected: {:?}", resource_path),
+                                                        "Scripts" => {
+                                                            if entity.script.as_ref() != Some(&resource_path) {
+                                                                entity.script = Some(resource_path.clone());
+                                                            }
+                                                        },
                                                         _ => {}
                                                     }
                                                 }
@@ -505,6 +509,20 @@ impl PopupManager {
                                         for &i in sounds_to_remove.iter().rev() {
                                             entity.sounds.remove(i);
                                         }
+                                    });
+                            }
+
+                            // Script section as collapsing header
+                            if entity.script.is_some() {
+                                egui::CollapsingHeader::new("Script")
+                                    .default_open(true)
+                                    .show(ui, |ui| {
+                                        ui.horizontal(|ui| {
+                                            ui.label(entity.script.clone().unwrap().file_name().unwrap_or_default().to_string_lossy().to_string());
+                                            if ui.button("Remove").clicked() {
+                                                entity.script = None;
+                                            }
+                                        });
                                     });
                             }
                         }

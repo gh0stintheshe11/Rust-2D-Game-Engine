@@ -109,6 +109,14 @@ impl FileSystem {
             let mut files = vec![];
 
             for entry in entries.filter_map(|e| e.ok()) {
+
+                let entry_path = entry.path();
+
+                // Skip the target folder under the project path
+                if entry_path == gui_state.project_path.join("target") {
+                    continue;
+                }
+
                 if entry.path().is_dir() {
                     folders.push(entry);
                 } else {
