@@ -57,6 +57,15 @@ impl EntityItem {
                                 });
                             }
                         }
+                        if entity.script.is_some() {
+                                let filename = entity.script.clone().unwrap().file_name()
+                                    .unwrap_or_default()
+                                    .to_string_lossy()
+                                    .to_string();
+                                ui.horizontal(|ui| {
+                                    ui.label(format!("🎵 {}", filename));
+                                });
+                        }
                     });
             } else {
                 ui.horizontal(|ui| {
