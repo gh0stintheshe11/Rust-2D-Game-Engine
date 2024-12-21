@@ -42,7 +42,7 @@ pub struct PhysicsEngine {
 
     // For future: Handles spatial queries like raycasts and shape intersections
     query_pipeline: QueryPipeline,
-    
+
     // Maps our entity IDs to Rapier's physics handles
     entity_to_body: HashMap<Uuid, RigidBodyHandle>,
     entity_to_collider: HashMap<Uuid, ColliderHandle>,
@@ -57,7 +57,7 @@ impl PhysicsEngine {
     pub fn new() -> Self {
         Self {
             // Default gravity points downward (-Y direction)
-            gravity: vector![0.0, -9.81],
+            gravity: vector![0.0, 9.81],
 
             // Physics runs at 60Hz (60 updates per second)
             integration_parameters: IntegrationParameters {
@@ -119,9 +119,9 @@ impl PhysicsEngine {
             // Get image dimensions
             if let Ok(img) = image::open(image_path) {
                 let (width, height) = img.dimensions();
-                
+
                 // If width and height are similar, use circle
-                if (width as f32 / height as f32).abs() > 0.9 
+                if (width as f32 / height as f32).abs() > 0.9
                    && (width as f32 / height as f32).abs() < 1.1 {
                     ColliderBuilder::ball(width as f32 / 2.0)
                 } else {
@@ -144,11 +144,20 @@ impl PhysicsEngine {
     }
 
     pub fn add_entity(&mut self, entity: &Entity) {
+
+        let required_attributes = ["has_gravity", "has_collision", "creates_gravity"];
+        let should_skip = required_attributes.iter().all(|attr_name| entity.get_attribute_by_name(attr_name).is_err());
+
+        // Skip entities without the required attributes
+        if should_skip {
+            return;
+        }
+
         // Store position attribute ID for quick updates
         if let Ok(pos_attr) = entity.get_attribute_by_name("position") {
             self.entity_position_attrs.insert(entity.id, pos_attr.id);
         }
-        
+
         // Get physics properties from entity attributes
         let position = if let Ok(pos_attr) = entity.get_attribute_by_name("position") {
             if let AttributeValue::Vector2(x, y) = pos_attr.value {
@@ -193,11 +202,11 @@ impl PhysicsEngine {
             let mut rb = RigidBodyBuilder::dynamic()
                 .translation(position)
                 .gravity_scale(if affected_by_gravity { 1.0 } else { 0.0 });
-            
+
             if !can_rotate {
                 rb = rb.lock_rotations();
             }
-            
+
             rb.build()
         } else {
             RigidBodyBuilder::fixed()
@@ -301,16 +310,37 @@ impl PhysicsEngine {
 
         // Update positions using stored attribute IDs
         let mut updates = Vec::new();
-        
+
         for (entity_id, rb_handle) in &self.entity_to_body {
             if let Some(rb) = self.rigid_body_set.get(*rb_handle) {
                 if let Some(pos_attr_id) = self.entity_position_attrs.get(entity_id) {
                     let position = rb.translation();
+                    // println!("position: {:?}", position);
                     updates.push((
                         *entity_id,
                         *pos_attr_id,
                         AttributeValue::Vector2(position.x, position.y)
                     ));
+
+                    // Also update the entity's x and y, these are used to render in the view
+                    if let Some(entity) = scene.entities.get(entity_id) {
+                        if let Ok(x_attr) = entity.get_attribute_by_name("x") {
+                            updates.push((
+                                *entity_id,
+                                x_attr.id,
+                                AttributeValue::Float(position.x),
+                            ));
+                        }
+
+                        if let Ok(y_attr) = entity.get_attribute_by_name("y") {
+                            updates.push((
+                                *entity_id,
+                                y_attr.id,
+                                AttributeValue::Float(position.y),
+                            ));
+                        }
+                    }
+
                 }
             }
         }
@@ -333,7 +363,7 @@ impl PhysicsEngine {
         // Remove all physics objects
         self.rigid_body_set = RigidBodySet::new();
         self.collider_set = ColliderSet::new();
-        
+
         // Reset physics state with new instances
         self.island_manager = IslandManager::new();
         self.broad_phase = BroadPhaseMultiSap::new();
@@ -381,7 +411,7 @@ impl PhysicsEngine {
     // Get all entities colliding with this one
     pub fn get_colliding_entities(&self, entity_id: &Uuid) -> Vec<Uuid> {
         let mut colliding = Vec::new();
-        
+
         if let Some(collider_handle) = self.entity_to_collider.get(entity_id) {
             let contact_pairs = self.narrow_phase.contact_pairs_with(*collider_handle);
             for pair in contact_pairs {
@@ -390,7 +420,7 @@ impl PhysicsEngine {
                 } else {
                     pair.collider1
                 };
-                
+
                 // Find entity ID for this collider
                 for (entity_id, &handle) in &self.entity_to_collider {
                     if handle == other_handle {
@@ -400,7 +430,7 @@ impl PhysicsEngine {
                 }
             }
         }
-        
+
         colliding
     }
 

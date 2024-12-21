@@ -318,8 +318,52 @@ impl EngineGui {
                                 }
                             }
                         } else {
-                            // Render the game view first
-                            self.render_scene(ui);
+
+                            // Render only the viewport content when play in the GUI
+                            if self.game_runtime.get_state() == RuntimeState::Playing {
+                                // Try to get the active camera's rect from the scene
+                                let active_camera_rect = if let Some(scene_manager) = &self.gui_state.scene_manager {
+                                    if let Some(active_scene) = scene_manager.get_active_scene() {
+                                        if let Some(camera_id) = active_scene.default_camera {
+                                            if let Ok(camera_entity) = active_scene.get_entity(camera_id) {
+
+                                                let x = camera_entity.get_x();
+                                                let y = camera_entity.get_y();
+                                                let width = camera_entity.get_camera_width();
+                                                let height = camera_entity.get_camera_height();
+
+
+                                                let available_rect = ui.available_rect_before_wrap();
+                                                // Calculate and return the rect using camera size and ui available rect
+                                                Some(egui::Rect::from_min_size(
+                                                    // egui::pos2(x, y),
+                                                    egui::pos2(available_rect.min.x, available_rect.min.y),
+                                                    egui::vec2(width, height),
+                                                ))
+                                            } else {
+                                                None
+                                            }
+                                        } else {
+                                            None
+                                        }
+                                    } else {
+                                        None
+                                    }
+                                } else {
+                                    None
+                                };
+
+
+                                // If no camera use the whole ui available rect
+                                let game_view_rect = active_camera_rect.unwrap_or_else(|| ui.available_rect_before_wrap());
+
+                                self.game_runtime.update(ctx, ui, game_view_rect);
+                            } else {
+                                // Render the game view first
+                                self.render_scene(ui);
+                            }
+
+
 
                             // Get viewport rect for input handling
                             let viewport_rect = ui.max_rect();
@@ -611,20 +655,6 @@ impl EngineGui {
 
 impl eframe::App for EngineGui {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // Only handle input in the game runtime when playing
-        if self.game_runtime.get_state() == RuntimeState::Playing {
-            self.game_runtime.update(ctx);
-        } else {
-            // Otherwise handle input in the engine UI
-            ctx.input(|input| {
-                if input.key_pressed(egui::Key::T) {
-                    println!("T key detected in EngineGui update");
-                }
-                if input.key_pressed(egui::Key::Space) {
-                    println!("Space key detected in EngineGui update");
-                }
-            });
-        }
 
         egui::CentralPanel::default()
             .frame(egui::Frame {
