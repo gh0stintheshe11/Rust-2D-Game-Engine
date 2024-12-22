@@ -10,6 +10,7 @@ serde = { version = "1.0.210", features = ["derive"] }
 uuid = { version = "1.7.0", features = ["v4", "serde"] }
 serde_json = "1.0.128"
 rlua = "0.20.1"  # Lua support
+mlua = { version = "0.10.2", features = ["lua54", "vendored", "serialize"] }
 wgpu = "22.1.0"  # renderer for game rendering
 winit = "0.30.5"
 futures = "0.3.31"  # Required for wgpu async tasks

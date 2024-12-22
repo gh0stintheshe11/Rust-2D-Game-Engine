@@ -61,8 +61,8 @@ impl PhysicsEngine {
 
             // Physics runs at 60Hz (60 updates per second)
             integration_parameters: IntegrationParameters {
-                dt: 1.0 / 60.0,
-                min_ccd_dt: 1.0 / 60.0 / 100.0,
+                dt: 1.0 / 120.0,
+                min_ccd_dt: 1.0 / 120.0 / 100.0,
                 contact_damping_ratio: 0.0,
                 contact_natural_frequency: 30.0,
                 joint_natural_frequency: 30.0,
@@ -82,7 +82,7 @@ impl PhysicsEngine {
             query_pipeline: QueryPipeline::new(),
             entity_to_body: HashMap::new(),
             entity_to_collider: HashMap::new(),
-            time_step: 1.0 / 60.0,  // Default 60Hz physics
+            time_step: 1.0 / 120.0,  // Default 60Hz physics
             entity_position_attrs: HashMap::new(),
         }
     }

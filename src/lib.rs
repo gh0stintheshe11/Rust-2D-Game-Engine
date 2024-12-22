@@ -8,3 +8,4 @@ pub mod ecs;
 pub mod game_runtime;
 pub mod gui;
 pub mod script_interpreter;
+pub mod lua_scripting;
