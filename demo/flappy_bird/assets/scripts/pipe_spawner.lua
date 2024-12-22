@@ -92,8 +92,8 @@ function update(scene_id, entity_id)
             "top_pipe_",     -- Prefix for the pipe name
             random_x,        -- Random x position
             random_top_y,    -- Random y position
-            "/Users/Frank/Documents/school_work/Rust-2D-Game-Engine/demo/flappy_bird/assets/images/top_pipe.png",  -- image path
-            "/Users/Frank/Documents/school_work/Rust-2D-Game-Engine/demo/flappy_bird/assets/scripts/top_pipe1.lua" -- script path
+            "assets/images/top_pipe.png",  -- image path
+            "assets/scripts/top_pipe1.lua" -- script path
         )
 
         local bottom_pipe_id = create_pipe(
@@ -101,8 +101,8 @@ function update(scene_id, entity_id)
                     "top_pipe_",
                     random_x,
                     random_bottom_y,
-                    "/Users/Frank/Documents/school_work/Rust-2D-Game-Engine/demo/flappy_bird/assets/images/bottom_pipe.png",
-                    "/Users/Frank/Documents/school_work/Rust-2D-Game-Engine/demo/flappy_bird/assets/scripts/top_pipe1.lua"
+                    "assets/images/bottom_pipe.png",
+                    "assets/scripts/top_pipe1.lua"
                 )
 
         create_physics_attributes(scene_id, top_pipe_id, random_x, random_top_y)
