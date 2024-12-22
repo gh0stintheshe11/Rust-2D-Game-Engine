@@ -1361,6 +1361,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5443807d6dff69373d433ab9ef5378ad8df50ca6298caf15de6e52e24aaf54d5"
 
 [[package]]
+name = "erased-serde"
+version = "0.4.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "24e2389d65ab4fab27dc2a5de7b191e1f6617d1f1c8855c0dc569c94a4cbb18d"
+dependencies = [
+ "serde",
+ "typeid",
+]
+
+[[package]]
 name = "errno"
 version = "0.3.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2318,10 +2328,27 @@ dependencies = [
 ]
 
 [[package]]
-name = "mlua-sys"
-version = "0.6.3"
+name = "mlua"
+version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ebe026d6bd1583a9cf9080e189030ddaea7e6f5f0deb366a8e26f8a26c4135b8"
+checksum = "9ea43c3ffac2d0798bd7128815212dd78c98316b299b7a902dabef13dc7b6b8d"
+dependencies = [
+ "bstr",
+ "either",
+ "erased-serde",
+ "mlua-sys",
+ "num-traits",
+ "parking_lot",
+ "rustc-hash 2.0.0",
+ "serde",
+ "serde-value",
+]
+
+[[package]]
+name = "mlua-sys"
+version = "0.6.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "63a11d485edf0f3f04a508615d36c7d50d299cf61a7ee6d3e2530651e0a31771"
 dependencies = [
  "cc",
  "cfg-if",
@@ -2871,6 +2898,15 @@ dependencies = [
 
 [[package]]
 name = "ordered-float"
+version = "2.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "68f19d67e5a2795c94e73e0bb1cc1a7edeb2e28efd39e2e1c9b7a40c1108b11c"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
+name = "ordered-float"
 version = "4.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "44d501f1a72f71d3c063a6bbc8f7271fa73aa09fe5d6283b6571e2ed176a2537"
@@ -2941,7 +2977,7 @@ dependencies = [
  "nalgebra",
  "num-derive",
  "num-traits",
- "ordered-float",
+ "ordered-float 4.3.0",
  "rustc-hash 2.0.0",
  "simba",
  "slab",
@@ -3246,7 +3282,7 @@ dependencies = [
  "nalgebra",
  "num-derive",
  "num-traits",
- "ordered-float",
+ "ordered-float 4.3.0",
  "parry2d",
  "rustc-hash 2.0.0",
  "simba",
@@ -3424,7 +3460,7 @@ version = "0.20.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d43f01c44a4ea0d2c7faadac231a0fd906a438723aa4ee26599e71fa7b915abd"
 dependencies = [
- "mlua",
+ "mlua 0.9.9",
 ]
 
 [[package]]
@@ -3461,6 +3497,7 @@ dependencies = [
  "image",
  "indexmap",
  "lofty",
+ "mlua 0.10.2",
  "mockall",
  "rapier2d",
  "rayon",
@@ -3556,6 +3593,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c8e3592472072e6e22e0a54d5904d9febf8508f65fb8552499a1abc7d1078c3a"
 dependencies = [
  "serde_derive",
+]
+
+[[package]]
+name = "serde-value"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f3a1a3341211875ef120e117ea7fd5228530ae7e7036a779fdc9117be6b3282c"
+dependencies = [
+ "ordered-float 2.10.1",
+ "serde",
 ]
 
 [[package]]
@@ -4036,6 +4083,12 @@ checksum = "deb68604048ff8fa93347f02441e4487594adc20bb8a084f9e564d2b827a0a9f"
 dependencies = [
  "rustc-hash 1.1.0",
 ]
+
+[[package]]
+name = "typeid"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0e13db2e0ccd5e14a544e8a246ba2312cd25223f616442d7f2cb0e3db614236e"
 
 [[package]]
 name = "typenum"

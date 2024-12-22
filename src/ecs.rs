@@ -286,6 +286,15 @@ impl Scene {
         }
         Ok(())
     }
+
+    pub fn update_entity_attribute(&mut self, entity_id: Uuid, attr_id: Uuid, new_value: AttributeValue) -> Result<(), String> {
+        if let Some(entity) = self.entities.get_mut(&entity_id) {
+            entity.modify_attribute(attr_id, None, None, Some(new_value.clone()))?;
+        } else {
+            return Err(format!("Entity {} not found", entity_id));
+        }
+        Ok(())
+    }
 }
 
 // =============== Entity (Manages Attributes) ===============

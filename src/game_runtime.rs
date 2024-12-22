@@ -5,9 +5,11 @@ use crate::{
     audio_engine::AudioEngine,
     ecs::SceneManager,
     ecs::AttributeValue,
+    lua_scripting::LuaScripting,
 };
 use std::any::Any;
 use egui::Rect;
+use uuid::uuid;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum RuntimeState {
@@ -33,12 +35,13 @@ pub struct GameRuntime {
     running: bool,
     state: RuntimeState,
     game: Option<Box<dyn Game>>,
+    lua_scripting: LuaScripting,
 }
 
 impl GameRuntime {
     pub fn new(
         scene_manager: SceneManager,
-        physics_engine: PhysicsEngine,
+        mut physics_engine: PhysicsEngine,
         render_engine: RenderEngine,
         input_handler: InputHandler,
         audio_engine: AudioEngine,
@@ -59,6 +62,7 @@ impl GameRuntime {
             running: false,
             state: RuntimeState::Stopped,
             game: None,
+            lua_scripting: LuaScripting::new(),
         }
     }
 
@@ -179,6 +183,27 @@ impl GameRuntime {
             // Update game logic with the input handler
             if let Some(game) = &mut self.game {
                 game.update(&mut self.scene_manager, &self.input_handler, 1.0/60.0);
+            }
+
+            // Run script
+            match self.lua_scripting.load_scene_manager(&self.scene_manager) {
+                Ok(_) => println!("SceneManager loaded into Lua successfully."),
+                Err(err) => eprintln!("Error loading SceneManager into Lua: {}", err),
+            }
+            if let Some(active_scene_id) = self.scene_manager.active_scene {
+                self.lua_scripting.initialize_bindings_physics_engine(&mut self.physics_engine, &mut self.scene_manager).unwrap();
+                self.lua_scripting.initialize_bindings_ecs(&mut self.scene_manager).unwrap();
+
+                match self.lua_scripting.run_scripts_for_scene(&mut self.scene_manager, active_scene_id) {
+                    Ok(()) => {
+                        println!("SceneManager successfully updated after running scripts.");
+                    }
+                    Err(err) => {
+                        eprintln!("Error running scripts for scene {}: {}", active_scene_id, err);
+                    }
+                }
+            } else {
+                eprintln!("No active scene set in SceneManager.");
             }
 
             if let Some(scene) = self.scene_manager.get_active_scene_mut() {
