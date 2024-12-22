@@ -10,6 +10,7 @@ use crate::physics_engine::PhysicsEngine;
 use rapier2d::prelude::*;
 use std::path::PathBuf;
 use crate::gui::scene_hierarchy::predefined_entities::PREDEFINED_ENTITIES;
+use crate::project_manager::ProjectManager;
 
 pub struct LuaScripting {
     pub lua: Lua,
@@ -325,7 +326,8 @@ impl LuaScripting {
             let entity = scene.get_entity_mut(entity_uuid)
                 .map_err(|e| mlua::Error::external(format!("Entity '{}' not found: {}", entity_uuid, e)))?;
 
-            entity.add_image(PathBuf::from(image_path))
+            let full_image_path = PathBuf::from(ProjectManager::get_project_path().unwrap().to_string()).join(&image_path);
+            entity.add_image(full_image_path)
                 .map_err(|e| mlua::Error::external(format!("Failed to add image to entity '{}': {}", entity_uuid, e)))?;
 
             // println!("Image added to entity '{}'", entity_uuid);
@@ -346,7 +348,8 @@ impl LuaScripting {
             let entity = scene.get_entity_mut(entity_uuid)
                 .map_err(|e| mlua::Error::external(format!("Entity '{}' not found: {}", entity_uuid, e)))?;
 
-            entity.set_script(PathBuf::from(script_path))
+            let full_script_path = PathBuf::from(ProjectManager::get_project_path().unwrap().to_string()).join(&script_path);
+            entity.set_script(full_script_path)
                 .map_err(|e| mlua::Error::external(format!("Failed to set script for entity '{}': {}", entity_uuid, e)))?;
 
             // println!("Script set for entity '{}'", entity_uuid);
