@@ -7,6 +7,9 @@ use std::process::Command;
 use uuid::Uuid;
 use crate::ecs::SceneManager;
 
+use std::sync::RwLock;
+static PROJECT_PATH: RwLock<Option<String>> = RwLock::new(None);
+
 // Project metadata structure that holds basic project information
 // This is serialized to/from project.json
 #[derive(Serialize, Deserialize, Debug)]
@@ -32,6 +35,17 @@ impl ProjectManager {
     // Add constant definition
     const PROJECT_FILE_NAME: &'static str = "project.epm";
 
+    pub fn set_project_path(path: String) {
+        let mut project_path_lock = PROJECT_PATH.write().unwrap();
+        *project_path_lock = Some(path);
+    }
+
+    /// Get the global project path
+    pub fn get_project_path() -> Option<String> {
+        let project_path_lock = PROJECT_PATH.read().unwrap();
+        project_path_lock.clone()
+    }
+
     // Creates a new game project at the specified path
     // Sets up folder structure, creates initial files, and initializes scene manager
     pub fn create_project(project_path: &Path) -> Result<LoadedProject, String> {
@@ -48,6 +62,8 @@ impl ProjectManager {
             default_scene: "main.scene".to_string(),
             active_scene_id: None,
         };
+
+        Self::set_project_path(metadata.project_path.clone());
 
         // Set up project structure and files
         Self::create_folder_structure(project_path)?;
@@ -374,10 +390,10 @@ my_game_engine = {{ path = "../path/to/engine" }}
                 // }
 
                 // Update script
-                // if let Some(script) = entity.script.as_mut() {
-                //     let updated_path = update_asset_path(script.to_str().unwrap_or(""), project_path, asset_paths[3].1);
-                //     *script = PathBuf::from(updated_path);
-                // }
+                if let Some(script) = entity.script.as_mut() {
+                    let updated_path = update_asset_path(script.to_str().unwrap_or(""), project_path, asset_paths[3].1);
+                    *script = PathBuf::from(updated_path);
+                }
             }
         }
 
@@ -401,7 +417,9 @@ my_game_engine = {{ path = "../path/to/engine" }}
         
         // Load scene manager
         let scene_manager = Self::load_scene_hierarchy(project_path)?;
-        
+
+        Self::set_project_path(metadata.project_path.clone());
+
         // Return loaded project with updated metadata
         Ok(LoadedProject {
             metadata,
