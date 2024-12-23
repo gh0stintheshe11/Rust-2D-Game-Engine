@@ -2370,9 +2370,9 @@ Run `cargo run` in the terminal at the root directory of our project if you wish
 
 This video demonstrates the features and functionality of our game engine from a user perspective. Explore the GUI, menu options, and core functionalities in action.
 
-[![demo video](https://img.youtube.com/vi/4XV4LWwk4YA/0.jpg)](https://www.youtube.com/watch?v=4XV4LWwk4YA)
+[![demo video](https://img.youtube.com/vi/ks_OHG2IKlg/0.jpg)](https://www.youtube.com/watch?v=ks_OHG2IKlg)
 
-[Download the video demo here.](final_report_assets/demo.mp4)
+[Download the video demo here.](final_report_assets/demo_v2.mp4)
 
 ## Contributions
 
