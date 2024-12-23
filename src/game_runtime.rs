@@ -341,4 +341,9 @@ impl GameRuntime {
     pub fn set_game(&mut self, game: Box<dyn Game>) {
         self.game = Some(game);
     }
+
+    pub fn set_camera_state(&mut self, position: (f32, f32), zoom: f32) {
+        self.render_engine.camera.position = position;
+        self.render_engine.camera.zoom = zoom;
+    }
 }

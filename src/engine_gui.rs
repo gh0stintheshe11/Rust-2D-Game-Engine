@@ -343,43 +343,32 @@ impl EngineGui {
 
                             // Render only the viewport content when play in the GUI
                             if self.game_runtime.get_state() == RuntimeState::Playing {
-                                // Try to get the active camera's rect from the scene
-                                let active_camera_rect = if let Some(scene_manager) = &self.gui_state.scene_manager {
-                                    if let Some(active_scene) = scene_manager.get_active_scene() {
-                                        if let Some(camera_id) = active_scene.default_camera {
-                                            if let Ok(camera_entity) = active_scene.get_entity(camera_id) {
 
-                                                let x = camera_entity.get_x();
-                                                let y = camera_entity.get_y();
-                                                let width = camera_entity.get_camera_width();
-                                                let height = camera_entity.get_camera_height();
+                                // sync camera to runtime
+                                let position = self.render_engine.camera.position;
+                                let zoom = self.render_engine.camera.zoom;
+                                self.game_runtime.set_camera_state(position, zoom);
 
-
-                                                let available_rect = ui.available_rect_before_wrap();
-                                                // Calculate and return the rect using camera size and ui available rect
-                                                Some(egui::Rect::from_min_size(
-                                                    // egui::pos2(x, y),
-                                                    egui::pos2(available_rect.min.x, available_rect.min.y),
-                                                    egui::vec2(width, height),
-                                                ))
-                                            } else {
-                                                None
-                                            }
-                                        } else {
-                                            None
-                                        }
-                                    } else {
-                                        None
-                                    }
-                                } else {
-                                    None
-                                };
-
-
-                                // If no camera use the whole ui available rect
-                                let game_view_rect = active_camera_rect.unwrap_or_else(|| ui.available_rect_before_wrap());
-
+                                let game_view_rect = ui.available_rect_before_wrap();
                                 self.game_runtime.update(ctx, ui, game_view_rect);
+
+
+                                // Then draw the game camera bounds
+                                if let Some(scene_manager) = &self.gui_state.scene_manager {
+                                    if let Some(active_scene) = scene_manager.get_active_scene() {
+                                        let camera_lines = self.render_engine.get_game_camera_bounds(active_scene);
+                                        for (start, end) in camera_lines {
+                                            ui.painter().line_segment(
+                                                [
+                                                    egui::pos2(content_rect.min.x + start.0, content_rect.min.y + start.1),
+                                                    egui::pos2(content_rect.min.x + end.0, content_rect.min.y + end.1)
+                                                ],
+                                                egui::Stroke::new(2.0, egui::Color32::RED)
+                                            );
+                                        }
+                                    }
+                                }
+
                             } else {
                                 // Render the game view first
                                 self.render_scene(ui);
