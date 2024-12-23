@@ -2480,6 +2480,11 @@ This video demonstrates the features and functionality of our game engine from a
 
 [Download the video demo here.](final_report_assets/demo_v2.mp4)
 
+To run our Flappy Bird demo project, click on **File -> Open Project** and enter the demo project path. The demo project is already included under `demo/flappy_bird`. 
+
+**Example Path:**  
+`/Users/Frank/Documents/school_work/Rust-2D-Game-Engine/demo/flappy_bird/`
+
 ## Contributions
 
 **Lang Sun**:
