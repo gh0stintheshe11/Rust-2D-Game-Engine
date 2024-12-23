@@ -1092,7 +1092,7 @@ impl Entity {
 This ECS implementation provides a robust foundation for game development while maintaining flexibility, type safety, and performance. The comprehensive test suite ensures reliability and correct behavior across all system components.
 
 
-### [Script Interpreter](/src/script_interpreter.rs)
+### [Script Interpreter](/src/lua_scripting.rs)
 
 _The Script Interpreter provides a robust Lua scripting integration for the game engine, leveraging the [rlua](https://crates.io/crates/rlua) crate to enable safe and efficient Rust-Lua interoperability. This system allows developers to write game logic in Lua while maintaining the performance benefits of Rust._
 
@@ -1264,6 +1264,112 @@ fn test_handle_error_in_lua_script() {
    - Proper numeric type conversions
 
 This implementation provides a robust foundation for game logic scripting while maintaining the safety guarantees of Rust.
+
+#### Entity-Specific Updates and Examples
+
+Each entity in the game can have an associated Lua script. These scripts provide an `update(scene_id, entity_id)` entry function that is executed every frame. The `scene_id` represents the active scene, and the `entity_id` identifies the entity the script is attached to.
+
+#### Key Features of the Scripting System
+- **Entity-Specific Updates**
+  - The `update()` function is called every frame for each entity with a script attached.
+- **Predefined Lua Functions**
+  - Developers can modify entities, attributes, and physics using predefined Lua functions, such as:
+    - `add_entity`, `remove_entity`
+    - `set_x`, `set_y`, `set_z`
+    - `create_attribute_float`, `create_attribute_bool`
+    - `set_velocity`
+- **Dynamic Entity Behavior**:
+  - Scripts can dynamically generate, manipulate, or remove entities during gameplay.
+
+#### Example: Bird Movement Script
+This simple script, attached to a bird entity, sets its velocity every frame.
+
+```lua
+function update(scene_id, entity_id)
+    set_velocity(entity_id, 10.0, 0.0)
+end
+```
+
+#### Example: Pipe Generation Script
+The following script is attached to the background entity. It dynamically generates pipes that move from right to left and cleans up off-screen pipes.
+
+```lua
+-- Generate random name for pipes
+function generate_random_name(prefix)
+    local random_number = math.random(1, 100000)
+    return prefix .. tostring(random_number)
+end
+
+-- Create predefined attributes for physics entity
+function create_physics_attributes(scene_id, entity_id, x, y)
+    create_attribute_vector2(scene_id, entity_id, "position", x, y)
+    create_attribute_bool(scene_id, entity_id, "is_movable", true)
+    create_attribute_bool(scene_id, entity_id, "has_gravity", true)
+    create_attribute_bool(scene_id, entity_id, "creates_gravity", false)
+    create_attribute_bool(scene_id, entity_id, "has_collision", true)
+    create_attribute_bool(scene_id, entity_id, "can_rotate", true)
+    create_attribute_float(scene_id, entity_id, "friction", 0.5)
+    create_attribute_float(scene_id, entity_id, "restitution", 0.0)
+    create_attribute_float(scene_id, entity_id, "density", 1.0)
+end
+
+-- Create pipe entity
+function create_pipe(scene_id, pipe_name_prefix, x, y, image_path, script_path)
+    local pipe_name = generate_random_name(pipe_name_prefix)
+    local entity_id = add_entity(scene_id, pipe_name)
+    set_position(scene_id, entity_id, x, y)
+    add_image(entity_id, image_path)
+    set_script(entity_id, script_path)
+    return entity_id
+end
+
+-- Clean up off-screen pipes
+function cleanup_pipes(scene_id)
+    local entities = list_entities_name_x_y(scene_id)
+    for i = 1, #entities do
+        local entity = entities[i]
+        if string.sub(entity.name, 1, 9) == "top_pipe_" and entity.x < -30 then
+            remove_entity(scene_id, entity.id)
+            remove_entity_from_physics_engine(entity.id)
+        end
+        if string.sub(entity.name, 1, 12) == "bottom_pipe_" and entity.x < -30 then
+            remove_entity(scene_id, entity.id)
+            remove_entity_from_physics_engine(entity.id)
+        end
+    end
+end
+
+-- Main entry point
+function update(scene_id, entity_id)
+    if math.random() < 0.05 then
+        local random_x = math.random(300, 400)
+        local random_top_y = math.random(-200, -50)
+        local random_bottom_y = math.random(50, 150)
+
+        local top_pipe_id = create_pipe(
+            scene_id, "top_pipe_", random_x, random_top_y,
+            "assets/images/top_pipe.png", "assets/scripts/top_pipe1.lua"
+        )
+        local bottom_pipe_id = create_pipe(
+            scene_id, "bottom_pipe_", random_x, random_bottom_y,
+            "assets/images/bottom_pipe.png", "assets/scripts/bottom_pipe1.lua"
+        )
+
+        create_physics_attributes(scene_id, top_pipe_id, random_x, random_top_y)
+        create_physics_attributes(scene_id, bottom_pipe_id, random_x, random_bottom_y)
+        add_entity_to_physics_engine(top_pipe_id)
+        add_entity_to_physics_engine(bottom_pipe_id)
+        set_velocity(top_pipe_id, -10.0, 0.0)
+        set_velocity(bottom_pipe_id, -10.0, 0.0)
+        cleanup_pipes(scene_id)
+    end
+end
+```
+
+These examples demonstrate the flexibility and power of the Lua scripting system, enabling developers to define dynamic behaviors and interactions in their game projects.
+
+
+
 
 
 ### [Audio Engine](/src/audio_engine.rs)
