@@ -15,11 +15,6 @@ use eframe::egui;
 use std::fs;
 use std::path::PathBuf;
 
-use egui::text::LayoutJob;
-use syntect::highlighting::{ThemeSet, Style};
-use syntect::parsing::SyntaxSet;
-use syntect::easy::HighlightLines;
-
 struct ConsoleMessage {
     text: String,
     timestamp: chrono::DateTime<chrono::Local>,
@@ -306,41 +301,17 @@ impl EngineGui {
                                 egui::Color32::from_gray(40),
                             );
 
-                            fn highlight_lua_code(code: &str, dark_mode: bool) -> LayoutJob {
-                                let mut job = LayoutJob::default();
-
-                                let syntax_set = SyntaxSet::load_defaults_nonewlines();
-                                let syntax = syntax_set.find_syntax_by_extension("lua").unwrap();
-                                let theme_set = ThemeSet::load_defaults();
-                                // base16-ocean.dark, InspiredGitHub, Solarized (dark), Solarized (light)
-                                let theme_name = if dark_mode {
-                                    "base16-ocean.dark"
-                                } else {
-                                    "InspiredGitHub"
-                                };
-                                let theme = &theme_set.themes[theme_name];
-                                let mut highlighter = HighlightLines::new(syntax, theme);
-
-                                for line in code.lines() {
-                                    let ranges: Vec<(Style, &str)> = highlighter.highlight_line(line, &syntax_set).unwrap();
-                                    for (style, text) in ranges {
-                                        let color = egui::Color32::from_rgb(style.foreground.r, style.foreground.g, style.foreground.b);
-                                        let format = egui::TextFormat {
-                                            font_id: egui::FontId::monospace(12.0),
-                                            color,
-                                            ..Default::default()
-                                        };
-                                        job.append(text, 0.0, format);
-                                    }
-                                    job.append("\n", 0.0, egui::TextFormat::default());
-                                }
-                                job
-                            }
-
-                            let dark_mode = self.gui_state.dark_mode;
+                            let theme =
+                                egui_extras::syntax_highlighting::CodeTheme::from_memory(ui.ctx(), ui.style());
 
                             let mut layouter = |ui: &egui::Ui, string: &str, wrap_width: f32| {
-                                let mut layout_job = highlight_lua_code(string, dark_mode);
+                                let mut layout_job = egui_extras::syntax_highlighting::highlight(
+                                    ui.ctx(),
+                                    ui.style(),
+                                    &theme,
+                                    string,
+                                    "lua",
+                                );
                                 layout_job.wrap.max_width = wrap_width;
                                 ui.fonts(|f| f.layout_job(layout_job))
                             };
