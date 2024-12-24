@@ -186,6 +186,7 @@ impl GameRuntime {
             }
 
             // Run script
+            self.lua_scripting.update_global_time(1.0/self.target_fps as f32).expect("Failed to update global time");
             match self.lua_scripting.load_scene_manager(&self.scene_manager) {
                 Ok(_) => println!("SceneManager loaded into Lua successfully."),
                 Err(err) => eprintln!("Error loading SceneManager into Lua: {}", err),
@@ -193,6 +194,7 @@ impl GameRuntime {
             if let Some(active_scene_id) = self.scene_manager.active_scene {
                 self.lua_scripting.initialize_bindings_physics_engine(&mut self.physics_engine, &mut self.scene_manager).unwrap();
                 self.lua_scripting.initialize_bindings_ecs(&mut self.scene_manager).unwrap();
+                self.lua_scripting.initializing_global_variables();
 
                 match self.lua_scripting.run_scripts_for_scene(&mut self.scene_manager, active_scene_id) {
                     Ok(()) => {
@@ -340,5 +342,10 @@ impl GameRuntime {
 
     pub fn set_game(&mut self, game: Box<dyn Game>) {
         self.game = Some(game);
+    }
+
+    pub fn set_camera_state(&mut self, position: (f32, f32), zoom: f32) {
+        self.render_engine.camera.position = position;
+        self.render_engine.camera.zoom = zoom;
     }
 }

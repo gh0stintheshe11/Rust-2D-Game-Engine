@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use mlua::{Lua, Value as LuaValue, Result as LuaResult, Function as LuaFunction, Table as LuaTable};
 use crate::ecs::SceneManager;
 use crate::ecs::AttributeType;
@@ -12,19 +13,35 @@ use std::path::PathBuf;
 use crate::gui::scene_hierarchy::predefined_entities::PREDEFINED_ENTITIES;
 use crate::project_manager::ProjectManager;
 
+use serde::{Serialize, Deserialize};
+
+#[derive(Serialize, Deserialize, Debug, Default)]
+pub struct ScriptState {
+    pub state: HashMap<String, JsonValue>,
+}
+
 pub struct LuaScripting {
     pub lua: Lua,
+    accumulated_time: f32,
+    script_state: ScriptState,
 }
 
 impl LuaScripting {
     pub fn new() -> Self {
         LuaScripting {
             lua: Lua::new(),
+            accumulated_time: 0.0,
+            script_state: ScriptState::default(),
         }
     }
 }
 
-
+// In Lua:
+// - `accumulated_time` is read-only.
+// - `script_state` is writable.
+// - `scene_manager` was previously accessible for both reading and writing. However, for safety reasons
+//   and to ensure that position updates happen within the physics engine, `scene_manager` is no longer
+//   directly accessible. Instead, it can be read and modified through specific bound functions.
 impl LuaScripting {
 
     // This is for binding physics engine functions to Lua
@@ -101,9 +118,9 @@ impl LuaScripting {
         Ok(())
     }
 
-
     // This is for binding ECS functions to Lua
     pub fn initialize_bindings_ecs(&mut self, scene_manager: &mut SceneManager) -> Result<(), mlua::Error> {
+
         let scene_manager_ref = scene_manager as *mut SceneManager;
 
         // Binding add_entity
@@ -542,8 +559,36 @@ impl LuaScripting {
         Ok(())
     }
 
+    pub fn load_script_state(&self) -> Result<(), mlua::Error> {
+        // Serialize ScriptState as Lua userdata
+        let globals = self.lua.globals();
+        globals.set("script_state", self.lua.to_value(&self.script_state)?)?;
+        Ok(())
+    }
+
+    pub fn update_script_state(&mut self) -> Result<(), String> {
+        // Update the script_state from Lua
+        let globals = self.lua.globals();
+        let script_state_lua: LuaValue = globals
+            .get("script_state")
+            .map_err(|e| format!("Error accessing Lua script_state: {}", e))?;
+
+        let script_state_json = self.lua.from_value(script_state_lua).map_err(|e| {
+            eprintln!("Error converting Lua script_state to JSON: {:?}", e);
+            format!("Failed to convert Lua script_state to JSON: {}", e)
+        })?;
+
+        // Deserialize JSON into ScriptState
+        self.script_state = serde_json::from_value(script_state_json)
+            .map_err(|e| format!("Error deserializing JSON script_state: {}", e))?;
+
+        println!("Script state updated: {:?}", self.script_state);
+
+        Ok(())
+    }
+
     pub fn run_scripts_for_scene(
-        &self,
+        &mut self,
         scene_manager: &mut SceneManager,
         active_scene_id: Uuid,
     ) -> Result<(), String> {
@@ -573,6 +618,12 @@ impl LuaScripting {
                     .call::<()>((active_scene_id.to_string(), entity_id.to_string()))
                     .map_err(|e| format!("Error executing update() in script for entity {}: {}", entity_id, e))?;
             }
+        }
+
+        if let Err(e) = self.update_script_state() {
+            eprintln!("Error updating script state: {}", e);
+        } else {
+            println!("Script state updated successfully!");
         }
 
         println!("Lua scripts executed successfully for scene {}", active_scene_id);
@@ -755,6 +806,20 @@ impl LuaScripting {
             .map_err(|e| format!("Error executing Lua script: {}", e))
     }
 
+    pub fn initializing_global_variables(&mut self) {
+        self.update_global_time(0.0);
+        self.load_script_state();
+    }
+
+    pub fn update_global_time(&mut self, delta_time: f32) -> Result<(), String> {
+        // Increment accumulated time and sync with Lua
+        self.accumulated_time += delta_time;
+
+        self.lua
+            .globals()
+            .set("accumulated_time", self.accumulated_time)
+            .map_err(|e| e.to_string())
+    }
 
 }
 

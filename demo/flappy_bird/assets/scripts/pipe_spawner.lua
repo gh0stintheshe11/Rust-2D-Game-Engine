@@ -76,15 +76,31 @@ function cleanup_pipes(scene_id)
     end
 end
 
+print(accumulated_time);
+
 -- main entry point for Rust to call
 function update(scene_id, entity_id)
     --print("Updating entity " .. entity_id .. " in scene " .. scene_id)
 
-    if math.random() < 0.05 then
+    local script_key = "pipe_spawner"
+
+    if script_state["state"][script_key] == nil then
+        script_state["state"][script_key] = { last_trigger_time = 0.0 }
+    end
+    print("last_trigger_time:" .. script_state["state"][script_key].last_trigger_time)
+
+    local state = script_state["state"][script_key]
+
+    -- Time threshold for triggering (in seconds)
+    local time_interval = 2.0
+
+    if accumulated_time - state.last_trigger_time >= time_interval then
+        state.last_trigger_time = accumulated_time
+
         -- Generate random x and y positions
         local random_x = math.random(300, 400)
-        local random_top_y = math.random(-200, -50)
-        local random_bottom_y = math.random(50, 150)
+        local random_top_y = math.random(-100, -50) -- above top
+        local random_bottom_y = math.random(100, 150) -- at least below top pipe, otherwise they hit each other and stop outside of the scene
 
         -- Create top pipe
         local top_pipe_id = create_pipe(

@@ -15,11 +15,6 @@ use eframe::egui;
 use std::fs;
 use std::path::PathBuf;
 
-use egui::text::LayoutJob;
-use syntect::highlighting::{ThemeSet, Style};
-use syntect::parsing::SyntaxSet;
-use syntect::easy::HighlightLines;
-
 struct ConsoleMessage {
     text: String,
     timestamp: chrono::DateTime<chrono::Local>,
@@ -306,41 +301,17 @@ impl EngineGui {
                                 egui::Color32::from_gray(40),
                             );
 
-                            fn highlight_lua_code(code: &str, dark_mode: bool) -> LayoutJob {
-                                let mut job = LayoutJob::default();
-
-                                let syntax_set = SyntaxSet::load_defaults_nonewlines();
-                                let syntax = syntax_set.find_syntax_by_extension("lua").unwrap();
-                                let theme_set = ThemeSet::load_defaults();
-                                // base16-ocean.dark, InspiredGitHub, Solarized (dark), Solarized (light)
-                                let theme_name = if dark_mode {
-                                    "base16-ocean.dark"
-                                } else {
-                                    "InspiredGitHub"
-                                };
-                                let theme = &theme_set.themes[theme_name];
-                                let mut highlighter = HighlightLines::new(syntax, theme);
-
-                                for line in code.lines() {
-                                    let ranges: Vec<(Style, &str)> = highlighter.highlight_line(line, &syntax_set).unwrap();
-                                    for (style, text) in ranges {
-                                        let color = egui::Color32::from_rgb(style.foreground.r, style.foreground.g, style.foreground.b);
-                                        let format = egui::TextFormat {
-                                            font_id: egui::FontId::monospace(12.0),
-                                            color,
-                                            ..Default::default()
-                                        };
-                                        job.append(text, 0.0, format);
-                                    }
-                                    job.append("\n", 0.0, egui::TextFormat::default());
-                                }
-                                job
-                            }
-
-                            let dark_mode = self.gui_state.dark_mode;
+                            let theme =
+                                egui_extras::syntax_highlighting::CodeTheme::from_memory(ui.ctx(), ui.style());
 
                             let mut layouter = |ui: &egui::Ui, string: &str, wrap_width: f32| {
-                                let mut layout_job = highlight_lua_code(string, dark_mode);
+                                let mut layout_job = egui_extras::syntax_highlighting::highlight(
+                                    ui.ctx(),
+                                    ui.style(),
+                                    &theme,
+                                    string,
+                                    "lua",
+                                );
                                 layout_job.wrap.max_width = wrap_width;
                                 ui.fonts(|f| f.layout_job(layout_job))
                             };
@@ -372,43 +343,32 @@ impl EngineGui {
 
                             // Render only the viewport content when play in the GUI
                             if self.game_runtime.get_state() == RuntimeState::Playing {
-                                // Try to get the active camera's rect from the scene
-                                let active_camera_rect = if let Some(scene_manager) = &self.gui_state.scene_manager {
-                                    if let Some(active_scene) = scene_manager.get_active_scene() {
-                                        if let Some(camera_id) = active_scene.default_camera {
-                                            if let Ok(camera_entity) = active_scene.get_entity(camera_id) {
 
-                                                let x = camera_entity.get_x();
-                                                let y = camera_entity.get_y();
-                                                let width = camera_entity.get_camera_width();
-                                                let height = camera_entity.get_camera_height();
+                                // sync camera to runtime
+                                let position = self.render_engine.camera.position;
+                                let zoom = self.render_engine.camera.zoom;
+                                self.game_runtime.set_camera_state(position, zoom);
 
-
-                                                let available_rect = ui.available_rect_before_wrap();
-                                                // Calculate and return the rect using camera size and ui available rect
-                                                Some(egui::Rect::from_min_size(
-                                                    // egui::pos2(x, y),
-                                                    egui::pos2(available_rect.min.x, available_rect.min.y),
-                                                    egui::vec2(width, height),
-                                                ))
-                                            } else {
-                                                None
-                                            }
-                                        } else {
-                                            None
-                                        }
-                                    } else {
-                                        None
-                                    }
-                                } else {
-                                    None
-                                };
-
-
-                                // If no camera use the whole ui available rect
-                                let game_view_rect = active_camera_rect.unwrap_or_else(|| ui.available_rect_before_wrap());
-
+                                let game_view_rect = ui.available_rect_before_wrap();
                                 self.game_runtime.update(ctx, ui, game_view_rect);
+
+
+                                // Then draw the game camera bounds
+                                if let Some(scene_manager) = &self.gui_state.scene_manager {
+                                    if let Some(active_scene) = scene_manager.get_active_scene() {
+                                        let camera_lines = self.render_engine.get_game_camera_bounds(active_scene);
+                                        for (start, end) in camera_lines {
+                                            ui.painter().line_segment(
+                                                [
+                                                    egui::pos2(content_rect.min.x + start.0, content_rect.min.y + start.1),
+                                                    egui::pos2(content_rect.min.x + end.0, content_rect.min.y + end.1)
+                                                ],
+                                                egui::Stroke::new(2.0, egui::Color32::RED)
+                                            );
+                                        }
+                                    }
+                                }
+
                             } else {
                                 // Render the game view first
                                 self.render_scene(ui);
