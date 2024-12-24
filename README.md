@@ -2476,9 +2476,9 @@ Run `cargo run` in the terminal at the root directory of our project if you wish
 
 This video demonstrates the features and functionality of our game engine from a user perspective. Explore the GUI, menu options, and core functionalities in action.
 
-[![demo video](https://img.youtube.com/vi/ks_OHG2IKlg/0.jpg)](https://www.youtube.com/watch?v=ks_OHG2IKlg)
+[![demo video](https://img.youtube.com/vi/s1RrM8L6vfk/0.jpg)](https://www.youtube.com/watch?v=s1RrM8L6vfk)
 
-[Download the video demo here.](final_report_assets/demo_v2.mp4)
+[Download the video demo here.](final_report_assets/demo_v3.mp4)
 
 To run our Flappy Bird demo project, click on **File -> Open Project** and enter the demo project path. The demo project is already included under `demo/flappy_bird`. 
 
