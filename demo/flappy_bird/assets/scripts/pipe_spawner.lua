@@ -103,14 +103,14 @@ function update(scene_id, entity_id)
         local random_bottom_y = math.random(150, 200) -- at least below top pipe, otherwise they hit each other and stop outside of the scene
 
         -- Create top pipe
-  --      local top_pipe_id = create_pipe(
-    --        scene_id,
-      --      "top_pipe_",     -- Prefix for the pipe name
-        --    random_x,        -- Random x position
-          --  random_top_y,    -- Random y position
-            --"assets/images/top_pipe.png",  -- image path
-            --"assets/scripts/top_pipe1.lua" -- script path
-        --)
+        local top_pipe_id = create_pipe(
+            scene_id,
+            "top_pipe_",     -- Prefix for the pipe name
+            random_x,        -- Random x position
+            random_top_y,    -- Random y position
+            "assets/images/top_pipe.png",  -- image path
+            "assets/scripts/top_pipe1.lua" -- script path
+        )
 
         local bottom_pipe_id = create_pipe(
                     scene_id,
@@ -121,12 +121,12 @@ function update(scene_id, entity_id)
                     "assets/scripts/top_pipe1.lua"
                 )
 
-        --create_physics_attributes(scene_id, top_pipe_id, random_x, random_top_y)
+        create_physics_attributes(scene_id, top_pipe_id, random_x, random_top_y)
         create_physics_attributes(scene_id, bottom_pipe_id, random_x, random_bottom_y)
         cleanup_pipes(scene_id)
 
         ---- Add entity to physics engine, due to it has different frame rate
-        --add_entity_to_physics_engine(top_pipe_id)
+        add_entity_to_physics_engine(top_pipe_id)
         add_entity_to_physics_engine(bottom_pipe_id)
         ----print("top pipe new id: " .. top_pipe_id .. ", x: " .. random_x .. ", y: " .. random_y)
         --

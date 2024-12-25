@@ -120,13 +120,15 @@ impl PhysicsEngine {
             if let Ok(img) = image::open(image_path) {
                 let (width, height) = img.dimensions();
 
+                let offset = vector![width as f32 / 2.0, height as f32 / 2.0];
+
                 // If width and height are similar, use circle
                 if (width as f32 / height as f32).abs() > 0.9
                    && (width as f32 / height as f32).abs() < 1.1 {
-                    ColliderBuilder::ball(width as f32 / 2.0)
+                    ColliderBuilder::ball(width as f32 / 2.0).translation(offset)
                 } else {
                     // Otherwise use box
-                    ColliderBuilder::cuboid(width as f32 / 2.0, height as f32 / 2.0)
+                    ColliderBuilder::cuboid(width as f32 / 2.0, height as f32 / 2.0).translation(offset)
                 }
             } else {
                 ColliderBuilder::ball(0.5) // Default if can't load image
@@ -446,7 +448,7 @@ impl PhysicsEngine {
             if let Some(collider) = self.collider_set.get(*collider_handle) {
                 if let Some(rb_handle) = self.entity_to_body.get(entity_id) {
                     if let Some(rb) = self.rigid_body_set.get(*rb_handle) {
-                        let position = (rb.translation().x, rb.translation().y);
+                        let position = (collider.translation().x, collider.translation().y);
 
                         if let Some(ball) = collider.shape().as_ball() {
                             colliders.push((position, (ball.radius * 2.0, ball.radius * 2.0), "Circle".to_string()));
