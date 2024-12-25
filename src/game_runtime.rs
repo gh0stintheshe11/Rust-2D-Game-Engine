@@ -289,6 +289,37 @@ impl GameRuntime {
                         }
                     }
                 }
+
+                // render colliders
+                let collider_data = self.physics_engine.get_collider_data();
+                let collider_render_queue = self.render_engine.render_colliders(&collider_data);
+
+                for (screen_position, screen_size, shape) in collider_render_queue {
+                    match shape.as_str() {
+                        "Circle" => {
+                            let center = egui::pos2(
+                                viewport_rect.min.x + screen_position.0,
+                                viewport_rect.min.y + screen_position.1,
+                            );
+                            let radius = screen_size.0 / 2.0;
+                            ui.painter()
+                                .circle_stroke(center, radius, egui::Stroke::new(1.0, egui::Color32::RED));
+                        }
+                        "Rectangle" => {
+                            let rect = egui::Rect::from_min_size(
+                                egui::pos2(
+                                    viewport_rect.min.x + screen_position.0 - screen_size.0 / 2.0,
+                                    viewport_rect.min.y + screen_position.1 - screen_size.1 / 2.0,
+                                ),
+                                egui::vec2(screen_size.0, screen_size.1),
+                            );
+                            ui.painter()
+                                .rect_stroke(rect, 0.0, egui::Stroke::new(1.0, egui::Color32::BLUE));
+                        }
+                        _ => {}
+                    }
+                }
+
             } else {
                 // If we lost the active scene, stop the game
                 self.cleanup_and_reset();

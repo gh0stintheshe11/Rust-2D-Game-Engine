@@ -282,6 +282,39 @@ impl RenderEngine {
         render_queue
     }
 
+    // collider_data:
+    // - (f32, f32): The world coordinate of the collider (x, y).
+    // - (f32, f32): The size of the collider in world coordinate (width, height).
+    // - String: The shape of the collider (e.g., "Circle", "Rectangle").
+    pub fn render_colliders(
+        &mut self,
+        collider_data: &[((f32, f32), (f32, f32), String)],
+    ) -> Vec<((f32, f32), (f32, f32), String)> {
+        let mut render_queue = Vec::new();
+
+        for &(world_position, world_size, ref shape) in collider_data {
+            // Transform position to screen space
+            let screen_position = self.camera.world_to_screen(world_position);
+
+            // Adjust size based on zoom level
+            let screen_size = (
+                world_size.0 * self.camera.zoom,
+                world_size.1 * self.camera.zoom,
+            );
+
+            // Perform viewport culling
+            if screen_position.0 + screen_size.0 >= 0.0
+                && screen_position.0 <= self.viewport_size.0
+                && screen_position.1 + screen_size.1 >= 0.0
+                && screen_position.1 <= self.viewport_size.1
+            {
+                render_queue.push((screen_position, screen_size, shape.clone()));
+            }
+        }
+
+        render_queue
+    }
+
     pub fn new() -> Self {
         Self {
             viewport_size: (0.0, 0.0),

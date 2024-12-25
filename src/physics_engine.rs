@@ -434,6 +434,40 @@ impl PhysicsEngine {
         colliding
     }
 
+    // Get all colliders and gives a shape for rendering
+    // Returns:
+    // - (f32, f32): The world coordinate of the collider (x, y).
+    // - (f32, f32): The size of the collider in world coordinate (width, height).
+    // - String: The shape of the collider (e.g., "Circle", "Rectangle").
+    pub fn get_collider_data(&self) -> Vec<((f32, f32), (f32, f32), String)> {
+        let mut colliders = Vec::new();
+
+        for (entity_id, collider_handle) in &self.entity_to_collider {
+            if let Some(collider) = self.collider_set.get(*collider_handle) {
+                if let Some(rb_handle) = self.entity_to_body.get(entity_id) {
+                    if let Some(rb) = self.rigid_body_set.get(*rb_handle) {
+                        let position = (rb.translation().x, rb.translation().y);
+
+                        if let Some(ball) = collider.shape().as_ball() {
+                            colliders.push((position, (ball.radius * 2.0, ball.radius * 2.0), "Circle".to_string()));
+                        } else if let Some(cuboid) = collider.shape().as_cuboid() {
+                            colliders.push((
+                                position,
+                                (
+                                    cuboid.half_extents.x * 2.0,
+                                    cuboid.half_extents.y * 2.0,
+                                ),
+                                "Rectangle".to_string(),
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+
+        colliders
+    }
+
     // Angular motion
     pub fn get_angular_velocity(&self, entity_id: &Uuid) -> Option<Real> {
         self.entity_to_body.get(entity_id)
