@@ -192,9 +192,11 @@ impl GameRuntime {
                 Err(err) => eprintln!("Error loading SceneManager into Lua: {}", err),
             }
             if let Some(active_scene_id) = self.scene_manager.active_scene {
+                self.lua_scripting.initializing_global_variables(&self.input_handler);
                 self.lua_scripting.initialize_bindings_physics_engine(&mut self.physics_engine, &mut self.scene_manager).unwrap();
                 self.lua_scripting.initialize_bindings_ecs(&mut self.scene_manager).unwrap();
-                self.lua_scripting.initializing_global_variables();
+                self.lua_scripting.initialize_bindings_input_handler(&mut self.input_handler).unwrap();
+
 
                 match self.lua_scripting.run_scripts_for_scene(&mut self.scene_manager, active_scene_id) {
                     Ok(()) => {
@@ -287,6 +289,37 @@ impl GameRuntime {
                         }
                     }
                 }
+
+                // render colliders
+                let collider_data = self.physics_engine.get_collider_data();
+                let collider_render_queue = self.render_engine.render_colliders(&collider_data);
+
+                for (screen_position, screen_size, shape) in collider_render_queue {
+                    match shape.as_str() {
+                        "Circle" => {
+                            let center = egui::pos2(
+                                viewport_rect.min.x + screen_position.0,
+                                viewport_rect.min.y + screen_position.1,
+                            );
+                            let radius = screen_size.0 / 2.0;
+                            ui.painter()
+                                .circle_stroke(center, radius, egui::Stroke::new(1.0, egui::Color32::RED));
+                        }
+                        "Rectangle" => {
+                            let rect = egui::Rect::from_min_size(
+                                egui::pos2(
+                                    viewport_rect.min.x + screen_position.0 - screen_size.0 / 2.0,
+                                    viewport_rect.min.y + screen_position.1 - screen_size.1 / 2.0,
+                                ),
+                                egui::vec2(screen_size.0, screen_size.1),
+                            );
+                            ui.painter()
+                                .rect_stroke(rect, 0.0, egui::Stroke::new(1.0, egui::Color32::BLUE));
+                        }
+                        _ => {}
+                    }
+                }
+
             } else {
                 // If we lost the active scene, stop the game
                 self.cleanup_and_reset();

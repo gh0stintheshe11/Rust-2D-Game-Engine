@@ -92,7 +92,7 @@ function update(scene_id, entity_id)
     local state = script_state["state"][script_key]
 
     -- Time threshold for triggering (in seconds)
-    local time_interval = 2.0
+    local time_interval =5.0
 
     if accumulated_time - state.last_trigger_time >= time_interval then
         state.last_trigger_time = accumulated_time
@@ -100,7 +100,7 @@ function update(scene_id, entity_id)
         -- Generate random x and y positions
         local random_x = math.random(300, 400)
         local random_top_y = math.random(-100, -50) -- above top
-        local random_bottom_y = math.random(100, 150) -- at least below top pipe, otherwise they hit each other and stop outside of the scene
+        local random_bottom_y = math.random(150, 200) -- at least below top pipe, otherwise they hit each other and stop outside of the scene
 
         -- Create top pipe
         local top_pipe_id = create_pipe(
@@ -125,17 +125,17 @@ function update(scene_id, entity_id)
         create_physics_attributes(scene_id, bottom_pipe_id, random_x, random_bottom_y)
         cleanup_pipes(scene_id)
 
-        -- Add entity to physics engine, due to it has different frame rate
+        ---- Add entity to physics engine, due to it has different frame rate
         add_entity_to_physics_engine(top_pipe_id)
         add_entity_to_physics_engine(bottom_pipe_id)
-        --print("top pipe new id: " .. top_pipe_id .. ", x: " .. random_x .. ", y: " .. random_y)
-
-
-        local velocity_x = -10.0
-        local velocity_y = 0.0
-
-        set_velocity(top_pipe_id, velocity_x, velocity_y)
-        set_velocity(bottom_pipe_id, velocity_x, velocity_y)
+        ----print("top pipe new id: " .. top_pipe_id .. ", x: " .. random_x .. ", y: " .. random_y)
+        --
+        --
+        --local velocity_x = -10.0
+        --local velocity_y = 0.0
+        --
+        --set_velocity(top_pipe_id, velocity_x, velocity_y)
+        --set_velocity(bottom_pipe_id, velocity_x, velocity_y)
 
 
     end
