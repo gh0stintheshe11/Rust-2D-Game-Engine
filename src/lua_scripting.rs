@@ -10,8 +10,10 @@ use mlua::{LuaSerdeExt, UserData};
 use crate::physics_engine::PhysicsEngine;
 use rapier2d::prelude::*;
 use std::path::PathBuf;
+use egui::Key;
 use crate::gui::scene_hierarchy::predefined_entities::PREDEFINED_ENTITIES;
 use crate::project_manager::ProjectManager;
+use crate::input_handler::InputHandler;
 
 use serde::{Serialize, Deserialize};
 
@@ -75,6 +77,57 @@ impl LuaScripting {
         })?;
         self.lua.globals().set("set_velocity", set_velocity)?;
 
+        // Binding apply_force
+        let apply_force = self.lua.create_function(move |_, (entity_id, x, y): (String, f32, f32)| {
+            let physics_engine = unsafe { &mut *physics_engine_ref };
+
+            let uuid = Uuid::parse_str(&entity_id).map_err(|e| {
+                eprintln!("Invalid UUID '{}': {}", entity_id, e);
+                mlua::Error::external(format!("Invalid UUID '{}': {}", entity_id, e))
+            })?;
+
+            if !physics_engine.has_rigid_body(&uuid) {
+                eprintln!("Entity '{}' not found in physics engine.", uuid);
+                return Err(mlua::Error::external(format!(
+                    "Entity '{}' not found in physics engine",
+                    uuid
+                )));
+            }
+
+            // Set the force
+            let force = vector![x, y];
+            // eprintln!("Setting force for entity '{}': {:?}", uuid, force);
+            physics_engine.apply_force(&uuid, force);
+
+            Ok(())
+        })?;
+        self.lua.globals().set("apply_force", apply_force)?;
+
+        // Binding apply_impulse
+        let apply_impulse = self.lua.create_function(move |_, (entity_id, x, y): (String, f32, f32)| {
+            let physics_engine = unsafe { &mut *physics_engine_ref };
+
+            let uuid = Uuid::parse_str(&entity_id).map_err(|e| {
+                eprintln!("Invalid UUID '{}': {}", entity_id, e);
+                mlua::Error::external(format!("Invalid UUID '{}': {}", entity_id, e))
+            })?;
+
+            if !physics_engine.has_rigid_body(&uuid) {
+                eprintln!("Entity '{}' not found in physics engine.", uuid);
+                return Err(mlua::Error::external(format!(
+                    "Entity '{}' not found in physics engine",
+                    uuid
+                )));
+            }
+
+            // Set the impulse
+            let impulse = vector![x, y];
+            // eprintln!("Setting impulse for entity '{}': {:?}", uuid, impulse);
+            physics_engine.apply_impulse(&uuid, impulse);
+
+            Ok(())
+        })?;
+        self.lua.globals().set("apply_impulse", apply_impulse)?;
 
         // Binding add_entity (Rust) to add_entity_to_physics_engine (Lua)
         let add_entity_to_physics_engine = self.lua.create_function(move |_, entity_id: String| {
@@ -116,6 +169,33 @@ impl LuaScripting {
 
         println!("Lua physics engine bindings initialized successfully.");
         Ok(())
+    }
+
+    pub fn initialize_bindings_input_handler(&mut self, input_handler: &mut InputHandler) -> Result<(), mlua::Error> {
+
+        let input_handler_ref = input_handler as *mut InputHandler;
+
+        // Binding is_key_just_pressed
+        let is_key_just_pressed = self.lua.create_function(move |_, key: String| {
+            let input_handler = unsafe { &*input_handler_ref };
+
+            // Convert the key string to a Key enum
+            let parsed_key = Key::from_name(&key).ok_or_else(|| {
+                let error_message = format!("Invalid key '{}'", key);
+                eprintln!("{}", error_message);
+                mlua::Error::external(error_message)
+            })?;
+
+            // Check if the key was just pressed
+            let just_pressed = input_handler.is_key_just_pressed(parsed_key);
+
+            Ok(just_pressed)
+        })?;
+        self.lua.globals().set("is_key_just_pressed", is_key_just_pressed)?;
+
+        println!("Lua input handler bindings initialized successfully.");
+        Ok(())
+
     }
 
     // This is for binding ECS functions to Lua
@@ -806,9 +886,10 @@ impl LuaScripting {
             .map_err(|e| format!("Error executing Lua script: {}", e))
     }
 
-    pub fn initializing_global_variables(&mut self) {
+    pub fn initializing_global_variables(&mut self, input_handler: &InputHandler) {
         self.update_global_time(0.0);
         self.load_script_state();
+        self.bind_keys_pressed(input_handler).unwrap();
     }
 
     pub fn update_global_time(&mut self, delta_time: f32) -> Result<(), String> {
@@ -819,6 +900,15 @@ impl LuaScripting {
             .globals()
             .set("accumulated_time", self.accumulated_time)
             .map_err(|e| e.to_string())
+    }
+
+    pub fn bind_keys_pressed(&self, input_handler: &InputHandler) -> Result<(), mlua::Error> {
+        let keys_pressed_table = self.lua.create_table()?;
+        for (index, key) in input_handler.get_all_active_inputs().iter().enumerate() {
+            keys_pressed_table.set(index + 1, key.to_string())?;
+        }
+        self.lua.globals().set("keys_pressed", keys_pressed_table)?;
+        Ok(())
     }
 
 }

@@ -192,9 +192,11 @@ impl GameRuntime {
                 Err(err) => eprintln!("Error loading SceneManager into Lua: {}", err),
             }
             if let Some(active_scene_id) = self.scene_manager.active_scene {
+                self.lua_scripting.initializing_global_variables(&self.input_handler);
                 self.lua_scripting.initialize_bindings_physics_engine(&mut self.physics_engine, &mut self.scene_manager).unwrap();
                 self.lua_scripting.initialize_bindings_ecs(&mut self.scene_manager).unwrap();
-                self.lua_scripting.initializing_global_variables();
+                self.lua_scripting.initialize_bindings_input_handler(&mut self.input_handler).unwrap();
+
 
                 match self.lua_scripting.run_scripts_for_scene(&mut self.scene_manager, active_scene_id) {
                     Ok(()) => {
