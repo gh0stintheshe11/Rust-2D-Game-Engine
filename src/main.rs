@@ -9,6 +9,7 @@ mod physics_engine;
 mod render_engine;
 mod game_runtime;
 mod lua_scripting;
+mod logger;
 
 fn main() -> Result<(), eframe::Error> {
     let options = eframe::NativeOptions {

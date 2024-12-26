@@ -3646,6 +3646,7 @@ dependencies = [
  "lofty",
  "mlua 0.10.2",
  "mockall",
+ "once_cell",
  "rapier2d",
  "rayon",
  "rfd",
