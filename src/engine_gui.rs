@@ -14,31 +14,7 @@ use crate::gui::inspector::Inspector;
 use eframe::egui;
 use std::fs;
 use std::path::PathBuf;
-
-struct ConsoleMessage {
-    text: String,
-    timestamp: chrono::DateTime<chrono::Local>,
-    message_type: ConsoleMessageType,
-}
-
-enum ConsoleMessageType {
-    Info,
-    Warning,
-    Error,
-    Debug,
-}
-
-impl ConsoleMessage {
-    fn new(text: String, message_type: ConsoleMessageType) -> Self {
-        Self {
-            text,
-            timestamp: chrono::Local::now(),
-            message_type,
-        }
-    }
-}
-
-const MAX_CONSOLE_MESSAGES: usize = 1000; // Adjust this number as needed
+use crate::logger::{LOGGER, ConsoleMessageType, ConsoleMessage};
 
 pub struct EngineGui {
     // Window States
@@ -61,6 +37,7 @@ pub struct EngineGui {
     input_handler: InputHandler,
 
     console_messages: Vec<ConsoleMessage>,
+    selected_log_level: ConsoleMessageType,
 
     game_runtime: GameRuntime,
 
@@ -96,6 +73,7 @@ impl EngineGui {
             render_engine,
             input_handler,
             console_messages: Vec::new(),
+            selected_log_level: ConsoleMessageType::Info,
             game_runtime,
             editor_content: String::new(),
             current_edited_file: None,
@@ -145,7 +123,7 @@ impl EngineGui {
                             self.show_editor = false;
                             if let Some(path) = &self.current_edited_file {
                                 if let Err(err) = fs::write(path, &self.editor_content) {
-                                    self.log_error(format!("Failed to save file: {}", err));
+                                    LOGGER.error(format!("Failed to save file: {}", err));
                                 }
                             }
                         }
@@ -261,28 +239,16 @@ impl EngineGui {
                             });
                             ui.separator();
                             if self.show_debug {
-                                ui.label("Debug info will go here");
+                                self.show_console_messages(ui, &self.console_messages, ConsoleMessageType::Debug);
                             } else {
-                                egui::ScrollArea::vertical()
-                                    .stick_to_bottom(true)
-                                    .show_viewport(ui, |ui, _| {
-                                        for message in &self.console_messages {
-                                            let time_str = message.timestamp.format("%H:%M:%S").to_string();
-
-                                            let (prefix, color) = match message.message_type {
-                                                ConsoleMessageType::Info => ("ℹ", egui::Color32::LIGHT_BLUE),
-                                                ConsoleMessageType::Warning => ("⚠", egui::Color32::YELLOW),
-                                                ConsoleMessageType::Error => ("❌", egui::Color32::RED),
-                                                ConsoleMessageType::Debug => ("🔧", egui::Color32::GRAY),
-                                            };
-
-                                            ui.horizontal(|ui| {
-                                                ui.label(format!("[{}]", time_str));
-                                                ui.colored_label(color, prefix);
-                                                ui.label(&message.text);
-                                            });
-                                        }
+                                egui::ComboBox::from_label("Log Level")
+                                    .selected_text(format!("{:?}", self.selected_log_level))
+                                    .show_ui(ui, |ui| {
+                                        ui.selectable_value(&mut self.selected_log_level, ConsoleMessageType::Info, "Info");
+                                        ui.selectable_value(&mut self.selected_log_level, ConsoleMessageType::Warning, "Warning");
+                                        ui.selectable_value(&mut self.selected_log_level, ConsoleMessageType::Error, "Error");
                                     });
+                                self.show_console_messages(ui, &self.console_messages, self.selected_log_level.clone());
                             }
                         });
                 }
@@ -334,7 +300,7 @@ impl EngineGui {
                                     if response.changed() {
                                         if let Some(path) = &self.current_edited_file {
                                             if let Err(err) = fs::write(path, &self.editor_content) {
-                                                self.log_error(format!("Failed to save file: {}", err));
+                                                LOGGER.error(format!("Failed to save file: {}", err));
                                             }
                                         }
                                     }
@@ -404,11 +370,11 @@ impl EngineGui {
                                                 match self.game_runtime.run() {
                                                     Ok(_) => {
                                                         self.game_runtime.set_state(RuntimeState::Playing);
-                                                        self.log_info("Game started successfully");
+                                                        LOGGER.info("Game started successfully");
                                                     }
                                                     Err(error) => {
                                                         self.game_runtime.set_state(RuntimeState::Stopped);
-                                                        self.log_error(format!("Failed to start game: {}", error));
+                                                        LOGGER.error(format!("Failed to start game: {}", error));
                                                     }
                                                 }
                                             }
@@ -522,6 +488,38 @@ impl EngineGui {
             });
     }
 
+    fn show_console_messages(&self, ui: &mut egui::Ui, console_messages: &Vec<ConsoleMessage>, selected_level: ConsoleMessageType) {
+        egui::ScrollArea::vertical()
+            .stick_to_bottom(true)
+            .show_viewport(ui, |ui, _| {
+                for message in console_messages {
+                    let should_show = if selected_level == ConsoleMessageType::Debug {
+                        message.message_type == ConsoleMessageType::Debug
+                    } else {
+                        message.message_type >= selected_level && message.message_type != ConsoleMessageType::Debug
+                    };
+
+                    if should_show {
+                        let time_str = message.timestamp.format("%H:%M:%S").to_string();
+
+                        let (prefix, color) = match message.message_type {
+                            ConsoleMessageType::Info => ("ℹ", egui::Color32::LIGHT_BLUE),
+                            ConsoleMessageType::Warning => ("⚠", egui::Color32::YELLOW),
+                            ConsoleMessageType::Error => ("❌", egui::Color32::RED),
+                            ConsoleMessageType::Debug => ("🔧", egui::Color32::GRAY),
+                        };
+
+                        ui.horizontal(|ui| {
+                            ui.label(format!("[{}]", time_str));
+                            ui.colored_label(color, prefix);
+                            ui.label(&message.text);
+                            ui.allocate_exact_size(egui::Vec2::new(ui.available_width(), 0.0), egui::Sense::hover());
+                        });
+                    }
+                }
+            });
+    }
+
     fn get_background_color(&self) -> egui::Color32 {
         if self.gui_state.dark_mode {
             egui::Color32::from_gray(30) // Dark gray
@@ -616,43 +614,6 @@ impl EngineGui {
         }
     }
 
-    fn add_message(&mut self, message: ConsoleMessage) {
-        self.console_messages.push(message);
-        // Remove oldest messages if we exceed the limit
-        if self.console_messages.len() > MAX_CONSOLE_MESSAGES {
-            let excess = self.console_messages.len() - MAX_CONSOLE_MESSAGES;
-            self.console_messages.drain(0..excess);
-        }
-    }
-
-    pub fn log_info(&mut self, message: impl Into<String>) {
-        self.add_message(ConsoleMessage::new(
-            message.into(),
-            ConsoleMessageType::Info,
-        ));
-    }
-
-    pub fn log_warning(&mut self, message: impl Into<String>) {
-        self.add_message(ConsoleMessage::new(
-            message.into(),
-            ConsoleMessageType::Warning,
-        ));
-    }
-
-    pub fn log_error(&mut self, message: impl Into<String>) {
-        self.add_message(ConsoleMessage::new(
-            message.into(),
-            ConsoleMessageType::Error,
-        ));
-    }
-
-    pub fn log_debug(&mut self, message: impl Into<String>) {
-        self.add_message(ConsoleMessage::new(
-            message.into(),
-            ConsoleMessageType::Debug,
-        ));
-    }
-
     fn sync_scene_manager_to_runtime(&mut self) {
         // Get the scene manager from GUI state
         if let Some(gui_scene_manager) = &self.gui_state.scene_manager {
@@ -680,5 +641,7 @@ impl eframe::App for EngineGui {
                 let rect = ui.max_rect();
                 self.show_windows(ctx);
             });
+
+        self.console_messages = LOGGER.get_console_messages();
     }
 }

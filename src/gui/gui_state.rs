@@ -2,6 +2,7 @@ use crate::ecs::SceneManager;
 use crate::project_manager::ProjectMetadata;
 use std::path::PathBuf;
 use uuid::Uuid;
+use std::sync::{Arc, Mutex};
 
 pub enum SelectedItem {
     None,
@@ -35,6 +36,11 @@ pub struct GuiState {
 
     pub selected_item: SelectedItem,
     pub scene_panel_selected_item: ScenePanelSelectedItem,
+
+    pub build_result: Arc<Mutex<Option<Result<(), String>>>>,
+    pub is_building: Arc<Mutex<bool>>,
+    pub show_build_project_popup: bool,
+
 }
 
 impl GuiState {
@@ -56,6 +62,10 @@ impl GuiState {
 
             selected_item: SelectedItem::None,
             scene_panel_selected_item: ScenePanelSelectedItem::None,
+
+            build_result: Arc::new(Mutex::new(None)),
+            is_building: Arc::new(Mutex::new(false)),
+            show_build_project_popup: false,
         }
     }
 }

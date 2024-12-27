@@ -62,6 +62,9 @@ impl MenuBar {
             ui.menu_button("Project", |ui| {
                 self.project_menu.show(ctx, ui, gui_state);
             });
+
+            // Render popup window globally
+            self.project_menu.show_active_popup(ctx, gui_state);
         });
     }
 
