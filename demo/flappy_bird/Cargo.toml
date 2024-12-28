@@ -4,4 +4,4 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-rust-2d-game-engine = { path = "../../" }
+rust-2d-game-engine = { path = "/Users/Frank/Documents/school_work/Rust-2D-Game-Engine/" }

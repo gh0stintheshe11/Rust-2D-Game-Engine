@@ -10,3 +10,4 @@ pub mod gui;
 pub mod script_interpreter;
 pub mod lua_scripting;
 pub mod logger;
+pub use eframe;
