@@ -57,7 +57,7 @@ impl PhysicsEngine {
     pub fn new() -> Self {
         Self {
             // Default gravity points downward (-Y direction)
-            gravity: vector![0.0, 9.81],
+            gravity: vector![0.0, 50.0],
 
             // Physics runs at 60Hz (60 updates per second)
             integration_parameters: IntegrationParameters {
