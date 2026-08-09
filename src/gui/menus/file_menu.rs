@@ -101,6 +101,7 @@ impl FileMenu {
                                             gui_state.load_project = true;
 
                                             gui_state.project_metadata = Some(metadata);
+                                            gui_state.undo_stack.reset(&scene_manager);
                                             gui_state.scene_manager = Some(scene_manager);
 
                                             gui_state.show_new_project_popup = false;
@@ -177,6 +178,7 @@ impl FileMenu {
                                     gui_state.load_project = true;
 
                                     gui_state.project_metadata = Some(metadata);
+                                    gui_state.undo_stack.reset(&scene_manager);
                                     gui_state.scene_manager = Some(scene_manager);
 
                                     gui_state.show_open_project_popup = false;

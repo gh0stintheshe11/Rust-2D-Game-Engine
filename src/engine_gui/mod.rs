@@ -118,6 +118,32 @@ impl EngineGui {
         let spacing = 4.0;
         let min_side_panel_width = 200.0;
 
+        // Scene undo/redo shortcuts, only when no text field is focused
+        // (focused TextEdits have their own Ctrl+Z handling)
+        if ctx.memory(|m| m.focused().is_none()) {
+            let undo_pressed = ctx.input_mut(|i| {
+                i.consume_shortcut(&egui::KeyboardShortcut::new(
+                    egui::Modifiers::CTRL,
+                    egui::Key::Z,
+                ))
+            });
+            let redo_pressed = ctx.input_mut(|i| {
+                i.consume_shortcut(&egui::KeyboardShortcut::new(
+                    egui::Modifiers::CTRL,
+                    egui::Key::Y,
+                )) || i.consume_shortcut(&egui::KeyboardShortcut::new(
+                    egui::Modifiers::CTRL | egui::Modifiers::SHIFT,
+                    egui::Key::Z,
+                ))
+            });
+            if undo_pressed {
+                crate::gui::scene_hierarchy::utils::perform_undo(&mut self.gui_state);
+            }
+            if redo_pressed {
+                crate::gui::scene_hierarchy::utils::perform_redo(&mut self.gui_state);
+            }
+        }
+
         // Another panel (hierarchy, inspector, files) asked to open a script
         if let Some(path) = self.gui_state.open_script_request.take() {
             match fs::read_to_string(&path) {
@@ -930,7 +956,7 @@ impl EngineGui {
         if response.drag_stopped_by(egui::PointerButton::Primary)
             && self.viewport_drag.take().is_some()
         {
-            crate::gui::scene_hierarchy::utils::save_project(&self.gui_state);
+            crate::gui::scene_hierarchy::utils::save_project(&mut self.gui_state);
         }
     }
 
@@ -998,7 +1024,7 @@ impl EngineGui {
         match self.gui_state.exit_request {
             ExitRequest::SaveAndExit => {
                 self.save_editor_if_dirty();
-                crate::gui::scene_hierarchy::utils::save_project(&self.gui_state);
+                crate::gui::scene_hierarchy::utils::save_project_without_commit(&self.gui_state);
                 self.allow_close = true;
                 ctx.send_viewport_cmd(egui::ViewportCommand::Close);
             }

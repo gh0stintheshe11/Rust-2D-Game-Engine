@@ -1,7 +1,19 @@
-use crate::gui::gui_state::GuiState;
+use crate::gui::gui_state::{GuiState, ScenePanelSelectedItem, SelectedItem};
+use crate::logger::LOGGER;
 use crate::project_manager::ProjectManager;
 
-pub fn save_project(gui_state: &GuiState) {
+/// Persist the project AND record the state in the undo history.
+/// Every completed editor mutation should go through here.
+pub fn save_project(gui_state: &mut GuiState) {
+    save_project_without_commit(gui_state);
+    if let Some(scene_manager) = &gui_state.scene_manager {
+        gui_state.undo_stack.commit(scene_manager);
+    }
+}
+
+/// Persist the project without touching the undo history (used by
+/// undo/redo themselves and by exit-time saving).
+pub fn save_project_without_commit(gui_state: &GuiState) {
     if let (Some(scene_manager), Some(project_metadata)) =
         (&gui_state.scene_manager, &gui_state.project_metadata)
     {
@@ -15,6 +27,29 @@ pub fn save_project(gui_state: &GuiState) {
         }
     } else {
         println!("Error: Scene manager or project metadata is missing.");
+    }
+}
+
+/// Restore the previous committed state (Ctrl+Z / Edit > Undo).
+pub fn perform_undo(gui_state: &mut GuiState) {
+    if let Some(state) = gui_state.undo_stack.undo() {
+        gui_state.scene_manager = Some(state);
+        // Selections may point at entities that no longer exist
+        gui_state.selected_item = SelectedItem::None;
+        gui_state.scene_panel_selected_item = ScenePanelSelectedItem::None;
+        save_project_without_commit(gui_state);
+        LOGGER.info("Undo");
+    }
+}
+
+/// Re-apply the next state (Ctrl+Y / Edit > Redo).
+pub fn perform_redo(gui_state: &mut GuiState) {
+    if let Some(state) = gui_state.undo_stack.redo() {
+        gui_state.scene_manager = Some(state);
+        gui_state.selected_item = SelectedItem::None;
+        gui_state.scene_panel_selected_item = ScenePanelSelectedItem::None;
+        save_project_without_commit(gui_state);
+        LOGGER.info("Redo");
     }
 }
 

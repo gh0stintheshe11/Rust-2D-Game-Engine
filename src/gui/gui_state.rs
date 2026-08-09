@@ -31,6 +31,77 @@ pub enum ExitRequest {
     ExitWithoutSaving,
 }
 
+/// Snapshot-based undo/redo over the scene manager.
+///
+/// Every completed editor mutation *commits* the resulting state (the same
+/// places that save the project). Undo restores the previous committed
+/// state; redo walks forward again. `states` always ends with the current
+/// committed state.
+pub struct UndoStack {
+    states: Vec<SceneManager>,
+    redo: Vec<SceneManager>,
+}
+
+impl Default for UndoStack {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl UndoStack {
+    const LIMIT: usize = 50;
+
+    pub fn new() -> Self {
+        Self {
+            states: Vec::new(),
+            redo: Vec::new(),
+        }
+    }
+
+    /// Start a fresh history (project open / new project).
+    pub fn reset(&mut self, initial: &SceneManager) {
+        self.states = vec![initial.clone()];
+        self.redo.clear();
+    }
+
+    /// Record the state after a completed mutation.
+    pub fn commit(&mut self, state: &SceneManager) {
+        self.states.push(state.clone());
+        if self.states.len() > Self::LIMIT {
+            self.states.remove(0);
+        }
+        self.redo.clear();
+    }
+
+    pub fn can_undo(&self) -> bool {
+        self.states.len() >= 2
+    }
+
+    pub fn can_redo(&self) -> bool {
+        !self.redo.is_empty()
+    }
+
+    /// Step back one committed state; returns the state to restore.
+    pub fn undo(&mut self) -> Option<SceneManager> {
+        if self.states.len() < 2 {
+            return None;
+        }
+        let current = self.states.pop().expect("len checked");
+        self.redo.push(current);
+        Some(self.states.last().expect("len checked").clone())
+    }
+
+    /// Step forward one undone state; returns the state to restore.
+    pub fn redo(&mut self) -> Option<SceneManager> {
+        let state = self.redo.pop()?;
+        self.states.push(state.clone());
+        if self.states.len() > Self::LIMIT {
+            self.states.remove(0);
+        }
+        Some(state)
+    }
+}
+
 pub struct GuiState {
     pub dark_mode: bool,
     pub show_new_project_popup: bool,
@@ -58,6 +129,8 @@ pub struct GuiState {
     /// Set by any panel that wants a script opened in the code editor;
     /// consumed by the editor shell each frame.
     pub open_script_request: Option<PathBuf>,
+
+    pub undo_stack: UndoStack,
 }
 
 impl Default for GuiState {
@@ -93,6 +166,8 @@ impl GuiState {
             exit_request: ExitRequest::None,
 
             open_script_request: None,
+
+            undo_stack: UndoStack::new(),
         }
     }
 }

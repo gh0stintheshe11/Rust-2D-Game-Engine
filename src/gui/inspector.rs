@@ -1,9 +1,9 @@
 use crate::audio_engine::AudioEngine;
 use crate::ecs::{AttributeType, AttributeValue, Entity};
 use crate::gui::gui_state::{GuiState, SelectedItem};
+use crate::gui::scene_hierarchy::utils;
 use crate::gui::scene_hierarchy::utils::format_file_size;
 use crate::logger::LOGGER;
-use crate::project_manager::ProjectManager;
 use eframe::egui;
 use eframe::egui::{ColorImage, TextureOptions, Vec2};
 use image;
@@ -372,20 +372,7 @@ impl Inspector {
         // Save project if any updates
         if self.data_updated {
             self.data_updated = false;
-            if let Some(scene_manager) = &gui_state.scene_manager {
-                if let Err(err) = ProjectManager::save_project_full(
-                    &gui_state.project_path,
-                    gui_state.project_metadata.as_ref().unwrap(),
-                    scene_manager,
-                ) {
-                    println!(
-                        "Error saving project after modifying/adding an attribute: {}",
-                        err
-                    );
-                } else {
-                    println!("Saved project after modifying/adding an attribute.");
-                }
-            }
+            utils::save_project(gui_state);
         }
     }
 

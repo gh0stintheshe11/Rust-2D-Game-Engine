@@ -29,8 +29,15 @@ impl ProjectManager {
         Self::create_metadata_file(project_path, &metadata)?;
         Self::create_main_file(project_path, project_name)?;
 
-        // Initialize and save empty scene hierarchy
-        let scene_manager = SceneManager::new();
+        // Initialize the scene hierarchy with a starter scene so a new
+        // project is immediately playable/buildable
+        let mut scene_manager = SceneManager::new();
+        let scene_id = scene_manager
+            .create_scene("main")
+            .map_err(|e| format!("Failed to create default scene: {}", e))?;
+        scene_manager
+            .set_active_scene(scene_id)
+            .map_err(|e| format!("Failed to activate default scene: {}", e))?;
         Self::save_scene_hierarchy(project_path, &scene_manager)?;
 
         // Return LoadedProject just like load_project_full does
@@ -196,17 +203,38 @@ impl eframe::App for MyApp {{
         fs::write(&main_path, main_content)
             .map_err(|e| format!("Failed to create main.rs: {}", e))?;
 
-        // Create Cargo.toml with project configuration
+        // Create Cargo.toml with project configuration. The engine
+        // dependency points at the engine checkout that built this editor
+        // (CARGO_MANIFEST_DIR is baked in at compile time), so a freshly
+        // created project builds out of the box on this machine.
+        let engine_path = env!("CARGO_MANIFEST_DIR").replace('\\', "/");
+        // Cargo package names are restricted; derive a safe one from the
+        // project folder name
+        let package_name: String = project_name
+            .to_lowercase()
+            .chars()
+            .map(|c| {
+                if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+                    c
+                } else {
+                    '_'
+                }
+            })
+            .collect();
         let cargo_content = format!(
             r#"[package]
-name = "{}"
+name = "{project_name}"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-my_game_engine = {{ path = "../path/to/engine" }}
+rust-2d-game-engine = {{ path = "{engine_path}" }}
+# If you move this project to another machine, point the dependency at your
+# engine checkout there, or use the git dependency instead:
+# rust-2d-game-engine = {{ git = "https://github.com/gh0stintheshe11/Rust-2D-Game-Engine" }}
 "#,
-            project_name
+            project_name = package_name,
+            engine_path = engine_path
         );
 
         let cargo_path = base_path.join("Cargo.toml");

@@ -10,7 +10,7 @@ A lightweight 2D game engine with a built-in editor, written in Rust. Scenes, en
 
 | Area | What you get |
 |---|---|
-| Editor | Scene hierarchy, inspector, asset browser, Lua code editor, viewport click-to-select and drag-to-move, play/pause/reset preview, debug overlay, console |
+| Editor | Scene hierarchy, inspector, asset browser, Lua code editor, viewport click-to-select and drag-to-move, undo/redo (Ctrl+Z/Y), play/pause/reset preview, debug overlay, console |
 | ECS | Scene → Entity → typed attributes data model, serialized to JSON with the project |
 | Physics | rapier2d bodies/colliders auto-built from entity attributes, custom gravity fields, collision queries |
 | Scripting | Lua 5.4 (mlua): per-entity `update()` scripts, hot reload while playing, safe engine bindings |

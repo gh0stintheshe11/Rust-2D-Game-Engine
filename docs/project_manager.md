@@ -41,7 +41,7 @@ project_root/
 
 ## Known limitations / TODO
 
-- **Generated `Cargo.toml` cannot compile.** It declares `my_game_engine = { path = "../path/to/engine" }` — a placeholder path *and* the wrong crate name (the engine crate is `rust-2d-game-engine`, and the generated `main.rs` imports `rust_2d_game_engine`). Every new project needs hand-editing before `build_project` can succeed.
+- Generated projects reference the engine via the **absolute path of the engine checkout that built the editor** (baked in at compile time). Building the project on another machine requires editing the dependency (a commented git-dependency line is included in the generated `Cargo.toml`).
 - **Absolute paths break portability.** `ProjectMetadata.project_path` is absolute, and entity resource paths end up absolute in `scene_manager.json` (Lua bindings join them with the project path; `load_scene_hierarchy` rewrites whatever it finds to absolute paths under the *current* project root). Moving a project relies entirely on that load-time rewrite.
 - **The path rewrite is a substring hack.** It searches for `/assets/{type}` with forward slashes — Windows backslash paths and assets outside the recognized folders pass through untouched; font path rewriting is commented out.
 - **`load_project` has a write side effect**: it rewrites `project_path` in the metadata and saves the file back to disk on every load. `save_scene_hierarchy` calls it too, so saving scenes also rewrites `project.epm`.

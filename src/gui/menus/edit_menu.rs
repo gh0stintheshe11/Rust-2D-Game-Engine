@@ -1,4 +1,5 @@
 use crate::gui::gui_state::GuiState;
+use crate::gui::scene_hierarchy::utils;
 use eframe::egui;
 
 pub struct EditMenu;
@@ -8,12 +9,25 @@ impl EditMenu {
         Self {}
     }
 
-    pub fn show(&mut self, _ctx: &egui::Context, ui: &mut egui::Ui, _gui_state: &mut GuiState) {
-        // Undo/redo is not implemented yet; show the entries disabled so the
-        // menu is honest about it
-        ui.add_enabled(false, egui::Button::new("Undo"))
-            .on_disabled_hover_text("Not implemented yet");
-        ui.add_enabled(false, egui::Button::new("Redo"))
-            .on_disabled_hover_text("Not implemented yet");
+    pub fn show(&mut self, _ctx: &egui::Context, ui: &mut egui::Ui, gui_state: &mut GuiState) {
+        let can_undo = gui_state.undo_stack.can_undo();
+        let can_redo = gui_state.undo_stack.can_redo();
+
+        if ui
+            .add_enabled(can_undo, egui::Button::new("Undo"))
+            .on_hover_text("Ctrl+Z")
+            .clicked()
+        {
+            utils::perform_undo(gui_state);
+            ui.close();
+        }
+        if ui
+            .add_enabled(can_redo, egui::Button::new("Redo"))
+            .on_hover_text("Ctrl+Y")
+            .clicked()
+        {
+            utils::perform_redo(gui_state);
+            ui.close();
+        }
     }
 }
