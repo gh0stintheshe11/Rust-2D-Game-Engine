@@ -27,6 +27,8 @@ pub struct Inspector {
     // decode images / audio metadata from disk every frame
     preview_image: Option<(PathBuf, egui::TextureHandle, (u32, u32))>,
     preview_audio_duration: Option<(PathBuf, Option<f32>)>,
+    // Snippet queued for the script editor (clicking an attribute name)
+    pending_script_insert: Option<String>,
 }
 
 impl Default for Inspector {
@@ -49,6 +51,7 @@ impl Inspector {
             delete_mode: false,
             preview_image: None,
             preview_audio_duration: None,
+            pending_script_insert: None,
         }
     }
 
@@ -92,6 +95,11 @@ impl Inspector {
             SelectedItem::None => {
                 ui.label("No item selected.");
             }
+        }
+
+        // Forward any queued snippet to the script editor
+        if let Some(snippet) = self.pending_script_insert.take() {
+            gui_state.script_insert_request = Some(snippet);
         }
     }
 
@@ -563,8 +571,21 @@ impl Inspector {
                     attribute_name.to_string()
                 };
 
-                ui.label(egui::RichText::new(display_name).strong())
-                    .on_hover_text(attribute_name);
+                ui.add(
+                    egui::Label::new(egui::RichText::new(display_name).strong())
+                        .sense(egui::Sense::click()),
+                )
+                .on_hover_text(format!(
+                    "{}\n\nClick to insert get_attribute(\"{}\") into the script editor",
+                    attribute_name, attribute_name
+                ))
+                .clicked()
+                .then(|| {
+                    self.pending_script_insert = Some(format!(
+                        "get_attribute(scene_id, entity_id, \"{}\")",
+                        attribute_name
+                    ));
+                });
             });
 
             // Right side with fixed-width input

@@ -16,6 +16,8 @@ use eframe::egui;
 use std::fs;
 use std::path::PathBuf;
 
+pub mod script_editor;
+
 pub struct EngineGui {
     // Window States
     show_editor: bool,
@@ -44,6 +46,9 @@ pub struct EngineGui {
     editor_content: String,
     current_edited_file: Option<PathBuf>,
     editor_dirty: bool,
+    // Latest Lua parse error of the editor buffer, if any
+    syntax_error: Option<String>,
+    show_api_palette: bool,
     // Set once the user has confirmed exiting; lets the close request through
     allow_close: bool,
     // Entity being moved in the viewport: (entity id, world-space grab offset)
@@ -92,6 +97,8 @@ impl EngineGui {
             editor_content: String::new(),
             current_edited_file: None,
             editor_dirty: false,
+            syntax_error: None,
+            show_api_palette: false,
             allow_close: false,
             viewport_drag: None,
         }
@@ -150,6 +157,7 @@ impl EngineGui {
                 Ok(content) => {
                     // Save the previous file before switching buffers
                     self.save_editor_if_dirty();
+                    self.syntax_error = script_editor::check_script_syntax(&content);
                     self.editor_content = content;
                     self.current_edited_file = Some(path);
                     self.editor_dirty = false;
@@ -157,6 +165,11 @@ impl EngineGui {
                 }
                 Err(e) => LOGGER.error(format!("Failed to open {}: {}", path.display(), e)),
             }
+        }
+
+        // Another panel asked to insert a snippet at the editor cursor
+        if let Some(snippet) = self.gui_state.script_insert_request.take() {
+            self.insert_into_editor(ctx, &snippet);
         }
 
         // Frame color
@@ -263,6 +276,8 @@ impl EngineGui {
                                     {
                                         // Save the previous file before switching buffers
                                         self.save_editor_if_dirty();
+                                        self.syntax_error =
+                                            script_editor::check_script_syntax(&content);
                                         self.editor_content = content;
                                         self.current_edited_file = Some(path);
                                         self.editor_dirty = false;
@@ -361,84 +376,7 @@ impl EngineGui {
 
                         // First fill the background
                         if self.show_editor {
-                            ui.painter().rect_filled(
-                                content_rect,
-                                0.0,
-                                egui::Color32::from_gray(40),
-                            );
-
-                            // Ctrl+S saves the current file
-                            let save_requested = ui.input_mut(|i| {
-                                i.consume_shortcut(&egui::KeyboardShortcut::new(
-                                    egui::Modifiers::CTRL,
-                                    egui::Key::S,
-                                ))
-                            });
-                            if save_requested {
-                                self.save_editor_if_dirty();
-                            }
-
-                            // Filename + unsaved indicator
-                            ui.horizontal(|ui| {
-                                let label = match &self.current_edited_file {
-                                    Some(path) => format!(
-                                        "📄 {}{}",
-                                        path.file_name()
-                                            .map(|n| n.to_string_lossy().into_owned())
-                                            .unwrap_or_default(),
-                                        if self.editor_dirty { " ●" } else { "" }
-                                    ),
-                                    None => "No file open — click a script in the Files panel \
-                                             or in the scene hierarchy"
-                                        .to_string(),
-                                };
-                                ui.label(label);
-                                if self.editor_dirty {
-                                    ui.weak("(Ctrl+S to save)");
-                                }
-                            });
-
-                            let theme = egui_extras::syntax_highlighting::CodeTheme::from_memory(
-                                ui.ctx(),
-                                ui.style(),
-                            );
-
-                            let mut layouter = |ui: &egui::Ui,
-                                                text: &dyn egui::TextBuffer,
-                                                wrap_width: f32| {
-                                let mut layout_job = egui_extras::syntax_highlighting::highlight(
-                                    ui.ctx(),
-                                    ui.style(),
-                                    &theme,
-                                    text.as_str(),
-                                    "lua",
-                                );
-                                layout_job.wrap.max_width = wrap_width;
-                                ui.fonts_mut(|f| f.layout_job(layout_job))
-                            };
-
-                            egui::ScrollArea::both()
-                                .auto_shrink([false, false])
-                                .show(ui, |ui| {
-                                    // Just show the editor, no file system here
-                                    let response = ui.add_sized(
-                                        content_rect.size(),
-                                        egui::TextEdit::multiline(&mut self.editor_content)
-                                            .code_editor()
-                                            .lock_focus(true)
-                                            .desired_width(f32::INFINITY)
-                                            .layouter(&mut layouter),
-                                    );
-
-                                    // Mark dirty on edits; the buffer is written on
-                                    // Ctrl+S, focus loss, or when switching files/views
-                                    if response.changed() {
-                                        self.editor_dirty = true;
-                                    }
-                                    if response.lost_focus() {
-                                        self.save_editor_if_dirty();
-                                    }
-                                });
+                            self.show_script_editor(ui, content_rect);
                         } else {
                             // Render only the viewport content when play in the GUI.
                             // Paused/Ended still route to the runtime so the freeze

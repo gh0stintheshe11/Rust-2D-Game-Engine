@@ -130,6 +130,10 @@ pub struct GuiState {
     /// consumed by the editor shell each frame.
     pub open_script_request: Option<PathBuf>,
 
+    /// Snippet to insert at the script editor's cursor (e.g. clicking an
+    /// attribute in the inspector); consumed by the editor shell each frame.
+    pub script_insert_request: Option<String>,
+
     pub undo_stack: UndoStack,
 }
 
@@ -166,6 +170,8 @@ impl GuiState {
             exit_request: ExitRequest::None,
 
             open_script_request: None,
+
+            script_insert_request: None,
 
             undo_stack: UndoStack::new(),
         }
