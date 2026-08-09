@@ -1,6 +1,5 @@
 use crate::gui::gui_state::{GuiState, ScenePanelSelectedItem, SelectedItem};
 use crate::gui::scene_hierarchy::SceneHierarchy;
-use crate::logger::LOGGER;
 use egui::{Context, Ui};
 use uuid::Uuid;
 
@@ -132,16 +131,12 @@ impl EntityItem {
                 ui.close();
             }
             if ui.button("Delete").clicked() {
-                let deleted = gui_state
-                    .scene_manager
-                    .as_mut()
-                    .and_then(|manager| manager.get_scene_mut(*scene_id))
-                    .map(|scene| scene.delete_entity(*entity_id));
-                match deleted {
-                    Some(Err(e)) => LOGGER.error(format!("Failed to delete entity: {}", e)),
-                    None => LOGGER.error("Failed to delete entity: scene not found"),
-                    Some(Ok(_)) => {}
-                }
+                hierarchy.popup_manager.pending_delete =
+                    Some(crate::gui::scene_hierarchy::popup::PendingDelete::Entity(
+                        *scene_id,
+                        *entity_id,
+                        entity_name.to_string(),
+                    ));
                 ui.close();
             }
         });

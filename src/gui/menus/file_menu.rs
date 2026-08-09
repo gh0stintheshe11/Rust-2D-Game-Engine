@@ -39,7 +39,10 @@ impl FileMenu {
         ui.separator();
 
         if ui.button("Exit").clicked() {
-            std::process::exit(0);
+            // Ask for confirmation (and offer to save) instead of killing
+            // the process outright
+            gui_state.exit_request = crate::gui::gui_state::ExitRequest::PromptOpen;
+            ui.close();
         }
 
         self.show_active_popup(ctx, gui_state);

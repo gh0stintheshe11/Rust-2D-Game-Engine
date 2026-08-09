@@ -3,7 +3,6 @@ use crate::gui::scene_hierarchy::{
     entity_item::{EntityDisplay, EntityItem},
     SceneHierarchy,
 };
-use crate::logger::LOGGER;
 use egui::{Context, Ui};
 use uuid::Uuid;
 
@@ -124,11 +123,11 @@ impl SceneItem {
                     ui.close();
                 }
                 if ui.button("Delete").clicked() {
-                    if let Some(scene_manager) = &mut gui_state.scene_manager {
-                        if let Err(e) = scene_manager.delete_scene(*scene_id) {
-                            LOGGER.error(format!("Failed to delete scene: {}", e));
-                        }
-                    }
+                    hierarchy.popup_manager.pending_delete =
+                        Some(crate::gui::scene_hierarchy::popup::PendingDelete::Scene(
+                            *scene_id,
+                            scene_name.to_string(),
+                        ));
                     ui.close();
                 }
                 if ui.button("Set Active").clicked() {

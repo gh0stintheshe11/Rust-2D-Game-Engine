@@ -19,6 +19,18 @@ pub enum ScenePanelSelectedItem {
     Asset(Uuid, Uuid, PathBuf), // (Scene ID, Entity ID, Asset Path)
 }
 
+/// Application exit flow, driven by File > Exit or the window close button.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum ExitRequest {
+    None,
+    /// The confirmation dialog is open
+    PromptOpen,
+    /// Save the project (and editor buffer), then close
+    SaveAndExit,
+    /// Close without saving
+    ExitWithoutSaving,
+}
+
 pub struct GuiState {
     pub dark_mode: bool,
     pub show_new_project_popup: bool,
@@ -40,6 +52,8 @@ pub struct GuiState {
     pub build_result: Arc<Mutex<Option<Result<(), String>>>>,
     pub is_building: Arc<Mutex<bool>>,
     pub show_build_project_popup: bool,
+
+    pub exit_request: ExitRequest,
 }
 
 impl Default for GuiState {
@@ -71,6 +85,8 @@ impl GuiState {
             build_result: Arc::new(Mutex::new(None)),
             is_building: Arc::new(Mutex::new(false)),
             show_build_project_popup: false,
+
+            exit_request: ExitRequest::None,
         }
     }
 }

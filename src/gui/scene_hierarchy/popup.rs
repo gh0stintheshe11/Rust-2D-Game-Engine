@@ -2,8 +2,15 @@ use crate::ecs::SceneManager;
 use crate::gui::gui_state::{GuiState, ScenePanelSelectedItem, SelectedItem};
 use crate::gui::scene_hierarchy::predefined_entities::PREDEFINED_ENTITIES;
 use crate::gui::scene_hierarchy::utils;
+use crate::logger::LOGGER;
 use std::path::Path;
 use uuid::Uuid;
+
+/// A destructive action awaiting user confirmation.
+pub enum PendingDelete {
+    Scene(Uuid, String),        // scene id, display name
+    Entity(Uuid, Uuid, String), // scene id, entity id, display name
+}
 
 pub struct PopupManager {
     pub create_item_name: String,
@@ -23,6 +30,10 @@ pub struct PopupManager {
     pub available_resources: Vec<std::path::PathBuf>,
     // Which directory available_resources was scanned from (cache key)
     available_resources_path: Option<std::path::PathBuf>,
+    pub pending_delete: Option<PendingDelete>,
+    // Set by the attach/detach popups when they mutate an entity; consumed
+    // by render_popups to persist the project
+    assets_changed: bool,
 }
 
 impl Default for PopupManager {
@@ -50,6 +61,8 @@ impl PopupManager {
             selected_resource_type: "Images".to_string(),
             available_resources: Vec::new(),
             available_resources_path: None,
+            pending_delete: None,
+            assets_changed: false,
         }
     }
 
@@ -387,6 +400,91 @@ impl PopupManager {
                 self.show_resource_selection_popup(ctx, scene_manager, &gui_state.project_path);
             }
         }
+
+        // Persist attach/detach changes made by the popups above
+        if self.assets_changed {
+            self.assets_changed = false;
+            utils::save_project(gui_state);
+        }
+
+        // Render delete confirmation
+        self.render_delete_confirmation(ctx, gui_state);
+    }
+
+    fn render_delete_confirmation(&mut self, ctx: &egui::Context, gui_state: &mut GuiState) {
+        let Some(pending) = &self.pending_delete else {
+            return;
+        };
+
+        let (kind, name) = match pending {
+            PendingDelete::Scene(_, name) => ("scene", name.clone()),
+            PendingDelete::Entity(_, _, name) => ("entity", name.clone()),
+        };
+
+        let mut close = false;
+        egui::Window::new("Confirm Delete")
+            .collapsible(false)
+            .resizable(false)
+            .order(egui::Order::Foreground)
+            .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
+            .show(ctx, |ui| {
+                ui.label(format!(
+                    "Delete {} '{}'? This cannot be undone.",
+                    kind, name
+                ));
+                ui.add_space(8.0);
+                ui.horizontal(|ui| {
+                    if ui.button("Delete").clicked() {
+                        match self.pending_delete.take() {
+                            Some(PendingDelete::Scene(scene_id, _)) => {
+                                if let Some(scene_manager) = &mut gui_state.scene_manager {
+                                    match scene_manager.delete_scene(scene_id) {
+                                        Ok(_) => {
+                                            gui_state.selected_item = SelectedItem::None;
+                                            gui_state.scene_panel_selected_item =
+                                                ScenePanelSelectedItem::None;
+                                            utils::save_project(gui_state);
+                                        }
+                                        Err(e) => {
+                                            LOGGER.error(format!("Failed to delete scene: {}", e))
+                                        }
+                                    }
+                                }
+                            }
+                            Some(PendingDelete::Entity(scene_id, entity_id, _)) => {
+                                let deleted = gui_state
+                                    .scene_manager
+                                    .as_mut()
+                                    .and_then(|manager| manager.get_scene_mut(scene_id))
+                                    .map(|scene| scene.delete_entity(entity_id));
+                                match deleted {
+                                    Some(Ok(_)) => {
+                                        gui_state.selected_item = SelectedItem::None;
+                                        gui_state.scene_panel_selected_item =
+                                            ScenePanelSelectedItem::None;
+                                        utils::save_project(gui_state);
+                                    }
+                                    Some(Err(e)) => {
+                                        LOGGER.error(format!("Failed to delete entity: {}", e))
+                                    }
+                                    None => {
+                                        LOGGER.error("Failed to delete entity: scene not found")
+                                    }
+                                }
+                            }
+                            None => {}
+                        }
+                        close = true;
+                    }
+                    if ui.button("Cancel").clicked() {
+                        close = true;
+                    }
+                });
+            });
+
+        if close {
+            self.pending_delete = None;
+        }
     }
 
     pub fn show_resource_selection_popup(
@@ -396,6 +494,7 @@ impl PopupManager {
         project_path: &Path,
     ) {
         if let Some((scene_id, entity_id)) = self.resource_selection {
+            let mut changed = false;
             egui::Window::new("Attach Resource")
                 .open(&mut self.resource_selection_popup_active)
                 .collapsible(false)
@@ -471,6 +570,7 @@ impl PopupManager {
                                                                 entity
                                                                     .images
                                                                     .push(resource_path.clone());
+                                                                changed = true;
                                                             }
                                                         }
                                                         "Sounds" => {
@@ -482,6 +582,7 @@ impl PopupManager {
                                                                 entity
                                                                     .sounds
                                                                     .push(resource_path.clone());
+                                                                changed = true;
                                                             }
                                                         }
                                                         "Scripts"
@@ -490,6 +591,7 @@ impl PopupManager {
                                                         {
                                                             entity.script =
                                                                 Some(resource_path.clone());
+                                                            changed = true;
                                                         }
                                                         _ => {}
                                                     }
@@ -508,6 +610,8 @@ impl PopupManager {
                 // Rescan on next open so new imports show up
                 self.available_resources_path = None;
             }
+
+            self.assets_changed |= changed;
         }
     }
 
@@ -517,6 +621,7 @@ impl PopupManager {
         scene_manager: &mut SceneManager,
     ) {
         if let Some((scene_id, entity_id)) = self.manage_assets_entity {
+            let mut changed = false;
             egui::Window::new("Manage Assets")
                 .open(&mut self.manage_assets_popup_active)
                 .collapsible(false)
@@ -547,6 +652,7 @@ impl PopupManager {
                                         // Remove images outside the loop
                                         for &i in images_to_remove.iter().rev() {
                                             entity.images.remove(i);
+                                            changed = true;
                                         }
                                     });
                             }
@@ -573,6 +679,7 @@ impl PopupManager {
                                         // Remove sounds outside the loop
                                         for &i in sounds_to_remove.iter().rev() {
                                             entity.sounds.remove(i);
+                                            changed = true;
                                         }
                                     });
                             }
@@ -595,6 +702,7 @@ impl PopupManager {
                                             );
                                             if ui.button("Remove").clicked() {
                                                 entity.script = None;
+                                                changed = true;
                                             }
                                         });
                                     });
@@ -602,6 +710,8 @@ impl PopupManager {
                         }
                     }
                 });
+
+            self.assets_changed |= changed;
         }
     }
 }

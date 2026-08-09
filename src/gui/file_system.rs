@@ -27,6 +27,8 @@ pub struct FileSystem {
     last_scan: Option<Instant>,
     // Set when the user selects a code file; consumed by show()'s return
     pending_open: Option<PathBuf>,
+    // File deletion awaiting confirmation
+    pending_delete: Option<PathBuf>,
 }
 
 impl Default for FileSystem {
@@ -45,6 +47,7 @@ impl FileSystem {
             cached_root: PathBuf::new(),
             last_scan: None,
             pending_open: None,
+            pending_delete: None,
         }
     }
 
@@ -130,11 +133,7 @@ impl FileSystem {
             egui::ScrollArea::both()
                 .auto_shrink([false; 2])
                 .show(ui, |ui| {
-                    let mut deleted_any = false;
-                    self.render_children(ui, &root, 0, gui_state, &mut deleted_any);
-                    if deleted_any {
-                        self.refresh();
-                    }
+                    self.render_children(ui, &root, 0, gui_state);
                 });
 
             if self.cached_tree.is_none() && self.last_scan.is_some() {
@@ -142,6 +141,9 @@ impl FileSystem {
                 self.cached_tree = Some(root);
             }
         });
+
+        // Modal confirmation for deletions
+        self.show_delete_confirmation(_ctx, gui_state);
 
         // Return file content once when the selection changed to a code file
         let path = self.pending_open.take()?;
@@ -219,7 +221,6 @@ impl FileSystem {
         node: &FileNode,
         depth: usize,
         gui_state: &mut GuiState,
-        deleted_any: &mut bool,
     ) {
         let search_query = self.search_query.to_lowercase();
         let is_filtering = !search_query.is_empty();
@@ -229,7 +230,7 @@ impl FileSystem {
                 egui::CollapsingHeader::new(child.name.clone())
                     .default_open(true)
                     .show(ui, |ui| {
-                        self.render_children(ui, child, depth + 1, gui_state, deleted_any);
+                        self.render_children(ui, child, depth + 1, gui_state);
                     });
             } else {
                 // Apply search filter to files only
@@ -237,7 +238,7 @@ impl FileSystem {
                     continue;
                 }
 
-                self.render_file_row(ui, child, depth, gui_state, deleted_any);
+                self.render_file_row(ui, child, depth, gui_state);
             }
         }
     }
@@ -248,7 +249,6 @@ impl FileSystem {
         file: &FileNode,
         depth: usize,
         gui_state: &mut GuiState,
-        deleted_any: &mut bool,
     ) {
         ui.horizontal(|ui| {
             ui.add_space(depth as f32 * 4.0);
@@ -271,24 +271,63 @@ impl FileSystem {
 
             response.context_menu(|ui| {
                 if ui.button("Delete").clicked() {
-                    if let Err(err) = fs::remove_file(&file.path) {
-                        LOGGER.error(format!("Failed to delete file: {}", err));
-                    } else {
-                        LOGGER.info(format!("Deleted file: {}", file.name));
-                        *deleted_any = true;
-                        if matches!(&gui_state.selected_item,
-                            SelectedItem::File(selected_path)
-                            if selected_path == &file.path)
-                        {
-                            gui_state.selected_item = SelectedItem::None;
-                        }
-                        if self.selected_file.as_ref() == Some(&file.path) {
-                            self.selected_file = None;
-                        }
-                    }
+                    self.pending_delete = Some(file.path.clone());
                     ui.close();
                 }
             });
         });
+    }
+
+    /// Modal confirmation for a pending file deletion.
+    fn show_delete_confirmation(&mut self, ctx: &egui::Context, gui_state: &mut GuiState) {
+        let Some(path) = self.pending_delete.clone() else {
+            return;
+        };
+
+        let name = path
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default();
+
+        let mut close = false;
+        egui::Window::new("Confirm Delete File")
+            .collapsible(false)
+            .resizable(false)
+            .order(egui::Order::Foreground)
+            .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
+            .show(ctx, |ui| {
+                ui.label(format!(
+                    "Delete file '{}' from disk? This cannot be undone.",
+                    name
+                ));
+                ui.add_space(8.0);
+                ui.horizontal(|ui| {
+                    if ui.button("Delete").clicked() {
+                        if let Err(err) = fs::remove_file(&path) {
+                            LOGGER.error(format!("Failed to delete file: {}", err));
+                        } else {
+                            LOGGER.info(format!("Deleted file: {}", name));
+                            self.refresh();
+                            if matches!(&gui_state.selected_item,
+                                SelectedItem::File(selected_path)
+                                if selected_path == &path)
+                            {
+                                gui_state.selected_item = SelectedItem::None;
+                            }
+                            if self.selected_file.as_ref() == Some(&path) {
+                                self.selected_file = None;
+                            }
+                        }
+                        close = true;
+                    }
+                    if ui.button("Cancel").clicked() {
+                        close = true;
+                    }
+                });
+            });
+
+        if close {
+            self.pending_delete = None;
+        }
     }
 }

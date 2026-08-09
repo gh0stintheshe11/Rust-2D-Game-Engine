@@ -1,5 +1,5 @@
 use crate::gui::file_system::FileSystem;
-use crate::gui::gui_state::GuiState;
+use crate::gui::gui_state::{ExitRequest, GuiState};
 use crate::gui::inspector::Inspector;
 use crate::gui::menu_bar::MenuBar;
 use crate::gui::scene_hierarchy::SceneHierarchy;
@@ -44,6 +44,8 @@ pub struct EngineGui {
     editor_content: String,
     current_edited_file: Option<PathBuf>,
     editor_dirty: bool,
+    // Set once the user has confirmed exiting; lets the close request through
+    allow_close: bool,
 }
 
 impl EngineGui {
@@ -88,6 +90,7 @@ impl EngineGui {
             editor_content: String::new(),
             current_edited_file: None,
             editor_dirty: false,
+            allow_close: false,
         }
     }
 
@@ -755,6 +758,61 @@ impl EngineGui {
             );
         }
     }
+
+    /// Exit confirmation dialog + the actual exit path. Triggered by
+    /// File > Exit or the native window close button.
+    fn handle_exit_flow(&mut self, ctx: &egui::Context) {
+        // Intercept the native close button so unsaved work gets a prompt
+        if ctx.input(|i| i.viewport().close_requested())
+            && !self.allow_close
+            && self.gui_state.load_project
+        {
+            ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
+            self.gui_state.exit_request = ExitRequest::PromptOpen;
+        }
+
+        if self.gui_state.exit_request == ExitRequest::PromptOpen {
+            // Nothing worth prompting about without an open project
+            if !self.gui_state.load_project {
+                self.gui_state.exit_request = ExitRequest::ExitWithoutSaving;
+            } else {
+                egui::Window::new("Exit")
+                    .collapsible(false)
+                    .resizable(false)
+                    .order(egui::Order::Foreground)
+                    .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
+                    .show(ctx, |ui| {
+                        ui.label("Save the project before exiting?");
+                        ui.add_space(8.0);
+                        ui.horizontal(|ui| {
+                            if ui.button("Save & Exit").clicked() {
+                                self.gui_state.exit_request = ExitRequest::SaveAndExit;
+                            }
+                            if ui.button("Exit without saving").clicked() {
+                                self.gui_state.exit_request = ExitRequest::ExitWithoutSaving;
+                            }
+                            if ui.button("Cancel").clicked() {
+                                self.gui_state.exit_request = ExitRequest::None;
+                            }
+                        });
+                    });
+            }
+        }
+
+        match self.gui_state.exit_request {
+            ExitRequest::SaveAndExit => {
+                self.save_editor_if_dirty();
+                crate::gui::scene_hierarchy::utils::save_project(&self.gui_state);
+                self.allow_close = true;
+                ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+            }
+            ExitRequest::ExitWithoutSaving => {
+                self.allow_close = true;
+                ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+            }
+            _ => {}
+        }
+    }
 }
 
 impl eframe::App for EngineGui {
@@ -766,6 +824,7 @@ impl eframe::App for EngineGui {
             .rect_filled(ui.max_rect(), 0.0, self.get_background_color());
 
         self.show_windows(&ctx);
+        self.handle_exit_flow(&ctx);
 
         self.console_messages = LOGGER.get_console_messages();
     }
