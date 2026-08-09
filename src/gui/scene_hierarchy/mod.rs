@@ -1,7 +1,6 @@
 pub mod entity_item;
 pub mod popup;
 pub mod predefined_entities;
-pub mod resource_item;
 pub mod scene_item;
 pub mod utils;
 
@@ -26,7 +25,6 @@ impl SceneHierarchy {
     }
 
     pub fn show(&mut self, ctx: &Context, ui: &mut Ui, gui_state: &mut GuiState) {
-
         // Header with integrated search
         egui::Frame {
             inner_margin: egui::Margin::ZERO,
@@ -40,7 +38,8 @@ impl SceneHierarchy {
             shadow: eframe::epaint::Shadow::NONE,
             fill: egui::Color32::TRANSPARENT,
             stroke: egui::Stroke::NONE,
-        }.show(ui, |ui| {
+        }
+        .show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.heading("Scene");
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -51,23 +50,24 @@ impl SceneHierarchy {
                             self.search_query.clear();
                         }
                     }
-                    
+
                     // Add button
                     if ui.button("➕").clicked() {
                         self.popup_manager.create_popup_active = true;
                     }
-                    
+
                     // Search box (only shown when active)
                     if self.show_search {
-                        ui.add(egui::TextEdit::singleline(&mut self.search_query)
-                            .desired_width(150.0)
-                            .hint_text("Search scenes..."));
+                        ui.add(
+                            egui::TextEdit::singleline(&mut self.search_query)
+                                .desired_width(150.0)
+                                .hint_text("Search scenes..."),
+                        );
                     }
                 });
             });
             ui.separator();
         });
-        
 
         // Display scenes in scrollable area
         egui::Frame {
@@ -82,7 +82,8 @@ impl SceneHierarchy {
             shadow: eframe::epaint::Shadow::NONE,
             fill: egui::Color32::TRANSPARENT,
             stroke: egui::Stroke::NONE,
-        }.show(ui, |ui| {
+        }
+        .show(ui, |ui| {
             egui::ScrollArea::both()
                 .auto_shrink([false; 2])
                 .show(ui, |ui| {

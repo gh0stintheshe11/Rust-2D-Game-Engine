@@ -8,7 +8,7 @@ impl EditMenu {
         Self {}
     }
 
-    pub fn show(&mut self, ctx: &egui::Context, ui: &mut egui::Ui, gui_state: &mut GuiState) {
+    pub fn show(&mut self, _ctx: &egui::Context, ui: &mut egui::Ui, _gui_state: &mut GuiState) {
         ui.button("Undo");
         ui.button("Redo");
     }

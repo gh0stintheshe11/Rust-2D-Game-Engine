@@ -1,9 +1,8 @@
-use crate::ecs::{PhysicsProperties, SceneManager};
+use crate::ecs::SceneManager;
 use crate::gui::gui_state::{GuiState, ScenePanelSelectedItem, SelectedItem};
 use crate::gui::scene_hierarchy::predefined_entities::PREDEFINED_ENTITIES;
 use crate::gui::scene_hierarchy::utils;
-use eframe::egui::{Context, Ui};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use uuid::Uuid;
 
 
@@ -73,7 +72,7 @@ impl PopupManager {
     pub fn render_rename_popup(
         &mut self,
         ctx: &egui::Context,
-        ui: &mut egui::Ui,
+        _ui: &mut egui::Ui,
         gui_state: &mut GuiState,
     ) {
 
@@ -133,7 +132,7 @@ impl PopupManager {
     pub fn render_create_popup(
         &mut self,
         ctx: &egui::Context,
-        ui: &mut egui::Ui,
+        _ui: &mut egui::Ui,
         gui_state: &mut GuiState,
     ) {
         egui::Window::new("Create New Node")

@@ -1,11 +1,11 @@
 use crate::ecs::{Entity, Scene};
 use crate::logger::LOGGER;
 use lofty::{AudioFile, Probe};
-use rodio::{Decoder, OutputStream, OutputStreamHandle, Sink, Source};
+use rodio::{Decoder, OutputStream, OutputStreamHandle, Sink};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, Read};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use uuid::Uuid;
 
 pub struct AudioEngine {

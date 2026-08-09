@@ -11,7 +11,7 @@ impl ProjectMenu {
         Self {}
     }
 
-    pub fn show(&mut self, ctx: &egui::Context, ui: &mut egui::Ui, gui_state: &mut GuiState) {
+    pub fn show(&mut self, _ctx: &egui::Context, ui: &mut egui::Ui, gui_state: &mut GuiState) {
 
         ui.add_enabled(!gui_state.project_path.as_os_str().is_empty(), egui::Button::new("Build Project")).clicked().then(|| {
 

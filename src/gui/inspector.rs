@@ -1,16 +1,15 @@
-use eframe::egui;
-use crate::gui::gui_state::{GuiState, SelectedItem};
-use crate::ecs::{AttributeValue, AttributeType, Entity};
-use std::collections::HashMap;
-use std::path::{Path, PathBuf};
-use uuid::Uuid;
-use crate::project_manager::ProjectManager;
-use crate::gui::scene_hierarchy::utils;
-use std::fs;
 use crate::audio_engine::AudioEngine;
+use crate::ecs::{AttributeType, AttributeValue, Entity};
+use crate::gui::gui_state::{GuiState, SelectedItem};
+use crate::gui::scene_hierarchy::utils::format_file_size;
+use crate::project_manager::ProjectManager;
+use eframe::egui;
 use eframe::egui::{ColorImage, TextureOptions, Vec2};
 use image;
-use crate::gui::scene_hierarchy::utils::format_file_size;
+use std::collections::HashMap;
+use std::fs;
+use std::path::{Path, PathBuf};
+use uuid::Uuid;
 
 pub struct Inspector {
     // Maps attribute's id to its editing state value
@@ -23,6 +22,10 @@ pub struct Inspector {
     data_updated: bool,
     audio_engine: AudioEngine,
     delete_mode: bool,
+    // Cached preview data for the currently selected file, so we don't
+    // decode images / audio metadata from disk every frame
+    preview_image: Option<(PathBuf, egui::TextureHandle, (u32, u32))>,
+    preview_audio_duration: Option<(PathBuf, Option<f32>)>,
 }
 
 impl Inspector {
@@ -37,6 +40,8 @@ impl Inspector {
             data_updated: false,
             audio_engine: AudioEngine::new(),
             delete_mode: false,
+            preview_image: None,
+            preview_audio_duration: None,
         }
     }
 
@@ -45,10 +50,10 @@ impl Inspector {
             SelectedItem::Entity(scene_id, entity_id) => {
                 let scene_id = *scene_id;
                 let entity_id = *entity_id;
-                
+
                 // First show entity details
                 self.show_entity_details(ui, ctx, scene_id, entity_id, gui_state);
-                
+
                 // Then get a new borrow for images and sounds
                 if let Some(scene_manager) = &gui_state.scene_manager {
                     if let Some(scene) = scene_manager.get_scene(scene_id) {
@@ -58,7 +63,7 @@ impl Inspector {
                             for path in &entity.images {
                                 ui.label(path.to_string_lossy());
                             }
-                            
+
                             ui.separator();
                             ui.label("Sounds:");
                             for path in &entity.sounds {
@@ -70,7 +75,7 @@ impl Inspector {
             }
             SelectedItem::Scene(scene_id) => self.show_scene_details(ui, *scene_id, gui_state),
             SelectedItem::File(file_path) => self.show_file_details(ui, file_path),
-            SelectedItem::Asset(scene_id, entity_id, asset_path) => {
+            SelectedItem::Asset(_scene_id, _entity_id, asset_path) => {
                 self.show_file_details(ui, asset_path);
             }
             SelectedItem::None => {
@@ -108,17 +113,31 @@ impl Inspector {
 
                 match extension.as_str() {
                     "png" | "jpg" | "jpeg" | "gif" => {
-                        if let Ok(img) = image::open(file_path) {
-                            let width = img.width();
-                            let height = img.height();
-                            let aspect_ratio = width as f32 / height as f32;
+                        // Decode + upload the preview only when the selected file changes
+                        let cached =
+                            matches!(&self.preview_image, Some((p, _, _)) if p == file_path);
+                        if !cached {
+                            self.preview_image = image::open(file_path).ok().map(|img| {
+                                let width = img.width();
+                                let height = img.height();
+                                let rgba_img = img.to_rgba8();
+                                let image = ColorImage::from_rgba_unmultiplied(
+                                    [width as usize, height as usize],
+                                    rgba_img.as_raw(),
+                                );
+                                let texture = ui.ctx().load_texture(
+                                    format!("preview_{}", file_path.display()),
+                                    image,
+                                    TextureOptions::default(),
+                                );
+                                (file_path.to_path_buf(), texture, (width, height))
+                            });
+                        }
 
-                            // Show image preview with size constraints
-                            let rgba_img = img.to_rgba8();
-                            let image = ColorImage::from_rgba_unmultiplied(
-                                [width as usize, height as usize],
-                                rgba_img.as_raw(),
-                            );
+                        if let Some((_, texture, (width, height))) = &self.preview_image {
+                            let width = *width;
+                            let height = *height;
+                            let aspect_ratio = width as f32 / height as f32;
 
                             // Calculate display size with maximum dimensions
                             let available_width = ui.available_width();
@@ -146,12 +165,6 @@ impl Inspector {
                                 }
                             }
 
-                            let texture = ui.ctx().load_texture(
-                                "preview_image",
-                                image,
-                                TextureOptions::default(),
-                            );
-
                             // Center the image
                             let available_width = ui.available_width();
                             let padding = ((available_width - display_width) / 2.0).max(0.0);
@@ -159,9 +172,12 @@ impl Inspector {
                             ui.horizontal(|ui| {
                                 ui.add_space(padding);
                                 egui::Frame::none()
-                                    .stroke(egui::Stroke::new(1.0, egui::Color32::GRAY))
+                                    .stroke(egui::Stroke::new(1.0_f32, egui::Color32::GRAY))
                                     .show(ui, |ui| {
-                                        ui.image((texture.id(), Vec2::new(display_width, display_height)));
+                                        ui.image((
+                                            texture.id(),
+                                            Vec2::new(display_width, display_height),
+                                        ));
                                     });
                             });
                             ui.add_space(8.0);
@@ -183,44 +199,57 @@ impl Inspector {
                                     println!("Failed to play sound: {}", e);
                                 }
                             }
-                            
+
                             if ui.button("⏹ Stop").clicked() {
                                 self.audio_engine.stop_immediate();
                             }
                         });
-                        
+
                         ui.separator();
                         ui.label("Path:");
                         ui.label(format!("{}", file_path.to_string_lossy()));
                         ui.separator();
-                        
-                        match self.audio_engine.get_audio_duration(file_path) {
-                            Ok(duration) => {
-                                let duration_text = {
-                                    let total_seconds = duration.round() as i64;
-                                    let seconds = total_seconds % 60;
-                                    let minutes = (total_seconds / 60) % 60;
-                                    let hours = (total_seconds / 3600) % 24;
-                                    let days = total_seconds / 86400;
 
-                                    if days > 0 {
-                                        format!("Duration: {}d {}h {}m {}s", days, hours, minutes, seconds)
-                                    } else if hours > 0 {
-                                        format!("Duration: {}h {}m {}s", hours, minutes, seconds)
-                                    } else if minutes > 0 {
-                                        format!("Duration: {}m {}s", minutes, seconds)
-                                    } else {
-                                        format!("Duration: {}s", seconds)
-                                    }
-                                };
-                                ui.label(duration_text);
-                                ui.separator();
-                            }
-                            Err(e) => {
-                                println!("Failed to get audio duration: {}", e);
-                            }
+                        // Probe the file for its duration only when the selection changes
+                        let cached =
+                            matches!(&self.preview_audio_duration, Some((p, _)) if p == file_path);
+                        if !cached {
+                            let duration = match self.audio_engine.get_audio_duration(file_path) {
+                                Ok(d) => Some(d),
+                                Err(e) => {
+                                    println!("Failed to get audio duration: {}", e);
+                                    None
+                                }
+                            };
+                            self.preview_audio_duration = Some((file_path.to_path_buf(), duration));
                         }
-                        
+
+                        if let Some((_, Some(duration))) = &self.preview_audio_duration {
+                            let duration = *duration;
+                            let duration_text = {
+                                let total_seconds = duration.round() as i64;
+                                let seconds = total_seconds % 60;
+                                let minutes = (total_seconds / 60) % 60;
+                                let hours = (total_seconds / 3600) % 24;
+                                let days = total_seconds / 86400;
+
+                                if days > 0 {
+                                    format!(
+                                        "Duration: {}d {}h {}m {}s",
+                                        days, hours, minutes, seconds
+                                    )
+                                } else if hours > 0 {
+                                    format!("Duration: {}h {}m {}s", hours, minutes, seconds)
+                                } else if minutes > 0 {
+                                    format!("Duration: {}m {}s", minutes, seconds)
+                                } else {
+                                    format!("Duration: {}s", seconds)
+                                }
+                            };
+                            ui.label(duration_text);
+                            ui.separator();
+                        }
+
                         ui.label(format!("Size: {}", format_file_size(metadata.len())));
                     }
                     "lua" | "rs" => {
@@ -277,16 +306,25 @@ impl Inspector {
                     ui.separator();
 
                     for (&attribute_id, attribute) in &entity.attributes.clone() {
-                        self.display_attribute(ui, attribute_id, &attribute.name, &attribute.value, entity);
+                        self.display_attribute(
+                            ui,
+                            attribute_id,
+                            &attribute.name,
+                            &attribute.value,
+                            entity,
+                        );
                     }
 
                     // Buttons in same row with even spacing
                     ui.horizontal(|ui| {
                         let available_width = ui.available_width();
                         let button_width = 20.0; // 10.0 is spacing between buttons
-                        
+
                         ui.add_space((available_width - 2.0 * button_width - 4.0) / 2.0);
-                        if ui.add_sized([button_width, 20.0], egui::Button::new("➕")).clicked() {
+                        if ui
+                            .add_sized([button_width, 20.0], egui::Button::new("➕"))
+                            .clicked()
+                        {
                             self.show_metadata_popup = true;
                             self.metadata_new_name.clear();
                             self.metadata_new_type = AttributeType::String;
@@ -296,7 +334,13 @@ impl Inspector {
 
                         ui.add_space(4.0);
 
-                        if ui.add_sized([button_width, 20.0], egui::Button::new(if self.delete_mode { "⭕" } else { "➖" })).clicked() {
+                        if ui
+                            .add_sized(
+                                [button_width, 20.0],
+                                egui::Button::new(if self.delete_mode { "⭕" } else { "➖" }),
+                            )
+                            .clicked()
+                        {
                             self.delete_mode = !self.delete_mode;
                         }
                     });
@@ -323,7 +367,10 @@ impl Inspector {
                     gui_state.project_metadata.as_ref().unwrap(),
                     scene_manager,
                 ) {
-                    println!("Error saving project after modifying/adding an attribute: {}", err);
+                    println!(
+                        "Error saving project after modifying/adding an attribute: {}",
+                        err
+                    );
                 } else {
                     println!("Saved project after modifying/adding an attribute.");
                 }
@@ -331,10 +378,9 @@ impl Inspector {
         }
     }
 
-
     /// Add metadata popup, type must be in Entity's attribute types
     // TODO: handle Vector2
-    fn show_metadata_popup(&mut self, ctx: &egui::Context, ui: &mut egui::Ui, entity: &mut Entity) {
+    fn show_metadata_popup(&mut self, ctx: &egui::Context, _ui: &mut egui::Ui, entity: &mut Entity) {
         egui::Window::new("Add Attribute")
             .collapsible(false)
             .resizable(false)
@@ -416,7 +462,9 @@ impl Inspector {
                                 }
                             }
                         } else {
-                            self.metadata_error_message = "Invalid identifier name. Use alphanumeric or underscores.".to_string();
+                            self.metadata_error_message =
+                                "Invalid identifier name. Use alphanumeric or underscores."
+                                    .to_string();
                         }
                     }
 
@@ -457,15 +505,21 @@ impl Inspector {
                     return;
                 }
             }
-            
+
             let input_width = 80.0; // Fixed width for input
             let total_spacing = 16.0; // Left and right margins
             let available_width = ui.available_width() - input_width - total_spacing;
-            
+
             // Get the text layout for the full name
             let font = egui::TextStyle::Body.resolve(ui.style());
-            let text_layout = ui.fonts(|f| f.layout_no_wrap(attribute_name.to_string(), font.clone(), egui::Color32::WHITE));
-            
+            let text_layout = ui.fonts(|f| {
+                f.layout_no_wrap(
+                    attribute_name.to_string(),
+                    font.clone(),
+                    egui::Color32::WHITE,
+                )
+            });
+
             // Left side with label
             ui.scope(|ui| {
                 ui.set_width(available_width);
@@ -473,7 +527,9 @@ impl Inspector {
                     let mut fit_chars = attribute_name.len();
                     for (i, _) in attribute_name.char_indices() {
                         let test_text = format!("{}...", &attribute_name[..i]);
-                        let test_layout = ui.fonts(|f| f.layout_no_wrap(test_text, font.clone(), egui::Color32::WHITE));
+                        let test_layout = ui.fonts(|f| {
+                            f.layout_no_wrap(test_text, font.clone(), egui::Color32::WHITE)
+                        });
                         if test_layout.rect.width() > available_width {
                             fit_chars = i.saturating_sub(1);
                             break;
@@ -483,7 +539,7 @@ impl Inspector {
                 } else {
                     attribute_name.to_string()
                 };
-                
+
                 ui.label(egui::RichText::new(display_name).strong())
                     .on_hover_text(attribute_name);
             });
@@ -491,24 +547,33 @@ impl Inspector {
             // Right side with fixed-width input
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
                 ui.set_width(input_width);
-                
+
                 match attribute_value {
                     AttributeValue::Boolean(_) => {
                         let mut value = temp_value.parse::<bool>().unwrap_or(false);
                         if ui.checkbox(&mut value, "").changed() {
-                            entity.modify_attribute(attribute_id, None, None, Some(AttributeValue::Boolean(value)));
+                            entity.modify_attribute(
+                                attribute_id,
+                                None,
+                                None,
+                                Some(AttributeValue::Boolean(value)),
+                            );
                             self.editing_states.insert(attribute_id, value.to_string());
                             self.data_updated = true;
                         }
                     }
                     _ => {
                         let response = ui.add(
-                            egui::TextEdit::singleline(self.editing_states.get_mut(&attribute_id).unwrap())
-                                .desired_width(input_width)
+                            egui::TextEdit::singleline(
+                                self.editing_states.get_mut(&attribute_id).unwrap(),
+                            )
+                            .desired_width(input_width),
                         );
 
                         if response.lost_focus() {
-                            if let Some(new_value) = self.parse_attribute_value(&temp_value, attribute_value) {
+                            if let Some(new_value) =
+                                self.parse_attribute_value(&temp_value, attribute_value)
+                            {
                                 entity.modify_attribute(attribute_id, None, None, Some(new_value));
                                 self.editing_states.remove(&attribute_id);
                                 self.data_updated = true;
@@ -529,7 +594,11 @@ impl Inspector {
     }
 
     /// Parse input value
-    fn parse_attribute_value(&self, input: &str, attribute_value: &AttributeValue) -> Option<AttributeValue> {
+    fn parse_attribute_value(
+        &self,
+        input: &str,
+        attribute_value: &AttributeValue,
+    ) -> Option<AttributeValue> {
         match attribute_value {
             AttributeValue::Integer(_) => input.parse::<i32>().ok().map(AttributeValue::Integer),
             AttributeValue::Float(_) => input.parse::<f32>().ok().map(AttributeValue::Float),

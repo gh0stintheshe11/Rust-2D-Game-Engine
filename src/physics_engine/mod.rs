@@ -512,7 +512,7 @@ impl PhysicsEngine {
         for (entity_id, collider_handle) in &self.entity_to_collider {
             if let Some(collider) = self.collider_set.get(*collider_handle) {
                 if let Some(rb_handle) = self.entity_to_body.get(entity_id) {
-                    if let Some(rb) = self.rigid_body_set.get(*rb_handle) {
+                    if let Some(_rb) = self.rigid_body_set.get(*rb_handle) {
                         let position = (collider.translation().x, collider.translation().y);
 
                         if let Some(ball) = collider.shape().as_ball() {

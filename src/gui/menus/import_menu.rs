@@ -11,7 +11,7 @@ impl ImportMenu {
         Self {}
     }
 
-    pub fn show(&mut self, ctx: &egui::Context, ui: &mut egui::Ui, gui_state: &mut GuiState) {
+    pub fn show(&mut self, _ctx: &egui::Context, ui: &mut egui::Ui, gui_state: &mut GuiState) {
         ui.add_enabled_ui(gui_state.load_project, |ui| {
             ui.button("Import Sound").clicked().then(|| {
                 self.import_asset(gui_state, AssetType::Sound);

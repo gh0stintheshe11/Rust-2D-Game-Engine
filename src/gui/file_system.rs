@@ -1,5 +1,4 @@
 use crate::gui::gui_state::{GuiState, SelectedItem};
-use crate::project_manager::ProjectManager;
 use eframe::egui;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -21,7 +20,7 @@ impl FileSystem {
 
     pub fn show(
         &mut self,
-        ctx: &egui::Context,
+        _ctx: &egui::Context,
         ui: &mut egui::Ui,
         gui_state: &mut GuiState,
     ) -> Option<(PathBuf, String)> {
@@ -100,7 +99,7 @@ impl FileSystem {
         depth: usize,
         gui_state: &mut GuiState,
     ) {
-        if let Ok(mut entries) = fs::read_dir(path) {
+        if let Ok(entries) = fs::read_dir(path) {
             let search_query = self.search_query.to_lowercase();
             let is_filtering = !search_query.is_empty();
 
@@ -109,7 +108,6 @@ impl FileSystem {
             let mut files = vec![];
 
             for entry in entries.filter_map(|e| e.ok()) {
-
                 let entry_path = entry.path();
 
                 // Skip the target folder under the project path
@@ -157,9 +155,10 @@ impl FileSystem {
                 ui.horizontal(|ui| {
                     ui.add_space(depth as f32 * 4.0);
 
-                    let selected = self.selected_file.as_ref().map_or(false, |selected_path| 
-                        selected_path == &file_path
-                    );
+                    let selected = self
+                        .selected_file
+                        .as_ref()
+                        .map_or(false, |selected_path| selected_path == &file_path);
 
                     let response = ui.selectable_label(selected, format!("{}", file_name));
 
@@ -175,9 +174,9 @@ impl FileSystem {
                                 println!("Failed to delete file: {}", err);
                             } else {
                                 println!("Deleted file: {}", file_name);
-                                if matches!(&gui_state.selected_item, 
-                                    SelectedItem::File(selected_path) 
-                                    if selected_path == &file_path) 
+                                if matches!(&gui_state.selected_item,
+                                    SelectedItem::File(selected_path)
+                                    if selected_path == &file_path)
                                 {
                                     gui_state.selected_item = SelectedItem::None;
                                 }
@@ -192,21 +191,6 @@ impl FileSystem {
             }
         } else {
             ui.label("Failed to read directory.");
-        }
-    }
-
-    fn is_valid_file(&self, path: &Path) -> bool {
-        match path.extension().and_then(|ext| ext.to_str()) {
-            Some(ext) => {
-                let valid_extensions = [
-                    "png", "jpg", "jpeg", "gif", // Image files
-                    "wav", "mp3", "ogg", // Sound files
-                    "ttf", "otf", // Font files
-                    "lua", // Script files
-                ];
-                valid_extensions.contains(&ext.to_lowercase().as_str())
-            }
-            None => false,
         }
     }
 

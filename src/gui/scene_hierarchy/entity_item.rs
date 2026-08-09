@@ -1,4 +1,4 @@
-use crate::gui::scene_hierarchy::{SceneHierarchy, resource_item::ResourceItem};
+use crate::gui::scene_hierarchy::SceneHierarchy;
 use crate::gui::gui_state::{GuiState, ScenePanelSelectedItem, SelectedItem};
 use egui::{Context, Ui};
 use uuid::Uuid;

@@ -46,7 +46,7 @@ pub struct EngineGui {
 }
 
 impl EngineGui {
-    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+    pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
         let gui_state = GuiState::new();
         let render_engine = RenderEngine::new();
         let mut input_handler = InputHandler::new();
@@ -86,7 +86,7 @@ impl EngineGui {
         let min_side_panel_width = 200.0;
 
         // Frame color
-        let default_fill = self.get_background_color();
+        let _default_fill = self.get_background_color();
 
         self.set_theme(ctx);
 
@@ -362,7 +362,7 @@ impl EngineGui {
                                                         content_rect.min.y + end.1,
                                                     ),
                                                 ],
-                                                egui::Stroke::new(2.0, egui::Color32::RED),
+                                                egui::Stroke::new(2.0_f32, egui::Color32::RED),
                                             );
                                         }
                                     }
@@ -461,7 +461,7 @@ impl EngineGui {
                                 match self.game_runtime.get_state() {
                                     RuntimeState::Playing => {
                                         // When playing, route input directly to game runtime's input handler
-                                        self.game_runtime.get_input_handler().handle_input(input);
+                                        self.game_runtime.handle_input(input);
                                     }
                                     _ => {
                                         // When not playing, use engine UI input handler
@@ -619,7 +619,7 @@ impl EngineGui {
                     egui::pos2(content_rect.min.x + start.0, content_rect.min.y + start.1),
                     egui::pos2(content_rect.min.x + end.0, content_rect.min.y + end.1),
                 ],
-                egui::Stroke::new(0.5, egui::Color32::from_gray(60)),
+                egui::Stroke::new(0.5_f32, egui::Color32::from_gray(60)),
             );
         }
 
@@ -630,22 +630,11 @@ impl EngineGui {
                 let render_queue = self.render_engine.render(active_scene);
 
                 for (texture_id, pos, size, _layer) in render_queue {
-                    if let Some(texture_info) = self.render_engine.texture_cache.get(&texture_id) {
+                    if let Some(texture) = self.render_engine.get_egui_texture(ui.ctx(), texture_id)
+                    {
                         let rect = egui::Rect::from_min_size(
                             egui::pos2(content_rect.min.x + pos.0, content_rect.min.y + pos.1),
                             egui::vec2(size.0, size.1),
-                        );
-
-                        let texture = ui.ctx().load_texture(
-                            format!("texture_{}", texture_id),
-                            egui::ColorImage::from_rgba_unmultiplied(
-                                [
-                                    texture_info.dimensions.0 as usize,
-                                    texture_info.dimensions.1 as usize,
-                                ],
-                                &texture_info.data,
-                            ),
-                            Default::default(),
                         );
 
                         ui.painter().image(
@@ -665,7 +654,7 @@ impl EngineGui {
                             egui::pos2(content_rect.min.x + start.0, content_rect.min.y + start.1),
                             egui::pos2(content_rect.min.x + end.0, content_rect.min.y + end.1),
                         ],
-                        egui::Stroke::new(2.0, egui::Color32::RED),
+                        egui::Stroke::new(2.0_f32, egui::Color32::RED),
                     );
                 }
             }
@@ -711,7 +700,7 @@ impl eframe::App for EngineGui {
                 stroke: egui::Stroke::NONE,
             })
             .show(ctx, |ui| {
-                let rect = ui.max_rect();
+                let _rect = ui.max_rect();
                 self.show_windows(ctx);
             });
 

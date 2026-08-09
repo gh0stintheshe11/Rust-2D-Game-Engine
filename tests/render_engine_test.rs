@@ -91,7 +91,7 @@ mod tests {
 
     #[test]
     fn test_camera_bounds() {
-        let mut renderer = RenderEngine::new();
+        let renderer = RenderEngine::new();
         let mut scene = Scene::new("test_scene").unwrap();
         
         // Create a camera entity

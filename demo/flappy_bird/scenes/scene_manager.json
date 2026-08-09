@@ -190,10 +190,10 @@
             }
           },
           "images": [
-            "/Users/Frank/Documents/school_work/Rust-2D-Game-Engine/demo/flappy_bird//assets/images/bird1.png"
+            "assets/images/bird1.png"
           ],
           "sounds": [],
-          "script": "/Users/Frank/Documents/school_work/Rust-2D-Game-Engine/demo/flappy_bird/assets/scripts/script.lua"
+          "script": "assets/scripts/script.lua"
         },
         "f4786a0b-7a6d-4e8a-87a8-3de8b7f2db86": {
           "id": "f4786a0b-7a6d-4e8a-87a8-3de8b7f2db86",
@@ -300,7 +300,7 @@
             }
           },
           "images": [
-            "/Users/Frank/Documents/school_work/Rust-2D-Game-Engine/demo/flappy_bird//assets/images/ground.png"
+            "assets/images/ground.png"
           ],
           "sounds": [],
           "script": null
@@ -335,10 +335,10 @@
             }
           },
           "images": [
-            "/Users/Frank/Documents/school_work/Rust-2D-Game-Engine/demo/flappy_bird//assets/images/bg.png"
+            "assets/images/bg.png"
           ],
           "sounds": [],
-          "script": "/Users/Frank/Documents/school_work/Rust-2D-Game-Engine/demo/flappy_bird/assets/scripts/pipe_spawner.lua"
+          "script": "assets/scripts/pipe_spawner.lua"
         },
         "bcf90e25-4228-409c-9802-2d9927c8f6d5": {
           "id": "bcf90e25-4228-409c-9802-2d9927c8f6d5",
@@ -445,10 +445,10 @@
             }
           },
           "images": [
-            "/Users/Frank/Documents/school_work/Rust-2D-Game-Engine/demo/flappy_bird//assets/images/top_pipe.png"
+            "assets/images/top_pipe.png"
           ],
           "sounds": [],
-          "script": "/Users/Frank/Documents/school_work/Rust-2D-Game-Engine/demo/flappy_bird/assets/scripts/top_pipe1.lua"
+          "script": "assets/scripts/top_pipe1.lua"
         },
         "2d5d16f3-b559-4e99-8523-a1940db88e7c": {
           "id": "2d5d16f3-b559-4e99-8523-a1940db88e7c",
@@ -555,10 +555,10 @@
             }
           },
           "images": [
-            "/Users/Frank/Documents/school_work/Rust-2D-Game-Engine/demo/flappy_bird//assets/images/bottom_pipe.png"
+            "assets/images/bottom_pipe.png"
           ],
           "sounds": [],
-          "script": "/Users/Frank/Documents/school_work/Rust-2D-Game-Engine/demo/flappy_bird/assets/scripts/top_pipe1.lua"
+          "script": "assets/scripts/top_pipe1.lua"
         },
         "3a2c6702-3f9d-4181-9989-cf39c6373669": {
           "id": "3a2c6702-3f9d-4181-9989-cf39c6373669",
@@ -665,7 +665,7 @@
             }
           },
           "images": [
-            "/Users/Frank/Documents/school_work/Rust-2D-Game-Engine/demo/flappy_bird//assets/images/ground.png"
+            "assets/images/ground.png"
           ],
           "sounds": [],
           "script": null
@@ -775,10 +775,10 @@
             }
           },
           "images": [
-            "/Users/Frank/Documents/school_work/Rust-2D-Game-Engine/demo/flappy_bird//assets/images/top_pipe.png"
+            "assets/images/top_pipe.png"
           ],
           "sounds": [],
-          "script": "/Users/Frank/Documents/school_work/Rust-2D-Game-Engine/demo/flappy_bird/assets/scripts/top_pipe1.lua"
+          "script": "assets/scripts/top_pipe1.lua"
         },
         "8db58598-d0f6-40cd-bc83-95ab34db365f": {
           "id": "8db58598-d0f6-40cd-bc83-95ab34db365f",
@@ -885,10 +885,10 @@
             }
           },
           "images": [
-            "/Users/Frank/Documents/school_work/Rust-2D-Game-Engine/demo/flappy_bird//assets/images/bottom_pipe.png"
+            "assets/images/bottom_pipe.png"
           ],
           "sounds": [],
-          "script": "/Users/Frank/Documents/school_work/Rust-2D-Game-Engine/demo/flappy_bird/assets/scripts/top_pipe1.lua"
+          "script": "assets/scripts/top_pipe1.lua"
         }
       },
       "shared_entity_refs": [],

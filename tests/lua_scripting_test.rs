@@ -138,3 +138,198 @@ mod tests {
         );
     }
 }
+
+/// Integration tests for the engine's scripting session
+/// (persistent VM, per-script environments, safe engine bindings).
+#[cfg(test)]
+mod session_tests {
+    use rust_2d_game_engine::ecs::SceneManager;
+    use rust_2d_game_engine::input_handler::InputHandler;
+    use rust_2d_game_engine::lua_scripting::LuaScripting;
+    use rust_2d_game_engine::physics_engine::PhysicsEngine;
+    use std::cell::RefCell;
+    use std::path::PathBuf;
+    use std::rc::Rc;
+
+    struct TestSession {
+        lua: LuaScripting,
+        scene_manager: Rc<RefCell<SceneManager>>,
+        scene_id: uuid::Uuid,
+        script_dir: PathBuf,
+    }
+
+    fn setup(test_name: &str) -> TestSession {
+        let script_dir = std::env::temp_dir().join(format!(
+            "rust2d_engine_test_{}_{}",
+            test_name,
+            uuid::Uuid::new_v4()
+        ));
+        std::fs::create_dir_all(&script_dir).unwrap();
+
+        let mut manager = SceneManager::new();
+        let scene_id = manager.create_scene("test_scene").unwrap();
+        manager.set_active_scene(scene_id).unwrap();
+
+        let scene_manager = Rc::new(RefCell::new(manager));
+        let physics_engine = Rc::new(RefCell::new(PhysicsEngine::new()));
+        let input_handler = Rc::new(RefCell::new(InputHandler::new()));
+
+        let mut lua = LuaScripting::new();
+        lua.start_session(
+            Rc::clone(&scene_manager),
+            Rc::clone(&physics_engine),
+            Rc::clone(&input_handler),
+        )
+        .expect("Failed to start Lua session");
+
+        TestSession {
+            lua,
+            scene_manager,
+            scene_id,
+            script_dir,
+        }
+    }
+
+    fn add_scripted_entity(session: &TestSession, name: &str, script_source: &str) -> uuid::Uuid {
+        let script_path = session.script_dir.join(format!("{}.lua", name));
+        std::fs::write(&script_path, script_source).unwrap();
+
+        let mut manager = session.scene_manager.borrow_mut();
+        let scene = manager.get_scene_mut(session.scene_id).unwrap();
+        let entity_id = scene.create_entity(name).unwrap();
+        scene
+            .get_entity_mut(entity_id)
+            .unwrap()
+            .set_script(script_path)
+            .unwrap();
+        entity_id
+    }
+
+    #[test]
+    fn test_script_state_persists_across_frames() {
+        let mut session = setup("state_persists");
+        add_scripted_entity(
+            &session,
+            "counter",
+            r#"
+            function update(scene_id, entity_id)
+                if script_state.state.count == nil then
+                    script_state.state.count = 0
+                end
+                script_state.state.count = script_state.state.count + 1
+            end
+            "#,
+        );
+
+        for _ in 0..3 {
+            session.lua.run_scripts_for_scene(session.scene_id).unwrap();
+        }
+
+        let count: i64 = session
+            .lua
+            .lua
+            .load("return script_state.state.count")
+            .eval()
+            .unwrap();
+        assert_eq!(count, 3, "script_state should persist across frames");
+    }
+
+    #[test]
+    fn test_script_can_spawn_entities_mid_frame() {
+        let mut session = setup("spawn_mid_frame");
+        add_scripted_entity(
+            &session,
+            "spawner",
+            r#"
+            function update(scene_id, entity_id)
+                local id = add_entity(scene_id, "spawned_" .. tostring(math.random(1, 100000)))
+                set_x(scene_id, id, 42.0)
+            end
+            "#,
+        );
+
+        session.lua.run_scripts_for_scene(session.scene_id).unwrap();
+        session.lua.run_scripts_for_scene(session.scene_id).unwrap();
+
+        let manager = session.scene_manager.borrow();
+        let scene = manager.get_scene(session.scene_id).unwrap();
+        // 1 default camera + 1 spawner + 2 spawned entities
+        assert_eq!(
+            scene.entities.len(),
+            4,
+            "Scripts should be able to add entities while running"
+        );
+    }
+
+    #[test]
+    fn test_failing_script_does_not_block_others() {
+        let mut session = setup("error_isolation");
+        add_scripted_entity(
+            &session,
+            "a_broken",
+            r#"
+            function update(scene_id, entity_id)
+                error("intentional failure")
+            end
+            "#,
+        );
+        add_scripted_entity(
+            &session,
+            "b_working",
+            r#"
+            function update(scene_id, entity_id)
+                script_state.state.worked = true
+            end
+            "#,
+        );
+
+        session.lua.run_scripts_for_scene(session.scene_id).unwrap();
+
+        let worked: bool = session
+            .lua
+            .lua
+            .load("return script_state.state.worked == true")
+            .eval()
+            .unwrap();
+        assert!(
+            worked,
+            "A failing script must not prevent later scripts from running"
+        );
+    }
+
+    #[test]
+    fn test_scripts_have_isolated_update_functions() {
+        let mut session = setup("env_isolation");
+        // Both scripts define update(); with shared globals the second would
+        // overwrite the first. Each must run its own version.
+        add_scripted_entity(
+            &session,
+            "first",
+            r#"
+            function update(scene_id, entity_id)
+                script_state.state.first = (script_state.state.first or 0) + 1
+            end
+            "#,
+        );
+        add_scripted_entity(
+            &session,
+            "second",
+            r#"
+            function update(scene_id, entity_id)
+                script_state.state.second = (script_state.state.second or 0) + 1
+            end
+            "#,
+        );
+
+        session.lua.run_scripts_for_scene(session.scene_id).unwrap();
+
+        let (first, second): (i64, i64) = session
+            .lua
+            .lua
+            .load("return script_state.state.first or 0, script_state.state.second or 0")
+            .eval()
+            .unwrap();
+        assert_eq!(first, 1, "first script's update() should have run");
+        assert_eq!(second, 1, "second script's update() should have run");
+    }
+}
