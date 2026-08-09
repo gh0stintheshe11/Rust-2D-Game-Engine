@@ -341,6 +341,11 @@ impl GameRuntime {
             }
         };
 
+        // Clip all game drawing to the viewport; the GPU scissor handles
+        // partial visibility (also correct for rotated sprites, unlike
+        // manual UV clipping)
+        let painter = ui.painter().with_clip_rect(viewport_rect);
+
         for entry in render_queue {
             let Some(texture) = self
                 .render_engine
@@ -357,30 +362,11 @@ impl GameRuntime {
                 egui::vec2(entry.screen_size.0, entry.screen_size.1),
             );
 
-            let intersection = texture_rect.intersect(viewport_rect);
-            if !intersection.is_positive() {
-                continue;
-            }
-
-            // Adjust UV coordinates for the clipped area
-            let uv_min = (
-                (intersection.min.x - texture_rect.min.x) / entry.screen_size.0,
-                (intersection.min.y - texture_rect.min.y) / entry.screen_size.1,
-            );
-            let uv_max = (
-                (intersection.max.x - texture_rect.min.x) / entry.screen_size.0,
-                (intersection.max.y - texture_rect.min.y) / entry.screen_size.1,
-            );
-
-            // Render only the visible part
-            ui.painter().image(
+            crate::render_engine::paint_sprite(
+                &painter,
                 texture.id(),
-                intersection,
-                egui::Rect::from_min_max(
-                    egui::pos2(uv_min.0, uv_min.1),
-                    egui::pos2(uv_max.0, uv_max.1),
-                ),
-                egui::Color32::WHITE,
+                texture_rect,
+                entry.rotation,
             );
         }
 
@@ -396,7 +382,7 @@ impl GameRuntime {
                         viewport_rect.min.y + screen_position.1,
                     );
                     let radius = screen_size.0 / 2.0;
-                    ui.painter().circle_stroke(
+                    painter.circle_stroke(
                         center,
                         radius,
                         egui::Stroke::new(1.0_f32, egui::Color32::RED),
@@ -410,7 +396,7 @@ impl GameRuntime {
                         ),
                         egui::vec2(screen_size.0, screen_size.1),
                     );
-                    ui.painter().rect_stroke(
+                    painter.rect_stroke(
                         rect,
                         0.0,
                         egui::Stroke::new(1.0_f32, egui::Color32::BLUE),

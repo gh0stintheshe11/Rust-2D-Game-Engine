@@ -9,7 +9,7 @@ CPU-side scene renderer built on the **egui painter** — there is no wgpu/GPU p
 | `Camera` | Pan/zoom; `world_to_screen` maps world coords into the viewport |
 | `TextureInfo` | Decoded RGBA bytes + dimensions, cached in `texture_cache: HashMap<Uuid, TextureInfo>` keyed by a SHA-256-of-path pseudo-UUID (`path_to_uuid`) |
 | `egui_textures` | GPU-side `egui::TextureHandle` cache — each texture is uploaded **once** via `get_egui_texture(ctx, id)` and the handle is reused every frame |
-| `Transform` | position/rotation/scale holder (rotation is parsed from entities but not yet applied to drawing) |
+| `Transform` | position/rotation/scale holder (rotation attribute is in degrees, converted to radians for drawing) |
 | `Animation` | Frame-sequence struct — currently dead code, never instantiated |
 
 ## Frame flow
@@ -23,7 +23,7 @@ graph TD
     P -->|"get_egui_texture()"| GT["egui_textures (GPU, uploaded once)"]
 ```
 
-- Entity sprite = its **first** image (`entity.get_image(0)`); size = image pixel dimensions scaled by camera zoom.
+- Entity sprite = its **first** image (`entity.get_image(0)`); size = image pixel dimensions scaled by camera zoom (times an optional `scale` Vector2 attribute). An optional `rotation` Float attribute (in **degrees**) rotates the sprite around its center, rendered as a rotated mesh.
 - Culling is a simple AABB test against the viewport.
 - Helpers: `get_grid_lines()` (editor grid), `get_game_camera_bounds(scene)` (red camera rect), `render_colliders(&collider_data)` (debug wireframe queue).
 
@@ -33,9 +33,6 @@ graph TD
 
 ## Known limitations / TODO
 
-- `rotation` is read from entities and then dropped — sprites never rotate.
-- Grid spacing ignores camera zoom, so the grid slides relative to world objects when zoomed.
-- Camera zoom pivots on the screen origin rather than the viewport center/cursor.
-- `Animation` is dead code; `last_frame_time` is written but never read.
+- `Transform.scale` comes from an optional `scale` Vector2 attribute; there's no editor UI for it yet.
 - Same image referenced by relative *and* absolute path = two cache entries (path-string hashing).
 - The editor and the game runtime each own a cloned `RenderEngine` (duplicate caches; the runtime's camera is re-synced from the editor camera every frame).

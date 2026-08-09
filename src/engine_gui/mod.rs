@@ -582,19 +582,40 @@ impl EngineGui {
                                         {
                                             ui.ctx().input(|i| {
                                                 let delta = i.pointer.delta();
+                                                // Convert screen-space delta to world units
+                                                let zoom = self
+                                                    .render_engine
+                                                    .camera
+                                                    .zoom
+                                                    .max(0.0001);
                                                 self.render_engine
                                                     .camera
-                                                    .move_by(-delta.x, -delta.y);
+                                                    .move_by(-delta.x / zoom, -delta.y / zoom);
                                             });
                                         }
 
-                                        // Editor zoom control
+                                        // Editor zoom control: zoom towards the cursor
                                         if let Some(scroll_delta) =
                                             self.input_handler.get_scroll_delta()
                                         {
                                             let zoom_factor =
                                                 if scroll_delta.y > 0.0 { 1.1 } else { 0.9 };
-                                            self.render_engine.camera.zoom_by(zoom_factor);
+
+                                            let camera = &mut self.render_engine.camera;
+                                            let old_zoom = camera.zoom.max(0.0001);
+                                            let local = cursor_pos - viewport_rect.min;
+                                            // World point under the cursor before zooming
+                                            let world_x =
+                                                local.x / old_zoom + camera.position.0;
+                                            let world_y =
+                                                local.y / old_zoom + camera.position.1;
+
+                                            camera.zoom_by(zoom_factor);
+
+                                            // Keep that world point under the cursor
+                                            let new_zoom = camera.zoom.max(0.0001);
+                                            camera.position.0 = world_x - local.x / new_zoom;
+                                            camera.position.1 = world_y - local.y / new_zoom;
                                         }
                                     }
                                 }
@@ -748,11 +769,11 @@ impl EngineGui {
                     egui::vec2(entry.screen_size.0, entry.screen_size.1),
                 );
 
-                ui.painter().image(
+                crate::render_engine::paint_sprite(
+                    ui.painter(),
                     texture.id(),
                     rect,
-                    egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
-                    egui::Color32::WHITE,
+                    entry.rotation,
                 );
 
                 // Selection highlight

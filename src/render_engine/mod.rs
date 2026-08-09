@@ -18,7 +18,55 @@ pub struct RenderQueueEntry {
     pub texture_id: Uuid,
     pub screen_pos: (f32, f32),
     pub screen_size: (f32, f32),
+    /// Rotation around the sprite center, in radians (entity attribute is in degrees).
+    pub rotation: f32,
     pub z: f32,
+}
+
+/// Paint a textured rect, optionally rotated around its center.
+pub fn paint_sprite(
+    painter: &egui::Painter,
+    texture_id: egui::TextureId,
+    rect: egui::Rect,
+    rotation: f32,
+) {
+    if rotation == 0.0 {
+        painter.image(
+            texture_id,
+            rect,
+            egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
+            egui::Color32::WHITE,
+        );
+        return;
+    }
+
+    let center = rect.center();
+    let (sin, cos) = rotation.sin_cos();
+    let corners = [
+        rect.left_top(),
+        rect.right_top(),
+        rect.right_bottom(),
+        rect.left_bottom(),
+    ];
+    let uvs = [
+        egui::pos2(0.0, 0.0),
+        egui::pos2(1.0, 0.0),
+        egui::pos2(1.0, 1.0),
+        egui::pos2(0.0, 1.0),
+    ];
+
+    let mut mesh = egui::Mesh::with_texture(texture_id);
+    for (corner, uv) in corners.iter().zip(uvs) {
+        let rel = *corner - center;
+        let rotated = egui::vec2(rel.x * cos - rel.y * sin, rel.x * sin + rel.y * cos);
+        mesh.vertices.push(egui::epaint::Vertex {
+            pos: center + rotated,
+            uv,
+            color: egui::Color32::WHITE,
+        });
+    }
+    mesh.indices.extend([0, 1, 2, 0, 2, 3]);
+    painter.add(mesh);
 }
 
 /// One collider debug shape: screen position, screen size, shape name.
@@ -128,7 +176,8 @@ impl RenderEngine {
                             AttributeValue::Float(r) => Ok(r),
                             _ => Err("Invalid rotation attribute type".to_string()),
                         })
-                        .unwrap_or(0.0),
+                        .unwrap_or(0.0)
+                        .to_radians(),
 
                     scale: entity
                         .get_attribute_by_name("scale")
@@ -157,6 +206,7 @@ impl RenderEngine {
                             texture_id,
                             screen_pos,
                             screen_size: (width, height),
+                            rotation: transform.rotation,
                             z, // Use z coordinate directly for ordering
                         });
                     }
@@ -278,43 +328,35 @@ impl RenderEngine {
     }
 
     // Add this new method to draw grid
+    /// Grid lines in screen space, aligned to world coordinates so the grid
+    /// sticks to the world at any camera position and zoom. Spacing adapts
+    /// (powers of two) so lines never get denser than ~24px on screen.
     pub fn get_grid_lines(&self) -> Vec<((f32, f32), (f32, f32))> {
         let mut lines = Vec::new();
-        let grid_size = 32.0;
+        let zoom = self.camera.zoom.max(0.0001);
 
-        // Get viewport dimensions
-        let width = self.viewport_size.0;
-        let height = self.viewport_size.1;
-
-        // Calculate padding based on viewport size
-        let padding_factor = 3.0; // Adjust this if needed
-        let view_padding_x = width * padding_factor;
-        let view_padding_y = height * padding_factor;
-
-        let total_width = width + view_padding_x * 2.0;
-        let total_height = height + view_padding_y * 2.0;
-
-        let num_vertical_lines = (total_width / grid_size).ceil() as i32;
-        let num_horizontal_lines = (total_height / grid_size).ceil() as i32;
-
-        // Calculate camera offset
-        let camera_x_offset = self.camera.position.0 % grid_size;
-        let camera_y_offset = self.camera.position.1 % grid_size;
-
-        // Calculate starting positions
-        let start_x = -view_padding_x - camera_x_offset;
-        let start_y = -view_padding_y - camera_y_offset;
-
-        // Vertical lines
-        for i in 0..=num_vertical_lines {
-            let x = start_x + (i as f32 * grid_size);
-            lines.push(((x, start_y), (x, start_y + total_height)));
+        // Base cell of 32 world units, coarsened while zoomed out
+        let mut spacing = 32.0_f32;
+        while spacing * zoom < 24.0 {
+            spacing *= 2.0;
         }
 
-        // Horizontal lines
-        for i in 0..=num_horizontal_lines {
-            let y = start_y + (i as f32 * grid_size);
-            lines.push(((start_x, y), (start_x + total_width, y)));
+        let (width, height) = self.viewport_size;
+        let world_min = self.camera.position;
+        let world_max = (world_min.0 + width / zoom, world_min.1 + height / zoom);
+
+        let mut x = (world_min.0 / spacing).floor() * spacing;
+        while x <= world_max.0 {
+            let sx = (x - world_min.0) * zoom;
+            lines.push(((sx, 0.0), (sx, height)));
+            x += spacing;
+        }
+
+        let mut y = (world_min.1 / spacing).floor() * spacing;
+        while y <= world_max.1 {
+            let sy = (y - world_min.1) * zoom;
+            lines.push(((0.0, sy), (width, sy)));
+            y += spacing;
         }
 
         lines
