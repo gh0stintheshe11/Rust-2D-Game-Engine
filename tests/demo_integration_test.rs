@@ -4,6 +4,7 @@
 /// creates pipes at runtime, and pipes move left under script control.
 #[cfg(test)]
 mod tests {
+    use rust_2d_game_engine::audio_engine::AudioEngine;
     use rust_2d_game_engine::ecs::AttributeValue;
     use rust_2d_game_engine::input_handler::InputHandler;
     use rust_2d_game_engine::lua_scripting::LuaScripting;
@@ -30,18 +31,23 @@ mod tests {
                 self.lua.bind_keys_pressed(&self.input.borrow()).unwrap();
                 self.lua.run_scripts_for_scene(self.scene_id).unwrap();
 
-                let mut manager = self.scene_manager.borrow_mut();
-                let scene = manager.get_active_scene_mut().unwrap();
-                let updates = self.physics.borrow_mut().step(scene);
-                let filtered: Vec<_> = updates
-                    .into_iter()
-                    .filter(|(_, _, value)| match value {
-                        AttributeValue::Float(v) => !v.is_nan(),
-                        AttributeValue::Vector2(x, y) => !x.is_nan() && !y.is_nan(),
-                        _ => true,
-                    })
-                    .collect();
-                scene.update_entity_attributes(filtered).unwrap();
+                {
+                    let mut manager = self.scene_manager.borrow_mut();
+                    let scene = manager.get_active_scene_mut().unwrap();
+                    let updates = self.physics.borrow_mut().step(scene);
+                    let filtered: Vec<_> = updates
+                        .into_iter()
+                        .filter(|(_, _, value)| match value {
+                            AttributeValue::Float(v) => !v.is_nan(),
+                            AttributeValue::Vector2(x, y) => !x.is_nan() && !y.is_nan(),
+                            _ => true,
+                        })
+                        .collect();
+                    scene.update_entity_attributes(filtered).unwrap();
+                }
+
+                // Mirror the runtime: collision hooks fire after physics
+                self.lua.dispatch_collision_events(self.scene_id).unwrap();
             }
         }
 
@@ -77,11 +83,13 @@ mod tests {
             .load_scene(scene_manager.borrow().get_active_scene().unwrap());
 
         let input = Rc::new(RefCell::new(InputHandler::new()));
+        let audio = Rc::new(RefCell::new(AudioEngine::new()));
         let mut lua = LuaScripting::new();
         lua.start_session(
             Rc::clone(&scene_manager),
             Rc::clone(&physics),
             Rc::clone(&input),
+            Rc::clone(&audio),
         )
         .expect("Lua session should start");
 

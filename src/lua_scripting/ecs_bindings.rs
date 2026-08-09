@@ -55,7 +55,7 @@ impl LuaScripting {
 
         let manager = Rc::clone(scene_manager);
         let create_physical_entity = self.lua.create_function(
-            move |_, (scene_id, name, _x, _y, _z): (String, String, f32, f32, f32)| {
+            move |_, (scene_id, name, x, y, z): (String, String, f32, f32, f32)| {
                 let mut manager = manager.borrow_mut();
                 let scene_uuid = parse_uuid(&scene_id, "scene")?;
                 let scene = manager.get_scene_mut(scene_uuid).ok_or_else(|| {
@@ -80,6 +80,20 @@ impl LuaScripting {
                                 attr_value.clone(),
                             );
                         }
+                    }
+
+                    // Apply the requested spawn position
+                    entity.set_position(x, y, z).map_err(|e| {
+                        mlua::Error::external(format!("Failed to set spawn position: {}", e))
+                    })?;
+                    if let Ok(pos_attr) = entity.get_attribute_by_name("position") {
+                        let pos_id = pos_attr.id;
+                        let _ = entity.modify_attribute(
+                            pos_id,
+                            None,
+                            None,
+                            Some(AttributeValue::Vector2(x, y)),
+                        );
                     }
                 } else {
                     return Err(mlua::Error::external(format!(

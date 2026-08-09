@@ -19,6 +19,16 @@ A **session** spans one Play (from pressing ▶ until Stop/Reset):
 - Before running scripts each frame, the entity list is **snapshotted**, so scripts can safely `add_entity` / `remove_entity` mid-frame.
 - A failing script is logged to the editor console and skipped; other scripts still run.
 
+## Script lifecycle hooks
+
+All optional except `update`:
+
+| Hook | When |
+|---|---|
+| `init(scene_id, entity_id)` | Once per entity, before its first `update` (spawned entities get it on their first frame) |
+| `update(scene_id, entity_id)` | Every rendered frame |
+| `on_collision(scene_id, entity_id, other_id)` | When a contact with another physics entity **begins** (edge-triggered — once per new contact, dispatched after the physics step) |
+
 ## Globals available to scripts
 
 | Global | Access | Meaning |
@@ -51,7 +61,20 @@ Input:
 
 | Function | Notes |
 |---|---|
-| `is_key_just_pressed(key_name)` | `key_name` uses egui `Key::from_name` names (e.g. `"Space"`, `"A"`) |
+| `is_key_just_pressed(key_name)` | True only on the frame the key went down. `key_name` uses egui `Key::from_name` names (e.g. `"Space"`, `"A"`) |
+| `is_key_pressed(key_name)` | True while held |
+| `is_mouse_pressed(button)` | `"left"`, `"right"` or `"middle"` |
+| `get_mouse_position() -> {x, y}` | Window coordinates |
+| `get_scroll_delta() -> {x, y}` | Zero when not scrolling |
+
+Audio:
+
+| Function | Notes |
+|---|---|
+| `play_sound(relative_path) -> play_id or nil` | Path resolves against the project root; returns nil (never errors) when the file is missing or the machine has no audio device |
+| `stop_sound(play_id)` | |
+| `is_sound_playing(play_id) -> bool` | |
+| `stop_all_sounds()` | |
 
 ECS (all IDs are UUID strings):
 
@@ -59,7 +82,7 @@ ECS (all IDs are UUID strings):
 |---|---|
 | `add_entity(scene_id, name) -> entity_id` | |
 | `remove_entity(scene_id, entity_id) -> bool` | |
-| `create_physical_entity(scene_id, name, x, y, z) -> entity_id` | Seeds attributes from the predefined "Physics" archetype; position args currently unused |
+| `create_physical_entity(scene_id, name, x, y, z) -> entity_id` | Seeds attributes from the predefined "Physics" archetype and spawns at the given position |
 | `set_x` / `set_y` / `set_z(scene_id, entity_id, value)` | |
 | `set_position(scene_id, entity_id, x, y)` | Sets x and y; leaves z untouched |
 | `add_image(entity_id, relative_path)` | Path is joined onto the open project's root |
@@ -91,10 +114,8 @@ end
 
 ## Known limitations / TODO
 
-- Only an `update` hook exists — no `init`, no collision callbacks (poll
-  `get_colliding_entities` instead), no `on_destroy`.
-- No audio bindings (scripts can't play sounds yet) and only one input binding.
+- No `on_destroy` hook yet; `on_collision` reports contact *begin* only (no end event).
+- `get_mouse_position` is in window coordinates — no viewport/world mapping yet.
 - Delta time is the real measured frame time (clamped to 0.25s); physics
   advances on a fixed timestep independently of the display refresh rate.
 - `script_state` is shared by all scripts; key collisions are the script author's problem.
-- `create_physical_entity` ignores its x/y/z arguments (the demo works around this by setting attributes from Lua).

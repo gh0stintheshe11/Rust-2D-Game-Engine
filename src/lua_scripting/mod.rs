@@ -1,5 +1,5 @@
 use std::cell::{Cell, RefCell};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::time::SystemTime;
@@ -7,20 +7,25 @@ use std::time::SystemTime;
 use mlua::{Function as LuaFunction, Lua};
 use uuid::Uuid;
 
+use crate::audio_engine::AudioEngine;
 use crate::ecs::SceneManager;
 use crate::input_handler::InputHandler;
 use crate::logger::LOGGER;
 use crate::physics_engine::PhysicsEngine;
 
+mod audio_bindings;
 mod ecs_bindings;
 mod input_bindings;
 mod physics_bindings;
 
-/// A compiled script's `update` function, cached for the duration of a play
-/// session. `modified` allows hot-reloading when the file changes on disk.
+/// A compiled script's functions, cached for the duration of a play session.
+/// `modified` allows hot-reloading when the file changes on disk.
+#[derive(Clone)]
 struct CachedScript {
     modified: Option<SystemTime>,
     update_fn: LuaFunction,
+    init_fn: Option<LuaFunction>,
+    on_collision_fn: Option<LuaFunction>,
 }
 
 /// Lua scripting engine.
@@ -42,11 +47,22 @@ struct CachedScript {
 ///   don't collide with other scripts.
 /// - `script_state` is a plain Lua table (`script_state.state`) shared by all
 ///   scripts and persistent for the whole session.
+///
+/// Script lifecycle hooks (all optional except `update`):
+/// - `init(scene_id, entity_id)` - once per entity, before its first update
+/// - `update(scene_id, entity_id)` - every rendered frame
+/// - `on_collision(scene_id, entity_id, other_id)` - when a contact with
+///   another physics entity begins (fires once per new contact)
 pub struct LuaScripting {
     pub lua: Lua,
     accumulated_time: f32,
     script_cache: HashMap<PathBuf, CachedScript>,
     scene_manager: Option<Rc<RefCell<SceneManager>>>,
+    physics_engine: Option<Rc<RefCell<PhysicsEngine>>>,
+    // Entities whose init() has already run this session
+    initialized_entities: HashSet<Uuid>,
+    // Contact sets from the previous frame, for edge-triggered on_collision
+    previous_contacts: HashMap<Uuid, HashSet<Uuid>>,
     // Set by the end_game() binding; polled by the runtime each frame
     game_stop_requested: Rc<Cell<bool>>,
 }
@@ -69,6 +85,9 @@ impl LuaScripting {
             accumulated_time: 0.0,
             script_cache: HashMap::new(),
             scene_manager: None,
+            physics_engine: None,
+            initialized_entities: HashSet::new(),
+            previous_contacts: HashMap::new(),
             game_stop_requested: Rc::new(Cell::new(false)),
         }
     }
@@ -80,11 +99,15 @@ impl LuaScripting {
         scene_manager: Rc<RefCell<SceneManager>>,
         physics_engine: Rc<RefCell<PhysicsEngine>>,
         input_handler: Rc<RefCell<InputHandler>>,
+        audio_engine: Rc<RefCell<AudioEngine>>,
     ) -> Result<(), mlua::Error> {
         self.lua = Lua::new();
         self.script_cache.clear();
+        self.initialized_entities.clear();
+        self.previous_contacts.clear();
         self.accumulated_time = 0.0;
         self.scene_manager = Some(Rc::clone(&scene_manager));
+        self.physics_engine = Some(Rc::clone(&physics_engine));
         self.game_stop_requested.set(false);
 
         let globals = self.lua.globals();
@@ -109,6 +132,7 @@ impl LuaScripting {
         self.register_physics_bindings(&physics_engine, &scene_manager)?;
         self.register_input_bindings(&input_handler)?;
         self.register_ecs_bindings(&scene_manager)?;
+        self.register_audio_bindings(&audio_engine)?;
 
         LOGGER.info("Lua scripting session started");
         Ok(())
@@ -178,7 +202,7 @@ impl LuaScripting {
                 }
             }
 
-            let update_fn = match self.get_or_load_script(&script_path) {
+            let script = match self.get_or_load_script(&script_path) {
                 Ok(f) => f,
                 Err(e) => {
                     LOGGER.error(format!("Script load error for entity {}: {}", entity_id, e));
@@ -186,8 +210,25 @@ impl LuaScripting {
                 }
             };
 
-            if let Err(e) =
-                update_fn.call::<()>((active_scene_id.to_string(), entity_id.to_string()))
+            // init(scene_id, entity_id): once per entity, before first update
+            if self.initialized_entities.insert(entity_id) {
+                if let Some(init_fn) = &script.init_fn {
+                    if let Err(e) =
+                        init_fn.call::<()>((active_scene_id.to_string(), entity_id.to_string()))
+                    {
+                        LOGGER.error(format!(
+                            "Script init() error for entity {} ({}): {}",
+                            entity_id,
+                            script_path.display(),
+                            e
+                        ));
+                    }
+                }
+            }
+
+            if let Err(e) = script
+                .update_fn
+                .call::<()>((active_scene_id.to_string(), entity_id.to_string()))
             {
                 LOGGER.error(format!(
                     "Script update() error for entity {} ({}): {}",
@@ -201,14 +242,85 @@ impl LuaScripting {
         Ok(())
     }
 
+    /// Fire `on_collision(scene_id, entity_id, other_id)` for every scripted
+    /// entity whose contact set gained a new entity since the last call.
+    /// Called by the runtime after the physics step.
+    pub fn dispatch_collision_events(&mut self, active_scene_id: Uuid) -> Result<(), String> {
+        let scene_manager = self
+            .scene_manager
+            .clone()
+            .ok_or_else(|| "Lua session not started".to_string())?;
+        let physics = self
+            .physics_engine
+            .clone()
+            .ok_or_else(|| "Lua session not started".to_string())?;
+
+        // Snapshot scripted entities and their current contacts up front
+        let contacts: Vec<(Uuid, PathBuf, HashSet<Uuid>)> = {
+            let manager = scene_manager.borrow();
+            let Some(scene) = manager.get_scene(active_scene_id) else {
+                return Ok(());
+            };
+            let physics = physics.borrow();
+            scene
+                .entities
+                .iter()
+                .filter_map(|(id, entity)| {
+                    let path = entity.script.clone()?;
+                    let current: HashSet<Uuid> =
+                        physics.get_colliding_entities(id).into_iter().collect();
+                    Some((*id, path, current))
+                })
+                .collect()
+        };
+
+        for (entity_id, script_path, current) in contacts {
+            let previous = self
+                .previous_contacts
+                .remove(&entity_id)
+                .unwrap_or_default();
+            let new_contacts: Vec<Uuid> = current.difference(&previous).copied().collect();
+            self.previous_contacts.insert(entity_id, current);
+
+            if new_contacts.is_empty() {
+                continue;
+            }
+
+            let script = match self.get_or_load_script(&script_path) {
+                Ok(f) => f,
+                Err(_) => continue, // load errors already reported by update path
+            };
+            let Some(on_collision) = &script.on_collision_fn else {
+                continue;
+            };
+
+            for other_id in new_contacts {
+                if let Err(e) = on_collision.call::<()>((
+                    active_scene_id.to_string(),
+                    entity_id.to_string(),
+                    other_id.to_string(),
+                )) {
+                    LOGGER.error(format!(
+                        "Script on_collision() error for entity {} ({}): {}",
+                        entity_id,
+                        script_path.display(),
+                        e
+                    ));
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     /// Compile a script (once per session, re-compiled if the file changed)
-    /// and return its cached `update` function.
-    fn get_or_load_script(&mut self, path: &Path) -> Result<LuaFunction, String> {
+    /// and return its cached functions.
+    fn get_or_load_script(&mut self, path: &Path) -> Result<CachedScript, String> {
         let modified = std::fs::metadata(path).and_then(|m| m.modified()).ok();
 
         if let Some(cached) = self.script_cache.get(path) {
             if cached.modified == modified {
-                return Ok(cached.update_fn.clone());
+                return Ok(cached.clone());
             }
         }
 
@@ -239,14 +351,16 @@ impl LuaScripting {
                 path.display()
             )
         })?;
+        let init_fn: Option<LuaFunction> = env.get("init").ok();
+        let on_collision_fn: Option<LuaFunction> = env.get("on_collision").ok();
 
-        self.script_cache.insert(
-            path.to_path_buf(),
-            CachedScript {
-                modified,
-                update_fn: update_fn.clone(),
-            },
-        );
-        Ok(update_fn)
+        let cached = CachedScript {
+            modified,
+            update_fn,
+            init_fn,
+            on_collision_fn,
+        };
+        self.script_cache.insert(path.to_path_buf(), cached.clone());
+        Ok(cached)
     }
 }

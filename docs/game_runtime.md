@@ -36,8 +36,9 @@ graph TD
 2. Native `Game::update` (optional Rust game hook) with real frame dt
 3. Lua: advance `accumulated_time` by real dt, refresh `keys_pressed`, run entity scripts (once per rendered frame)
 4. Physics: **fixed-timestep accumulator** — real time is consumed in fixed steps of `1/target_fps` (max 5 catch-up steps per frame), so simulation speed is identical on 60Hz and 144Hz displays. Each step: `step(scene)` → NaN-filter → write position updates back into entity attributes
-5. Audio: reap finished sinks
-6. Paint: build render queue, draw sprites (cached GPU textures, viewport-clipped UVs), then collider debug wireframes
+5. Collision hooks: `on_collision` fires for contacts that began this frame (edge-triggered against the previous frame's contact sets)
+6. Audio: reap finished sinks
+7. Paint: build render queue, draw sprites (cached GPU textures, viewport-clipped UVs), then collider debug wireframes
 
 Script errors and physics write-back failures are logged to the editor console (`LOGGER`) — they never panic the editor.
 

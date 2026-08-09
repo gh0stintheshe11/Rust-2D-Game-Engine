@@ -143,6 +143,7 @@ mod tests {
 /// (persistent VM, per-script environments, safe engine bindings).
 #[cfg(test)]
 mod session_tests {
+    use rust_2d_game_engine::audio_engine::AudioEngine;
     use rust_2d_game_engine::ecs::SceneManager;
     use rust_2d_game_engine::input_handler::InputHandler;
     use rust_2d_game_engine::lua_scripting::LuaScripting;
@@ -174,12 +175,14 @@ mod session_tests {
         let scene_manager = Rc::new(RefCell::new(manager));
         let physics_engine = Rc::new(RefCell::new(PhysicsEngine::new()));
         let input_handler = Rc::new(RefCell::new(InputHandler::new()));
+        let audio_engine = Rc::new(RefCell::new(AudioEngine::new()));
 
         let mut lua = LuaScripting::new();
         lua.start_session(
             Rc::clone(&scene_manager),
             Rc::clone(&physics_engine),
             Rc::clone(&input_handler),
+            Rc::clone(&audio_engine),
         )
         .expect("Failed to start Lua session");
 
@@ -607,5 +610,201 @@ mod session_tests {
             AttributeValue::Float(1.0),
             "the attribute must be unchanged after a rejected write"
         );
+    }
+
+    #[test]
+    fn test_init_runs_once_before_update() {
+        let mut session = setup("init_hook");
+        add_scripted_entity(
+            &session,
+            "lifecycle",
+            r#"
+            function init(scene_id, entity_id)
+                script_state.state.inits = (script_state.state.inits or 0) + 1
+                script_state.state.init_before_update = script_state.state.updates == nil
+            end
+
+            function update(scene_id, entity_id)
+                script_state.state.updates = (script_state.state.updates or 0) + 1
+            end
+            "#,
+        );
+
+        for _ in 0..3 {
+            session.lua.run_scripts_for_scene(session.scene_id).unwrap();
+        }
+
+        let (inits, updates, ordered): (i64, i64, bool) = session
+            .lua
+            .lua
+            .load(
+                "return script_state.state.inits, script_state.state.updates, \
+                 script_state.state.init_before_update == true",
+            )
+            .eval()
+            .unwrap();
+        assert_eq!(inits, 1, "init() must run exactly once per entity");
+        assert_eq!(updates, 3, "update() must run every frame");
+        assert!(ordered, "init() must run before the first update()");
+    }
+
+    #[test]
+    fn test_on_collision_fires_once_per_contact() {
+        use rust_2d_game_engine::ecs::PhysicsProperties;
+
+        let mut session = setup("on_collision_hook");
+
+        // A fixed obstacle and a player dropped onto it
+        let (obstacle_id, player_id) = {
+            let mut manager = session.scene_manager.borrow_mut();
+            let scene = manager.get_scene_mut(session.scene_id).unwrap();
+            let obstacle_id = scene
+                .create_physical_entity(
+                    "obstacle",
+                    (0.0, 0.0, 0.0),
+                    PhysicsProperties {
+                        is_movable: false,
+                        has_collision: true,
+                        ..Default::default()
+                    },
+                )
+                .unwrap();
+            let player_id = scene
+                .create_physical_entity(
+                    "player",
+                    (0.0, -3.0, 0.0),
+                    PhysicsProperties {
+                        is_movable: true,
+                        affected_by_gravity: true,
+                        has_collision: true,
+                        ..Default::default()
+                    },
+                )
+                .unwrap();
+            (obstacle_id, player_id)
+        };
+
+        let script_path = session.script_dir.join("collider.lua");
+        std::fs::write(
+            &script_path,
+            r#"
+            function update(scene_id, entity_id) end
+
+            function on_collision(scene_id, entity_id, other_id)
+                script_state.state.hits = (script_state.state.hits or 0) + 1
+                script_state.state.last_other = get_entity_name(scene_id, other_id)
+            end
+            "#,
+        )
+        .unwrap();
+        {
+            let mut manager = session.scene_manager.borrow_mut();
+            let scene = manager.get_scene_mut(session.scene_id).unwrap();
+            scene
+                .get_entity_mut(player_id)
+                .unwrap()
+                .set_script(script_path)
+                .unwrap();
+        }
+
+        {
+            let mut manager = session.scene_manager.borrow_mut();
+            let scene = manager.get_scene_mut(session.scene_id).unwrap();
+            let mut physics = session.physics.borrow_mut();
+            physics.add_entity(scene.get_entity(obstacle_id).unwrap());
+            physics.add_entity(scene.get_entity(player_id).unwrap());
+        }
+
+        // Simulate frames like the runtime: scripts, physics, collision hooks
+        for _ in 0..240 {
+            session.lua.run_scripts_for_scene(session.scene_id).unwrap();
+            {
+                let mut manager = session.scene_manager.borrow_mut();
+                let scene = manager.get_scene_mut(session.scene_id).unwrap();
+                session.physics.borrow_mut().step(scene);
+            }
+            session
+                .lua
+                .dispatch_collision_events(session.scene_id)
+                .unwrap();
+        }
+
+        let (hits, other): (i64, String) = session
+            .lua
+            .lua
+            .load("return script_state.state.hits or 0, script_state.state.last_other or ''")
+            .eval()
+            .unwrap();
+        assert_eq!(
+            hits, 1,
+            "on_collision must fire once when contact begins, not every frame"
+        );
+        assert_eq!(other, "obstacle");
+    }
+
+    #[test]
+    fn test_audio_bindings_fail_gracefully() {
+        let mut session = setup("audio_bindings");
+        add_scripted_entity(
+            &session,
+            "noisy",
+            r#"
+            function update(scene_id, entity_id)
+                -- Missing file (and possibly no audio device): must return
+                -- nil rather than raise an error
+                script_state.state.play_result = play_sound("assets/sounds/missing.ogg")
+                script_state.state.survived = true
+                stop_all_sounds()
+            end
+            "#,
+        );
+
+        session.lua.run_scripts_for_scene(session.scene_id).unwrap();
+
+        let (survived, silent): (bool, bool) = session
+            .lua
+            .lua
+            .load(
+                "return script_state.state.survived == true, \
+                 script_state.state.play_result == nil",
+            )
+            .eval()
+            .unwrap();
+        assert!(survived, "audio calls must not raise errors");
+        assert!(silent, "unplayable sound returns nil");
+    }
+
+    #[test]
+    fn test_create_physical_entity_applies_position() {
+        let mut session = setup("cpe_position");
+        add_scripted_entity(
+            &session,
+            "spawner",
+            r#"
+            function update(scene_id, entity_id)
+                if script_state.state.spawned == nil then
+                    script_state.state.spawned =
+                        create_physical_entity(scene_id, "box", 12.0, 34.0, 2.0)
+                end
+            end
+            "#,
+        );
+
+        session.lua.run_scripts_for_scene(session.scene_id).unwrap();
+
+        let spawned: String = session
+            .lua
+            .lua
+            .load("return script_state.state.spawned")
+            .eval()
+            .unwrap();
+        let spawned_id = uuid::Uuid::parse_str(&spawned).unwrap();
+
+        let manager = session.scene_manager.borrow();
+        let scene = manager.get_scene(session.scene_id).unwrap();
+        let entity = scene.get_entity(spawned_id).unwrap();
+        assert_eq!(entity.get_x(), 12.0, "spawn x must be applied");
+        assert_eq!(entity.get_y(), 34.0, "spawn y must be applied");
+        assert_eq!(entity.get_z(), 2.0, "spawn z must be applied");
     }
 }

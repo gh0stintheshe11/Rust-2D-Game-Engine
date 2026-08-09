@@ -40,7 +40,7 @@ pub struct GameRuntime {
     physics_engine: Rc<RefCell<PhysicsEngine>>,
     render_engine: RenderEngine,
     input_handler: Rc<RefCell<InputHandler>>,
-    audio_engine: AudioEngine,
+    audio_engine: Rc<RefCell<AudioEngine>>,
     running: bool,
     state: RuntimeState,
     game: Option<Box<dyn Game>>,
@@ -71,7 +71,7 @@ impl GameRuntime {
             physics_engine: Rc::new(RefCell::new(physics_engine)),
             render_engine,
             input_handler: Rc::new(RefCell::new(input_handler)),
-            audio_engine,
+            audio_engine: Rc::new(RefCell::new(audio_engine)),
             running: false,
             state: RuntimeState::Stopped,
             game: None,
@@ -137,7 +137,7 @@ impl GameRuntime {
         // Clear all engines
         self.physics_engine.borrow_mut().cleanup();
         self.render_engine.cleanup();
-        self.audio_engine.cleanup();
+        self.audio_engine.borrow_mut().cleanup();
 
         // Restore the pre-play editor state, then drop the snapshot so the
         // next Play captures the current editor state instead of this stale one
@@ -186,6 +186,7 @@ impl GameRuntime {
                 Rc::clone(&self.scene_manager),
                 Rc::clone(&self.physics_engine),
                 Rc::clone(&self.input_handler),
+                Rc::clone(&self.audio_engine),
             )
             .map_err(|e| format!("Failed to start Lua session: {}", e))?;
 
@@ -298,8 +299,26 @@ impl GameRuntime {
                 return;
             }
 
+            // Fire on_collision hooks for contacts that began this frame
+            if let Some(active_scene_id) = active_scene_id {
+                if let Err(e) = self
+                    .lua_scripting
+                    .dispatch_collision_events(active_scene_id)
+                {
+                    LOGGER.error(format!("Error dispatching collision events: {}", e));
+                }
+                // A collision handler may have ended the game
+                if self.lua_scripting.take_game_stop_request() {
+                    LOGGER.info("Game over: a script called end_game()");
+                    self.set_state(RuntimeState::Ended);
+                    self.paint_scene(ui, viewport_rect);
+                    ctx.request_repaint();
+                    return;
+                }
+            }
+
             // Run audio
-            self.audio_engine.update();
+            self.audio_engine.borrow_mut().update();
 
             // Render
             self.paint_scene(ui, viewport_rect);
@@ -409,7 +428,7 @@ impl GameRuntime {
         // Cleanup engines
         self.physics_engine.borrow_mut().cleanup();
         self.render_engine.cleanup();
-        self.audio_engine.cleanup();
+        self.audio_engine.borrow_mut().cleanup();
 
         // Restore dev state if needed
         if let Some(snapshot) = self.dev_state_snapshot.take() {

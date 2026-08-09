@@ -38,7 +38,7 @@ Two ID spaces: `load_sound` returns the deterministic *sound id* (same path → 
 ## Known limitations / TODO
 
 - **No volume, looping, seeking, or playback-speed controls** — none of rodio's `Sink` controls beyond play/pause/stop are exposed. Background music on loop is currently impossible without re-triggering.
-- **No Lua bindings and no runtime hookup**: game scripts can't trigger sounds, and the runtime never plays entity sounds automatically. The only in-engine playback today is the editor inspector's preview button. `load_scene_sounds`/`play_sound` are effectively test-only.
+- **Lua bindings exist** (`play_sound`/`stop_sound`/`is_sound_playing`/`stop_all_sounds`), but the runtime never plays entity-attached sounds automatically — scripts drive all in-game playback. No volume/loop/pan controls yet.
 - **Full buffer clone per play**: the cache stores encoded file bytes; every play clones the whole buffer and decodes from scratch. No streaming — large files live entirely in memory.
 - **Status tri-state quirk**: a finished sound is not `is_playing`, but `is_stopped` stays `false` until `update()` reaps the sink; `is_stopped` also returns `true` for IDs that never existed.
 - **`duration_cache` is dead weight**: populated by `load_sound` but never read; `get_audio_duration` re-probes the file every time.
