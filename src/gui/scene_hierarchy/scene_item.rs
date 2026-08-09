@@ -44,6 +44,7 @@ impl SceneItem {
                             image_names: entity.images.iter().map(|p| file_name(p)).collect(),
                             sound_names: entity.sounds.iter().map(|p| file_name(p)).collect(),
                             script_name: entity.script.as_deref().map(file_name),
+                            script_path: entity.script.clone(),
                         })
                         .collect();
                     entities.sort_by_key(|e| e.name.to_lowercase());

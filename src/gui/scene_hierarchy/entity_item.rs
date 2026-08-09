@@ -11,6 +11,7 @@ pub struct EntityDisplay {
     pub image_names: Vec<String>,
     pub sound_names: Vec<String>,
     pub script_name: Option<String>,
+    pub script_path: Option<std::path::PathBuf>,
 }
 
 pub struct EntityItem;
@@ -68,7 +69,14 @@ impl EntityItem {
                     }
                     if let Some(filename) = &entity.script_name {
                         ui.horizontal(|ui| {
-                            ui.label(format!("📄 {}", filename));
+                            // Clicking a script opens it in the code editor
+                            if ui
+                                .selectable_label(false, format!("📄 {}", filename))
+                                .on_hover_text("Open in the script editor")
+                                .clicked()
+                            {
+                                gui_state.open_script_request = entity.script_path.clone();
+                            }
                         });
                     }
                 });

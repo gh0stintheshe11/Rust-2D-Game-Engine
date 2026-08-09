@@ -54,6 +54,10 @@ pub struct GuiState {
     pub show_build_project_popup: bool,
 
     pub exit_request: ExitRequest,
+
+    /// Set by any panel that wants a script opened in the code editor;
+    /// consumed by the editor shell each frame.
+    pub open_script_request: Option<PathBuf>,
 }
 
 impl Default for GuiState {
@@ -87,6 +91,8 @@ impl GuiState {
             show_build_project_popup: false,
 
             exit_request: ExitRequest::None,
+
+            open_script_request: None,
         }
     }
 }

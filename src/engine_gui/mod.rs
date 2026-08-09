@@ -115,6 +115,21 @@ impl EngineGui {
         let spacing = 4.0;
         let min_side_panel_width = 200.0;
 
+        // Another panel (hierarchy, inspector, files) asked to open a script
+        if let Some(path) = self.gui_state.open_script_request.take() {
+            match fs::read_to_string(&path) {
+                Ok(content) => {
+                    // Save the previous file before switching buffers
+                    self.save_editor_if_dirty();
+                    self.editor_content = content;
+                    self.current_edited_file = Some(path);
+                    self.editor_dirty = false;
+                    self.show_editor = true;
+                }
+                Err(e) => LOGGER.error(format!("Failed to open {}: {}", path.display(), e)),
+            }
+        }
+
         // Frame color
         let _default_fill = self.get_background_color();
 
@@ -344,7 +359,9 @@ impl EngineGui {
                                             .unwrap_or_default(),
                                         if self.editor_dirty { " ●" } else { "" }
                                     ),
-                                    None => "No file open".to_string(),
+                                    None => "No file open — click a script in the Files panel \
+                                             or in the scene hierarchy"
+                                        .to_string(),
                                 };
                                 ui.label(label);
                                 if self.editor_dirty {

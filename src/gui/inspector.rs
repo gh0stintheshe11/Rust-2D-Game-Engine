@@ -81,9 +81,13 @@ impl Inspector {
                 }
             }
             SelectedItem::Scene(scene_id) => self.show_scene_details(ui, *scene_id, gui_state),
-            SelectedItem::File(file_path) => self.show_file_details(ui, file_path),
+            SelectedItem::File(file_path) => {
+                let file_path = file_path.clone();
+                self.show_file_details(ui, &file_path, gui_state);
+            }
             SelectedItem::Asset(_scene_id, _entity_id, asset_path) => {
-                self.show_file_details(ui, asset_path);
+                let asset_path = asset_path.clone();
+                self.show_file_details(ui, &asset_path, gui_state);
             }
             SelectedItem::None => {
                 ui.label("No item selected.");
@@ -109,7 +113,7 @@ impl Inspector {
     }
 
     // Display file information
-    fn show_file_details(&mut self, ui: &mut egui::Ui, file_path: &Path) {
+    fn show_file_details(&mut self, ui: &mut egui::Ui, file_path: &Path, gui_state: &mut GuiState) {
         if let Ok(metadata) = fs::metadata(file_path) {
             if metadata.is_file() {
                 let extension = file_path
@@ -261,7 +265,7 @@ impl Inspector {
                     }
                     "lua" | "rs" => {
                         if ui.button("Edit Script").clicked() {
-                            // TODO: switch to editor panel
+                            gui_state.open_script_request = Some(file_path.to_path_buf());
                         }
                         ui.separator();
                         ui.label("Path:");
