@@ -341,14 +341,20 @@ impl GameRuntime {
             }
         };
 
-        for (texture_id, pos, size, _layer) in render_queue {
-            let Some(texture) = self.render_engine.get_egui_texture(ui.ctx(), texture_id) else {
+        for entry in render_queue {
+            let Some(texture) = self
+                .render_engine
+                .get_egui_texture(ui.ctx(), entry.texture_id)
+            else {
                 continue;
             };
 
             let texture_rect = egui::Rect::from_min_size(
-                egui::pos2(viewport_rect.min.x + pos.0, viewport_rect.min.y + pos.1),
-                egui::vec2(size.0, size.1),
+                egui::pos2(
+                    viewport_rect.min.x + entry.screen_pos.0,
+                    viewport_rect.min.y + entry.screen_pos.1,
+                ),
+                egui::vec2(entry.screen_size.0, entry.screen_size.1),
             );
 
             let intersection = texture_rect.intersect(viewport_rect);
@@ -358,12 +364,12 @@ impl GameRuntime {
 
             // Adjust UV coordinates for the clipped area
             let uv_min = (
-                (intersection.min.x - texture_rect.min.x) / size.0,
-                (intersection.min.y - texture_rect.min.y) / size.1,
+                (intersection.min.x - texture_rect.min.x) / entry.screen_size.0,
+                (intersection.min.y - texture_rect.min.y) / entry.screen_size.1,
             );
             let uv_max = (
-                (intersection.max.x - texture_rect.min.x) / size.0,
-                (intersection.max.y - texture_rect.min.y) / size.1,
+                (intersection.max.x - texture_rect.min.x) / entry.screen_size.0,
+                (intersection.max.y - texture_rect.min.y) / entry.screen_size.1,
             );
 
             // Render only the visible part

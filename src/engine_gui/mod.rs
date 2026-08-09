@@ -46,6 +46,8 @@ pub struct EngineGui {
     editor_dirty: bool,
     // Set once the user has confirmed exiting; lets the close request through
     allow_close: bool,
+    // Entity being moved in the viewport: (entity id, world-space grab offset)
+    viewport_drag: Option<(uuid::Uuid, (f32, f32))>,
 }
 
 impl EngineGui {
@@ -91,6 +93,7 @@ impl EngineGui {
             current_edited_file: None,
             editor_dirty: false,
             allow_close: false,
+            viewport_drag: None,
         }
     }
 
@@ -718,40 +721,195 @@ impl EngineGui {
         }
 
         // Render game content
-        if let Some(scene_manager) = &self.gui_state.scene_manager {
-            if let Some(active_scene) = scene_manager.get_active_scene() {
-                // First render all game objects
-                let render_queue = self.render_engine.render(active_scene);
+        let Some(scene_manager) = &self.gui_state.scene_manager else {
+            return;
+        };
+        let Some(active_scene) = scene_manager.get_active_scene() else {
+            return;
+        };
+        let active_scene_id = active_scene.id;
+        let render_queue = self.render_engine.render(active_scene);
 
-                for (texture_id, pos, size, _layer) in render_queue {
-                    if let Some(texture) = self.render_engine.get_egui_texture(ui.ctx(), texture_id)
-                    {
-                        let rect = egui::Rect::from_min_size(
-                            egui::pos2(content_rect.min.x + pos.0, content_rect.min.y + pos.1),
-                            egui::vec2(size.0, size.1),
-                        );
+        let selected_entity = match self.gui_state.scene_panel_selected_item {
+            crate::gui::gui_state::ScenePanelSelectedItem::Entity(_, entity_id) => Some(entity_id),
+            _ => None,
+        };
 
-                        ui.painter().image(
-                            texture.id(),
-                            rect,
-                            egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
-                            egui::Color32::WHITE,
-                        );
-                    }
-                }
+        for entry in &render_queue {
+            if let Some(texture) = self
+                .render_engine
+                .get_egui_texture(ui.ctx(), entry.texture_id)
+            {
+                let rect = egui::Rect::from_min_size(
+                    egui::pos2(
+                        content_rect.min.x + entry.screen_pos.0,
+                        content_rect.min.y + entry.screen_pos.1,
+                    ),
+                    egui::vec2(entry.screen_size.0, entry.screen_size.1),
+                );
 
-                // Then draw the game camera bounds
-                let camera_lines = self.render_engine.get_game_camera_bounds(active_scene);
-                for (start, end) in camera_lines {
-                    ui.painter().line_segment(
-                        [
-                            egui::pos2(content_rect.min.x + start.0, content_rect.min.y + start.1),
-                            egui::pos2(content_rect.min.x + end.0, content_rect.min.y + end.1),
-                        ],
-                        egui::Stroke::new(2.0_f32, egui::Color32::RED),
+                ui.painter().image(
+                    texture.id(),
+                    rect,
+                    egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
+                    egui::Color32::WHITE,
+                );
+
+                // Selection highlight
+                if selected_entity == Some(entry.entity_id) {
+                    ui.painter().rect_stroke(
+                        rect,
+                        0.0,
+                        egui::Stroke::new(2.0_f32, egui::Color32::from_rgb(255, 200, 0)),
+                        egui::StrokeKind::Outside,
                     );
                 }
             }
+        }
+
+        // Then draw the game camera bounds
+        let Some(scene_manager) = &self.gui_state.scene_manager else {
+            return;
+        };
+        if let Some(active_scene) = scene_manager.get_active_scene() {
+            let camera_lines = self.render_engine.get_game_camera_bounds(active_scene);
+            for (start, end) in camera_lines {
+                ui.painter().line_segment(
+                    [
+                        egui::pos2(content_rect.min.x + start.0, content_rect.min.y + start.1),
+                        egui::pos2(content_rect.min.x + end.0, content_rect.min.y + end.1),
+                    ],
+                    egui::Stroke::new(2.0_f32, egui::Color32::RED),
+                );
+            }
+        }
+
+        self.handle_viewport_interaction(ui, content_rect, active_scene_id, &render_queue);
+    }
+
+    /// Left-click selects the topmost entity under the cursor; left-drag
+    /// moves it (camera pan stays on right-drag / Alt+drag).
+    fn handle_viewport_interaction(
+        &mut self,
+        ui: &mut egui::Ui,
+        content_rect: egui::Rect,
+        active_scene_id: uuid::Uuid,
+        render_queue: &[crate::render_engine::RenderQueueEntry],
+    ) {
+        let response = ui.interact(
+            content_rect,
+            ui.make_persistent_id("scene_viewport_interaction"),
+            egui::Sense::click_and_drag(),
+        );
+
+        let alt_held = ui.ctx().input(|i| i.modifiers.alt);
+        let zoom = self.render_engine.camera.zoom.max(0.0001);
+
+        // Topmost entity under a screen position (queue is z-sorted low->high)
+        let hit_test = |pointer: egui::Pos2| -> Option<uuid::Uuid> {
+            render_queue.iter().rev().find_map(|entry| {
+                let rect = egui::Rect::from_min_size(
+                    egui::pos2(
+                        content_rect.min.x + entry.screen_pos.0,
+                        content_rect.min.y + entry.screen_pos.1,
+                    ),
+                    egui::vec2(entry.screen_size.0, entry.screen_size.1),
+                );
+                rect.contains(pointer).then_some(entry.entity_id)
+            })
+        };
+
+        // Click: select (or clear the selection when clicking empty space)
+        if response.clicked() {
+            if let Some(pointer) = response.interact_pointer_pos() {
+                match hit_test(pointer) {
+                    Some(entity_id) => {
+                        self.gui_state.selected_item =
+                            crate::gui::gui_state::SelectedItem::Entity(active_scene_id, entity_id);
+                        self.gui_state.scene_panel_selected_item =
+                            crate::gui::gui_state::ScenePanelSelectedItem::Entity(
+                                active_scene_id,
+                                entity_id,
+                            );
+                    }
+                    None => {
+                        self.gui_state.selected_item = crate::gui::gui_state::SelectedItem::None;
+                        self.gui_state.scene_panel_selected_item =
+                            crate::gui::gui_state::ScenePanelSelectedItem::None;
+                    }
+                }
+            }
+        }
+
+        // Drag start: grab the entity under the cursor (Alt+drag pans instead)
+        if response.drag_started_by(egui::PointerButton::Primary) && !alt_held {
+            if let Some(pointer) = response.interact_pointer_pos() {
+                if let Some(entity_id) = hit_test(pointer) {
+                    // World position of the cursor and the entity's grab offset
+                    let camera = &self.render_engine.camera;
+                    let world_x = (pointer.x - content_rect.min.x) / zoom + camera.position.0;
+                    let world_y = (pointer.y - content_rect.min.y) / zoom + camera.position.1;
+
+                    if let Some(scene_manager) = &self.gui_state.scene_manager {
+                        if let Some(scene) = scene_manager.get_scene(active_scene_id) {
+                            if let Ok(entity) = scene.get_entity(entity_id) {
+                                let offset = (world_x - entity.get_x(), world_y - entity.get_y());
+                                self.viewport_drag = Some((entity_id, offset));
+                                // Select what we grab
+                                self.gui_state.selected_item =
+                                    crate::gui::gui_state::SelectedItem::Entity(
+                                        active_scene_id,
+                                        entity_id,
+                                    );
+                                self.gui_state.scene_panel_selected_item =
+                                    crate::gui::gui_state::ScenePanelSelectedItem::Entity(
+                                        active_scene_id,
+                                        entity_id,
+                                    );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Dragging: move the grabbed entity with the cursor
+        if response.dragged_by(egui::PointerButton::Primary) && !alt_held {
+            if let (Some((entity_id, offset)), Some(pointer)) =
+                (self.viewport_drag, response.interact_pointer_pos())
+            {
+                let camera = &self.render_engine.camera;
+                let world_x = (pointer.x - content_rect.min.x) / zoom + camera.position.0;
+                let world_y = (pointer.y - content_rect.min.y) / zoom + camera.position.1;
+                let new_x = world_x - offset.0;
+                let new_y = world_y - offset.1;
+
+                if let Some(scene_manager) = &mut self.gui_state.scene_manager {
+                    if let Some(scene) = scene_manager.get_scene_mut(active_scene_id) {
+                        if let Ok(entity) = scene.get_entity_mut(entity_id) {
+                            let _ = entity.set_x(new_x);
+                            let _ = entity.set_y(new_y);
+                            // Keep the optional position Vector2 in sync
+                            if let Ok(pos_attr) = entity.get_attribute_by_name("position") {
+                                let pos_id = pos_attr.id;
+                                let _ = entity.modify_attribute(
+                                    pos_id,
+                                    None,
+                                    None,
+                                    Some(crate::ecs::AttributeValue::Vector2(new_x, new_y)),
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Drag end: persist the move
+        if response.drag_stopped_by(egui::PointerButton::Primary)
+            && self.viewport_drag.take().is_some()
+        {
+            crate::gui::scene_hierarchy::utils::save_project(&self.gui_state);
         }
     }
 

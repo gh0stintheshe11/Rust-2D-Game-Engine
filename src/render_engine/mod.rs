@@ -11,8 +11,15 @@ mod transform;
 pub use camera::Camera;
 pub use transform::Transform;
 
-/// One sprite draw command: texture id, screen position, screen size, z layer.
-pub type RenderQueueEntry = (Uuid, (f32, f32), (f32, f32), f32);
+/// One sprite draw command in screen space.
+#[derive(Debug, Clone)]
+pub struct RenderQueueEntry {
+    pub entity_id: Uuid,
+    pub texture_id: Uuid,
+    pub screen_pos: (f32, f32),
+    pub screen_size: (f32, f32),
+    pub z: f32,
+}
 
 /// One collider debug shape: screen position, screen size, shape name.
 pub type ColliderRenderData = ((f32, f32), (f32, f32), String);
@@ -97,7 +104,7 @@ impl RenderEngine {
     pub fn render(&mut self, scene: &Scene) -> Vec<RenderQueueEntry> {
         let mut render_queue = Vec::new();
 
-        for (_, entity) in &scene.entities {
+        for (entity_id, entity) in &scene.entities {
             if let Ok(image_path) = entity.get_image(0) {
                 let texture_id = Self::path_to_uuid(Path::new(image_path));
 
@@ -145,19 +152,20 @@ impl RenderEngine {
                         && screen_pos.1 <= self.viewport_size.1
                         && screen_pos.1 + height >= 0.0
                     {
-                        render_queue.push((
+                        render_queue.push(RenderQueueEntry {
+                            entity_id: *entity_id,
                             texture_id,
                             screen_pos,
-                            (width, height),
+                            screen_size: (width, height),
                             z, // Use z coordinate directly for ordering
-                        ));
+                        });
                     }
                 }
             }
         }
 
         // Sort by z coordinate (lower z values are rendered first)
-        render_queue.sort_by(|a, b| a.3.partial_cmp(&b.3).unwrap_or(std::cmp::Ordering::Equal));
+        render_queue.sort_by(|a, b| a.z.partial_cmp(&b.z).unwrap_or(std::cmp::Ordering::Equal));
         render_queue
     }
 

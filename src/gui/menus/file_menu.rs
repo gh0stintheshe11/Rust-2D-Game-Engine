@@ -64,11 +64,22 @@ impl FileMenu {
             .resizable(false)
             .order(egui::Order::Foreground)
             .show(ctx, |ui| {
-                ui.label("Project Path:");
-                let mut path_str = self.temp_project_path.to_string_lossy().into_owned();
-                if ui.text_edit_singleline(&mut path_str).changed() {
-                    self.temp_project_path = PathBuf::from(&path_str);
-                }
+                ui.label("Project Path (a new folder that will be created):");
+                ui.horizontal(|ui| {
+                    let mut path_str = self.temp_project_path.to_string_lossy().into_owned();
+                    if ui.text_edit_singleline(&mut path_str).changed() {
+                        self.temp_project_path = PathBuf::from(&path_str);
+                    }
+                    if ui.button("Browse…").clicked() {
+                        if let Some(parent) = rfd::FileDialog::new()
+                            .set_title("Choose where to create the project")
+                            .pick_folder()
+                        {
+                            // Suggest a subfolder inside the chosen directory
+                            self.temp_project_path = parent.join("my_game");
+                        }
+                    }
+                });
 
                 ui.horizontal(|ui| {
                     if ui.button("Create").clicked() {
@@ -133,14 +144,26 @@ impl FileMenu {
             .order(egui::Order::Foreground)
             .show(ctx, |ui| {
                 ui.label("Project Path:");
-                let mut path_str = self.temp_project_path.to_string_lossy().into_owned();
-                if ui.text_edit_singleline(&mut path_str).changed() {
-                    self.temp_project_path = PathBuf::from(&path_str);
-                    self.error_message.clear();
-                }
+                ui.horizontal(|ui| {
+                    let mut path_str = self.temp_project_path.to_string_lossy().into_owned();
+                    if ui.text_edit_singleline(&mut path_str).changed() {
+                        self.temp_project_path = PathBuf::from(&path_str);
+                        self.error_message.clear();
+                    }
+                    if ui.button("Browse…").clicked() {
+                        if let Some(folder) = rfd::FileDialog::new()
+                            .set_title("Open a project folder")
+                            .pick_folder()
+                        {
+                            self.temp_project_path = folder;
+                            self.error_message.clear();
+                        }
+                    }
+                });
 
                 ui.horizontal(|ui| {
-                    if ui.button("Open").clicked() && !path_str.is_empty() {
+                    if ui.button("Open").clicked() && !self.temp_project_path.as_os_str().is_empty()
+                    {
                         if !self.temp_project_path.exists() {
                             self.error_message = "Error: Path does not exist.".to_string();
                         } else {

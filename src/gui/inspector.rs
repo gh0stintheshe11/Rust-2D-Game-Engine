@@ -390,7 +390,6 @@ impl Inspector {
     }
 
     /// Add metadata popup, type must be in Entity's attribute types
-    // TODO: handle Vector2
     fn show_metadata_popup(
         &mut self,
         ctx: &egui::Context,
@@ -449,7 +448,28 @@ impl Inspector {
                         {
                             self.metadata_new_type = AttributeType::Boolean;
                         }
+                        if ui
+                            .selectable_value(
+                                &mut self.metadata_new_value,
+                                AttributeValue::Vector2(0.0, 0.0),
+                                "Vector2",
+                            )
+                            .clicked()
+                        {
+                            self.metadata_new_type = AttributeType::Vector2;
+                        }
                     });
+
+                // Initial value editor for Vector2 (other types start from
+                // their defaults and are edited afterwards in the inspector)
+                if let AttributeValue::Vector2(x, y) = &mut self.metadata_new_value {
+                    ui.horizontal(|ui| {
+                        ui.label("x:");
+                        ui.add(egui::DragValue::new(x).speed(1.0));
+                        ui.label("y:");
+                        ui.add(egui::DragValue::new(y).speed(1.0));
+                    });
+                }
 
                 if !self.metadata_error_message.is_empty() {
                     ui.colored_label(egui::Color32::RED, &self.metadata_error_message);
