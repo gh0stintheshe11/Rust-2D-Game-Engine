@@ -149,6 +149,20 @@ mod tests {
                 .expect("bird entity")
                 .get_y()
         };
+        let ground_positions_before: Vec<(String, f32, f32)> = {
+            let manager = sim.scene_manager.borrow();
+            let scene = manager.get_active_scene().unwrap();
+            scene
+                .entities
+                .values()
+                .filter(|e| e.name.starts_with("ground"))
+                .map(|e| (e.name.clone(), e.get_x(), e.get_y()))
+                .collect()
+        };
+        assert!(
+            !ground_positions_before.is_empty(),
+            "demo should have ground entities"
+        );
         let initial_entity_count = sim
             .scene_manager
             .borrow()
@@ -208,6 +222,37 @@ mod tests {
             moved_left,
             "spawned pipes should move left ~50px/s under script control.\nbefore: {:?}\nafter: {:?}",
             before, after
+        );
+
+        // Static scenery must not move: the grounds are fixed bodies
+        // (regression: they used to spawn from a stale "position" attribute
+        // and fall under gravity; large kinematic pipes also used to be put
+        // to sleep mid-flight by rapier's size-normalized thresholds)
+        let ground_positions_after: Vec<(String, f32, f32)> = {
+            let manager = sim.scene_manager.borrow();
+            let scene = manager.get_active_scene().unwrap();
+            scene
+                .entities
+                .values()
+                .filter(|e| e.name.starts_with("ground"))
+                .map(|e| (e.name.clone(), e.get_x(), e.get_y()))
+                .collect()
+        };
+        assert_eq!(
+            ground_positions_before, ground_positions_after,
+            "ground entities must stay exactly where they were placed"
+        );
+
+        // Pre-placed pipes must still be moving at the end of the sim
+        // (regression: they froze mid-flight when rapier slept them)
+        let pre_placed_before = sim.entity_x_by_name_prefix("top_pipe1");
+        sim.step_frames(30);
+        let pre_placed_after = sim.entity_x_by_name_prefix("top_pipe1");
+        assert!(
+            pre_placed_after[0].1 < pre_placed_before[0].1 - 10.0,
+            "pre-placed pipes must keep scrolling: {:?} -> {:?}",
+            pre_placed_before,
+            pre_placed_after
         );
     }
 }

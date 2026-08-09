@@ -74,6 +74,11 @@ impl PhysicsEngine {
                     natural_frequency: 30.0,
                     damping_ratio: 0.0,
                 },
+                // The engine works in pixels; typical sprites are ~100px.
+                // This scales rapier's internal tolerances (sleep thresholds,
+                // allowed penetration, prediction distance) accordingly -
+                // without it, large slow-moving bodies fall asleep mid-motion.
+                length_unit: 100.0,
                 ..Default::default()
             },
 
@@ -218,17 +223,11 @@ impl PhysicsEngine {
             self.entity_position_attrs.insert(entity.id, pos_attr.id);
         }
 
-        // Get spawn position: prefer the "position" Vector2 attribute, otherwise
-        // fall back to the x/y float attributes every entity has (see Entity::new).
-        let position = if let Ok(pos_attr) = entity.get_attribute_by_name("position") {
-            if let AttributeValue::Vector2(x, y) = pos_attr.value {
-                Vector::new(x, y)
-            } else {
-                Vector::new(entity.get_x(), entity.get_y())
-            }
-        } else {
-            Vector::new(entity.get_x(), entity.get_y())
-        };
+        // Spawn position comes from the x/y attributes: they exist on every
+        // entity, they're what the editor edits and the renderer draws from.
+        // (The optional "position" Vector2 attribute is only kept in sync on
+        // write-back; older scenes carry stale values in it.)
+        let position = Vector::new(entity.get_x(), entity.get_y());
 
         let is_movable = entity
             .get_attribute_by_name("is_movable")
@@ -327,6 +326,10 @@ impl PhysicsEngine {
         let rigid_body = if is_kinematic {
             RigidBodyBuilder::kinematic_velocity_based()
                 .translation(position)
+                // Script-driven bodies must never be put to sleep by the
+                // engine, or they freeze mid-motion when their velocity
+                // stays constant
+                .can_sleep(false)
                 .build()
         } else if is_movable {
             let mut rb = RigidBodyBuilder::dynamic()

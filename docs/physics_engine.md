@@ -11,7 +11,7 @@ A wrapper around [rapier2d](https://crates.io/crates/rapier2d) that mirrors scen
 | `rigid_body_set` / `collider_set` | The rapier world |
 | `entity_to_body` / `entity_to_collider` | `Uuid → handle` maps linking ECS entities to rapier objects |
 | `entity_position_attrs` | Cache of each entity's `position` Vector2 attribute id, for fast write-back |
-| `integration_parameters`, `time_step` | Fixed dt = 1/60 by default |
+| `integration_parameters`, `time_step` | Fixed dt = 1/60 by default; `length_unit: 100.0` tells rapier the world is pixel-scale so sleep/penetration tolerances are scaled correctly |
 | `impulse_joint_set`, `multibody_joint_set`, `ccd_solver`, `query_pipeline` | Allocated but effectively unused ("for future") |
 
 ## Which entities participate
@@ -20,8 +20,8 @@ A wrapper around [rapier2d](https://crates.io/crates/rapier2d) that mirrors scen
 
 - Skipped entirely unless the entity has at least one of `has_gravity`, `has_collision`, `creates_gravity`.
 - **Idempotent**: re-adding an entity that already has a body removes the old body/collider first (no leaked duplicates on scene reload).
-- Spawn position: prefers a `position` Vector2 attribute if present, otherwise **falls back to the `x`/`y` Float attributes** every entity has. (Entities made with `Entity::new_physical` only have `x`/`y`/`z`; `position` Vector2 typically exists only on script-created entities.)
-- Body type: kinematic (velocity-based) if `is_kinematic` — moved only via `set_velocity`, immune to gravity, forces and pushes from dynamic bodies (script-driven obstacles); otherwise dynamic if `is_movable` (default false → fixed). `has_gravity` maps to gravity scale 1/0. Rotation locked unless `can_rotate`.
+- Spawn position: **always the `x`/`y` Float attributes** (they exist on every entity, the editor edits them, and the renderer draws from them). The optional `position` Vector2 attribute is only synced on write-back — older scene files may carry stale values in it, which is why it is not trusted for spawning.
+- Body type: kinematic (velocity-based) if `is_kinematic` — moved only via `set_velocity`, immune to gravity, forces and pushes from dynamic bodies, and **never put to sleep** (a sleeping kinematic body would freeze mid-motion since a constant velocity doesn't wake it); otherwise dynamic if `is_movable` (default false → fixed). `has_gravity` maps to gravity scale 1/0. Rotation locked unless `can_rotate`.
 - Collider (if `has_collision`, default true): size comes from explicit `collider_width`/`collider_height` Float attributes when present, otherwise it is **inferred from the entity's first image** — the file is opened and its pixel dimensions read at add time (transparent padding inflates the hitbox). Shape comes from an explicit `collider_shape` String attribute (`"circle"`/`"rectangle"`) when present; otherwise the legacy heuristic applies: aspect ratio within 0.9–1.1 → ball of radius `width/2`, else a cuboid of half the image size. Offset by `(w/2, h/2)` so the collider spans from the entity's x/y. Fallback: ball of radius 0.5 if there's no explicit size and no loadable image. `density`, `friction`, `restitution` come from attributes (defaults 1.0 / 0.5 / 0.0).
 
 ## Per-frame flow

@@ -229,8 +229,8 @@
               "data_type": "Vector2",
               "value": {
                 "Vector2": [
-                  0.0,
-                  0.0
+                  -5.0,
+                  250.0
                 ]
               }
             },
@@ -239,7 +239,7 @@
               "name": "is_movable",
               "data_type": "Boolean",
               "value": {
-                "Boolean": true
+                "Boolean": false
               }
             },
             "f45dedcf-7c3f-4aac-b725-22fd21b2f166": {
@@ -247,7 +247,7 @@
               "name": "has_gravity",
               "data_type": "Boolean",
               "value": {
-                "Boolean": true
+                "Boolean": false
               }
             },
             "7e0d2aed-337a-48d1-bcc0-c199484b773c": {
@@ -594,8 +594,8 @@
               "data_type": "Vector2",
               "value": {
                 "Vector2": [
-                  0.0,
-                  0.0
+                  163.0,
+                  250.0
                 ]
               }
             },
@@ -604,7 +604,7 @@
               "name": "is_movable",
               "data_type": "Boolean",
               "value": {
-                "Boolean": true
+                "Boolean": false
               }
             },
             "f5bc979d-294d-493a-8fe4-86ae6f01b690": {
@@ -612,7 +612,7 @@
               "name": "has_gravity",
               "data_type": "Boolean",
               "value": {
-                "Boolean": true
+                "Boolean": false
               }
             },
             "37292c2d-ef67-486b-88f9-ac8dfdb7387f": {
