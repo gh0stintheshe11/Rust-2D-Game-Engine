@@ -31,7 +31,8 @@ impl ProjectManager {
                 if let Ok(line) = line {
                     println!("{}", line);
                     // Strip ANSI escape codes (for color)
-                    if let Ok(clean_line) = strip(line.as_bytes()) {
+                    {
+                        let clean_line = strip(line.as_bytes());
                         LOGGER.debug(String::from_utf8_lossy(&clean_line));
                     }
                 }
@@ -45,7 +46,8 @@ impl ProjectManager {
                 if let Ok(line) = line {
                     eprintln!("{}", line);
                     // Strip ANSI escape codes (for color)
-                    if let Ok(clean_line) = strip(line.as_bytes()) {
+                    {
+                        let clean_line = strip(line.as_bytes());
                         LOGGER.debug(String::from_utf8_lossy(&clean_line));
                     }
                 }

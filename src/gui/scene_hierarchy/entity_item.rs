@@ -105,17 +105,17 @@ impl EntityItem {
             if ui.button("Attach Asset").clicked() {
                 hierarchy.popup_manager.resource_selection = Some((*scene_id, *entity_id));
                 hierarchy.popup_manager.resource_selection_popup_active = true;
-                ui.close_menu();
+                ui.close();
             }
             if ui.button("Detach Asset").clicked() {
                 hierarchy.popup_manager.manage_assets_entity = Some((*scene_id, *entity_id));
                 hierarchy.popup_manager.manage_assets_popup_active = true;
-                ui.close_menu();
+                ui.close();
             }
             if ui.button("Rename").clicked() {
                 hierarchy.popup_manager.entity_rename_entity = Some((*scene_id, *entity_id));
                 hierarchy.popup_manager.rename_input = entity_name.to_string();
-                ui.close_menu();
+                ui.close();
             }
             if ui.button("Delete").clicked() {
                 gui_state
@@ -125,7 +125,7 @@ impl EntityItem {
                     .get_scene_mut(*scene_id)
                     .unwrap()
                     .delete_entity(*entity_id);
-                ui.close_menu();
+                ui.close();
             }
         });
     }

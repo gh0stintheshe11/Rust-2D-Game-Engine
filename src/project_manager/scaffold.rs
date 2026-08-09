@@ -8,7 +8,8 @@ use crate::ecs::SceneManager;
 impl ProjectManager {
     pub fn create_project(project_path: &Path) -> Result<LoadedProject, String> {
         // Extract project name from path
-        let project_name = project_path.file_name()
+        let project_name = project_path
+            .file_name()
             .and_then(|name| name.to_str())
             .ok_or("Invalid project path")?;
 
@@ -42,12 +43,12 @@ impl ProjectManager {
     // Creates the standard folder structure for a new project
     fn create_folder_structure(base_path: &Path) -> Result<(), String> {
         let folders = [
-            "assets/images",    // For image assets (textures, sprites)
-            "assets/sounds",    // For audio assets
-            "assets/fonts",     // For font files
-            "assets/scripts",   // For game scripts
-            "scenes",           // For scene data files
-            "src",             // For Rust source files
+            "assets/images",  // For image assets (textures, sprites)
+            "assets/sounds",  // For audio assets
+            "assets/fonts",   // For font files
+            "assets/scripts", // For game scripts
+            "scenes",         // For scene data files
+            "src",            // For Rust source files
         ];
 
         // Create each folder in the structure
@@ -65,8 +66,8 @@ impl ProjectManager {
         let file_path = base_path.join(Self::PROJECT_FILE_NAME);
         let json = serde_json::to_string_pretty(metadata)
             .map_err(|e| format!("Failed to serialize metadata: {}", e))?;
-        let mut file = File::create(&file_path)
-            .map_err(|e| format!("Failed to create file: {}", e))?;
+        let mut file =
+            File::create(&file_path).map_err(|e| format!("Failed to create file: {}", e))?;
         file.write_all(json.as_bytes())
             .map_err(|e| format!("Failed to write to file: {}", e))?;
 
@@ -151,12 +152,14 @@ fn main() -> eframe::Result<()> {{
     }};
 
     game_runtime.set_scene_manager(scene_manager.clone());
-    game_runtime.run();
+    if let Err(e) = game_runtime.run() {{
+        eprintln!("Failed to start game: {{}}", e);
+    }}
 
     eframe::run_native(
         "{}",
         native_options,
-        Box::new(|cc| {{
+        Box::new(|_cc| {{
             Ok(Box::new(MyApp {{
                 game_runtime,
                 camera_width,
@@ -173,23 +176,21 @@ struct MyApp {{
 }}
 
 impl eframe::App for MyApp {{
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {{
-        egui::CentralPanel::default().show(ctx, |ui| {{
-            let game_rect = egui::Rect::from_min_size(
-                egui::Pos2::ZERO,
-                egui::Vec2::new(self.camera_width, self.camera_height),
-            );
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {{
+        let ctx = ui.ctx().clone();
 
-            let game_view_rect = ui.available_rect_before_wrap();
-            self.game_runtime.update(ctx, ui, game_rect);
-        }});
+        let game_rect = egui::Rect::from_min_size(
+            egui::Pos2::ZERO,
+            egui::Vec2::new(self.camera_width, self.camera_height),
+        );
+
+        self.game_runtime.update(&ctx, ui, game_rect);
 
         ctx.request_repaint();
     }}
 }}
 "#,
-            project_name,
-            project_name
+            project_name, project_name
         );
 
         fs::write(&main_path, main_content)

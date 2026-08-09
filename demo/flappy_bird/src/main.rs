@@ -1,16 +1,16 @@
+use eframe::egui;
 use rust_2d_game_engine::{
-    eframe,
+    audio_engine::AudioEngine,
     ecs::SceneManager,
-    render_engine::RenderEngine,
+    eframe,
+    game_runtime::{GameRuntime, RuntimeState},
     input_handler::InputHandler,
     physics_engine::PhysicsEngine,
-    audio_engine::AudioEngine,
-    game_runtime::{GameRuntime, RuntimeState},
     project_manager::ProjectManager,
+    render_engine::RenderEngine,
 };
-use std::path::{Path, PathBuf};
-use eframe::egui;
 use std::env;
+use std::path::{Path, PathBuf};
 
 fn main() -> eframe::Result<()> {
     // Set up panic handler for safety
@@ -22,7 +22,9 @@ fn main() -> eframe::Result<()> {
 
     // Set the path to the current executable
     let exe_path = env::current_exe().expect("Failed to get current executable path");
-    let exe_dir = exe_path.parent().expect("Failed to get executable directory");
+    let exe_dir = exe_path
+        .parent()
+        .expect("Failed to get executable directory");
 
     env::set_current_dir(exe_dir).expect("Failed to set working directory");
     println!("Set working directory to: {:?}", exe_dir);
@@ -70,13 +72,14 @@ fn main() -> eframe::Result<()> {
     };
 
     game_runtime.set_scene_manager(scene_manager.clone());
-    game_runtime.run();
+    if let Err(e) = game_runtime.run() {
+        eprintln!("Failed to start game: {}", e);
+    }
 
     eframe::run_native(
         "Game Window",
         native_options,
-        Box::new(|cc| {
-
+        Box::new(|_cc| {
             Ok(Box::new(MyApp {
                 game_runtime,
                 camera_width,
@@ -93,18 +96,15 @@ struct MyApp {
 }
 
 impl eframe::App for MyApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::CentralPanel::default().show(ctx, |ui| {
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        let ctx = ui.ctx().clone();
 
-            let game_rect = egui::Rect::from_min_size(
-                egui::Pos2::ZERO,
-                egui::Vec2::new(self.camera_width, self.camera_height),
-            );
+        let game_rect = egui::Rect::from_min_size(
+            egui::Pos2::ZERO,
+            egui::Vec2::new(self.camera_width, self.camera_height),
+        );
 
-            let game_view_rect = ui.available_rect_before_wrap();
-            self.game_runtime.update(ctx, ui, game_rect);
-
-        });
+        self.game_runtime.update(&ctx, ui, game_rect);
 
         ctx.request_repaint();
     }

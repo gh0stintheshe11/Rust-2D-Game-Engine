@@ -1,12 +1,9 @@
-use eframe::egui;
-use crate::gui::menus::{
-    file_menu::FileMenu,
-    edit_menu::EditMenu,
-    view_menu::ViewMenu,
-    import_menu::ImportMenu,
-    project_menu::ProjectMenu,
-};
 use crate::gui::gui_state::GuiState;
+use crate::gui::menus::{
+    edit_menu::EditMenu, file_menu::FileMenu, import_menu::ImportMenu, project_menu::ProjectMenu,
+    view_menu::ViewMenu,
+};
+use eframe::egui;
 
 pub struct MenuBar {
     pub file_menu: FileMenu,
@@ -28,12 +25,6 @@ impl MenuBar {
     }
 
     pub fn show(&mut self, ctx: &egui::Context, ui: &mut egui::Ui, gui_state: &mut GuiState) {
-        // Remove shadows for all popups/windows
-        let mut visuals = ctx.style().visuals.clone();
-        visuals.popup_shadow = egui::epaint::Shadow::NONE;
-        visuals.window_shadow = egui::epaint::Shadow::NONE;
-        ctx.set_visuals(visuals);
-
         ui.horizontal(|ui| {
             // File menu
             ui.menu_button("File", |ui| {
@@ -67,5 +58,4 @@ impl MenuBar {
             self.project_menu.show_active_popup(ctx, gui_state);
         });
     }
-
 }

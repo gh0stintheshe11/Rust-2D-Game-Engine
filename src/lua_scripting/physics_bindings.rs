@@ -27,7 +27,7 @@ impl LuaScripting {
                             uuid
                         )));
                     }
-                    physics.set_velocity(&uuid, vector![x, y]);
+                    physics.set_velocity(&uuid, Vector::new(x, y));
                     Ok(())
                 })?;
         globals.set("set_velocity", set_velocity)?;
@@ -44,7 +44,7 @@ impl LuaScripting {
                             uuid
                         )));
                     }
-                    physics.apply_force(&uuid, vector![x, y]);
+                    physics.apply_force(&uuid, Vector::new(x, y));
                     Ok(())
                 })?;
         globals.set("apply_force", apply_force)?;
@@ -61,7 +61,7 @@ impl LuaScripting {
                             uuid
                         )));
                     }
-                    physics.apply_impulse(&uuid, vector![x, y]);
+                    physics.apply_impulse(&uuid, Vector::new(x, y));
                     Ok(())
                 })?;
         globals.set("apply_impulse", apply_impulse)?;

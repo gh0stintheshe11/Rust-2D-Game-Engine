@@ -46,7 +46,16 @@ pub struct EngineGui {
 }
 
 impl EngineGui {
-    pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        // Remove shadows for all popups/windows, for both themes (done once
+        // here instead of mutating visuals every frame)
+        for theme in [egui::Theme::Dark, egui::Theme::Light] {
+            let mut visuals = theme.default_visuals();
+            visuals.popup_shadow = egui::epaint::Shadow::NONE;
+            visuals.window_shadow = egui::epaint::Shadow::NONE;
+            cc.egui_ctx.set_visuals_of(theme, visuals);
+        }
+
         let gui_state = GuiState::new();
         let render_engine = RenderEngine::new();
         let mut input_handler = InputHandler::new();
@@ -81,7 +90,7 @@ impl EngineGui {
     }
 
     fn show_windows(&mut self, ctx: &egui::Context) {
-        let screen_rect = ctx.available_rect();
+        let screen_rect = ctx.content_rect();
         let spacing = 4.0;
         let min_side_panel_width = 200.0;
 
@@ -93,7 +102,7 @@ impl EngineGui {
         let main_window_frame = egui::Frame {
             inner_margin: egui::Margin::ZERO,
             outer_margin: egui::Margin::ZERO,
-            rounding: egui::Rounding::ZERO,
+            corner_radius: egui::CornerRadius::ZERO,
             shadow: eframe::epaint::Shadow::NONE,
             fill: egui::Color32::TRANSPARENT,
             stroke: egui::Stroke::NONE,
@@ -146,34 +155,34 @@ impl EngineGui {
 
                 // Left panel (Scene/Files)
                 if self.gui_state.show_hierarchy_filesystem {
-                    egui::SidePanel::left("left_panel")
+                    egui::Panel::left("left_panel")
                         .resizable(true)
-                        .min_width(min_side_panel_width)
-                        .max_width(available_rect.width() * 0.4)
+                        .min_size(min_side_panel_width)
+                        .max_size(available_rect.width() * 0.4)
                         .frame(egui::Frame {
                             inner_margin: egui::Margin::ZERO,
                             outer_margin: egui::Margin::ZERO,
-                            rounding: egui::Rounding::ZERO,
+                            corner_radius: egui::CornerRadius::ZERO,
                             shadow: eframe::epaint::Shadow::NONE,
                             fill: egui::Color32::TRANSPARENT,
                             stroke: egui::Stroke::NONE,
                         })
-                        .show_inside(ui, |ui| {
+                        .show(ui, |ui| {
                             // Use vertical layout to split the panel
-                            egui::TopBottomPanel::top("scene_panel")
+                            egui::Panel::top("scene_panel")
                                 .resizable(true)
-                                .min_height(200.0)
-                                .max_height(ui.available_height() * 0.75)
-                                .default_height(ui.available_height() * 0.5)
+                                .min_size(200.0)
+                                .max_size(ui.available_height() * 0.75)
+                                .default_size(ui.available_height() * 0.5)
                                 .frame(egui::Frame {
                                     inner_margin: egui::Margin::ZERO,
                                     outer_margin: egui::Margin::ZERO,
-                                    rounding: egui::Rounding::ZERO,
+                                    corner_radius: egui::CornerRadius::ZERO,
                                     shadow: eframe::epaint::Shadow::NONE,
                                     fill: egui::Color32::TRANSPARENT,
                                     stroke: egui::Stroke::NONE,
                                 })
-                                .show_inside(ui, |ui| {
+                                .show(ui, |ui| {
                                     self.scene_hierarchy.show(ctx, ui, &mut self.gui_state);
                                 });
 
@@ -182,12 +191,12 @@ impl EngineGui {
                                 .frame(egui::Frame {
                                     inner_margin: egui::Margin::ZERO,
                                     outer_margin: egui::Margin::ZERO,
-                                    rounding: egui::Rounding::ZERO,
+                                    corner_radius: egui::CornerRadius::ZERO,
                                     shadow: eframe::epaint::Shadow::NONE,
                                     fill: egui::Color32::TRANSPARENT,
                                     stroke: egui::Stroke::NONE,
                                 })
-                                .show_inside(ui, |ui| {
+                                .show(ui, |ui| {
                                     if let Some((path, content)) =
                                         self.file_system.show(ctx, ui, &mut self.gui_state)
                                     {
@@ -201,25 +210,25 @@ impl EngineGui {
                 // Right panel (Inspector)
                 if self.gui_state.show_inspector {
                     let inspector_margin = egui::Margin {
-                        left: 6.0,
-                        right: 4.0,
-                        top: 0.0,
-                        bottom: 4.0,
+                        left: 6,
+                        right: 4,
+                        top: 0,
+                        bottom: 4,
                     };
 
-                    egui::SidePanel::right("right_panel")
+                    egui::Panel::right("right_panel")
                         .resizable(true)
-                        .min_width(min_side_panel_width)
-                        .max_width(available_rect.width() * 0.4)
+                        .min_size(min_side_panel_width)
+                        .max_size(available_rect.width() * 0.4)
                         .frame(egui::Frame {
                             inner_margin: egui::Margin::ZERO,
                             outer_margin: inspector_margin,
-                            rounding: egui::Rounding::ZERO,
+                            corner_radius: egui::CornerRadius::ZERO,
                             shadow: eframe::epaint::Shadow::NONE,
                             fill: egui::Color32::TRANSPARENT,
                             stroke: egui::Stroke::NONE,
                         })
-                        .show_inside(ui, |ui| {
+                        .show(ui, |ui| {
                             ui.heading("Inspector");
                             ui.separator();
                             self.inspector.show(ctx, ui, &mut self.gui_state);
@@ -228,13 +237,13 @@ impl EngineGui {
 
                 // Bottom panel (Console)
                 if self.gui_state.show_console {
-                    egui::TopBottomPanel::bottom("console_panel")
+                    egui::Panel::bottom("console_panel")
                         .resizable(true)
-                        .min_height(100.0)
-                        .default_height(200.0)
-                        .max_height(ui.available_height() * 0.5)
-                        .frame(egui::Frame::none().inner_margin(egui::Margin::symmetric(6.0, 8.0)))
-                        .show_inside(ui, |ui| {
+                        .min_size(100.0)
+                        .default_size(200.0)
+                        .max_size(ui.available_height() * 0.5)
+                        .frame(egui::Frame::NONE.inner_margin(egui::Margin::symmetric(6, 8)))
+                        .show(ui, |ui| {
                             ui.horizontal(|ui| {
                                 if ui.selectable_label(!self.show_debug, "💬 Output").clicked() {
                                     self.show_debug = false;
@@ -281,8 +290,8 @@ impl EngineGui {
 
                 // Center panel (Game view/Editor) should come after all other panels
                 egui::CentralPanel::default()
-                    .frame(egui::Frame::none().inner_margin(egui::Margin::symmetric(2.0, 2.0)))
-                    .show_inside(ui, |ui| {
+                    .frame(egui::Frame::NONE.inner_margin(egui::Margin::symmetric(2, 2)))
+                    .show(ui, |ui| {
                         let content_rect = ui.available_rect_before_wrap();
 
                         // First fill the background
@@ -298,16 +307,18 @@ impl EngineGui {
                                 ui.style(),
                             );
 
-                            let mut layouter = |ui: &egui::Ui, string: &str, wrap_width: f32| {
+                            let mut layouter = |ui: &egui::Ui,
+                                                text: &dyn egui::TextBuffer,
+                                                wrap_width: f32| {
                                 let mut layout_job = egui_extras::syntax_highlighting::highlight(
                                     ui.ctx(),
                                     ui.style(),
                                     &theme,
-                                    string,
+                                    text.as_str(),
                                     "lua",
                                 );
                                 layout_job.wrap.max_width = wrap_width;
-                                ui.fonts(|f| f.layout_job(layout_job))
+                                ui.fonts_mut(|f| f.layout_job(layout_job))
                             };
 
                             egui::ScrollArea::both()
@@ -678,16 +689,11 @@ impl EngineGui {
     }
 
     fn set_theme(&mut self, ctx: &egui::Context) {
-        let visuals = if self.gui_state.dark_mode {
-            egui::Visuals::dark()
+        ctx.set_theme(if self.gui_state.dark_mode {
+            egui::Theme::Dark
         } else {
-            egui::Visuals::light()
-        };
-
-        // avoid repaint everytime
-        if ctx.style().visuals != visuals {
-            ctx.set_visuals(visuals);
-        }
+            egui::Theme::Light
+        });
     }
 
     fn sync_scene_manager_to_runtime(&mut self) {
@@ -705,20 +711,14 @@ impl EngineGui {
 }
 
 impl eframe::App for EngineGui {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::CentralPanel::default()
-            .frame(egui::Frame {
-                inner_margin: egui::Margin::ZERO,
-                outer_margin: egui::Margin::ZERO,
-                rounding: egui::Rounding::ZERO,
-                shadow: eframe::epaint::Shadow::NONE,
-                fill: self.get_background_color(),
-                stroke: egui::Stroke::NONE,
-            })
-            .show(ctx, |ui| {
-                let _rect = ui.max_rect();
-                self.show_windows(ctx);
-            });
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        let ctx = ui.ctx().clone();
+
+        // Background fill for the whole app area
+        ui.painter()
+            .rect_filled(ui.max_rect(), 0.0, self.get_background_color());
+
+        self.show_windows(&ctx);
 
         self.console_messages = LOGGER.get_console_messages();
     }

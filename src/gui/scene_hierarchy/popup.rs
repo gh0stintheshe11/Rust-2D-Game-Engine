@@ -5,7 +5,6 @@ use crate::gui::scene_hierarchy::utils;
 use std::path::Path;
 use uuid::Uuid;
 
-
 pub struct PopupManager {
     pub create_item_name: String,
     pub error_message: String,
@@ -75,7 +74,6 @@ impl PopupManager {
         _ui: &mut egui::Ui,
         gui_state: &mut GuiState,
     ) {
-
         let (title, scene_id, entity_id) = match self.scene_rename_scene {
             Some(scene_id) => ("Rename Scene", scene_id, None),
             None => match self.entity_rename_entity {
@@ -158,7 +156,7 @@ impl PopupManager {
                         if ui
                             .add_sized(
                                 [available_width, 24.0],
-                                egui::SelectableLabel::new(is_selected, label),
+                                egui::Button::selectable(is_selected, label),
                             )
                             .clicked()
                         {
@@ -266,7 +264,12 @@ impl PopupManager {
     }
 
     /// Create a new entity under the selected scene
-    fn create_new_entity(&mut self, entity_type: String, gui_state: &mut GuiState, predefined_type: &str) {
+    fn create_new_entity(
+        &mut self,
+        entity_type: String,
+        gui_state: &mut GuiState,
+        predefined_type: &str,
+    ) {
         // Ensure scene manager exists
         let scene_manager = match &mut gui_state.scene_manager {
             Some(manager) => manager,
@@ -304,20 +307,24 @@ impl PopupManager {
         let new_entity_id = match predefined_type {
             "Empty" => scene.create_entity(name),
             "Camera" => scene.create_camera(name),
-            "Physics" => {
-                match scene.create_entity(name) {
-                    Ok(entity_id) => {
-                        if let Ok(entity) = scene.get_entity_mut(entity_id) {
-                            if let Some(predefined) = PREDEFINED_ENTITIES.iter().find(|e| e.name == "Physics") {
-                                for (attr_name, attr_type, attr_value) in predefined.attributes.iter() {
-                                    let _ = entity.create_attribute(attr_name, attr_type.clone(), attr_value.clone());
-                                }
+            "Physics" => match scene.create_entity(name) {
+                Ok(entity_id) => {
+                    if let Ok(entity) = scene.get_entity_mut(entity_id) {
+                        if let Some(predefined) =
+                            PREDEFINED_ENTITIES.iter().find(|e| e.name == "Physics")
+                        {
+                            for (attr_name, attr_type, attr_value) in predefined.attributes.iter() {
+                                let _ = entity.create_attribute(
+                                    attr_name,
+                                    attr_type.clone(),
+                                    attr_value.clone(),
+                                );
                             }
                         }
-                        Ok(entity_id)
                     }
-                    Err(e) => Err(e)
+                    Ok(entity_id)
                 }
+                Err(e) => Err(e),
             },
             _ => scene.create_entity(name),
         };
@@ -325,7 +332,8 @@ impl PopupManager {
         match new_entity_id {
             Ok(entity_id) => {
                 // Update selection
-                gui_state.scene_panel_selected_item = ScenePanelSelectedItem::Entity(scene_id, entity_id);
+                gui_state.scene_panel_selected_item =
+                    ScenePanelSelectedItem::Entity(scene_id, entity_id);
                 gui_state.selected_item = SelectedItem::Entity(scene_id, entity_id);
 
                 println!(
@@ -343,7 +351,12 @@ impl PopupManager {
         }
     }
 
-    pub fn render_popups(&mut self, ctx: &egui::Context, ui: &mut egui::Ui, gui_state: &mut GuiState) {
+    pub fn render_popups(
+        &mut self,
+        ctx: &egui::Context,
+        ui: &mut egui::Ui,
+        gui_state: &mut GuiState,
+    ) {
         // Render rename popup
         self.render_rename_popup(ctx, ui, gui_state);
 
@@ -387,9 +400,21 @@ impl PopupManager {
                             egui::ComboBox::from_label("")
                                 .selected_text(&self.selected_resource_type)
                                 .show_ui(ui, |ui| {
-                                    ui.selectable_value(&mut self.selected_resource_type, "Images".to_string(), "Images");
-                                    ui.selectable_value(&mut self.selected_resource_type, "Sounds".to_string(), "Sounds");
-                                    ui.selectable_value(&mut self.selected_resource_type, "Scripts".to_string(), "Scripts");
+                                    ui.selectable_value(
+                                        &mut self.selected_resource_type,
+                                        "Images".to_string(),
+                                        "Images",
+                                    );
+                                    ui.selectable_value(
+                                        &mut self.selected_resource_type,
+                                        "Sounds".to_string(),
+                                        "Sounds",
+                                    );
+                                    ui.selectable_value(
+                                        &mut self.selected_resource_type,
+                                        "Scripts".to_string(),
+                                        "Scripts",
+                                    );
                                 });
                         });
 
@@ -403,10 +428,8 @@ impl PopupManager {
 
                     // Read directory and update available resources
                     if let Ok(entries) = std::fs::read_dir(resource_path) {
-                        self.available_resources = entries
-                            .filter_map(|e| e.ok())
-                            .map(|e| e.path())
-                            .collect();
+                        self.available_resources =
+                            entries.filter_map(|e| e.ok()).map(|e| e.path()).collect();
                     }
 
                     // Show resource list in a collapsing header
@@ -416,27 +439,46 @@ impl PopupManager {
                             egui::ScrollArea::vertical().show(ui, |ui| {
                                 for resource_path in &self.available_resources {
                                     if let Some(filename) = resource_path.file_name() {
-                                        if ui.button(filename.to_string_lossy().to_string()).clicked() {
-                                            if let Some(scene) = scene_manager.get_scene_mut(scene_id) {
-                                                if let Ok(entity) = scene.get_entity_mut(entity_id) {
+                                        if ui
+                                            .button(filename.to_string_lossy().to_string())
+                                            .clicked()
+                                        {
+                                            if let Some(scene) =
+                                                scene_manager.get_scene_mut(scene_id)
+                                            {
+                                                if let Ok(entity) = scene.get_entity_mut(entity_id)
+                                                {
                                                     match self.selected_resource_type.as_str() {
                                                         "Images" => {
                                                             // Check if image is already attached
-                                                            if !entity.images.contains(resource_path) {
-                                                                entity.images.push(resource_path.clone());
+                                                            if !entity
+                                                                .images
+                                                                .contains(resource_path)
+                                                            {
+                                                                entity
+                                                                    .images
+                                                                    .push(resource_path.clone());
                                                             }
-                                                        },
+                                                        }
                                                         "Sounds" => {
                                                             // Check if sound is already attached
-                                                            if !entity.sounds.contains(resource_path) {
-                                                                entity.sounds.push(resource_path.clone());
+                                                            if !entity
+                                                                .sounds
+                                                                .contains(resource_path)
+                                                            {
+                                                                entity
+                                                                    .sounds
+                                                                    .push(resource_path.clone());
                                                             }
-                                                        },
+                                                        }
                                                         "Scripts" => {
-                                                            if entity.script.as_ref() != Some(&resource_path) {
-                                                                entity.script = Some(resource_path.clone());
+                                                            if entity.script.as_ref()
+                                                                != Some(&resource_path)
+                                                            {
+                                                                entity.script =
+                                                                    Some(resource_path.clone());
                                                             }
-                                                        },
+                                                        }
                                                         _ => {}
                                                     }
                                                 }
@@ -477,7 +519,12 @@ impl PopupManager {
                                         let mut images_to_remove = Vec::new();
                                         for (i, path) in entity.images.iter().enumerate() {
                                             ui.horizontal(|ui| {
-                                                ui.label(path.file_name().unwrap_or_default().to_string_lossy().to_string());
+                                                ui.label(
+                                                    path.file_name()
+                                                        .unwrap_or_default()
+                                                        .to_string_lossy()
+                                                        .to_string(),
+                                                );
                                                 if ui.button("Remove").clicked() {
                                                     images_to_remove.push(i);
                                                 }
@@ -498,7 +545,12 @@ impl PopupManager {
                                         let mut sounds_to_remove = Vec::new();
                                         for (i, path) in entity.sounds.iter().enumerate() {
                                             ui.horizontal(|ui| {
-                                                ui.label(path.file_name().unwrap_or_default().to_string_lossy().to_string());
+                                                ui.label(
+                                                    path.file_name()
+                                                        .unwrap_or_default()
+                                                        .to_string_lossy()
+                                                        .to_string(),
+                                                );
                                                 if ui.button("Remove").clicked() {
                                                     sounds_to_remove.push(i);
                                                 }
@@ -517,7 +569,16 @@ impl PopupManager {
                                     .default_open(true)
                                     .show(ui, |ui| {
                                         ui.horizontal(|ui| {
-                                            ui.label(entity.script.clone().unwrap().file_name().unwrap_or_default().to_string_lossy().to_string());
+                                            ui.label(
+                                                entity
+                                                    .script
+                                                    .clone()
+                                                    .unwrap()
+                                                    .file_name()
+                                                    .unwrap_or_default()
+                                                    .to_string_lossy()
+                                                    .to_string(),
+                                            );
                                             if ui.button("Remove").clicked() {
                                                 entity.script = None;
                                             }
@@ -529,5 +590,4 @@ impl PopupManager {
                 });
         }
     }
-
 }

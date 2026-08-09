@@ -28,12 +28,12 @@ impl FileSystem {
         egui::Frame {
             inner_margin: egui::Margin::ZERO,
             outer_margin: egui::Margin {
-                left: 2.0,
-                right: 6.0,
-                top: 6.0,
-                bottom: 0.0,
+                left: 2,
+                right: 6,
+                top: 6,
+                bottom: 0,
             },
-            rounding: egui::Rounding::ZERO,
+            corner_radius: egui::CornerRadius::ZERO,
             shadow: eframe::epaint::Shadow::NONE,
             fill: egui::Color32::TRANSPARENT,
             stroke: egui::Stroke::NONE,
@@ -65,12 +65,12 @@ impl FileSystem {
         egui::Frame {
             inner_margin: egui::Margin::ZERO,
             outer_margin: egui::Margin {
-                left: 2.0,
-                right: 2.0,
-                top: 0.0,
-                bottom: 2.0,
+                left: 2,
+                right: 2,
+                top: 0,
+                bottom: 2,
             },
-            rounding: egui::Rounding::ZERO,
+            corner_radius: egui::CornerRadius::ZERO,
             shadow: eframe::epaint::Shadow::NONE,
             fill: egui::Color32::TRANSPARENT,
             stroke: egui::Stroke::NONE,
@@ -184,7 +184,7 @@ impl FileSystem {
                                     self.selected_file = None;
                                 }
                             }
-                            ui.close_menu();
+                            ui.close();
                         }
                     });
                 });

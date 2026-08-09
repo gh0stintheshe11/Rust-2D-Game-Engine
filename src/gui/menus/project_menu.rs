@@ -58,7 +58,7 @@ impl ProjectMenu {
                 .order(egui::Order::Foreground)
                 .interactable(false)
                 .show(ctx, |ui| {
-                    let screen_rect = ctx.screen_rect();
+                    let screen_rect = ctx.content_rect();
                     ui.painter()
                         .rect_filled(screen_rect, 0.0, egui::Color32::from_black_alpha(128));
                     ui.allocate_rect(screen_rect, egui::Sense::hover());

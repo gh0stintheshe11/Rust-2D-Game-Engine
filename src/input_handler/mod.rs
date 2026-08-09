@@ -77,7 +77,7 @@ impl InputHandler {
         }
 
         // Update scroll
-        self.scroll_delta = input.raw_scroll_delta;
+        self.scroll_delta = input.smooth_scroll_delta;
     }
 
     pub fn is_key_pressed(&self, key: Key) -> bool {

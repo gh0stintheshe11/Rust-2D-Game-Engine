@@ -17,9 +17,9 @@ impl SceneItem {
             scene_manager.scenes.clone()
         } else {
             egui::Frame {
-                inner_margin: egui::Margin { left: 4.0, right: 0.0, top: 0.0, bottom: 0.0 },
+                inner_margin: egui::Margin { left: 4, right: 0, top: 0, bottom: 0 },
                 outer_margin: egui::Margin::ZERO,
-                rounding: egui::Rounding::ZERO,
+                corner_radius: egui::CornerRadius::ZERO,
                 shadow: eframe::epaint::Shadow::NONE,
                 fill: egui::Color32::TRANSPARENT,
                 stroke: egui::Stroke::NONE,
@@ -68,11 +68,11 @@ impl SceneItem {
             response.context_menu(|ui| {
                 if ui.button("Rename").clicked() {
                     hierarchy.popup_manager.start_rename_scene(*scene_id, scene_name.to_string());
-                    ui.close_menu();
+                    ui.close();
                 }
                 if ui.button("Delete").clicked() {
                     gui_state.scene_manager.as_mut().unwrap().delete_scene(*scene_id);
-                    ui.close_menu();
+                    ui.close();
                 }
                 if ui.button("Set Active").clicked() {
                     if let Some(scene_manager) = &mut gui_state.scene_manager {

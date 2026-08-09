@@ -171,7 +171,7 @@ impl Inspector {
                             ui.add_space(8.0);
                             ui.horizontal(|ui| {
                                 ui.add_space(padding);
-                                egui::Frame::none()
+                                egui::Frame::NONE
                                     .stroke(egui::Stroke::new(1.0_f32, egui::Color32::GRAY))
                                     .show(ui, |ui| {
                                         ui.image((
@@ -512,7 +512,7 @@ impl Inspector {
 
             // Get the text layout for the full name
             let font = egui::TextStyle::Body.resolve(ui.style());
-            let text_layout = ui.fonts(|f| {
+            let text_layout = ui.fonts_mut(|f| {
                 f.layout_no_wrap(
                     attribute_name.to_string(),
                     font.clone(),
@@ -527,7 +527,7 @@ impl Inspector {
                     let mut fit_chars = attribute_name.len();
                     for (i, _) in attribute_name.char_indices() {
                         let test_text = format!("{}...", &attribute_name[..i]);
-                        let test_layout = ui.fonts(|f| {
+                        let test_layout = ui.fonts_mut(|f| {
                             f.layout_no_wrap(test_text, font.clone(), egui::Color32::WHITE)
                         });
                         if test_layout.rect.width() > available_width {

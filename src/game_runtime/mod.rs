@@ -367,6 +367,7 @@ impl GameRuntime {
                         rect,
                         0.0,
                         egui::Stroke::new(1.0_f32, egui::Color32::BLUE),
+                        egui::StrokeKind::Middle,
                     );
                 }
                 _ => {}

@@ -1,7 +1,8 @@
 use crate::ecs::{Entity, Scene};
 use crate::logger::LOGGER;
-use lofty::{AudioFile, Probe};
-use rodio::{Decoder, OutputStream, OutputStreamHandle, Sink};
+use lofty::file::AudioFile;
+use lofty::probe::Probe;
+use rodio::{Decoder, DeviceSinkBuilder, MixerDeviceSink, Player};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, Read};
@@ -11,16 +12,16 @@ use uuid::Uuid;
 pub struct AudioEngine {
     // None when no audio output device is available (e.g. headless/CI);
     // the engine then runs with playback disabled instead of crashing.
-    output: Option<(OutputStream, OutputStreamHandle)>,
-    active_sounds: HashMap<Uuid, Sink>,
+    output: Option<MixerDeviceSink>,
+    active_sounds: HashMap<Uuid, Player>,
     sound_cache: HashMap<Uuid, Vec<u8>>, // Path hash -> sound data
-    immediate_sink: Option<Sink>,
+    immediate_sink: Option<Player>,
     duration_cache: HashMap<Uuid, f32>,
 }
 
 impl AudioEngine {
     pub fn new() -> Self {
-        let output = match OutputStream::try_default() {
+        let output = match DeviceSinkBuilder::open_default_sink() {
             Ok(output) => Some(output),
             Err(e) => {
                 LOGGER.warning(format!(
@@ -44,10 +45,10 @@ impl AudioEngine {
         self.output.is_some()
     }
 
-    fn stream_handle(&self) -> Result<&OutputStreamHandle, String> {
+    fn new_player(&self) -> Result<Player, String> {
         self.output
             .as_ref()
-            .map(|(_, handle)| handle)
+            .map(|sink| Player::connect_new(sink.mixer()))
             .ok_or_else(|| "No audio output device available".to_string())
     }
 
@@ -121,8 +122,7 @@ impl AudioEngine {
         let cursor = std::io::Cursor::new(data.clone());
         let source = Decoder::new(cursor).map_err(|e| format!("Failed to decode sound: {}", e))?;
 
-        let sink = Sink::try_new(self.stream_handle()?)
-            .map_err(|e| format!("Failed to create sink: {}", e))?;
+        let sink = self.new_player()?;
 
         sink.append(source);
 
@@ -147,8 +147,7 @@ impl AudioEngine {
         let cursor = std::io::Cursor::new(data.clone());
         let source = Decoder::new(cursor).map_err(|e| format!("Failed to decode sound: {}", e))?;
 
-        let sink = Sink::try_new(self.stream_handle()?)
-            .map_err(|e| format!("Failed to create sink: {}", e))?;
+        let sink = self.new_player()?;
 
         sink.append(source);
         self.immediate_sink = Some(sink);
