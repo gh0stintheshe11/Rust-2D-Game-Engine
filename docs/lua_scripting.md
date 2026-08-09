@@ -67,20 +67,24 @@ ECS (all IDs are UUID strings):
 | `update_entity_attribute_bool(scene_id, entity_id, attr_name, value)` | |
 | `create_attribute_float` / `_bool(scene_id, entity_id, name, value)` | |
 | `create_attribute_vector2(scene_id, entity_id, name, x, y)` | |
+| `get_attribute(scene_id, entity_id, name)` | Returns number / boolean / string / `{x, y}` table, or nil if missing. Works for built-ins (`x`, `y`, ...) and designer-defined attributes alike |
+| `set_attribute(scene_id, entity_id, name, value)` | Coerces the Lua value to the attribute's declared type; errors on mismatch or missing attribute |
+| `has_attribute(scene_id, entity_id, name) -> bool` | |
 | `list_entities_name_x_y(scene_id) -> array of {id, name, x, y}` | x/y reflect the physics-synced position |
 | `get_entity_name(scene_id, entity_id) -> string or nil` | nil when the entity no longer exists |
 
 ## Example
 
+Designer-defined attributes are the intended way to expose tuning knobs to
+scripts: add an attribute in the Inspector, read it with `get_attribute`.
+
 ```lua
 function update(scene_id, entity_id)
-    if script_state.state.bird == nil then
-        script_state.state.bird = { jumps = 0 }
-    end
-
+    -- `jump_velocity` is a Float attribute on this entity, editable in the
+    -- Inspector - no code changes needed to retune the game
     if is_key_just_pressed("Space") then
-        script_state.state.bird.jumps = script_state.state.bird.jumps + 1
-        set_velocity(entity_id, 0.0, -100.0) -- +Y is down; negative y jumps up
+        local jump = get_attribute(scene_id, entity_id, "jump_velocity") or -260.0
+        set_velocity(entity_id, 0.0, jump)
     end
 end
 ```

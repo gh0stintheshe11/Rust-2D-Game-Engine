@@ -29,7 +29,7 @@ sudo apt-get install -y build-essential pkg-config libasound2-dev \
 cargo run
 ```
 
-- **WSLg note:** if the window fails to open with a Wayland error, force X11: `WAYLAND_DISPLAY= cargo run` (not needed on current eframe — native Wayland works)
+- **WSLg note:** the Wayland session can occasionally drop the connection (`Broken pipe`) on long sessions — a WSLg quirk. For stability, run through X11: `WAYLAND_DISPLAY= cargo run`
 - macOS/Windows: `cargo run` (no extra system packages needed)
 
 Try the bundled Flappy Bird demo in [`demo/flappy_bird/`](demo/flappy_bird/) — open it via `File → Open Project` (note: its asset paths are currently machine-specific; portability fixes are in progress).

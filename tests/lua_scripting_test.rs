@@ -438,4 +438,174 @@ mod session_tests {
             "the stop request flag must clear after being taken"
         );
     }
+
+    #[test]
+    fn test_generic_attribute_access() {
+        use rust_2d_game_engine::ecs::{AttributeType, AttributeValue};
+
+        let mut session = setup("attribute_access");
+
+        // An entity with designer-defined attributes of each kind
+        let entity_id = {
+            let mut manager = session.scene_manager.borrow_mut();
+            let scene = manager.get_scene_mut(session.scene_id).unwrap();
+            let id = scene.create_entity("player").unwrap();
+            let entity = scene.get_entity_mut(id).unwrap();
+            entity
+                .create_attribute("speed", AttributeType::Float, AttributeValue::Float(10.0))
+                .unwrap();
+            entity
+                .create_attribute(
+                    "alive",
+                    AttributeType::Boolean,
+                    AttributeValue::Boolean(true),
+                )
+                .unwrap();
+            entity
+                .create_attribute(
+                    "title",
+                    AttributeType::String,
+                    AttributeValue::String("rookie".into()),
+                )
+                .unwrap();
+            entity
+                .create_attribute(
+                    "spawn",
+                    AttributeType::Vector2,
+                    AttributeValue::Vector2(3.0, 4.0),
+                )
+                .unwrap();
+            id
+        };
+
+        add_scripted_entity(
+            &session,
+            "logic",
+            r#"
+            function update(scene_id, entity_id)
+                -- read every type, transform, write back
+                local target = script_state.state.target
+                local speed = get_attribute(scene_id, target, "speed")
+                set_attribute(scene_id, target, "speed", speed * 2)
+                set_attribute(scene_id, target, "alive", false)
+                set_attribute(scene_id, target, "title", "veteran")
+                local spawn = get_attribute(scene_id, target, "spawn")
+                set_attribute(scene_id, target, "spawn", { x = spawn.x + 1, y = spawn.y + 1 })
+
+                -- built-in x attribute is readable/writable too
+                set_attribute(scene_id, target, "x", 42.0)
+
+                -- probing
+                script_state.state.has_speed = has_attribute(scene_id, target, "speed")
+                script_state.state.has_nope = has_attribute(scene_id, target, "nope")
+                script_state.state.missing = get_attribute(scene_id, target, "nope") == nil
+            end
+            "#,
+        );
+
+        session
+            .lua
+            .lua
+            .load(format!("script_state.state.target = '{}'", entity_id))
+            .exec()
+            .unwrap();
+
+        session.lua.run_scripts_for_scene(session.scene_id).unwrap();
+
+        let manager = session.scene_manager.borrow();
+        let scene = manager.get_scene(session.scene_id).unwrap();
+        let entity = scene.get_entity(entity_id).unwrap();
+        assert_eq!(
+            entity.get_attribute_by_name("speed").unwrap().value,
+            AttributeValue::Float(20.0)
+        );
+        assert_eq!(
+            entity.get_attribute_by_name("alive").unwrap().value,
+            AttributeValue::Boolean(false)
+        );
+        assert_eq!(
+            entity.get_attribute_by_name("title").unwrap().value,
+            AttributeValue::String("veteran".into())
+        );
+        assert_eq!(
+            entity.get_attribute_by_name("spawn").unwrap().value,
+            AttributeValue::Vector2(4.0, 5.0)
+        );
+        assert_eq!(entity.get_x(), 42.0);
+
+        let (has_speed, has_nope, missing): (bool, bool, bool) = session
+            .lua
+            .lua
+            .load(
+                "return script_state.state.has_speed, script_state.state.has_nope, \
+                 script_state.state.missing",
+            )
+            .eval()
+            .unwrap();
+        assert!(has_speed);
+        assert!(!has_nope);
+        assert!(missing, "get_attribute on a missing attribute returns nil");
+    }
+
+    #[test]
+    fn test_set_attribute_type_mismatch_errors() {
+        use rust_2d_game_engine::ecs::{AttributeType, AttributeValue};
+
+        let mut session = setup("attribute_type_mismatch");
+
+        let entity_id = {
+            let mut manager = session.scene_manager.borrow_mut();
+            let scene = manager.get_scene_mut(session.scene_id).unwrap();
+            let id = scene.create_entity("typed").unwrap();
+            scene
+                .get_entity_mut(id)
+                .unwrap()
+                .create_attribute("speed", AttributeType::Float, AttributeValue::Float(1.0))
+                .unwrap();
+            id
+        };
+
+        add_scripted_entity(
+            &session,
+            "bad_write",
+            r#"
+            function update(scene_id, entity_id)
+                local ok = pcall(set_attribute, scene_id, script_state.state.target, "speed", "fast")
+                script_state.state.write_rejected = not ok
+            end
+            "#,
+        );
+
+        session
+            .lua
+            .lua
+            .load(format!("script_state.state.target = '{}'", entity_id))
+            .exec()
+            .unwrap();
+        session.lua.run_scripts_for_scene(session.scene_id).unwrap();
+
+        let rejected: bool = session
+            .lua
+            .lua
+            .load("return script_state.state.write_rejected == true")
+            .eval()
+            .unwrap();
+        assert!(
+            rejected,
+            "writing a string into a Float attribute must fail"
+        );
+
+        let manager = session.scene_manager.borrow();
+        let scene = manager.get_scene(session.scene_id).unwrap();
+        assert_eq!(
+            scene
+                .get_entity(entity_id)
+                .unwrap()
+                .get_attribute_by_name("speed")
+                .unwrap()
+                .value,
+            AttributeValue::Float(1.0),
+            "the attribute must be unchanged after a rejected write"
+        );
+    }
 }

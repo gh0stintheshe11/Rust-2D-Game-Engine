@@ -104,7 +104,8 @@ impl RenderEngine {
                 if !self.texture_cache.contains_key(&texture_id)
                     && self.load_texture(Path::new(image_path)).is_ok()
                 {
-                    println!("Loaded texture: {}", image_path.to_string_lossy());
+                    crate::logger::LOGGER
+                        .debug(format!("Loaded texture: {}", image_path.to_string_lossy()));
                 }
 
                 // Get position including z coordinate

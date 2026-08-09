@@ -195,6 +195,14 @@
               "value": {
                 "Float": 18.0
               }
+            },
+            "363a94e1-fe29-4e3d-90bb-d2fe58f2db26": {
+              "id": "363a94e1-fe29-4e3d-90bb-d2fe58f2db26",
+              "name": "jump_velocity",
+              "data_type": "Float",
+              "value": {
+                "Float": -260.0
+              }
             }
           },
           "images": [

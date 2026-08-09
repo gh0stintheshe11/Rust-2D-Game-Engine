@@ -338,6 +338,134 @@ impl LuaScripting {
         })?;
         globals.set("list_entities_name_x_y", list_entities_name_x_y)?;
 
+        // === Generic attribute access ===
+        // These let scripts use inspector-defined attributes as game
+        // variables: get_attribute / set_attribute / has_attribute.
+
+        // get_attribute(scene_id, entity_id, name)
+        //   -> number | boolean | string | {x, y} table, or nil if missing
+        let manager = Rc::clone(scene_manager);
+        let get_attribute = self.lua.create_function(
+            move |lua, (scene_id, entity_id, name): (String, String, String)| {
+                let manager = manager.borrow();
+                let scene_uuid = parse_uuid(&scene_id, "scene")?;
+                let entity_uuid = parse_uuid(&entity_id, "entity")?;
+
+                let attr_value = manager
+                    .get_scene(scene_uuid)
+                    .and_then(|scene| scene.get_entity(entity_uuid).ok())
+                    .and_then(|entity| {
+                        entity
+                            .get_attribute_by_name(&name)
+                            .ok()
+                            .map(|attr| attr.value.clone())
+                    });
+
+                let Some(value) = attr_value else {
+                    return Ok(mlua::Value::Nil);
+                };
+
+                Ok(match value {
+                    AttributeValue::Integer(i) => mlua::Value::Integer(i as i64),
+                    AttributeValue::Float(f) => mlua::Value::Number(f as f64),
+                    AttributeValue::Boolean(b) => mlua::Value::Boolean(b),
+                    AttributeValue::String(s) => mlua::Value::String(lua.create_string(&s)?),
+                    AttributeValue::Vector2(x, y) => {
+                        let table = lua.create_table()?;
+                        table.set("x", x)?;
+                        table.set("y", y)?;
+                        mlua::Value::Table(table)
+                    }
+                })
+            },
+        )?;
+        globals.set("get_attribute", get_attribute)?;
+
+        // set_attribute(scene_id, entity_id, name, value)
+        //   The Lua value is coerced to the attribute's declared type;
+        //   a mismatch or a missing attribute raises an error.
+        let manager = Rc::clone(scene_manager);
+        let set_attribute = self.lua.create_function(
+            move |_, (scene_id, entity_id, name, value): (String, String, String, mlua::Value)| {
+                let mut manager = manager.borrow_mut();
+                let scene_uuid = parse_uuid(&scene_id, "scene")?;
+                let entity_uuid = parse_uuid(&entity_id, "entity")?;
+                let scene = manager.get_scene_mut(scene_uuid).ok_or_else(|| {
+                    mlua::Error::external(format!("Scene '{}' not found", scene_uuid))
+                })?;
+                let entity = scene.get_entity_mut(entity_uuid).map_err(|e| {
+                    mlua::Error::external(format!("Entity '{}' not found: {}", entity_uuid, e))
+                })?;
+                let attr = entity.get_attribute_by_name(&name).map_err(|e| {
+                    mlua::Error::external(format!("Attribute '{}' not found: {}", name, e))
+                })?;
+                let attr_id = attr.id;
+                let attr_type = attr.data_type.clone();
+
+                let type_error = |expected: &str, got: &mlua::Value| {
+                    mlua::Error::external(format!(
+                        "Attribute '{}' is {}, got Lua {}",
+                        name,
+                        expected,
+                        got.type_name()
+                    ))
+                };
+
+                let new_value = match attr_type {
+                    AttributeType::Float => match &value {
+                        mlua::Value::Number(n) => AttributeValue::Float(*n as f32),
+                        mlua::Value::Integer(i) => AttributeValue::Float(*i as f32),
+                        other => return Err(type_error("a Float", other)),
+                    },
+                    AttributeType::Integer => match &value {
+                        mlua::Value::Integer(i) => AttributeValue::Integer(*i as i32),
+                        mlua::Value::Number(n) if n.fract() == 0.0 => {
+                            AttributeValue::Integer(*n as i32)
+                        }
+                        other => return Err(type_error("an Integer", other)),
+                    },
+                    AttributeType::Boolean => match &value {
+                        mlua::Value::Boolean(b) => AttributeValue::Boolean(*b),
+                        other => return Err(type_error("a Boolean", other)),
+                    },
+                    AttributeType::String => match &value {
+                        mlua::Value::String(s) => AttributeValue::String(s.to_str()?.to_string()),
+                        other => return Err(type_error("a String", other)),
+                    },
+                    AttributeType::Vector2 => match &value {
+                        mlua::Value::Table(t) => {
+                            let x: f32 = t.get("x").or_else(|_| t.get(1))?;
+                            let y: f32 = t.get("y").or_else(|_| t.get(2))?;
+                            AttributeValue::Vector2(x, y)
+                        }
+                        other => return Err(type_error("a Vector2 ({x, y} table)", other)),
+                    },
+                };
+
+                entity
+                    .modify_attribute(attr_id, None, None, Some(new_value))
+                    .map_err(mlua::Error::external)?;
+                Ok(())
+            },
+        )?;
+        globals.set("set_attribute", set_attribute)?;
+
+        // has_attribute(scene_id, entity_id, name) -> bool
+        let manager = Rc::clone(scene_manager);
+        let has_attribute = self.lua.create_function(
+            move |_, (scene_id, entity_id, name): (String, String, String)| {
+                let manager = manager.borrow();
+                let scene_uuid = parse_uuid(&scene_id, "scene")?;
+                let entity_uuid = parse_uuid(&entity_id, "entity")?;
+                Ok(manager
+                    .get_scene(scene_uuid)
+                    .and_then(|scene| scene.get_entity(entity_uuid).ok())
+                    .map(|entity| entity.get_attribute_by_name(&name).is_ok())
+                    .unwrap_or(false))
+            },
+        )?;
+        globals.set("has_attribute", has_attribute)?;
+
         // get_entity_name(scene_id, entity_id) -> name string, or nil if the
         // entity no longer exists
         let manager = Rc::clone(scene_manager);
