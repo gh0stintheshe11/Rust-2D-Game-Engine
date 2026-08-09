@@ -19,6 +19,12 @@ pub struct AudioEngine {
     duration_cache: HashMap<Uuid, f32>,
 }
 
+impl Default for AudioEngine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AudioEngine {
     pub fn new() -> Self {
         let output = match DeviceSinkBuilder::open_default_sink() {
@@ -197,13 +203,13 @@ impl AudioEngine {
     pub fn is_playing(&self, sound_id: Uuid) -> bool {
         self.active_sounds
             .get(&sound_id)
-            .map_or(false, |sink| !sink.empty() && !sink.is_paused())
+            .is_some_and(|sink| !sink.empty() && !sink.is_paused())
     }
 
     pub fn is_paused(&self, sound_id: Uuid) -> bool {
         self.active_sounds
             .get(&sound_id)
-            .map_or(false, |sink| sink.is_paused())
+            .is_some_and(|sink| sink.is_paused())
     }
 
     pub fn is_stopped(&self, sound_id: Uuid) -> bool {

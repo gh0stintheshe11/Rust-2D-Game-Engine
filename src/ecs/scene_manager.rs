@@ -11,6 +11,12 @@ pub struct SceneManager {
     pub active_scene: Option<Uuid>, // Track currently active scene
 }
 
+impl Default for SceneManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SceneManager {
     pub fn new() -> Self {
         Self {

@@ -1,6 +1,5 @@
-use std::sync::Mutex;
-use once_cell::sync::Lazy;
 use chrono::Local;
+use std::sync::{LazyLock, Mutex};
 
 const MAX_CONSOLE_MESSAGES: usize = 1000;
 const MAX_STORED_MESSAGES: usize = 50000;
@@ -90,4 +89,4 @@ impl Logger {
     }
 }
 
-pub static LOGGER: Lazy<Logger> = Lazy::new(Logger::new);
+pub static LOGGER: LazyLock<Logger> = LazyLock::new(Logger::new);

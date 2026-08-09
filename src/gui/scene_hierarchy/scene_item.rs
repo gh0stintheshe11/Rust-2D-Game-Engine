@@ -1,8 +1,9 @@
-use crate::gui::scene_hierarchy::{SceneHierarchy, entity_item::EntityItem};
-use crate::gui::gui_state::{GuiState, SelectedItem, ScenePanelSelectedItem};
+use crate::ecs::Scene;
+use crate::gui::gui_state::{GuiState, ScenePanelSelectedItem, SelectedItem};
+use crate::gui::scene_hierarchy::{entity_item::EntityItem, SceneHierarchy};
+use crate::logger::LOGGER;
 use egui::{Context, Ui};
 use uuid::Uuid;
-use crate::ecs::Scene;
 
 pub struct SceneItem;
 
@@ -17,13 +18,19 @@ impl SceneItem {
             scene_manager.scenes.clone()
         } else {
             egui::Frame {
-                inner_margin: egui::Margin { left: 4, right: 0, top: 0, bottom: 0 },
+                inner_margin: egui::Margin {
+                    left: 4,
+                    right: 0,
+                    top: 0,
+                    bottom: 0,
+                },
                 outer_margin: egui::Margin::ZERO,
                 corner_radius: egui::CornerRadius::ZERO,
                 shadow: eframe::epaint::Shadow::NONE,
                 fill: egui::Color32::TRANSPARENT,
                 stroke: egui::Stroke::NONE,
-            }.show(ui, |ui| {
+            }
+            .show(ui, |ui| {
                 ui.label("No scenes loaded.");
             });
             return;
@@ -31,7 +38,10 @@ impl SceneItem {
 
         let mut sorted_scenes: Vec<(&Uuid, &Scene)> = scenes.iter().collect();
         sorted_scenes.sort_by(|(_, scene_a), (_, scene_b)| {
-            scene_a.name.to_lowercase().cmp(&scene_b.name.to_lowercase())
+            scene_a
+                .name
+                .to_lowercase()
+                .cmp(&scene_b.name.to_lowercase())
         });
 
         for (scene_id, scene) in sorted_scenes {
@@ -41,7 +51,14 @@ impl SceneItem {
                     SceneItem::tree_item_scene(ui, scene_id, &scene.name, hierarchy, gui_state);
                 })
                 .body(|ui| {
-                    EntityItem::show_entities(ui, ctx, hierarchy, gui_state, scene_id, &scene.entities);
+                    EntityItem::show_entities(
+                        ui,
+                        ctx,
+                        hierarchy,
+                        gui_state,
+                        scene_id,
+                        &scene.entities,
+                    );
                 });
         }
     }
@@ -67,11 +84,17 @@ impl SceneItem {
 
             response.context_menu(|ui| {
                 if ui.button("Rename").clicked() {
-                    hierarchy.popup_manager.start_rename_scene(*scene_id, scene_name.to_string());
+                    hierarchy
+                        .popup_manager
+                        .start_rename_scene(*scene_id, scene_name.to_string());
                     ui.close();
                 }
                 if ui.button("Delete").clicked() {
-                    gui_state.scene_manager.as_mut().unwrap().delete_scene(*scene_id);
+                    if let Some(scene_manager) = &mut gui_state.scene_manager {
+                        if let Err(e) = scene_manager.delete_scene(*scene_id) {
+                            LOGGER.error(format!("Failed to delete scene: {}", e));
+                        }
+                    }
                     ui.close();
                 }
                 if ui.button("Set Active").clicked() {

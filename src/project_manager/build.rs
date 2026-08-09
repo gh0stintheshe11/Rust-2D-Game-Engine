@@ -26,31 +26,23 @@ impl ProjectManager {
 
         let stdout_thread = std::thread::spawn(move || {
             let reader = BufReader::new(stdout);
-            for line in reader.lines() {
-                // Print colored output to the terminal, and log plain text output to the Debug panel
-                if let Ok(line) = line {
-                    println!("{}", line);
-                    // Strip ANSI escape codes (for color)
-                    {
-                        let clean_line = strip(line.as_bytes());
-                        LOGGER.debug(String::from_utf8_lossy(&clean_line));
-                    }
-                }
+            // Print colored output to the terminal, and log plain text output to the Debug panel
+            for line in reader.lines().map_while(Result::ok) {
+                println!("{}", line);
+                // Strip ANSI escape codes (for color)
+                let clean_line = strip(line.as_bytes());
+                LOGGER.debug(String::from_utf8_lossy(&clean_line));
             }
         });
 
         let stderr_thread = std::thread::spawn(move || {
             let reader = BufReader::new(stderr);
-            for line in reader.lines() {
-                // Print colored output to the terminal, and log plain text output to the Debug panel
-                if let Ok(line) = line {
-                    eprintln!("{}", line);
-                    // Strip ANSI escape codes (for color)
-                    {
-                        let clean_line = strip(line.as_bytes());
-                        LOGGER.debug(String::from_utf8_lossy(&clean_line));
-                    }
-                }
+            // Print colored output to the terminal, and log plain text output to the Debug panel
+            for line in reader.lines().map_while(Result::ok) {
+                eprintln!("{}", line);
+                // Strip ANSI escape codes (for color)
+                let clean_line = strip(line.as_bytes());
+                LOGGER.debug(String::from_utf8_lossy(&clean_line));
             }
         });
 

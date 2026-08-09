@@ -4,6 +4,10 @@ use rapier2d::prelude::*;
 use std::collections::HashMap;
 use uuid::Uuid;
 
+/// Debug info for one collider: world position (x, y), size (w, h), and
+/// shape name ("Circle" / "Rectangle").
+pub type ColliderData = ((f32, f32), (f32, f32), String);
+
 pub struct PhysicsEngine {
     // Global gravity force applied to all dynamic bodies
     gravity: Vector,
@@ -48,6 +52,12 @@ pub struct PhysicsEngine {
 
     // Store position attribute IDs for quick updates
     entity_position_attrs: HashMap<Uuid, Uuid>,
+}
+
+impl Default for PhysicsEngine {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl PhysicsEngine {
@@ -457,7 +467,7 @@ impl PhysicsEngine {
         self.entity_to_body
             .get(entity_id)
             .and_then(|rb_handle| self.rigid_body_set.get(*rb_handle))
-            .map(|rb| rb.linvel().clone())
+            .map(|rb| rb.linvel())
     }
 
     // Set velocity of an entity
@@ -524,7 +534,7 @@ impl PhysicsEngine {
     // - (f32, f32): The world coordinate of the collider (x, y).
     // - (f32, f32): The size of the collider in world coordinate (width, height).
     // - String: The shape of the collider (e.g., "Circle", "Rectangle").
-    pub fn get_collider_data(&self) -> Vec<((f32, f32), (f32, f32), String)> {
+    pub fn get_collider_data(&self) -> Vec<ColliderData> {
         let mut colliders = Vec::new();
 
         for (entity_id, collider_handle) in &self.entity_to_collider {

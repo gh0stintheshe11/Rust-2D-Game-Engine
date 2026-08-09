@@ -13,6 +13,12 @@ pub struct MenuBar {
     pub project_menu: ProjectMenu,
 }
 
+impl Default for MenuBar {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MenuBar {
     pub fn new() -> Self {
         Self {

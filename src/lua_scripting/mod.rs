@@ -56,6 +56,12 @@ pub(crate) fn parse_uuid(value: &str, what: &str) -> Result<Uuid, mlua::Error> {
         .map_err(|e| mlua::Error::external(format!("Invalid {} UUID '{}': {}", what, value, e)))
 }
 
+impl Default for LuaScripting {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl LuaScripting {
     pub fn new() -> Self {
         LuaScripting {
@@ -215,7 +221,7 @@ impl LuaScripting {
             let env = self.lua.create_table()?;
             let meta = self.lua.create_table()?;
             meta.set("__index", self.lua.globals())?;
-            env.set_metatable(Some(meta));
+            env.set_metatable(Some(meta))?;
             Ok(env)
         };
         let env = build_env().map_err(|e| format!("Error creating script env: {}", e))?;

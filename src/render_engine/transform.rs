@@ -6,6 +6,12 @@ pub struct Transform {
     pub scale: (f32, f32),
 }
 
+impl Default for Transform {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Transform {
     pub fn new() -> Self {
         Self {

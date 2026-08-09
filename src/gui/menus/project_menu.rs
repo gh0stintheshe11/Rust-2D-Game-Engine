@@ -1,8 +1,8 @@
-use eframe::egui;
 use crate::gui::gui_state::GuiState;
 use crate::logger::LOGGER;
-use std::sync::{Arc};
 use crate::project_manager::ProjectManager;
+use eframe::egui;
+use std::sync::Arc;
 
 pub struct ProjectMenu;
 
@@ -12,9 +12,12 @@ impl ProjectMenu {
     }
 
     pub fn show(&mut self, _ctx: &egui::Context, ui: &mut egui::Ui, gui_state: &mut GuiState) {
-
-        ui.add_enabled(!gui_state.project_path.as_os_str().is_empty(), egui::Button::new("Build Project")).clicked().then(|| {
-
+        ui.add_enabled(
+            !gui_state.project_path.as_os_str().is_empty(),
+            egui::Button::new("Build Project"),
+        )
+        .clicked()
+        .then(|| {
             let project_path = gui_state.project_path.clone();
             let build_result = Arc::clone(&gui_state.build_result);
             let is_building = Arc::clone(&gui_state.is_building);
@@ -39,7 +42,6 @@ impl ProjectMenu {
 
             gui_state.show_build_project_popup = true;
         });
-
     }
 
     pub fn show_active_popup(&mut self, ctx: &egui::Context, gui_state: &mut GuiState) {
@@ -59,8 +61,11 @@ impl ProjectMenu {
                 .interactable(false)
                 .show(ctx, |ui| {
                     let screen_rect = ctx.content_rect();
-                    ui.painter()
-                        .rect_filled(screen_rect, 0.0, egui::Color32::from_black_alpha(128));
+                    ui.painter().rect_filled(
+                        screen_rect,
+                        0.0,
+                        egui::Color32::from_black_alpha(128),
+                    );
                     ui.allocate_rect(screen_rect, egui::Sense::hover());
                 });
 
@@ -100,5 +105,4 @@ impl ProjectMenu {
             ctx.request_repaint();
         }
     }
-
 }

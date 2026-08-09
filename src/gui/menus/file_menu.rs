@@ -1,7 +1,7 @@
-use eframe::egui;
-use crate::project_manager::ProjectManager;
-use std::path::PathBuf;
 use crate::gui::gui_state::GuiState;
+use crate::project_manager::ProjectManager;
+use eframe::egui;
+use std::path::PathBuf;
 
 pub struct FileMenu {
     temp_project_path: PathBuf,
@@ -49,8 +49,7 @@ impl FileMenu {
     pub fn show_active_popup(&mut self, ctx: &egui::Context, gui_state: &mut GuiState) {
         if gui_state.show_new_project_popup {
             self.show_new_project_popup_window(ctx, gui_state);
-        }
-        else if gui_state.show_open_project_popup {
+        } else if gui_state.show_open_project_popup {
             self.show_open_project_popup_window(ctx, gui_state);
         }
     }
@@ -67,7 +66,7 @@ impl FileMenu {
                 if ui.text_edit_singleline(&mut path_str).changed() {
                     self.temp_project_path = PathBuf::from(&path_str);
                 }
-                
+
                 ui.horizontal(|ui| {
                     if ui.button("Create").clicked() {
                         if self.temp_project_path.exists() {
@@ -75,15 +74,16 @@ impl FileMenu {
                         } else {
                             match ProjectManager::create_project(&self.temp_project_path) {
                                 Ok(_) => {
-
                                     // Load the created project
-                                    match ProjectManager::load_project_full(&self.temp_project_path) {
+                                    match ProjectManager::load_project_full(&self.temp_project_path)
+                                    {
                                         Ok(loaded_project) => {
                                             let metadata = loaded_project.metadata;
                                             let scene_manager = loaded_project.scene_manager;
 
                                             gui_state.project_name = metadata.project_name.clone();
-                                            gui_state.project_path = metadata.project_path.clone().into();
+                                            gui_state.project_path =
+                                                metadata.project_path.clone().into();
                                             gui_state.load_project = true;
 
                                             gui_state.project_metadata = Some(metadata);
@@ -91,10 +91,14 @@ impl FileMenu {
 
                                             gui_state.show_new_project_popup = false;
                                             self.error_message.clear();
-                                            println!("Project '{}' created and loaded successfully!", gui_state.project_name);
+                                            println!(
+                                                "Project '{}' created and loaded successfully!",
+                                                gui_state.project_name
+                                            );
                                         }
                                         Err(err) => {
-                                            self.error_message = format!("Error loading project: {}", err);
+                                            self.error_message =
+                                                format!("Error loading project: {}", err);
                                         }
                                     }
                                 }
@@ -115,7 +119,6 @@ impl FileMenu {
                 if !self.error_message.is_empty() {
                     ui.colored_label(egui::Color32::RED, &self.error_message);
                 }
-
             });
     }
 
@@ -132,7 +135,7 @@ impl FileMenu {
                     self.temp_project_path = PathBuf::from(&path_str);
                     self.error_message.clear();
                 }
-                
+
                 ui.horizontal(|ui| {
                     if ui.button("Open").clicked() && !path_str.is_empty() {
                         if !self.temp_project_path.exists() {
@@ -169,16 +172,15 @@ impl FileMenu {
                     }
                 });
 
-                if !self.error_message.is_empty() && !self.temp_project_path.as_os_str().is_empty() {
+                if !self.error_message.is_empty() && !self.temp_project_path.as_os_str().is_empty()
+                {
                     ui.colored_label(egui::Color32::RED, &self.error_message);
                 }
-
             });
     }
 
     // Save project
     fn save_project(&self, gui_state: &mut GuiState) {
-
         if !gui_state.load_project {
             println!("No project loaded to save.");
             return;
@@ -188,9 +190,9 @@ impl FileMenu {
             Ok(metadata) => {
                 if let Some(scene_manager) = &gui_state.scene_manager {
                     match ProjectManager::save_project_full(
-                        &gui_state.project_path, 
-                        &metadata, 
-                        scene_manager
+                        &gui_state.project_path,
+                        &metadata,
+                        scene_manager,
                     ) {
                         Ok(_) => println!("Project saved successfully."),
                         Err(err) => println!("Error saving project: {}", err),
@@ -203,7 +205,5 @@ impl FileMenu {
                 println!("No valid project loaded to save. Please load a project first.");
             }
         }
-
     }
-
 }

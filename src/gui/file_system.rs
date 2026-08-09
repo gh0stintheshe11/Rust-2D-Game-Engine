@@ -9,6 +9,12 @@ pub struct FileSystem {
     show_search: bool,
 }
 
+impl Default for FileSystem {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FileSystem {
     pub fn new() -> Self {
         Self {
@@ -131,7 +137,7 @@ impl FileSystem {
                 let folder_path = folder.path();
                 let folder_name = folder.file_name().to_string_lossy().to_string();
 
-                egui::CollapsingHeader::new(format!("{}", folder_name))
+                egui::CollapsingHeader::new(folder_name.to_string())
                     .default_open(true)
                     .show(ui, |ui| {
                         self.render_file_tree(ui, &folder_path, depth + 1, gui_state);
@@ -155,12 +161,9 @@ impl FileSystem {
                 ui.horizontal(|ui| {
                     ui.add_space(depth as f32 * 4.0);
 
-                    let selected = self
-                        .selected_file
-                        .as_ref()
-                        .map_or(false, |selected_path| selected_path == &file_path);
+                    let selected = self.selected_file.as_ref() == Some(&file_path);
 
-                    let response = ui.selectable_label(selected, format!("{}", file_name));
+                    let response = ui.selectable_label(selected, file_name.to_string());
 
                     if response.clicked() {
                         self.selected_file = Some(file_path.clone());

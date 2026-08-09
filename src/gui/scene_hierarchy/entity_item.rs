@@ -1,8 +1,9 @@
-use crate::gui::scene_hierarchy::SceneHierarchy;
 use crate::gui::gui_state::{GuiState, ScenePanelSelectedItem, SelectedItem};
+use crate::gui::scene_hierarchy::SceneHierarchy;
+use crate::logger::LOGGER;
 use egui::{Context, Ui};
-use uuid::Uuid;
 use indexmap::IndexMap;
+use uuid::Uuid;
 
 pub struct EntityItem;
 
@@ -17,12 +18,19 @@ impl EntityItem {
     ) {
         let mut sorted_entities: Vec<(&Uuid, &crate::ecs::Entity)> = entities.iter().collect();
         sorted_entities.sort_by(|(_, entity_a), (_, entity_b)| {
-            entity_a.name.to_lowercase().cmp(&entity_b.name.to_lowercase())
+            entity_a
+                .name
+                .to_lowercase()
+                .cmp(&entity_b.name.to_lowercase())
         });
 
         for (entity_id, entity) in sorted_entities {
             if !hierarchy.search_query.is_empty()
-                && !entity.name.to_lowercase().contains(&hierarchy.search_query.to_lowercase()) {
+                && !entity
+                    .name
+                    .to_lowercase()
+                    .contains(&hierarchy.search_query.to_lowercase())
+            {
                 continue;
             }
 
@@ -30,46 +38,68 @@ impl EntityItem {
 
             // Show as collapsable if has images or sounds, otherwise show as label
             if !entity.images.is_empty() || !entity.sounds.is_empty() {
-                egui::collapsing_header::CollapsingState::load_with_default_open(ctx, header_id, true)
-                    .show_header(ui, |ui| {
-                        EntityItem::tree_item_entity(ui, scene_id, entity_id, &entity.name, hierarchy, gui_state);
-                    })
-                    .body(|ui| {
-                        if !entity.images.is_empty() {
-                            for path in &entity.images {
-                                let filename = path.file_name()
-                                    .unwrap_or_default()
-                                    .to_string_lossy()
-                                    .to_string();
-                                ui.horizontal(|ui| {
-                                    ui.label(format!("🔆 {}", filename));
-                                });
-                            }
+                egui::collapsing_header::CollapsingState::load_with_default_open(
+                    ctx, header_id, true,
+                )
+                .show_header(ui, |ui| {
+                    EntityItem::tree_item_entity(
+                        ui,
+                        scene_id,
+                        entity_id,
+                        &entity.name,
+                        hierarchy,
+                        gui_state,
+                    );
+                })
+                .body(|ui| {
+                    if !entity.images.is_empty() {
+                        for path in &entity.images {
+                            let filename = path
+                                .file_name()
+                                .unwrap_or_default()
+                                .to_string_lossy()
+                                .to_string();
+                            ui.horizontal(|ui| {
+                                ui.label(format!("🔆 {}", filename));
+                            });
                         }
-                        if !entity.sounds.is_empty() {
-                            for path in &entity.sounds {
-                                let filename = path.file_name()
-                                    .unwrap_or_default()
-                                    .to_string_lossy()
-                                    .to_string();
-                                ui.horizontal(|ui| {
-                                    ui.label(format!("🎵 {}", filename));
-                                });
-                            }
+                    }
+                    if !entity.sounds.is_empty() {
+                        for path in &entity.sounds {
+                            let filename = path
+                                .file_name()
+                                .unwrap_or_default()
+                                .to_string_lossy()
+                                .to_string();
+                            ui.horizontal(|ui| {
+                                ui.label(format!("🎵 {}", filename));
+                            });
                         }
-                        if entity.script.is_some() {
-                                let filename = entity.script.clone().unwrap().file_name()
-                                    .unwrap_or_default()
-                                    .to_string_lossy()
-                                    .to_string();
-                                ui.horizontal(|ui| {
-                                    ui.label(format!("🎵 {}", filename));
-                                });
-                        }
-                    });
+                    }
+                    if entity.script.is_some() {
+                        let filename = entity
+                            .script
+                            .clone()
+                            .unwrap()
+                            .file_name()
+                            .unwrap_or_default()
+                            .to_string_lossy()
+                            .to_string();
+                        ui.horizontal(|ui| {
+                            ui.label(format!("🎵 {}", filename));
+                        });
+                    }
+                });
             } else {
                 ui.horizontal(|ui| {
-                    EntityItem::tree_item_entity(ui, scene_id, entity_id, &entity.name, hierarchy, gui_state);
+                    EntityItem::tree_item_entity(
+                        ui,
+                        scene_id,
+                        entity_id,
+                        &entity.name,
+                        hierarchy,
+                        gui_state,
+                    );
                 });
             }
         }
@@ -89,7 +119,7 @@ impl EntityItem {
         );
 
         // Just show the filename without path
-        let display_name = if let Some(name) = entity_name.split('/').last() {
+        let display_name = if let Some(name) = entity_name.split('/').next_back() {
             name
         } else {
             entity_name
@@ -98,7 +128,8 @@ impl EntityItem {
         let response = ui.selectable_label(selected, format!("🖼 {}", display_name));
         if response.clicked() {
             gui_state.selected_item = SelectedItem::Entity(*scene_id, *entity_id);
-            gui_state.scene_panel_selected_item = ScenePanelSelectedItem::Entity(*scene_id, *entity_id);
+            gui_state.scene_panel_selected_item =
+                ScenePanelSelectedItem::Entity(*scene_id, *entity_id);
         }
 
         response.context_menu(|ui| {
@@ -118,13 +149,16 @@ impl EntityItem {
                 ui.close();
             }
             if ui.button("Delete").clicked() {
-                gui_state
+                let deleted = gui_state
                     .scene_manager
                     .as_mut()
-                    .unwrap()
-                    .get_scene_mut(*scene_id)
-                    .unwrap()
-                    .delete_entity(*entity_id);
+                    .and_then(|manager| manager.get_scene_mut(*scene_id))
+                    .map(|scene| scene.delete_entity(*entity_id));
+                match deleted {
+                    Some(Err(e)) => LOGGER.error(format!("Failed to delete entity: {}", e)),
+                    None => LOGGER.error("Failed to delete entity: scene not found"),
+                    Some(Ok(_)) => {}
+                }
                 ui.close();
             }
         });

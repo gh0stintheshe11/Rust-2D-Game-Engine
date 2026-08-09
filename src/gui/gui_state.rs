@@ -1,14 +1,14 @@
 use crate::ecs::SceneManager;
 use crate::project_manager::ProjectMetadata;
 use std::path::PathBuf;
-use uuid::Uuid;
 use std::sync::{Arc, Mutex};
+use uuid::Uuid;
 
 pub enum SelectedItem {
     None,
     Scene(Uuid),
-    Entity(Uuid, Uuid),  // (Scene ID, Entity ID)
-    Asset(Uuid, Uuid, PathBuf),  // (Scene ID, Entity ID, Asset Path)
+    Entity(Uuid, Uuid),         // (Scene ID, Entity ID)
+    Asset(Uuid, Uuid, PathBuf), // (Scene ID, Entity ID, Asset Path)
     File(PathBuf),
 }
 
@@ -16,17 +16,17 @@ pub enum ScenePanelSelectedItem {
     None,
     Scene(Uuid),
     Entity(Uuid, Uuid),
-    Asset(Uuid, Uuid, PathBuf),  // (Scene ID, Entity ID, Asset Path)
+    Asset(Uuid, Uuid, PathBuf), // (Scene ID, Entity ID, Asset Path)
 }
 
 pub struct GuiState {
     pub dark_mode: bool,
     pub show_new_project_popup: bool,
     pub show_open_project_popup: bool,
-    pub load_project: bool,            // Track if the project should be loaded
-    pub project_name: String,          // Store the project name input
-    pub project_path: PathBuf,         // Store the project path input
-    pub project_metadata: Option<ProjectMetadata>,  // Store loaded project metadata
+    pub load_project: bool,    // Track if the project should be loaded
+    pub project_name: String,  // Store the project name input
+    pub project_path: PathBuf, // Store the project path input
+    pub project_metadata: Option<ProjectMetadata>, // Store loaded project metadata
     pub scene_manager: Option<SceneManager>,
 
     pub show_hierarchy_filesystem: bool,
@@ -40,7 +40,12 @@ pub struct GuiState {
     pub build_result: Arc<Mutex<Option<Result<(), String>>>>,
     pub is_building: Arc<Mutex<bool>>,
     pub show_build_project_popup: bool,
+}
 
+impl Default for GuiState {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl GuiState {

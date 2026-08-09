@@ -37,9 +37,6 @@ jobs:
 
       - name: Clippy
         run: cargo clippy --all-targets -- -D warnings
-        # Existing warnings are being burned down; don't fail the build yet
-        continue-on-error: true
 
       - name: Format check
         run: cargo fmt --check
-        continue-on-error: true

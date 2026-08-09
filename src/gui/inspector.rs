@@ -2,6 +2,7 @@ use crate::audio_engine::AudioEngine;
 use crate::ecs::{AttributeType, AttributeValue, Entity};
 use crate::gui::gui_state::{GuiState, SelectedItem};
 use crate::gui::scene_hierarchy::utils::format_file_size;
+use crate::logger::LOGGER;
 use crate::project_manager::ProjectManager;
 use eframe::egui;
 use eframe::egui::{ColorImage, TextureOptions, Vec2};
@@ -26,6 +27,12 @@ pub struct Inspector {
     // decode images / audio metadata from disk every frame
     preview_image: Option<(PathBuf, egui::TextureHandle, (u32, u32))>,
     preview_audio_duration: Option<(PathBuf, Option<f32>)>,
+}
+
+impl Default for Inspector {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Inspector {
@@ -298,7 +305,7 @@ impl Inspector {
         if let Some(scene_manager) = &mut gui_state.scene_manager {
             if let Some(scene) = scene_manager.get_scene_mut(scene_id) {
                 if let Ok(entity) = scene.get_entity_mut(entity_id) {
-                    ui.label(format!("{}", entity.name));
+                    ui.label(entity.name.to_string());
                     ui.separator();
                     ui.label(format!("ID: {}", entity_id));
                     ui.separator();
@@ -380,7 +387,12 @@ impl Inspector {
 
     /// Add metadata popup, type must be in Entity's attribute types
     // TODO: handle Vector2
-    fn show_metadata_popup(&mut self, ctx: &egui::Context, _ui: &mut egui::Ui, entity: &mut Entity) {
+    fn show_metadata_popup(
+        &mut self,
+        ctx: &egui::Context,
+        _ui: &mut egui::Ui,
+        entity: &mut Entity,
+    ) {
         egui::Window::new("Add Attribute")
             .collapsible(false)
             .resizable(false)
@@ -497,13 +509,13 @@ impl Inspector {
         ui.horizontal(|ui| {
             ui.add_space(4.0);
             // Only show delete button in delete mode
-            if self.delete_mode {
-                if ui.small_button("❌").clicked() {
-                    entity.delete_attribute(attribute_id);
-                    self.editing_states.remove(&attribute_id);
-                    self.data_updated = true;
-                    return;
+            if self.delete_mode && ui.small_button("❌").clicked() {
+                if let Err(e) = entity.delete_attribute(attribute_id) {
+                    LOGGER.error(format!("Failed to delete attribute: {}", e));
                 }
+                self.editing_states.remove(&attribute_id);
+                self.data_updated = true;
+                return;
             }
 
             let input_width = 80.0; // Fixed width for input
@@ -552,12 +564,14 @@ impl Inspector {
                     AttributeValue::Boolean(_) => {
                         let mut value = temp_value.parse::<bool>().unwrap_or(false);
                         if ui.checkbox(&mut value, "").changed() {
-                            entity.modify_attribute(
+                            if let Err(e) = entity.modify_attribute(
                                 attribute_id,
                                 None,
                                 None,
                                 Some(AttributeValue::Boolean(value)),
-                            );
+                            ) {
+                                LOGGER.error(format!("Failed to modify attribute: {}", e));
+                            }
                             self.editing_states.insert(attribute_id, value.to_string());
                             self.data_updated = true;
                         }
@@ -574,7 +588,14 @@ impl Inspector {
                             if let Some(new_value) =
                                 self.parse_attribute_value(&temp_value, attribute_value)
                             {
-                                entity.modify_attribute(attribute_id, None, None, Some(new_value));
+                                if let Err(e) = entity.modify_attribute(
+                                    attribute_id,
+                                    None,
+                                    None,
+                                    Some(new_value),
+                                ) {
+                                    LOGGER.error(format!("Failed to modify attribute: {}", e));
+                                }
                                 self.editing_states.remove(&attribute_id);
                                 self.data_updated = true;
                             } else {

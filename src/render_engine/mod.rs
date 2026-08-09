@@ -11,6 +11,12 @@ mod transform;
 pub use camera::Camera;
 pub use transform::Transform;
 
+/// One sprite draw command: texture id, screen position, screen size, z layer.
+pub type RenderQueueEntry = (Uuid, (f32, f32), (f32, f32), f32);
+
+/// One collider debug shape: screen position, screen size, shape name.
+pub type ColliderRenderData = ((f32, f32), (f32, f32), String);
+
 #[derive(Debug, Clone)]
 pub struct TextureInfo {
     pub data: Vec<u8>,
@@ -26,6 +32,12 @@ pub struct RenderEngine {
     // TextureHandle is an Arc internally, so cloning the engine shares them.
     egui_textures: HashMap<Uuid, egui::TextureHandle>,
     pub camera: Camera,
+}
+
+impl Default for RenderEngine {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl RenderEngine {
@@ -82,17 +94,17 @@ impl RenderEngine {
     }
 
     // Modified render method to use z coordinate for ordering
-    pub fn render(&mut self, scene: &Scene) -> Vec<(Uuid, (f32, f32), (f32, f32), f32)> {
+    pub fn render(&mut self, scene: &Scene) -> Vec<RenderQueueEntry> {
         let mut render_queue = Vec::new();
 
         for (_, entity) in &scene.entities {
             if let Ok(image_path) = entity.get_image(0) {
                 let texture_id = Self::path_to_uuid(Path::new(image_path));
 
-                if !self.texture_cache.contains_key(&texture_id) {
-                    if let Ok(_) = self.load_texture(Path::new(image_path)) {
-                        println!("Loaded texture: {}", image_path.to_string_lossy());
-                    }
+                if !self.texture_cache.contains_key(&texture_id)
+                    && self.load_texture(Path::new(image_path)).is_ok()
+                {
+                    println!("Loaded texture: {}", image_path.to_string_lossy());
                 }
 
                 // Get position including z coordinate
@@ -154,8 +166,8 @@ impl RenderEngine {
     // - String: The shape of the collider (e.g., "Circle", "Rectangle").
     pub fn render_colliders(
         &mut self,
-        collider_data: &[((f32, f32), (f32, f32), String)],
-    ) -> Vec<((f32, f32), (f32, f32), String)> {
+        collider_data: &[crate::physics_engine::ColliderData],
+    ) -> Vec<ColliderRenderData> {
         let mut render_queue = Vec::new();
 
         for &(world_position, world_size, ref shape) in collider_data {

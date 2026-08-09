@@ -1,8 +1,8 @@
-use eframe::egui;
 use crate::gui::gui_state::GuiState;
 use crate::project_manager::{AssetType, ProjectManager};
-use std::path::Path;
+use eframe::egui;
 use rfd::FileDialog;
+use std::path::Path;
 
 pub struct ImportMenu;
 
@@ -28,15 +28,10 @@ impl ImportMenu {
     }
 
     fn import_asset(&self, gui_state: &mut GuiState, asset_type: AssetType) {
-
         if let Some(file_path) = FileDialog::new()
-            .add_filter(
-                &format!("{:?}", asset_type),
-                asset_type.valid_extensions()
-            )
+            .add_filter(format!("{:?}", asset_type), asset_type.valid_extensions())
             .pick_file()
         {
-
             match ProjectManager::import_asset(
                 Path::new(&gui_state.project_path),
                 &file_path,
@@ -47,5 +42,4 @@ impl ImportMenu {
             }
         }
     }
-
 }

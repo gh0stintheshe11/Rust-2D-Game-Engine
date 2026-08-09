@@ -19,6 +19,12 @@ pub struct InputHandler {
     modifiers: egui::Modifiers,
 }
 
+impl Default for InputHandler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl InputHandler {
     pub fn new() -> Self {
         InputHandler {
@@ -48,11 +54,11 @@ impl InputHandler {
 
         // Track which keys were just pressed this frame
         let old_keys = self.keys_pressed.clone();
-        
+
         // Update key states
         self.keys_pressed.clear();
         self.keys_just_pressed.clear();
-        
+
         input.keys_down.iter().for_each(|key| {
             self.keys_pressed.insert(*key);
             if !old_keys.contains(key) {
@@ -113,7 +119,7 @@ impl InputHandler {
 
     pub fn get_all_active_inputs(&self) -> Vec<String> {
         let mut all_inputs = Vec::new();
-        
+
         // Add modifier keys if pressed
         if self.modifiers.ctrl {
             all_inputs.push("Ctrl".to_string());
@@ -127,17 +133,19 @@ impl InputHandler {
         if self.modifiers.command {
             all_inputs.push("Cmd".to_string());
         }
-        
-        // Add all pressed keyboard keys
+
+        // Add all pressed keyboard keys, using the same names that
+        // egui::Key::from_name understands (so Lua scripts can compare
+        // keys_pressed entries with what is_key_just_pressed accepts)
         for key in &self.keys_pressed {
-            all_inputs.push(format!("{:?}", key));
+            all_inputs.push(key.name().to_string());
         }
-        
+
         // Add all pressed mouse buttons
         for button in &self.mouse_buttons {
             all_inputs.push(format!("{:?}", button));
         }
-        
+
         all_inputs
     }
 }

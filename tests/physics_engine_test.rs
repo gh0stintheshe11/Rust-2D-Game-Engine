@@ -1,6 +1,5 @@
 #[cfg(test)]
 mod tests {
-    use rapier2d::prelude::*;
     use rust_2d_game_engine::ecs::{PhysicsProperties, Scene};
     use rust_2d_game_engine::physics_engine::PhysicsEngine;
 

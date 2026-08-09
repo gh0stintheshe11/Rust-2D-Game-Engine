@@ -15,6 +15,12 @@ pub struct SceneHierarchy {
     pub popup_manager: PopupManager,
 }
 
+impl Default for SceneHierarchy {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SceneHierarchy {
     pub fn new() -> Self {
         Self {

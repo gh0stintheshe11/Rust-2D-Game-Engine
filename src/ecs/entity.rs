@@ -202,12 +202,10 @@ impl Entity {
                     }
                 }
                 // Camera-specific attributes - expanded list
-                "width" | "height" | "zoom" | "rotation" | "is_camera" => {
-                    if self.name.contains("camera") {
-                        return Err(
-                            "Cannot delete camera attributes from camera entity".to_string()
-                        );
-                    }
+                "width" | "height" | "zoom" | "rotation" | "is_camera"
+                    if self.name.contains("camera") =>
+                {
+                    return Err("Cannot delete camera attributes from camera entity".to_string());
                 }
                 _ => {}
             }

@@ -3991,7 +3991,6 @@ dependencies = [
  "indexmap",
  "lofty",
  "mlua",
- "once_cell",
  "rapier2d",
  "rayon",
  "rfd",

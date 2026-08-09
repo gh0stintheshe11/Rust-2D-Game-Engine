@@ -23,6 +23,12 @@ pub struct PopupManager {
     pub available_resources: Vec<std::path::PathBuf>,
 }
 
+impl Default for PopupManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PopupManager {
     pub fn new() -> Self {
         Self {
@@ -471,13 +477,12 @@ impl PopupManager {
                                                                     .push(resource_path.clone());
                                                             }
                                                         }
-                                                        "Scripts" => {
+                                                        "Scripts"
                                                             if entity.script.as_ref()
-                                                                != Some(&resource_path)
-                                                            {
-                                                                entity.script =
-                                                                    Some(resource_path.clone());
-                                                            }
+                                                                != Some(resource_path) =>
+                                                        {
+                                                            entity.script =
+                                                                Some(resource_path.clone());
                                                         }
                                                         _ => {}
                                                     }
