@@ -1,20 +1,20 @@
-use crate::{
-    physics_engine::PhysicsEngine,
-    render_engine::RenderEngine,
-    input_handler::{InputHandler, InputContext},
-    audio_engine::AudioEngine,
-    ecs::SceneManager,
-    game_runtime::{GameRuntime, RuntimeState}
-};
+use crate::gui::file_system::FileSystem;
 use crate::gui::gui_state::GuiState;
+use crate::gui::inspector::Inspector;
 use crate::gui::menu_bar::MenuBar;
 use crate::gui::scene_hierarchy::SceneHierarchy;
-use crate::gui::file_system::FileSystem;
-use crate::gui::inspector::Inspector;
+use crate::logger::{ConsoleMessage, ConsoleMessageType, LOGGER};
+use crate::{
+    audio_engine::AudioEngine,
+    ecs::SceneManager,
+    game_runtime::{GameRuntime, RuntimeState},
+    input_handler::{InputContext, InputHandler},
+    physics_engine::PhysicsEngine,
+    render_engine::RenderEngine,
+};
 use eframe::egui;
 use std::fs;
 use std::path::PathBuf;
-use crate::logger::{LOGGER, ConsoleMessageType, ConsoleMessage};
 
 pub struct EngineGui {
     // Window States
@@ -50,8 +50,8 @@ impl EngineGui {
         let gui_state = GuiState::new();
         let render_engine = RenderEngine::new();
         let mut input_handler = InputHandler::new();
-        input_handler.set_context(InputContext::EngineUI);  // Make sure we start in EngineUI mode
-        
+        input_handler.set_context(InputContext::EngineUI); // Make sure we start in EngineUI mode
+
         // Create GameRuntime with all required components
         let game_runtime = GameRuntime::new(
             SceneManager::new(),
@@ -59,7 +59,7 @@ impl EngineGui {
             render_engine.clone(), // We'll need to implement Clone for RenderEngine
             input_handler.clone(), // We'll need to implement Clone for InputHandler
             AudioEngine::new(),
-            60  // target fps
+            60, // target fps
         );
 
         Self {
@@ -119,7 +119,10 @@ impl EngineGui {
                         if ui.selectable_label(self.show_editor, "📝 Editor").clicked() {
                             self.show_editor = true;
                         }
-                        if ui.selectable_label(!self.show_editor, "🎮 Viewer").clicked() {
+                        if ui
+                            .selectable_label(!self.show_editor, "🎮 Viewer")
+                            .clicked()
+                        {
                             self.show_editor = false;
                             if let Some(path) = &self.current_edited_file {
                                 if let Err(err) = fs::write(path, &self.editor_content) {
@@ -131,7 +134,10 @@ impl EngineGui {
                 });
 
                 // Only add separator if any panel is visible
-                if self.gui_state.show_hierarchy_filesystem || self.gui_state.show_inspector || self.gui_state.show_console {
+                if self.gui_state.show_hierarchy_filesystem
+                    || self.gui_state.show_inspector
+                    || self.gui_state.show_console
+                {
                     ui.separator();
                 }
 
@@ -182,7 +188,9 @@ impl EngineGui {
                                     stroke: egui::Stroke::NONE,
                                 })
                                 .show_inside(ui, |ui| {
-                                    if let Some((path, content)) = self.file_system.show(ctx, ui, &mut self.gui_state) {
+                                    if let Some((path, content)) =
+                                        self.file_system.show(ctx, ui, &mut self.gui_state)
+                                    {
                                         self.editor_content = content;
                                         self.current_edited_file = Some(path);
                                     }
@@ -192,14 +200,13 @@ impl EngineGui {
 
                 // Right panel (Inspector)
                 if self.gui_state.show_inspector {
-
                     let inspector_margin = egui::Margin {
                         left: 6.0,
                         right: 4.0,
                         top: 0.0,
                         bottom: 4.0,
                     };
-                    
+
                     egui::SidePanel::right("right_panel")
                         .resizable(true)
                         .min_width(min_side_panel_width)
@@ -226,8 +233,7 @@ impl EngineGui {
                         .min_height(100.0)
                         .default_height(200.0)
                         .max_height(ui.available_height() * 0.5)
-                        .frame(egui::Frame::none()
-                            .inner_margin(egui::Margin::symmetric(6.0, 8.0)))
+                        .frame(egui::Frame::none().inner_margin(egui::Margin::symmetric(6.0, 8.0)))
                         .show_inside(ui, |ui| {
                             ui.horizontal(|ui| {
                                 if ui.selectable_label(!self.show_debug, "💬 Output").clicked() {
@@ -239,16 +245,36 @@ impl EngineGui {
                             });
                             ui.separator();
                             if self.show_debug {
-                                self.show_console_messages(ui, &self.console_messages, ConsoleMessageType::Debug);
+                                self.show_console_messages(
+                                    ui,
+                                    &self.console_messages,
+                                    ConsoleMessageType::Debug,
+                                );
                             } else {
                                 egui::ComboBox::from_label("Log Level")
                                     .selected_text(format!("{:?}", self.selected_log_level))
                                     .show_ui(ui, |ui| {
-                                        ui.selectable_value(&mut self.selected_log_level, ConsoleMessageType::Info, "Info");
-                                        ui.selectable_value(&mut self.selected_log_level, ConsoleMessageType::Warning, "Warning");
-                                        ui.selectable_value(&mut self.selected_log_level, ConsoleMessageType::Error, "Error");
+                                        ui.selectable_value(
+                                            &mut self.selected_log_level,
+                                            ConsoleMessageType::Info,
+                                            "Info",
+                                        );
+                                        ui.selectable_value(
+                                            &mut self.selected_log_level,
+                                            ConsoleMessageType::Warning,
+                                            "Warning",
+                                        );
+                                        ui.selectable_value(
+                                            &mut self.selected_log_level,
+                                            ConsoleMessageType::Error,
+                                            "Error",
+                                        );
                                     });
-                                self.show_console_messages(ui, &self.console_messages, self.selected_log_level.clone());
+                                self.show_console_messages(
+                                    ui,
+                                    &self.console_messages,
+                                    self.selected_log_level.clone(),
+                                );
                             }
                         });
                 }
@@ -267,8 +293,10 @@ impl EngineGui {
                                 egui::Color32::from_gray(40),
                             );
 
-                            let theme =
-                                egui_extras::syntax_highlighting::CodeTheme::from_memory(ui.ctx(), ui.style());
+                            let theme = egui_extras::syntax_highlighting::CodeTheme::from_memory(
+                                ui.ctx(),
+                                ui.style(),
+                            );
 
                             let mut layouter = |ui: &egui::Ui, string: &str, wrap_width: f32| {
                                 let mut layout_job = egui_extras::syntax_highlighting::highlight(
@@ -285,7 +313,6 @@ impl EngineGui {
                             egui::ScrollArea::both()
                                 .auto_shrink([false, false])
                                 .show(ui, |ui| {
-
                                     // Just show the editor, no file system here
                                     let response = ui.add_sized(
                                         content_rect.size(),
@@ -299,17 +326,17 @@ impl EngineGui {
                                     // If editor content changed, save it
                                     if response.changed() {
                                         if let Some(path) = &self.current_edited_file {
-                                            if let Err(err) = fs::write(path, &self.editor_content) {
-                                                LOGGER.error(format!("Failed to save file: {}", err));
+                                            if let Err(err) = fs::write(path, &self.editor_content)
+                                            {
+                                                LOGGER
+                                                    .error(format!("Failed to save file: {}", err));
                                             }
                                         }
                                     }
                                 });
                         } else {
-
                             // Render only the viewport content when play in the GUI
                             if self.game_runtime.get_state() == RuntimeState::Playing {
-
                                 // sync camera to runtime
                                 let position = self.render_engine.camera.position;
                                 let zoom = self.render_engine.camera.zoom;
@@ -318,99 +345,114 @@ impl EngineGui {
                                 let game_view_rect = ui.available_rect_before_wrap();
                                 self.game_runtime.update(ctx, ui, game_view_rect);
 
-
                                 // Then draw the game camera bounds
                                 if let Some(scene_manager) = &self.gui_state.scene_manager {
                                     if let Some(active_scene) = scene_manager.get_active_scene() {
-                                        let camera_lines = self.render_engine.get_game_camera_bounds(active_scene);
+                                        let camera_lines =
+                                            self.render_engine.get_game_camera_bounds(active_scene);
                                         for (start, end) in camera_lines {
                                             ui.painter().line_segment(
                                                 [
-                                                    egui::pos2(content_rect.min.x + start.0, content_rect.min.y + start.1),
-                                                    egui::pos2(content_rect.min.x + end.0, content_rect.min.y + end.1)
+                                                    egui::pos2(
+                                                        content_rect.min.x + start.0,
+                                                        content_rect.min.y + start.1,
+                                                    ),
+                                                    egui::pos2(
+                                                        content_rect.min.x + end.0,
+                                                        content_rect.min.y + end.1,
+                                                    ),
                                                 ],
-                                                egui::Stroke::new(2.0, egui::Color32::RED)
+                                                egui::Stroke::new(2.0, egui::Color32::RED),
                                             );
                                         }
                                     }
                                 }
-
                             } else {
                                 // Render the game view first
                                 self.render_scene(ui);
                             }
 
-
-
                             // Get viewport rect for input handling
                             let viewport_rect = ui.max_rect();
 
                             // Game control buttons floating on top
-                            ui.with_layout(egui::Layout::top_down_justified(egui::Align::Center), |ui| {
-                                ui.add_space(4.0);
-                                ui.horizontal(|ui| {
-                                    ui.add_space((ui.available_width() - 170.0) * 0.5);
-                                    
-                                    // Check if a project is loaded
-                                    if !self.gui_state.load_project {
-                                        // No project loaded - show disabled buttons or message
-                                        ui.add_enabled(false, egui::Button::new("▶ Play"));
-                                        ui.add_enabled(false, egui::Button::new("⏸ Pause"));
-                                        ui.add_enabled(false, egui::Button::new("⏹ Reset"));
-                                        return;
-                                    }
+                            ui.with_layout(
+                                egui::Layout::top_down_justified(egui::Align::Center),
+                                |ui| {
+                                    ui.add_space(4.0);
+                                    ui.horizontal(|ui| {
+                                        ui.add_space((ui.available_width() - 170.0) * 0.5);
 
-                                    // Project is loaded - show normal controls
-                                    match self.game_runtime.get_state() {
-                                        RuntimeState::Stopped => {
-                                            if ui.button("▶ Play").clicked() {
-                                                // Sync scene manager before starting
-                                                self.sync_scene_manager_to_runtime();
-                                                
-                                                match self.game_runtime.run() {
-                                                    Ok(_) => {
-                                                        self.game_runtime.set_state(RuntimeState::Playing);
-                                                        LOGGER.info("Game started successfully");
-                                                    }
-                                                    Err(error) => {
-                                                        self.game_runtime.set_state(RuntimeState::Stopped);
-                                                        LOGGER.error(format!("Failed to start game: {}", error));
+                                        // Check if a project is loaded
+                                        if !self.gui_state.load_project {
+                                            // No project loaded - show disabled buttons or message
+                                            ui.add_enabled(false, egui::Button::new("▶ Play"));
+                                            ui.add_enabled(false, egui::Button::new("⏸ Pause"));
+                                            ui.add_enabled(false, egui::Button::new("⏹ Reset"));
+                                            return;
+                                        }
+
+                                        // Project is loaded - show normal controls
+                                        match self.game_runtime.get_state() {
+                                            RuntimeState::Stopped => {
+                                                if ui.button("▶ Play").clicked() {
+                                                    // Sync scene manager before starting
+                                                    self.sync_scene_manager_to_runtime();
+
+                                                    match self.game_runtime.run() {
+                                                        Ok(_) => {
+                                                            self.game_runtime
+                                                                .set_state(RuntimeState::Playing);
+                                                            LOGGER
+                                                                .info("Game started successfully");
+                                                        }
+                                                        Err(error) => {
+                                                            self.game_runtime
+                                                                .set_state(RuntimeState::Stopped);
+                                                            LOGGER.error(format!(
+                                                                "Failed to start game: {}",
+                                                                error
+                                                            ));
+                                                        }
                                                     }
                                                 }
                                             }
-                                        }
-                                        RuntimeState::Playing => {
-                                            if ui.button("⏸ Pause").clicked() {
-                                                self.game_runtime.set_state(RuntimeState::Paused);
+                                            RuntimeState::Playing => {
+                                                if ui.button("⏸ Pause").clicked() {
+                                                    self.game_runtime
+                                                        .set_state(RuntimeState::Paused);
+                                                }
+                                            }
+                                            RuntimeState::Paused => {
+                                                if ui.button("▶ Resume").clicked() {
+                                                    // Just unpause; the physics world and scene state
+                                                    // from before the pause are still loaded
+                                                    self.game_runtime
+                                                        .set_state(RuntimeState::Playing);
+                                                }
                                             }
                                         }
-                                        RuntimeState::Paused => {
-                                            if ui.button("▶ Resume").clicked() {
-                                                self.game_runtime.set_state(RuntimeState::Playing);
-                                                self.game_runtime.run().unwrap();
-                                            }
+
+                                        if ui.button("⏹ Reset").clicked() {
+                                            self.game_runtime.reset();
                                         }
-                                    }
-                                    
-                                    if ui.button("⏹ Reset").clicked() {
-                                        self.game_runtime.reset();
-                                    }
-                                });
-                            });
+                                    });
+                                },
+                            );
 
                             // Camera reset button in bottom right
                             ui.with_layout(egui::Layout::bottom_up(egui::Align::RIGHT), |ui| {
-                                ui.add_space(4.0);  // Bottom margin
+                                ui.add_space(4.0); // Bottom margin
                                 ui.horizontal(|ui| {
-                                    ui.add_space(2.0);  // Right margin
+                                    ui.add_space(2.0); // Right margin
                                     let button = ui.add_sized(
-                                        [20.0, 20.0],  // Fixed size of 24x24 pixels
-                                        egui::Button::new("🔄")
+                                        [20.0, 20.0], // Fixed size of 24x24 pixels
+                                        egui::Button::new("🔄"),
                                     );
                                     if button.clicked() {
                                         self.render_engine.camera.reset();
                                     }
-                                    button.on_hover_text("Reset Camera");  // Tooltip text
+                                    button.on_hover_text("Reset Camera"); // Tooltip text
                                 });
                             });
 
@@ -430,21 +472,31 @@ impl EngineGui {
 
                             // Then handle editor viewport controls only when not playing
                             if self.game_runtime.get_state() != RuntimeState::Playing {
-                                if let Some(cursor_pos) = ui.ctx().input(|i| i.pointer.hover_pos()) {
+                                if let Some(cursor_pos) = ui.ctx().input(|i| i.pointer.hover_pos())
+                                {
                                     if viewport_rect.contains(cursor_pos) {
                                         // Editor camera controls
-                                        if self.input_handler.is_mouse_button_pressed(egui::PointerButton::Secondary) || 
-                                           (self.input_handler.is_mouse_button_pressed(egui::PointerButton::Primary) && 
-                                            ui.ctx().input(|i| i.modifiers.alt)) {
+                                        if self
+                                            .input_handler
+                                            .is_mouse_button_pressed(egui::PointerButton::Secondary)
+                                            || (self.input_handler.is_mouse_button_pressed(
+                                                egui::PointerButton::Primary,
+                                            ) && ui.ctx().input(|i| i.modifiers.alt))
+                                        {
                                             ui.ctx().input(|i| {
                                                 let delta = i.pointer.delta();
-                                                self.render_engine.camera.move_by(-delta.x, -delta.y);
+                                                self.render_engine
+                                                    .camera
+                                                    .move_by(-delta.x, -delta.y);
                                             });
                                         }
 
                                         // Editor zoom control
-                                        if let Some(scroll_delta) = self.input_handler.get_scroll_delta() {
-                                            let zoom_factor = if scroll_delta.y > 0.0 { 1.1 } else { 0.9 };
+                                        if let Some(scroll_delta) =
+                                            self.input_handler.get_scroll_delta()
+                                        {
+                                            let zoom_factor =
+                                                if scroll_delta.y > 0.0 { 1.1 } else { 0.9 };
                                             self.render_engine.camera.zoom_by(zoom_factor);
                                         }
                                     }
@@ -454,21 +506,30 @@ impl EngineGui {
                             // Debug overlay in the bottom-left of the game view
                             if self.gui_state.show_debug_overlay {
                                 ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
-                                    ui.add_space(38.0);  // Bottom margin
+                                    ui.add_space(38.0); // Bottom margin
                                     ui.horizontal(|ui| {
-                                        ui.add_space(4.0);  // Left margin
+                                        ui.add_space(4.0); // Left margin
                                         ui.vertical(|ui| {
                                             let white = egui::Color32::WHITE;
-                                            
+
                                             // Cursor position
-                                            if let Some(cursor_pos) = ui.ctx().input(|i| i.pointer.hover_pos()) {
-                                                ui.colored_label(white, format!("Cursor: ({:.1}, {:.1})", cursor_pos.x, cursor_pos.y));
+                                            if let Some(cursor_pos) =
+                                                ui.ctx().input(|i| i.pointer.hover_pos())
+                                            {
+                                                ui.colored_label(
+                                                    white,
+                                                    format!(
+                                                        "Cursor: ({:.1}, {:.1})",
+                                                        cursor_pos.x, cursor_pos.y
+                                                    ),
+                                                );
                                             } else {
                                                 ui.colored_label(white, "Cursor: Outside");
                                             }
 
                                             // Active inputs
-                                            let all_inputs = self.input_handler.get_all_active_inputs();
+                                            let all_inputs =
+                                                self.input_handler.get_all_active_inputs();
                                             let keys_str = if all_inputs.is_empty() {
                                                 "None".to_string()
                                             } else {
@@ -477,8 +538,14 @@ impl EngineGui {
                                             ui.colored_label(white, format!("Keys: {}", keys_str));
 
                                             // Viewport size
-                                            ui.colored_label(white, format!("Viewport: {:.0}x{:.0}", 
-                                                viewport_rect.width(), viewport_rect.height()));
+                                            ui.colored_label(
+                                                white,
+                                                format!(
+                                                    "Viewport: {:.0}x{:.0}",
+                                                    viewport_rect.width(),
+                                                    viewport_rect.height()
+                                                ),
+                                            );
                                         });
                                     });
                                 });
@@ -488,7 +555,12 @@ impl EngineGui {
             });
     }
 
-    fn show_console_messages(&self, ui: &mut egui::Ui, console_messages: &Vec<ConsoleMessage>, selected_level: ConsoleMessageType) {
+    fn show_console_messages(
+        &self,
+        ui: &mut egui::Ui,
+        console_messages: &Vec<ConsoleMessage>,
+        selected_level: ConsoleMessageType,
+    ) {
         egui::ScrollArea::vertical()
             .stick_to_bottom(true)
             .show_viewport(ui, |ui, _| {
@@ -496,7 +568,8 @@ impl EngineGui {
                     let should_show = if selected_level == ConsoleMessageType::Debug {
                         message.message_type == ConsoleMessageType::Debug
                     } else {
-                        message.message_type >= selected_level && message.message_type != ConsoleMessageType::Debug
+                        message.message_type >= selected_level
+                            && message.message_type != ConsoleMessageType::Debug
                     };
 
                     if should_show {
@@ -513,7 +586,10 @@ impl EngineGui {
                             ui.label(format!("[{}]", time_str));
                             ui.colored_label(color, prefix);
                             ui.label(&message.text);
-                            ui.allocate_exact_size(egui::Vec2::new(ui.available_width(), 0.0), egui::Sense::hover());
+                            ui.allocate_exact_size(
+                                egui::Vec2::new(ui.available_width(), 0.0),
+                                egui::Sense::hover(),
+                            );
                         });
                     }
                 }
@@ -530,12 +606,10 @@ impl EngineGui {
 
     fn render_scene(&mut self, ui: &mut egui::Ui) {
         let content_rect = ui.available_rect_before_wrap();
-        
+
         // Update render engine with the full viewport dimensions first
-        self.render_engine.update_viewport_size(
-            content_rect.width(),
-            content_rect.height()
-        );
+        self.render_engine
+            .update_viewport_size(content_rect.width(), content_rect.height());
 
         // Draw grid and game content using the full viewport area
         let grid_lines = self.render_engine.get_grid_lines();
@@ -543,9 +617,9 @@ impl EngineGui {
             ui.painter().line_segment(
                 [
                     egui::pos2(content_rect.min.x + start.0, content_rect.min.y + start.1),
-                    egui::pos2(content_rect.min.x + end.0, content_rect.min.y + end.1)
+                    egui::pos2(content_rect.min.x + end.0, content_rect.min.y + end.1),
                 ],
-                egui::Stroke::new(0.5, egui::Color32::from_gray(60))
+                egui::Stroke::new(0.5, egui::Color32::from_gray(60)),
             );
         }
 
@@ -554,33 +628,30 @@ impl EngineGui {
             if let Some(active_scene) = scene_manager.get_active_scene() {
                 // First render all game objects
                 let render_queue = self.render_engine.render(active_scene);
-                
+
                 for (texture_id, pos, size, _layer) in render_queue {
                     if let Some(texture_info) = self.render_engine.texture_cache.get(&texture_id) {
                         let rect = egui::Rect::from_min_size(
-                            egui::pos2(
-                                content_rect.min.x + pos.0,
-                                content_rect.min.y + pos.1,
-                            ),
+                            egui::pos2(content_rect.min.x + pos.0, content_rect.min.y + pos.1),
                             egui::vec2(size.0, size.1),
                         );
 
                         let texture = ui.ctx().load_texture(
                             format!("texture_{}", texture_id),
                             egui::ColorImage::from_rgba_unmultiplied(
-                                [texture_info.dimensions.0 as usize, texture_info.dimensions.1 as usize],
+                                [
+                                    texture_info.dimensions.0 as usize,
+                                    texture_info.dimensions.1 as usize,
+                                ],
                                 &texture_info.data,
                             ),
-                            Default::default()
+                            Default::default(),
                         );
 
                         ui.painter().image(
                             texture.id(),
                             rect,
-                            egui::Rect::from_min_max(
-                                egui::pos2(0.0, 0.0),
-                                egui::pos2(1.0, 1.0),
-                            ),
+                            egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
                             egui::Color32::WHITE,
                         );
                     }
@@ -592,9 +663,9 @@ impl EngineGui {
                     ui.painter().line_segment(
                         [
                             egui::pos2(content_rect.min.x + start.0, content_rect.min.y + start.1),
-                            egui::pos2(content_rect.min.x + end.0, content_rect.min.y + end.1)
+                            egui::pos2(content_rect.min.x + end.0, content_rect.min.y + end.1),
                         ],
-                        egui::Stroke::new(2.0, egui::Color32::RED)
+                        egui::Stroke::new(2.0, egui::Color32::RED),
                     );
                 }
             }
@@ -618,16 +689,18 @@ impl EngineGui {
         // Get the scene manager from GUI state
         if let Some(gui_scene_manager) = &self.gui_state.scene_manager {
             // Update the game runtime's scene manager
-            self.game_runtime.set_scene_manager(gui_scene_manager.clone());
-            println!("Synced scene manager to runtime with {} scenes", 
-                self.game_runtime.get_scene_manager().list_scene().len());
+            self.game_runtime
+                .set_scene_manager(gui_scene_manager.clone());
+            println!(
+                "Synced scene manager to runtime with {} scenes",
+                self.game_runtime.get_scene_manager().list_scene().len()
+            );
         }
     }
 }
 
 impl eframe::App for EngineGui {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-
         egui::CentralPanel::default()
             .frame(egui::Frame {
                 inner_margin: egui::Margin::ZERO,

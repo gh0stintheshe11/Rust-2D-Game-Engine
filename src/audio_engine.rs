@@ -1,27 +1,37 @@
+use crate::ecs::{Entity, Scene};
+use crate::logger::LOGGER;
+use lofty::{AudioFile, Probe};
 use rodio::{Decoder, OutputStream, OutputStreamHandle, Sink, Source};
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, Read};
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
-use crate::ecs::{Scene, Entity};
-use lofty::{Probe, AudioFile};
 
 pub struct AudioEngine {
-    stream: OutputStream,
-    stream_handle: OutputStreamHandle,
+    // None when no audio output device is available (e.g. headless/CI);
+    // the engine then runs with playback disabled instead of crashing.
+    output: Option<(OutputStream, OutputStreamHandle)>,
     active_sounds: HashMap<Uuid, Sink>,
-    sound_cache: HashMap<Uuid, Vec<u8>>,  // Path hash -> sound data
+    sound_cache: HashMap<Uuid, Vec<u8>>, // Path hash -> sound data
     immediate_sink: Option<Sink>,
     duration_cache: HashMap<Uuid, f32>,
 }
 
 impl AudioEngine {
     pub fn new() -> Self {
-        let (stream, stream_handle) = OutputStream::try_default().unwrap();
+        let output = match OutputStream::try_default() {
+            Ok(output) => Some(output),
+            Err(e) => {
+                LOGGER.warning(format!(
+                    "No audio output device available ({}). Audio playback is disabled.",
+                    e
+                ));
+                None
+            }
+        };
         AudioEngine {
-            stream,
-            stream_handle,
+            output,
             active_sounds: HashMap::new(),
             sound_cache: HashMap::new(),
             immediate_sink: None,
@@ -29,40 +39,53 @@ impl AudioEngine {
         }
     }
 
+    /// Whether an audio output device is available for playback.
+    pub fn has_output(&self) -> bool {
+        self.output.is_some()
+    }
+
+    fn stream_handle(&self) -> Result<&OutputStreamHandle, String> {
+        self.output
+            .as_ref()
+            .map(|(_, handle)| handle)
+            .ok_or_else(|| "No audio output device available".to_string())
+    }
+
     // Generate deterministic UUID from path
     fn path_to_uuid(path: &Path) -> Uuid {
-        use sha2::{Sha256, Digest};
+        use sha2::{Digest, Sha256};
         let mut hasher = Sha256::new();
         hasher.update(path.to_string_lossy().as_bytes());
         let result = hasher.finalize();
-        
+
         let mut bytes = [0u8; 16];
         bytes.copy_from_slice(&result[..16]);
         bytes[6] = (bytes[6] & 0x0f) | 0x40;
         bytes[8] = (bytes[8] & 0x3f) | 0x80;
-        
+
         Uuid::from_bytes(bytes)
     }
 
     // === Loading Operations ===
-    
+
     fn load_sound(&mut self, path: &Path) -> Result<Uuid, String> {
         let sound_id = Self::path_to_uuid(path);
-        
+
         if self.sound_cache.contains_key(&sound_id) {
             return Ok(sound_id);
         }
 
-        let file = File::open(path)
-            .map_err(|e| format!("Failed to open sound file {:?}: {}", path, e))?;
-        
+        let file =
+            File::open(path).map_err(|e| format!("Failed to open sound file {:?}: {}", path, e))?;
+
         let mut reader = BufReader::new(file);
         let mut data = Vec::new();
-        reader.read_to_end(&mut data)
+        reader
+            .read_to_end(&mut data)
             .map_err(|e| format!("Failed to read sound file {:?}: {}", path, e))?;
-        
+
         self.sound_cache.insert(sound_id, data);
-        
+
         if let Ok(duration) = self.get_audio_duration(path) {
             self.duration_cache.insert(sound_id, duration);
         }
@@ -87,24 +110,25 @@ impl AudioEngine {
     }
 
     // === Playback Operations ===
-    
+
     pub fn play_sound(&mut self, path: &Path) -> Result<Uuid, String> {
         let sound_id = self.load_sound(path)?;
-        let data = self.sound_cache.get(&sound_id)
+        let data = self
+            .sound_cache
+            .get(&sound_id)
             .ok_or("Sound not found in cache")?;
-        
-        let cursor = std::io::Cursor::new(data.clone());
-        let source = Decoder::new(cursor)
-            .map_err(|e| format!("Failed to decode sound: {}", e))?;
 
-        let sink = Sink::try_new(&self.stream_handle)
+        let cursor = std::io::Cursor::new(data.clone());
+        let source = Decoder::new(cursor).map_err(|e| format!("Failed to decode sound: {}", e))?;
+
+        let sink = Sink::try_new(self.stream_handle()?)
             .map_err(|e| format!("Failed to create sink: {}", e))?;
-        
+
         sink.append(source);
-        
+
         let play_id = Uuid::new_v4();
         self.active_sounds.insert(play_id, sink);
-        
+
         Ok(play_id)
     }
 
@@ -115,19 +139,20 @@ impl AudioEngine {
         }
 
         let sound_id = self.load_sound(path)?;
-        let data = self.sound_cache.get(&sound_id)
+        let data = self
+            .sound_cache
+            .get(&sound_id)
             .ok_or("Sound not found in cache")?;
 
         let cursor = std::io::Cursor::new(data.clone());
-        let source = Decoder::new(cursor)
-            .map_err(|e| format!("Failed to decode sound: {}", e))?;
+        let source = Decoder::new(cursor).map_err(|e| format!("Failed to decode sound: {}", e))?;
 
-        let sink = Sink::try_new(&self.stream_handle)
+        let sink = Sink::try_new(self.stream_handle()?)
             .map_err(|e| format!("Failed to create sink: {}", e))?;
-        
+
         sink.append(source);
         self.immediate_sink = Some(sink);
-        
+
         Ok(())
     }
 
@@ -139,7 +164,7 @@ impl AudioEngine {
     }
 
     // === Control Operations ===
-    
+
     pub fn stop(&mut self, sound_id: Uuid) -> Result<(), String> {
         if let Some(sink) = self.active_sounds.get(&sound_id) {
             sink.stop();
@@ -169,14 +194,16 @@ impl AudioEngine {
     }
 
     // === Status Operations ===
-    
+
     pub fn is_playing(&self, sound_id: Uuid) -> bool {
-        self.active_sounds.get(&sound_id)
+        self.active_sounds
+            .get(&sound_id)
             .map_or(false, |sink| !sink.empty() && !sink.is_paused())
     }
 
     pub fn is_paused(&self, sound_id: Uuid) -> bool {
-        self.active_sounds.get(&sound_id)
+        self.active_sounds
+            .get(&sound_id)
             .map_or(false, |sink| sink.is_paused())
     }
 
@@ -185,14 +212,15 @@ impl AudioEngine {
     }
 
     pub fn list_playing_sounds(&self) -> Vec<Uuid> {
-        self.active_sounds.iter()
+        self.active_sounds
+            .iter()
             .filter(|(_, sink)| !sink.empty() && !sink.is_paused())
             .map(|(id, _)| *id)
             .collect()
     }
 
     // === Maintenance Operations ===
-    
+
     pub fn update(&mut self) {
         self.active_sounds.retain(|_, sink| !sink.empty());
     }
@@ -204,7 +232,7 @@ impl AudioEngine {
     }
 
     // === Memory Management ===
-    
+
     pub fn cleanup(&mut self) {
         self.stop_all();
         self.stop_immediate();
@@ -224,9 +252,7 @@ impl AudioEngine {
     }
 
     pub fn get_memory_usage(&self) -> usize {
-        self.sound_cache.values()
-            .map(|data| data.len())
-            .sum()
+        self.sound_cache.values().map(|data| data.len()).sum()
     }
 
     // === Metadata Operations ===
@@ -238,7 +264,7 @@ impl AudioEngine {
 
         let properties = tagged_file.properties();
         let duration = properties.duration();
-        
+
         Ok(duration.as_secs_f32())
     }
 }

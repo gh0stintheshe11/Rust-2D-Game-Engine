@@ -1,18 +1,18 @@
 #[cfg(test)]
 mod tests {
-    use rust_2d_game_engine::script_interpreter;
-    use rlua::Lua;
+    use mlua::Lua;
 
     #[test]
     fn test_run_simple_script() {
         // Test a simple Lua script that adds two numbers
+        let lua = Lua::new();
         let script = r#"
             x = 10
             y = 20
             result = x + y
         "#;
 
-        let result = script_interpreter::run_lua_script(script);
+        let result = lua.load(script).exec();
         assert!(result.is_ok(), "Failed to run a simple Lua script");
     }
 
@@ -27,9 +27,12 @@ mod tests {
             end
             result = x + y
         "#;
-    
+
         let result = lua.load(script).exec();
-        assert!(result.is_ok(), "Expected Lua to handle undefined variables as nil, but it failed");
+        assert!(
+            result.is_ok(),
+            "Expected Lua to handle undefined variables as nil, but it failed"
+        );
     }
 
     #[test]
@@ -53,9 +56,13 @@ mod tests {
         globals.set("x", 50).unwrap();
         globals.set("y", 100).unwrap();
 
-        lua.load(r#"
+        lua.load(
+            r#"
             result = x + y
-        "#).exec().unwrap();
+        "#,
+        )
+        .exec()
+        .unwrap();
 
         let result: i32 = lua.globals().get("result").unwrap();
         assert_eq!(result, 150, "Failed to pass data to Lua script");
@@ -65,13 +72,17 @@ mod tests {
     fn test_return_data_from_lua() {
         // Test returning data from Lua to Rust
         let lua = Lua::new();
-        lua.load(r#"
+        lua.load(
+            r#"
             function add(a, b)
                 return a + b
             end
-        "#).exec().unwrap();
+        "#,
+        )
+        .exec()
+        .unwrap();
 
-        let add: rlua::Function = lua.globals().get("add").unwrap();
+        let add: mlua::Function = lua.globals().get("add").unwrap();
         let result: i32 = add.call((10, 20)).unwrap();
         assert_eq!(result, 30, "Failed to return correct data from Lua");
     }
@@ -98,7 +109,7 @@ mod tests {
         let lua = Lua::new();
         lua.load(script).exec().unwrap();
 
-        let obj: rlua::Table = lua.globals().get("obj").unwrap();
+        let obj: mlua::Table = lua.globals().get("obj").unwrap();
         let x: i32 = obj.get("x").unwrap();
         let y: i32 = obj.get("y").unwrap();
 
@@ -120,6 +131,10 @@ mod tests {
 
         lua.load(script).exec().unwrap();
         let result: f64 = lua.globals().get("result").unwrap();
-        assert!(result.is_infinite(), "Expected Lua to return 'inf' on division by zero, but got: {}", result);
+        assert!(
+            result.is_infinite(),
+            "Expected Lua to return 'inf' on division by zero, but got: {}",
+            result
+        );
     }
 }

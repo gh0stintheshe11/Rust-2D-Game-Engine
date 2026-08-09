@@ -1,14 +1,14 @@
 use crate::{
+    audio_engine::AudioEngine,
+    ecs::AttributeValue,
+    ecs::SceneManager,
+    input_handler::{InputContext, InputHandler},
+    lua_scripting::LuaScripting,
     physics_engine::PhysicsEngine,
     render_engine::RenderEngine,
-    input_handler::{InputHandler, InputContext},
-    audio_engine::AudioEngine,
-    ecs::SceneManager,
-    ecs::AttributeValue,
-    lua_scripting::LuaScripting,
 };
-use std::any::Any;
 use egui::Rect;
+use std::any::Any;
 use uuid::uuid;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -26,7 +26,7 @@ pub trait Game: Any {
 
 pub struct GameRuntime {
     scene_manager: SceneManager,
-    dev_state_snapshot: Option<SceneManager>,  // Store entire dev state
+    dev_state_snapshot: Option<SceneManager>, // Store entire dev state
     physics_engine: PhysicsEngine,
     render_engine: RenderEngine,
     input_handler: InputHandler,
@@ -50,7 +50,7 @@ impl GameRuntime {
         // Make sure we start in EngineUI mode
         let mut input_handler = input_handler;
         input_handler.set_context(InputContext::EngineUI);
-        
+
         Self {
             scene_manager,
             dev_state_snapshot: None,
@@ -86,7 +86,7 @@ impl GameRuntime {
                 if self.dev_state_snapshot.is_none() {
                     self.dev_state_snapshot = Some(self.scene_manager.clone());
                 }
-                
+
                 // Switch to game mode only when playing
                 println!("Switching to game input context");
                 self.input_handler.set_context(InputContext::Game);
@@ -115,15 +115,16 @@ impl GameRuntime {
         self.physics_engine.cleanup();
         self.render_engine.cleanup();
         self.audio_engine.cleanup();
-        
+
         // remove the old scene manager
         self.scene_manager = SceneManager::new();
-        
-        // Create fresh scene manager from dev snapshot
-        if let Some(snapshot) = &self.dev_state_snapshot {
-            self.scene_manager = snapshot.clone();
+
+        // Restore the pre-play editor state, then drop the snapshot so the
+        // next Play captures the current editor state instead of this stale one
+        if let Some(snapshot) = self.dev_state_snapshot.take() {
+            self.scene_manager = snapshot;
         }
-        
+
         // Stay in Stopped state, waiting for user to hit play
     }
 
@@ -156,8 +157,11 @@ impl GameRuntime {
             self.scene_manager.set_active_scene(scenes[0].0)?;
         }
 
-        // Load the scene into physics engine
-        self.physics_engine.load_scene(self.scene_manager.get_active_scene().unwrap());
+        // Load the scene into physics engine, replacing any previously
+        // loaded physics world so repeated runs don't leak duplicate bodies
+        self.physics_engine.cleanup();
+        self.physics_engine
+            .load_scene(self.scene_manager.get_active_scene().unwrap());
 
         println!("Game starting with active scene"); // Debug print
         self.running = true;
@@ -167,9 +171,9 @@ impl GameRuntime {
 
     // This will be called from the eframe update loop
     pub fn update(&mut self, ctx: &egui::Context, ui: &mut egui::Ui, viewport_rect: Rect) {
-
         // Update viewport of the render engine
-        self.render_engine.update_viewport_size(viewport_rect.width(), viewport_rect.height());
+        self.render_engine
+            .update_viewport_size(viewport_rect.width(), viewport_rect.height());
 
         // Update input state first - IMPORTANT!
         ctx.input(|input| {
@@ -182,28 +186,45 @@ impl GameRuntime {
 
             // Update game logic with the input handler
             if let Some(game) = &mut self.game {
-                game.update(&mut self.scene_manager, &self.input_handler, 1.0/60.0);
+                game.update(&mut self.scene_manager, &self.input_handler, 1.0 / 60.0);
             }
 
             // Run script
-            self.lua_scripting.update_global_time(1.0/self.target_fps as f32).expect("Failed to update global time");
+            self.lua_scripting
+                .update_global_time(1.0 / self.target_fps as f32)
+                .expect("Failed to update global time");
             match self.lua_scripting.load_scene_manager(&self.scene_manager) {
                 Ok(_) => println!("SceneManager loaded into Lua successfully."),
                 Err(err) => eprintln!("Error loading SceneManager into Lua: {}", err),
             }
             if let Some(active_scene_id) = self.scene_manager.active_scene {
-                self.lua_scripting.initializing_global_variables(&self.input_handler);
-                self.lua_scripting.initialize_bindings_physics_engine(&mut self.physics_engine, &mut self.scene_manager).unwrap();
-                self.lua_scripting.initialize_bindings_ecs(&mut self.scene_manager).unwrap();
-                self.lua_scripting.initialize_bindings_input_handler(&mut self.input_handler).unwrap();
+                self.lua_scripting
+                    .initializing_global_variables(&self.input_handler);
+                self.lua_scripting
+                    .initialize_bindings_physics_engine(
+                        &mut self.physics_engine,
+                        &mut self.scene_manager,
+                    )
+                    .unwrap();
+                self.lua_scripting
+                    .initialize_bindings_ecs(&mut self.scene_manager)
+                    .unwrap();
+                self.lua_scripting
+                    .initialize_bindings_input_handler(&mut self.input_handler)
+                    .unwrap();
 
-
-                match self.lua_scripting.run_scripts_for_scene(&mut self.scene_manager, active_scene_id) {
+                match self
+                    .lua_scripting
+                    .run_scripts_for_scene(&mut self.scene_manager, active_scene_id)
+                {
                     Ok(()) => {
                         println!("SceneManager successfully updated after running scripts.");
                     }
                     Err(err) => {
-                        eprintln!("Error running scripts for scene {}: {}", active_scene_id, err);
+                        eprintln!(
+                            "Error running scripts for scene {}: {}",
+                            active_scene_id, err
+                        );
                     }
                 }
             } else {
@@ -233,21 +254,22 @@ impl GameRuntime {
                 let render_queue = self.render_engine.render(scene);
 
                 // Function for calculate intersection
-                let calculate_intersection = |rect1: egui::Rect, rect2: egui::Rect| -> Option<egui::Rect> {
-                    let min_x = rect1.min.x.max(rect2.min.x);
-                    let min_y = rect1.min.y.max(rect2.min.y);
-                    let max_x = rect1.max.x.min(rect2.max.x);
-                    let max_y = rect1.max.y.min(rect2.max.y);
+                let calculate_intersection =
+                    |rect1: egui::Rect, rect2: egui::Rect| -> Option<egui::Rect> {
+                        let min_x = rect1.min.x.max(rect2.min.x);
+                        let min_y = rect1.min.y.max(rect2.min.y);
+                        let max_x = rect1.max.x.min(rect2.max.x);
+                        let max_y = rect1.max.y.min(rect2.max.y);
 
-                    if min_x < max_x && min_y < max_y {
-                        Some(egui::Rect::from_min_max(
-                            egui::pos2(min_x, min_y),
-                            egui::pos2(max_x, max_y),
-                        ))
-                    } else {
-                        None
-                    }
-                };
+                        if min_x < max_x && min_y < max_y {
+                            Some(egui::Rect::from_min_max(
+                                egui::pos2(min_x, min_y),
+                                egui::pos2(max_x, max_y),
+                            ))
+                        } else {
+                            None
+                        }
+                    };
 
                 for (texture_id, pos, size, _layer) in render_queue {
                     if let Some(texture_info) = self.render_engine.texture_cache.get(&texture_id) {
@@ -256,7 +278,9 @@ impl GameRuntime {
                             egui::vec2(size.0, size.1),
                         );
 
-                        if let Some(intersection) = calculate_intersection(texture_rect, viewport_rect) {
+                        if let Some(intersection) =
+                            calculate_intersection(texture_rect, viewport_rect)
+                        {
                             // Adjust UV coordinates for the clipped area
                             let uv_min = (
                                 (intersection.min.x - texture_rect.min.x) / size.0,
@@ -271,7 +295,10 @@ impl GameRuntime {
                             let texture = ui.ctx().load_texture(
                                 format!("texture_{}", texture_id),
                                 egui::ColorImage::from_rgba_unmultiplied(
-                                    [texture_info.dimensions.0 as usize, texture_info.dimensions.1 as usize],
+                                    [
+                                        texture_info.dimensions.0 as usize,
+                                        texture_info.dimensions.1 as usize,
+                                    ],
                                     &texture_info.data,
                                 ),
                                 Default::default(),
@@ -302,8 +329,11 @@ impl GameRuntime {
                                 viewport_rect.min.y + screen_position.1,
                             );
                             let radius = screen_size.0 / 2.0;
-                            ui.painter()
-                                .circle_stroke(center, radius, egui::Stroke::new(1.0, egui::Color32::RED));
+                            ui.painter().circle_stroke(
+                                center,
+                                radius,
+                                egui::Stroke::new(1.0, egui::Color32::RED),
+                            );
                         }
                         "Rectangle" => {
                             let rect = egui::Rect::from_min_size(
@@ -313,13 +343,15 @@ impl GameRuntime {
                                 ),
                                 egui::vec2(screen_size.0, screen_size.1),
                             );
-                            ui.painter()
-                                .rect_stroke(rect, 0.0, egui::Stroke::new(1.0, egui::Color32::BLUE));
+                            ui.painter().rect_stroke(
+                                rect,
+                                0.0,
+                                egui::Stroke::new(1.0, egui::Color32::BLUE),
+                            );
                         }
                         _ => {}
                     }
                 }
-
             } else {
                 // If we lost the active scene, stop the game
                 self.cleanup_and_reset();
@@ -342,17 +374,17 @@ impl GameRuntime {
         // Stop all running systems
         self.running = false;
         self.state = RuntimeState::Stopped;
-        
+
         // Cleanup engines
         self.physics_engine.cleanup();
         self.render_engine.cleanup();
         self.audio_engine.cleanup();
-        
+
         // Restore dev state if needed
         if let Some(snapshot) = &self.dev_state_snapshot {
             self.scene_manager = snapshot.clone();
         }
-        
+
         // Reset input context
         self.input_handler.set_context(InputContext::EngineUI);
     }

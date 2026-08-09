@@ -1,8 +1,8 @@
-use rapier2d::prelude::*;
-use uuid::Uuid;
-use std::collections::HashMap;
-use crate::ecs::{Scene, Entity, AttributeValue};
+use crate::ecs::{AttributeValue, Entity, Scene};
 use image::GenericImageView;
+use rapier2d::prelude::*;
+use std::collections::HashMap;
+use uuid::Uuid;
 
 pub struct PhysicsEngine {
     // Global gravity force applied to all dynamic bodies
@@ -47,7 +47,7 @@ pub struct PhysicsEngine {
     entity_to_body: HashMap<Uuid, RigidBodyHandle>,
     entity_to_collider: HashMap<Uuid, ColliderHandle>,
 
-    time_step: f32,  // Physics update time step in seconds
+    time_step: f32, // Physics update time step in seconds
 
     // Store position attribute IDs for quick updates
     entity_position_attrs: HashMap<Uuid, Uuid>,
@@ -56,7 +56,7 @@ pub struct PhysicsEngine {
 impl PhysicsEngine {
     pub fn new() -> Self {
         Self {
-            // Default gravity points downward (-Y direction)
+            // Default gravity: +Y is downward in screen space, so this pulls entities down
             gravity: vector![0.0, 50.0],
 
             // Physics runs at 60Hz (60 updates per second)
@@ -82,7 +82,7 @@ impl PhysicsEngine {
             query_pipeline: QueryPipeline::new(),
             entity_to_body: HashMap::new(),
             entity_to_collider: HashMap::new(),
-            time_step: 1.0 / 60.0,  // Default 60Hz physics
+            time_step: 1.0 / 60.0, // Default 60Hz physics
             entity_position_attrs: HashMap::new(),
         }
     }
@@ -113,7 +113,13 @@ impl PhysicsEngine {
         self.integration_parameters.joint_natural_frequency = frequency;
     }
 
-    fn create_collider(&self, entity: &Entity, density: f32, friction: f32, restitution: f32) -> Collider {
+    fn create_collider(
+        &self,
+        entity: &Entity,
+        density: f32,
+        friction: f32,
+        restitution: f32,
+    ) -> Collider {
         // Get first image path from entity (assuming first image is the sprite)
         let collider_builder = if let Ok(image_path) = entity.get_image(0) {
             // Get image dimensions
@@ -124,11 +130,13 @@ impl PhysicsEngine {
 
                 // If width and height are similar, use circle
                 if (width as f32 / height as f32).abs() > 0.9
-                   && (width as f32 / height as f32).abs() < 1.1 {
+                    && (width as f32 / height as f32).abs() < 1.1
+                {
                     ColliderBuilder::ball(width as f32 / 2.0).translation(offset)
                 } else {
                     // Otherwise use box
-                    ColliderBuilder::cuboid(width as f32 / 2.0, height as f32 / 2.0).translation(offset)
+                    ColliderBuilder::cuboid(width as f32 / 2.0, height as f32 / 2.0)
+                        .translation(offset)
                 }
             } else {
                 ColliderBuilder::ball(0.5) // Default if can't load image
@@ -146,13 +154,21 @@ impl PhysicsEngine {
     }
 
     pub fn add_entity(&mut self, entity: &Entity) {
-
         let required_attributes = ["has_gravity", "has_collision", "creates_gravity"];
-        let should_skip = required_attributes.iter().all(|attr_name| entity.get_attribute_by_name(attr_name).is_err());
+        let should_skip = required_attributes
+            .iter()
+            .all(|attr_name| entity.get_attribute_by_name(attr_name).is_err());
 
         // Skip entities without the required attributes
         if should_skip {
             return;
+        }
+
+        // Make re-adding idempotent: replace any existing body/collider for this
+        // entity instead of leaking orphaned duplicates into the physics world
+        // (e.g. when a scene is re-loaded on resume).
+        if self.entity_to_body.contains_key(&entity.id) {
+            self.remove_entity(entity.id);
         }
 
         // Store position attribute ID for quick updates
@@ -160,43 +176,93 @@ impl PhysicsEngine {
             self.entity_position_attrs.insert(entity.id, pos_attr.id);
         }
 
-        // Get physics properties from entity attributes
+        // Get spawn position: prefer the "position" Vector2 attribute, otherwise
+        // fall back to the x/y float attributes every entity has (see Entity::new).
         let position = if let Ok(pos_attr) = entity.get_attribute_by_name("position") {
             if let AttributeValue::Vector2(x, y) = pos_attr.value {
                 vector![x, y]
             } else {
-                vector![0.0, 0.0]
+                vector![entity.get_x(), entity.get_y()]
             }
         } else {
-            vector![0.0, 0.0]
+            vector![entity.get_x(), entity.get_y()]
         };
 
-        let is_movable = entity.get_attribute_by_name("is_movable")
-            .and_then(|attr| if let AttributeValue::Boolean(v) = attr.value { Ok(v) } else { Err("Attribute value is not a boolean".to_string()) })
+        let is_movable = entity
+            .get_attribute_by_name("is_movable")
+            .and_then(|attr| {
+                if let AttributeValue::Boolean(v) = attr.value {
+                    Ok(v)
+                } else {
+                    Err("Attribute value is not a boolean".to_string())
+                }
+            })
             .unwrap_or(false);
 
-        let affected_by_gravity = entity.get_attribute_by_name("has_gravity")
-            .and_then(|attr| if let AttributeValue::Boolean(v) = attr.value { Ok(v) } else { Err("Attribute value is not a boolean".to_string()) })
+        let affected_by_gravity = entity
+            .get_attribute_by_name("has_gravity")
+            .and_then(|attr| {
+                if let AttributeValue::Boolean(v) = attr.value {
+                    Ok(v)
+                } else {
+                    Err("Attribute value is not a boolean".to_string())
+                }
+            })
             .unwrap_or(false);
 
-        let has_collision = entity.get_attribute_by_name("has_collision")
-            .and_then(|attr| if let AttributeValue::Boolean(v) = attr.value { Ok(v) } else { Err("Attribute value is not a boolean".to_string()) })
+        let has_collision = entity
+            .get_attribute_by_name("has_collision")
+            .and_then(|attr| {
+                if let AttributeValue::Boolean(v) = attr.value {
+                    Ok(v)
+                } else {
+                    Err("Attribute value is not a boolean".to_string())
+                }
+            })
             .unwrap_or(true);
 
-        let friction = entity.get_attribute_by_name("friction")
-            .and_then(|attr| if let AttributeValue::Float(v) = attr.value { Ok(v) } else { Err("Attribute value is not a float".to_string()) })
+        let friction = entity
+            .get_attribute_by_name("friction")
+            .and_then(|attr| {
+                if let AttributeValue::Float(v) = attr.value {
+                    Ok(v)
+                } else {
+                    Err("Attribute value is not a float".to_string())
+                }
+            })
             .unwrap_or(0.5);
 
-        let restitution = entity.get_attribute_by_name("restitution")
-            .and_then(|attr| if let AttributeValue::Float(v) = attr.value { Ok(v) } else { Err("Attribute value is not a float".to_string()) })
+        let restitution = entity
+            .get_attribute_by_name("restitution")
+            .and_then(|attr| {
+                if let AttributeValue::Float(v) = attr.value {
+                    Ok(v)
+                } else {
+                    Err("Attribute value is not a float".to_string())
+                }
+            })
             .unwrap_or(0.0);
 
-        let density = entity.get_attribute_by_name("density")
-            .and_then(|attr| if let AttributeValue::Float(v) = attr.value { Ok(v) } else { Err("Attribute value is not a float".to_string()) })
+        let density = entity
+            .get_attribute_by_name("density")
+            .and_then(|attr| {
+                if let AttributeValue::Float(v) = attr.value {
+                    Ok(v)
+                } else {
+                    Err("Attribute value is not a float".to_string())
+                }
+            })
             .unwrap_or(1.0);
 
-        let can_rotate = entity.get_attribute_by_name("can_rotate")
-            .and_then(|attr| if let AttributeValue::Boolean(v) = attr.value { Ok(v) } else { Err("Attribute value is not a boolean".to_string()) })
+        let can_rotate = entity
+            .get_attribute_by_name("can_rotate")
+            .and_then(|attr| {
+                if let AttributeValue::Boolean(v) = attr.value {
+                    Ok(v)
+                } else {
+                    Err("Attribute value is not a boolean".to_string())
+                }
+            })
             .unwrap_or(false);
 
         // Create rigid body
@@ -211,9 +277,7 @@ impl PhysicsEngine {
 
             rb.build()
         } else {
-            RigidBodyBuilder::fixed()
-                .translation(position)
-                .build()
+            RigidBodyBuilder::fixed().translation(position).build()
         };
 
         let rb_handle = self.rigid_body_set.insert(rigid_body);
@@ -221,8 +285,9 @@ impl PhysicsEngine {
         // Create collider with automatic shape detection
         if has_collision {
             let collider = self.create_collider(entity, density, friction, restitution);
-            let collider_handle = self.collider_set
-                .insert_with_parent(collider, rb_handle, &mut self.rigid_body_set);
+            let collider_handle =
+                self.collider_set
+                    .insert_with_parent(collider, rb_handle, &mut self.rigid_body_set);
             self.entity_to_collider.insert(entity.id, collider_handle);
         }
 
@@ -238,7 +303,7 @@ impl PhysicsEngine {
                 &mut self.collider_set,
                 &mut self.impulse_joint_set,
                 &mut self.multibody_joint_set,
-                true
+                true,
             );
         }
 
@@ -247,7 +312,7 @@ impl PhysicsEngine {
                 collider_handle,
                 &mut self.island_manager,
                 &mut self.rigid_body_set,
-                true
+                true,
             );
         }
     }
@@ -273,7 +338,9 @@ impl PhysicsEngine {
                             continue;
                         }
 
-                        if let Ok(affected_by_gravity) = entity2.get_attribute_by_name("has_gravity") {
+                        if let Ok(affected_by_gravity) =
+                            entity2.get_attribute_by_name("has_gravity")
+                        {
                             if let AttributeValue::Boolean(true) = affected_by_gravity.value {
                                 if let Some(rb_handle) = self.entity_to_body.get(&entity2.id) {
                                     if let Some(rb) = self.rigid_body_set.get_mut(*rb_handle) {
@@ -282,7 +349,7 @@ impl PhysicsEngine {
                                         let distance = direction.norm();
                                         if distance > 0.0 {
                                             let force = direction * (1.0 / (distance * distance));
-                                            rb.add_force(force * 10.0, true);  // Scale force as needed
+                                            rb.add_force(force * 10.0, true); // Scale force as needed
                                         }
                                     }
                                 }
@@ -314,35 +381,31 @@ impl PhysicsEngine {
         let mut updates = Vec::new();
 
         for (entity_id, rb_handle) in &self.entity_to_body {
-            if let Some(rb) = self.rigid_body_set.get(*rb_handle) {
+            if let Some(rb) = self.rigid_body_set.get_mut(*rb_handle) {
+                // User-applied and gravity-field forces are persistent in Rapier;
+                // clear them each step so they don't accumulate across frames.
+                rb.reset_forces(true);
+
+                let position = rb.translation();
+
+                // Update the "position" Vector2 attribute if the entity has one
                 if let Some(pos_attr_id) = self.entity_position_attrs.get(entity_id) {
-                    let position = rb.translation();
-                    // println!("position: {:?}", position);
                     updates.push((
                         *entity_id,
                         *pos_attr_id,
-                        AttributeValue::Vector2(position.x, position.y)
+                        AttributeValue::Vector2(position.x, position.y),
                     ));
+                }
 
-                    // Also update the entity's x and y, these are used to render in the view
-                    if let Some(entity) = scene.entities.get(entity_id) {
-                        if let Ok(x_attr) = entity.get_attribute_by_name("x") {
-                            updates.push((
-                                *entity_id,
-                                x_attr.id,
-                                AttributeValue::Float(position.x),
-                            ));
-                        }
-
-                        if let Ok(y_attr) = entity.get_attribute_by_name("y") {
-                            updates.push((
-                                *entity_id,
-                                y_attr.id,
-                                AttributeValue::Float(position.y),
-                            ));
-                        }
+                // Always sync the x/y attributes, these are used to render in the view
+                if let Some(entity) = scene.entities.get(entity_id) {
+                    if let Ok(x_attr) = entity.get_attribute_by_name("x") {
+                        updates.push((*entity_id, x_attr.id, AttributeValue::Float(position.x)));
                     }
 
+                    if let Ok(y_attr) = entity.get_attribute_by_name("y") {
+                        updates.push((*entity_id, y_attr.id, AttributeValue::Float(position.y)));
+                    }
                 }
             }
         }
@@ -361,6 +424,7 @@ impl PhysicsEngine {
         // Clear entity mappings
         self.entity_to_body.clear();
         self.entity_to_collider.clear();
+        self.entity_position_attrs.clear();
 
         // Remove all physics objects
         self.rigid_body_set = RigidBodySet::new();
@@ -378,7 +442,8 @@ impl PhysicsEngine {
 
     // Get velocity of an entity
     pub fn get_velocity(&self, entity_id: &Uuid) -> Option<Vector<Real>> {
-        self.entity_to_body.get(entity_id)
+        self.entity_to_body
+            .get(entity_id)
             .and_then(|rb_handle| self.rigid_body_set.get(*rb_handle))
             .map(|rb| rb.linvel().clone())
     }
@@ -451,14 +516,15 @@ impl PhysicsEngine {
                         let position = (collider.translation().x, collider.translation().y);
 
                         if let Some(ball) = collider.shape().as_ball() {
-                            colliders.push((position, (ball.radius * 2.0, ball.radius * 2.0), "Circle".to_string()));
+                            colliders.push((
+                                position,
+                                (ball.radius * 2.0, ball.radius * 2.0),
+                                "Circle".to_string(),
+                            ));
                         } else if let Some(cuboid) = collider.shape().as_cuboid() {
                             colliders.push((
                                 position,
-                                (
-                                    cuboid.half_extents.x * 2.0,
-                                    cuboid.half_extents.y * 2.0,
-                                ),
+                                (cuboid.half_extents.x * 2.0, cuboid.half_extents.y * 2.0),
                                 "Rectangle".to_string(),
                             ));
                         }
@@ -472,7 +538,8 @@ impl PhysicsEngine {
 
     // Angular motion
     pub fn get_angular_velocity(&self, entity_id: &Uuid) -> Option<Real> {
-        self.entity_to_body.get(entity_id)
+        self.entity_to_body
+            .get(entity_id)
             .and_then(|rb_handle| self.rigid_body_set.get(*rb_handle))
             .map(|rb| rb.angvel())
     }
@@ -497,7 +564,8 @@ impl PhysicsEngine {
     pub fn is_moving(&self, entity_id: &Uuid) -> bool {
         if let Some(vel) = self.get_velocity(entity_id) {
             let linear_moving = vel.norm() > 0.001;
-            let angular_moving = self.get_angular_velocity(entity_id)
+            let angular_moving = self
+                .get_angular_velocity(entity_id)
                 .map(|av| av.abs() > 0.001)
                 .unwrap_or(false);
             linear_moving || angular_moving
@@ -512,6 +580,12 @@ impl PhysicsEngine {
 
     pub fn is_empty(&self) -> bool {
         self.entity_to_body.is_empty() && self.entity_to_collider.is_empty()
+    }
+
+    /// Total number of rigid bodies in the physics world (including any
+    /// no longer mapped to an entity - useful to detect leaks).
+    pub fn rigid_body_count(&self) -> usize {
+        self.rigid_body_set.len()
     }
 
     pub fn has_rigid_body(&self, entity_id: &Uuid) -> bool {
