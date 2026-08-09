@@ -210,4 +210,53 @@ mod tests {
         assert_eq!(entity.get_x(), 25.0, "Body should spawn at the entity's x");
         assert_eq!(entity.get_y(), -7.5, "Body should spawn at the entity's y");
     }
+
+    #[test]
+    fn test_gravity_scale_attribute() {
+        // Two identical falling entities; one with gravity_scale = 3 must
+        // fall noticeably farther in the same time.
+        let mut scene = Scene::new("test_scene").unwrap();
+        let mut physics_engine = PhysicsEngine::new();
+
+        let props = PhysicsProperties {
+            is_movable: true,
+            affected_by_gravity: true,
+            // Colliders give the bodies mass; without mass gravity can't act
+            has_collision: true,
+            ..Default::default()
+        };
+
+        let normal_id = scene
+            .create_physical_entity("normal", (0.0, 0.0, 0.0), props.clone())
+            .unwrap();
+        let heavy_id = scene
+            .create_physical_entity("heavy", (100.0, 0.0, 0.0), props)
+            .unwrap();
+        scene
+            .get_entity_mut(heavy_id)
+            .unwrap()
+            .create_attribute(
+                "gravity_scale",
+                rust_2d_game_engine::ecs::AttributeType::Float,
+                rust_2d_game_engine::ecs::AttributeValue::Float(3.0),
+            )
+            .unwrap();
+
+        physics_engine.add_entity(scene.get_entity(normal_id).unwrap());
+        physics_engine.add_entity(scene.get_entity(heavy_id).unwrap());
+
+        for _ in 0..60 {
+            let updates = physics_engine.step(&mut scene);
+            scene.update_entity_attributes(updates).unwrap();
+        }
+
+        let normal_y = scene.get_entity(normal_id).unwrap().get_y();
+        let heavy_y = scene.get_entity(heavy_id).unwrap().get_y();
+        assert!(
+            heavy_y > normal_y * 2.0,
+            "gravity_scale=3 should fall much faster: normal_y={}, heavy_y={}",
+            normal_y,
+            heavy_y
+        );
+    }
 }

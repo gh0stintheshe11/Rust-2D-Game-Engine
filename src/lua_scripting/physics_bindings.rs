@@ -111,6 +111,14 @@ impl LuaScripting {
         })?;
         globals.set("get_colliding_entities", get_colliding_entities)?;
 
+        // set_gravity(x, y): change the global gravity (screen space: +y is down)
+        let physics = Rc::clone(physics_engine);
+        let set_gravity = self.lua.create_function(move |_, (x, y): (f32, f32)| {
+            physics.borrow_mut().set_gravity(x, y);
+            Ok(())
+        })?;
+        globals.set("set_gravity", set_gravity)?;
+
         Ok(())
     }
 }

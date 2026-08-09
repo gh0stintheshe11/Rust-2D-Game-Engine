@@ -1,23 +1,14 @@
+-- Flappy Bird player script.
+--
+-- Tuning:
+-- - The bird entity's `gravity_scale` attribute controls how fast it falls
+--   (global gravity is 50 px/s^2; the bird uses 18x = 900 px/s^2).
+-- - JUMP_VELOCITY controls how strong a flap is (negative = up).
+local JUMP_VELOCITY = -260.0
+
 function update(scene_id, entity_id)
-    local force_x = 0.0
-
-    local script_key = "bird"
-    if script_state["state"][script_key] == nil then
-        script_state["state"][script_key] = { is_just_jumped = false, jump_count = 0.0 }
-    end
-    local state = script_state["state"][script_key]
-
     if is_key_just_pressed("Space") then
-        state.is_just_jumped = true
-        state.jump_count = 15.0
-        set_velocity(entity_id, force_x, -100.0)
-    elseif state.is_just_jumped and state.jump_count <= 0.0 then
-        state.is_just_jumped = false
-        set_velocity(entity_id, force_x, 0.0)
-    end
-
-    if state.jump_count > 0.0 then
-        state.jump_count = state.jump_count - 1.0
+        set_velocity(entity_id, 0.0, JUMP_VELOCITY)
     end
 
     -- Game over when the bird touches a pipe or the ground

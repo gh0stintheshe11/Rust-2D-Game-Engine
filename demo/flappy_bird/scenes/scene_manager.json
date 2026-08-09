@@ -187,6 +187,14 @@
               "value": {
                 "String": ""
               }
+            },
+            "3cc947bc-6027-4b4f-b946-fceb5721b25a": {
+              "id": "3cc947bc-6027-4b4f-b946-fceb5721b25a",
+              "name": "gravity_scale",
+              "data_type": "Float",
+              "value": {
+                "Float": 18.0
+              }
             }
           },
           "images": [

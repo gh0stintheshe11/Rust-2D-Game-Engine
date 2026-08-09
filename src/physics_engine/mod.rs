@@ -99,6 +99,16 @@ impl PhysicsEngine {
         }
     }
 
+    /// Set the global gravity vector (screen space: +y is down).
+    pub fn set_gravity(&mut self, x: f32, y: f32) {
+        self.gravity = Vector::new(x, y);
+    }
+
+    /// Current global gravity vector.
+    pub fn get_gravity(&self) -> (f32, f32) {
+        (self.gravity.x, self.gravity.y)
+    }
+
     // Time step control
     pub fn set_time_step(&mut self, time_step: f32) {
         self.time_step = time_step;
@@ -317,6 +327,19 @@ impl PhysicsEngine {
             })
             .unwrap_or(false);
 
+        // Per-entity gravity multiplier: 1.0 = normal global gravity.
+        // Only meaningful for dynamic bodies with has_gravity.
+        let gravity_scale = entity
+            .get_attribute_by_name("gravity_scale")
+            .and_then(|attr| {
+                if let AttributeValue::Float(v) = attr.value {
+                    Ok(v)
+                } else {
+                    Err("Attribute value is not a float".to_string())
+                }
+            })
+            .unwrap_or(1.0);
+
         // Create rigid body
         //
         // - kinematic: moved only via set_velocity; ignores gravity, forces
@@ -334,7 +357,11 @@ impl PhysicsEngine {
         } else if is_movable {
             let mut rb = RigidBodyBuilder::dynamic()
                 .translation(position)
-                .gravity_scale(if affected_by_gravity { 1.0 } else { 0.0 });
+                .gravity_scale(if affected_by_gravity {
+                    gravity_scale
+                } else {
+                    0.0
+                });
 
             if !can_rotate {
                 rb = rb.lock_rotations();

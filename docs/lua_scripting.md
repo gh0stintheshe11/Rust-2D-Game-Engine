@@ -39,6 +39,7 @@ Physics:
 | `add_entity_to_physics_engine(entity_id)` | Reads the entity from the active scene; re-adding replaces the body (useful after changing physics attributes) |
 | `remove_entity_from_physics_engine(entity_id)` | |
 | `get_colliding_entities(entity_id) -> array of entity ids` | Entities currently in contact; empty table if the entity isn't in the physics engine |
+| `set_gravity(x, y)` | Change the global gravity vector (screen space: +y is down; default `(0, 50)`) |
 
 Game flow:
 
