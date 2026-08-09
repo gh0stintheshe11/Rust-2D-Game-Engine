@@ -2,8 +2,17 @@ use crate::gui::gui_state::{GuiState, ScenePanelSelectedItem, SelectedItem};
 use crate::gui::scene_hierarchy::SceneHierarchy;
 use crate::logger::LOGGER;
 use egui::{Context, Ui};
-use indexmap::IndexMap;
 use uuid::Uuid;
+
+/// Lightweight per-frame view of an entity for the hierarchy tree.
+/// Only names are copied - never the attribute map.
+pub struct EntityDisplay {
+    pub id: Uuid,
+    pub name: String,
+    pub image_names: Vec<String>,
+    pub sound_names: Vec<String>,
+    pub script_name: Option<String>,
+}
 
 pub struct EntityItem;
 
@@ -14,17 +23,9 @@ impl EntityItem {
         hierarchy: &mut SceneHierarchy,
         gui_state: &mut GuiState,
         scene_id: &Uuid,
-        entities: &IndexMap<Uuid, crate::ecs::Entity>,
+        entities: &[EntityDisplay],
     ) {
-        let mut sorted_entities: Vec<(&Uuid, &crate::ecs::Entity)> = entities.iter().collect();
-        sorted_entities.sort_by(|(_, entity_a), (_, entity_b)| {
-            entity_a
-                .name
-                .to_lowercase()
-                .cmp(&entity_b.name.to_lowercase())
-        });
-
-        for (entity_id, entity) in sorted_entities {
+        for entity in entities {
             if !hierarchy.search_query.is_empty()
                 && !entity
                     .name
@@ -34,10 +35,14 @@ impl EntityItem {
                 continue;
             }
 
-            let header_id = ui.make_persistent_id(entity_id);
+            let header_id = ui.make_persistent_id(entity.id);
 
-            // Show as collapsable if has images or sounds, otherwise show as label
-            if !entity.images.is_empty() || !entity.sounds.is_empty() {
+            // Show as collapsable if it has any attached assets
+            let has_assets = !entity.image_names.is_empty()
+                || !entity.sound_names.is_empty()
+                || entity.script_name.is_some();
+
+            if has_assets {
                 egui::collapsing_header::CollapsingState::load_with_default_open(
                     ctx, header_id, true,
                 )
@@ -45,48 +50,26 @@ impl EntityItem {
                     EntityItem::tree_item_entity(
                         ui,
                         scene_id,
-                        entity_id,
+                        &entity.id,
                         &entity.name,
                         hierarchy,
                         gui_state,
                     );
                 })
                 .body(|ui| {
-                    if !entity.images.is_empty() {
-                        for path in &entity.images {
-                            let filename = path
-                                .file_name()
-                                .unwrap_or_default()
-                                .to_string_lossy()
-                                .to_string();
-                            ui.horizontal(|ui| {
-                                ui.label(format!("🔆 {}", filename));
-                            });
-                        }
+                    for filename in &entity.image_names {
+                        ui.horizontal(|ui| {
+                            ui.label(format!("🔆 {}", filename));
+                        });
                     }
-                    if !entity.sounds.is_empty() {
-                        for path in &entity.sounds {
-                            let filename = path
-                                .file_name()
-                                .unwrap_or_default()
-                                .to_string_lossy()
-                                .to_string();
-                            ui.horizontal(|ui| {
-                                ui.label(format!("🎵 {}", filename));
-                            });
-                        }
-                    }
-                    if entity.script.is_some() {
-                        let filename = entity
-                            .script
-                            .clone()
-                            .unwrap()
-                            .file_name()
-                            .unwrap_or_default()
-                            .to_string_lossy()
-                            .to_string();
+                    for filename in &entity.sound_names {
                         ui.horizontal(|ui| {
                             ui.label(format!("🎵 {}", filename));
+                        });
+                    }
+                    if let Some(filename) = &entity.script_name {
+                        ui.horizontal(|ui| {
+                            ui.label(format!("📄 {}", filename));
                         });
                     }
                 });
@@ -95,7 +78,7 @@ impl EntityItem {
                     EntityItem::tree_item_entity(
                         ui,
                         scene_id,
-                        entity_id,
+                        &entity.id,
                         &entity.name,
                         hierarchy,
                         gui_state,

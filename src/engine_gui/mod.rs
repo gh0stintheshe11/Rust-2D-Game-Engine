@@ -43,6 +43,7 @@ pub struct EngineGui {
 
     editor_content: String,
     current_edited_file: Option<PathBuf>,
+    editor_dirty: bool,
 }
 
 impl EngineGui {
@@ -86,6 +87,23 @@ impl EngineGui {
             game_runtime,
             editor_content: String::new(),
             current_edited_file: None,
+            editor_dirty: false,
+        }
+    }
+
+    /// Write the editor buffer to its file if it has unsaved changes.
+    fn save_editor_if_dirty(&mut self) {
+        if !self.editor_dirty {
+            return;
+        }
+        if let Some(path) = &self.current_edited_file {
+            match fs::write(path, &self.editor_content) {
+                Ok(_) => {
+                    self.editor_dirty = false;
+                    LOGGER.info(format!("Saved {}", path.display()));
+                }
+                Err(err) => LOGGER.error(format!("Failed to save file: {}", err)),
+            }
         }
     }
 
@@ -133,11 +151,7 @@ impl EngineGui {
                             .clicked()
                         {
                             self.show_editor = false;
-                            if let Some(path) = &self.current_edited_file {
-                                if let Err(err) = fs::write(path, &self.editor_content) {
-                                    LOGGER.error(format!("Failed to save file: {}", err));
-                                }
-                            }
+                            self.save_editor_if_dirty();
                         }
                     });
                 });
@@ -200,8 +214,12 @@ impl EngineGui {
                                     if let Some((path, content)) =
                                         self.file_system.show(ctx, ui, &mut self.gui_state)
                                     {
+                                        // Save the previous file before switching buffers
+                                        self.save_editor_if_dirty();
                                         self.editor_content = content;
                                         self.current_edited_file = Some(path);
+                                        self.editor_dirty = false;
+                                        self.show_editor = true;
                                     }
                                 });
                         });
@@ -302,6 +320,35 @@ impl EngineGui {
                                 egui::Color32::from_gray(40),
                             );
 
+                            // Ctrl+S saves the current file
+                            let save_requested = ui.input_mut(|i| {
+                                i.consume_shortcut(&egui::KeyboardShortcut::new(
+                                    egui::Modifiers::CTRL,
+                                    egui::Key::S,
+                                ))
+                            });
+                            if save_requested {
+                                self.save_editor_if_dirty();
+                            }
+
+                            // Filename + unsaved indicator
+                            ui.horizontal(|ui| {
+                                let label = match &self.current_edited_file {
+                                    Some(path) => format!(
+                                        "📄 {}{}",
+                                        path.file_name()
+                                            .map(|n| n.to_string_lossy().into_owned())
+                                            .unwrap_or_default(),
+                                        if self.editor_dirty { " ●" } else { "" }
+                                    ),
+                                    None => "No file open".to_string(),
+                                };
+                                ui.label(label);
+                                if self.editor_dirty {
+                                    ui.weak("(Ctrl+S to save)");
+                                }
+                            });
+
                             let theme = egui_extras::syntax_highlighting::CodeTheme::from_memory(
                                 ui.ctx(),
                                 ui.style(),
@@ -334,15 +381,13 @@ impl EngineGui {
                                             .layouter(&mut layouter),
                                     );
 
-                                    // If editor content changed, save it
+                                    // Mark dirty on edits; the buffer is written on
+                                    // Ctrl+S, focus loss, or when switching files/views
                                     if response.changed() {
-                                        if let Some(path) = &self.current_edited_file {
-                                            if let Err(err) = fs::write(path, &self.editor_content)
-                                            {
-                                                LOGGER
-                                                    .error(format!("Failed to save file: {}", err));
-                                            }
-                                        }
+                                        self.editor_dirty = true;
+                                    }
+                                    if response.lost_focus() {
+                                        self.save_editor_if_dirty();
                                     }
                                 });
                         } else {
@@ -413,6 +458,8 @@ impl EngineGui {
                                         match self.game_runtime.get_state() {
                                             RuntimeState::Stopped => {
                                                 if ui.button("▶ Play").clicked() {
+                                                    // Scripts are (re)loaded from disk on play
+                                                    self.save_editor_if_dirty();
                                                     // Sync scene manager before starting
                                                     self.sync_scene_manager_to_runtime();
 

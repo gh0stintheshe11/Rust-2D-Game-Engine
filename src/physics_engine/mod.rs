@@ -124,29 +124,67 @@ impl PhysicsEngine {
         friction: f32,
         restitution: f32,
     ) -> Collider {
-        // Get first image path from entity (assuming first image is the sprite)
-        let collider_builder = if let Ok(image_path) = entity.get_image(0) {
-            // Get image dimensions
-            if let Ok(img) = image::open(image_path) {
-                let (width, height) = img.dimensions();
-
-                let offset = Vector::new(width as f32 / 2.0, height as f32 / 2.0);
-
-                // If width and height are similar, use circle
-                if (width as f32 / height as f32).abs() > 0.9
-                    && (width as f32 / height as f32).abs() < 1.1
-                {
-                    ColliderBuilder::ball(width as f32 / 2.0).translation(offset)
+        // Collider size: explicit `collider_width`/`collider_height` float
+        // attributes take priority; otherwise fall back to the first sprite
+        // image's pixel dimensions (which over-approximates sprites with
+        // transparent padding).
+        let attr_float = |name: &str| {
+            entity.get_attribute_by_name(name).ok().and_then(|attr| {
+                if let AttributeValue::Float(v) = attr.value {
+                    Some(v)
                 } else {
-                    // Otherwise use box
-                    ColliderBuilder::cuboid(width as f32 / 2.0, height as f32 / 2.0)
-                        .translation(offset)
+                    None
                 }
-            } else {
-                ColliderBuilder::ball(0.5) // Default if can't load image
+            })
+        };
+
+        let explicit_size = match (attr_float("collider_width"), attr_float("collider_height")) {
+            (Some(w), Some(h)) => Some((w, h)),
+            _ => None,
+        };
+
+        let size = explicit_size.or_else(|| {
+            let image_path = entity.get_image(0).ok()?;
+            let img = image::open(image_path).ok()?;
+            let (width, height) = img.dimensions();
+            Some((width as f32, height as f32))
+        });
+
+        // Collider shape: explicit `collider_shape` string attribute
+        // ("circle" or "rectangle"), otherwise the legacy heuristic:
+        // near-square sprites become circles.
+        let explicit_shape = entity
+            .get_attribute_by_name("collider_shape")
+            .ok()
+            .and_then(|attr| match &attr.value {
+                AttributeValue::String(s) => Some(s.to_lowercase()),
+                _ => None,
+            });
+
+        let collider_builder = match size {
+            Some((width, height)) => {
+                // Colliders span from the entity's x/y (sprite top-left), so
+                // offset the shape's center by half its size
+                let offset = Vector::new(width / 2.0, height / 2.0);
+
+                let is_circle = match explicit_shape.as_deref() {
+                    Some("circle") => true,
+                    Some(_) => false,
+                    // Legacy heuristic: near-square sprites become circles
+                    None => {
+                        let ratio = width / height;
+                        ratio > 0.9 && ratio < 1.1
+                    }
+                };
+
+                if is_circle {
+                    ColliderBuilder::ball(width / 2.0).translation(offset)
+                } else {
+                    ColliderBuilder::cuboid(width / 2.0, height / 2.0).translation(offset)
+                }
             }
-        } else {
-            ColliderBuilder::ball(0.5) // Default if no image
+            // Default if there's no explicit size and no loadable image
+            None => ColliderBuilder::ball(0.5),
         };
 
         // Add physics properties

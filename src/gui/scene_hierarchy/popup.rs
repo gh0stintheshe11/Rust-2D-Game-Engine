@@ -21,6 +21,8 @@ pub struct PopupManager {
     pub resource_selection_popup_active: bool,
     pub selected_resource_type: String,
     pub available_resources: Vec<std::path::PathBuf>,
+    // Which directory available_resources was scanned from (cache key)
+    available_resources_path: Option<std::path::PathBuf>,
 }
 
 impl Default for PopupManager {
@@ -47,6 +49,7 @@ impl PopupManager {
             resource_selection_popup_active: false,
             selected_resource_type: "Images".to_string(),
             available_resources: Vec::new(),
+            available_resources_path: None,
         }
     }
 
@@ -424,7 +427,8 @@ impl PopupManager {
                                 });
                         });
 
-                    // Update available resources when type changes
+                    // Update available resources when the type changes (or on
+                    // first open) instead of re-reading the directory every frame
                     let resource_path = match self.selected_resource_type.as_str() {
                         "Images" => project_path.join("assets").join("images"),
                         "Sounds" => project_path.join("assets").join("sounds"),
@@ -432,10 +436,13 @@ impl PopupManager {
                         _ => project_path.join("assets"),
                     };
 
-                    // Read directory and update available resources
-                    if let Ok(entries) = std::fs::read_dir(resource_path) {
-                        self.available_resources =
-                            entries.filter_map(|e| e.ok()).map(|e| e.path()).collect();
+                    if self.available_resources_path.as_deref() != Some(resource_path.as_path()) {
+                        self.available_resources = std::fs::read_dir(&resource_path)
+                            .map(|entries| {
+                                entries.filter_map(|e| e.ok()).map(|e| e.path()).collect()
+                            })
+                            .unwrap_or_default();
+                        self.available_resources_path = Some(resource_path);
                     }
 
                     // Show resource list in a collapsing header
@@ -498,6 +505,8 @@ impl PopupManager {
             // If window is closed, reset the selection
             if !self.resource_selection_popup_active {
                 self.resource_selection = None;
+                // Rescan on next open so new imports show up
+                self.available_resources_path = None;
             }
         }
     }

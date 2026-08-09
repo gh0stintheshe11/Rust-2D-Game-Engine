@@ -33,9 +33,9 @@ graph TD
 ## Frame order (while Playing)
 
 1. Update render viewport + feed egui input into `InputHandler`
-2. Native `Game::update` (optional Rust game hook), dt = `1/target_fps`
-3. Lua: advance `accumulated_time`, refresh `keys_pressed`, run entity scripts
-4. Physics: `step(scene)` → NaN-filter → write position updates back into entity attributes
+2. Native `Game::update` (optional Rust game hook) with real frame dt
+3. Lua: advance `accumulated_time` by real dt, refresh `keys_pressed`, run entity scripts (once per rendered frame)
+4. Physics: **fixed-timestep accumulator** — real time is consumed in fixed steps of `1/target_fps` (max 5 catch-up steps per frame), so simulation speed is identical on 60Hz and 144Hz displays. Each step: `step(scene)` → NaN-filter → write position updates back into entity attributes
 5. Audio: reap finished sinks
 6. Paint: build render queue, draw sprites (cached GPU textures, viewport-clipped UVs), then collider debug wireframes
 
@@ -43,7 +43,7 @@ Script errors and physics write-back failures are logged to the editor console (
 
 ## Known limitations / TODO
 
-- Frame rate is tied to the display refresh (`ctx.request_repaint()`), and dt is a fixed `1/target_fps` rather than measured; there's no fixed-timestep accumulator, so simulation speed follows the monitor's refresh rate.
+- Rendering runs at the display refresh rate; scripts run once per rendered frame (so per-frame script counters are refresh-dependent — use `accumulated_time` for real-time logic). Physics is fixed-step and refresh-independent.
 - Collider debug wireframes are always drawn — no toggle.
 - Shared entities (`SceneManager::shared_entities`) never reach physics or scripting; only `scene.entities` do.
 - The `Game` trait (native Rust game hook) is unused by the editor flow and untested.

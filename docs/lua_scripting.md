@@ -23,7 +23,7 @@ A **session** spans one Play (from pressing ▶ until Stop/Reset):
 
 | Global | Access | Meaning |
 |---|---|---|
-| `accumulated_time` | read | Seconds since the session started (increments by `1/target_fps` per frame) |
+| `accumulated_time` | read | Real seconds since the session started (measured wall-clock delta per frame) |
 | `script_state` | read/write | Persistent shared table; convention: `script_state.state.<your_key>`. Survives across frames within a session; reset on each new Play |
 | `keys_pressed` | read | Array of active input names this frame |
 
@@ -89,6 +89,7 @@ end
 - Only an `update` hook exists — no `init`, no collision callbacks (poll
   `get_colliding_entities` instead), no `on_destroy`.
 - No audio bindings (scripts can't play sounds yet) and only one input binding.
-- Delta time is a fixed `1/target_fps` — not measured wall-clock time.
+- Delta time is the real measured frame time (clamped to 0.25s); physics
+  advances on a fixed timestep independently of the display refresh rate.
 - `script_state` is shared by all scripts; key collisions are the script author's problem.
 - `create_physical_entity` ignores its x/y/z arguments (the demo works around this by setting attributes from Lua).

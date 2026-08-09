@@ -41,17 +41,18 @@ pub struct GameRuntime {
     render_engine: RenderEngine,
     input_handler: Rc<RefCell<InputHandler>>,
     audio_engine: AudioEngine,
-    target_fps: u32,
     running: bool,
     state: RuntimeState,
     game: Option<Box<dyn Game>>,
     lua_scripting: LuaScripting,
+    // Fixed-timestep accumulator: real time not yet consumed by physics steps
+    time_accumulator: f32,
 }
 
 impl GameRuntime {
     pub fn new(
         scene_manager: SceneManager,
-        physics_engine: PhysicsEngine,
+        mut physics_engine: PhysicsEngine,
         render_engine: RenderEngine,
         mut input_handler: InputHandler,
         audio_engine: AudioEngine,
@@ -60,6 +61,10 @@ impl GameRuntime {
         // Make sure we start in EngineUI mode
         input_handler.set_context(InputContext::EngineUI);
 
+        // target_fps is the fixed simulation rate; rendering runs at the
+        // display refresh rate and physics catches up in fixed steps
+        physics_engine.set_time_step(1.0 / target_fps as f32);
+
         Self {
             scene_manager: Rc::new(RefCell::new(scene_manager)),
             dev_state_snapshot: None,
@@ -67,11 +72,11 @@ impl GameRuntime {
             render_engine,
             input_handler: Rc::new(RefCell::new(input_handler)),
             audio_engine,
-            target_fps,
             running: false,
             state: RuntimeState::Stopped,
             game: None,
             lua_scripting: LuaScripting::new(),
+            time_accumulator: 0.0,
         }
     }
 
@@ -185,6 +190,7 @@ impl GameRuntime {
             .map_err(|e| format!("Failed to start Lua session: {}", e))?;
 
         LOGGER.info("Game starting with active scene");
+        self.time_accumulator = 0.0;
         self.running = true;
         self.state = RuntimeState::Playing;
         Ok(())
@@ -203,18 +209,21 @@ impl GameRuntime {
 
         // Only update game logic if we're running and in Playing state
         if self.running && self.state == RuntimeState::Playing {
+            // Real elapsed time since the last frame (clamped so a stall -
+            // window drag, breakpoint - doesn't cause a huge catch-up burst)
+            let frame_dt = ctx.input(|i| i.stable_dt).min(0.25);
+
             // Update game logic with the input handler
             if let Some(game) = &mut self.game {
                 game.update(
                     &mut self.scene_manager.borrow_mut(),
                     &self.input_handler.borrow(),
-                    1.0 / self.target_fps as f32,
+                    frame_dt,
                 );
             }
 
-            // Run scripts
-            let delta_time = 1.0 / self.target_fps as f32;
-            if let Err(e) = self.lua_scripting.update_global_time(delta_time) {
+            // Run scripts once per rendered frame with real delta time
+            if let Err(e) = self.lua_scripting.update_global_time(frame_dt) {
                 LOGGER.error(format!("Failed to update Lua time: {}", e));
             }
             if let Err(e) = self
@@ -243,9 +252,19 @@ impl GameRuntime {
                 return;
             }
 
-            // Run physics
+            // Run physics on a fixed timestep, decoupled from the display
+            // refresh rate: accumulate real time and consume it in fixed
+            // steps so simulation speed is identical on 60Hz and 144Hz
+            // monitors.
+            let step_dt = self.physics_engine.borrow().get_time_step();
+            self.time_accumulator += frame_dt;
+            // Never run more than a handful of catch-up steps per frame
+            self.time_accumulator = self.time_accumulator.min(step_dt * 5.0);
+
             let mut scene_lost = false;
-            {
+            while self.time_accumulator >= step_dt {
+                self.time_accumulator -= step_dt;
+
                 let mut manager = self.scene_manager.borrow_mut();
                 match manager.get_active_scene_mut() {
                     Some(scene) => {
@@ -265,7 +284,10 @@ impl GameRuntime {
                             LOGGER.error(format!("Failed to update entity attributes: {}", err));
                         }
                     }
-                    None => scene_lost = true,
+                    None => {
+                        scene_lost = true;
+                        break;
+                    }
                 }
             }
 

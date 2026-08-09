@@ -9,27 +9,22 @@ impl ViewMenu {
     }
 
     pub fn show(&mut self, _ctx: &egui::Context, ui: &mut egui::Ui, gui_state: &mut GuiState) {
-        ui.menu_button("View", |ui| {
-            ui.menu_button("Appearance", |ui| {
-                ui.radio_value(&mut gui_state.dark_mode, true, "🌙 Dark Mode")
-                    .clicked();
-                if ui
-                    .radio_value(&mut gui_state.dark_mode, false, "☀ Light Mode")
-                    .clicked()
-                {}
-            });
-
-            ui.menu_button("Panels", |ui| {
-                // Direct panel toggles
-                ui.checkbox(
-                    &mut gui_state.show_hierarchy_filesystem,
-                    "Hierarchy/File Panel",
-                );
-                ui.checkbox(&mut gui_state.show_inspector, "Inspector Panel");
-                ui.checkbox(&mut gui_state.show_console, "Console Panel");
-            });
-
-            ui.checkbox(&mut gui_state.show_debug_overlay, "Debug Overlay");
+        // Note: the caller already opens the "View" menu; don't nest another one
+        ui.menu_button("Appearance", |ui| {
+            ui.radio_value(&mut gui_state.dark_mode, true, "🌙 Dark Mode");
+            ui.radio_value(&mut gui_state.dark_mode, false, "☀ Light Mode");
         });
+
+        ui.menu_button("Panels", |ui| {
+            // Direct panel toggles
+            ui.checkbox(
+                &mut gui_state.show_hierarchy_filesystem,
+                "Hierarchy/File Panel",
+            );
+            ui.checkbox(&mut gui_state.show_inspector, "Inspector Panel");
+            ui.checkbox(&mut gui_state.show_console, "Console Panel");
+        });
+
+        ui.checkbox(&mut gui_state.show_debug_overlay, "Debug Overlay");
     }
 }
