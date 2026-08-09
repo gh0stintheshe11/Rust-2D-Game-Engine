@@ -335,8 +335,14 @@ impl EngineGui {
                                     }
                                 });
                         } else {
-                            // Render only the viewport content when play in the GUI
-                            if self.game_runtime.get_state() == RuntimeState::Playing {
+                            // Render only the viewport content when play in the GUI.
+                            // Paused/Ended still route to the runtime so the freeze
+                            // frame of the running game stays visible.
+                            let runtime_state = self.game_runtime.get_state();
+                            if matches!(
+                                runtime_state,
+                                RuntimeState::Playing | RuntimeState::Paused | RuntimeState::Ended
+                            ) {
                                 // sync camera to runtime
                                 let position = self.render_engine.camera.position;
                                 let zoom = self.render_engine.camera.zoom;
@@ -430,6 +436,16 @@ impl EngineGui {
                                                     self.game_runtime
                                                         .set_state(RuntimeState::Playing);
                                                 }
+                                            }
+                                            RuntimeState::Ended => {
+                                                // Game over: only Reset makes sense
+                                                ui.add_enabled(
+                                                    false,
+                                                    egui::Button::new("⏹ Game Over"),
+                                                )
+                                                .on_disabled_hover_text(
+                                                    "A script ended the game. Press Reset to restore the scene.",
+                                                );
                                             }
                                         }
 

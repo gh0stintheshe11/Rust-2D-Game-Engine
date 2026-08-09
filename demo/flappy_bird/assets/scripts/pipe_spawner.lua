@@ -13,10 +13,13 @@ function create_physics_attributes(scene_id, entity_id, x, y)
 
     -- Create Boolean attributes
     create_attribute_bool(scene_id, entity_id, "is_movable", true)
-    create_attribute_bool(scene_id, entity_id, "has_gravity", true)
+    create_attribute_bool(scene_id, entity_id, "has_gravity", false)
     create_attribute_bool(scene_id, entity_id, "creates_gravity", false)
     create_attribute_bool(scene_id, entity_id, "has_collision", true)
     create_attribute_bool(scene_id, entity_id, "can_rotate", true)
+    -- Pipes are script-driven obstacles: they move via set_velocity but must
+    -- not be pushed around by the bird
+    create_attribute_bool(scene_id, entity_id, "is_kinematic", true)
 
     -- Create Float attributes
     create_attribute_float(scene_id, entity_id, "friction", 0.5)

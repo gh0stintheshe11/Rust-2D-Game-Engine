@@ -36,8 +36,15 @@ Physics:
 | `set_velocity(entity_id, x, y)` | Entity must be registered in the physics engine |
 | `apply_force(entity_id, x, y)` | Forces are reset after every physics step |
 | `apply_impulse(entity_id, x, y)` | |
-| `add_entity_to_physics_engine(entity_id)` | Reads the entity from the active scene; re-adding replaces the body |
+| `add_entity_to_physics_engine(entity_id)` | Reads the entity from the active scene; re-adding replaces the body (useful after changing physics attributes) |
 | `remove_entity_from_physics_engine(entity_id)` | |
+| `get_colliding_entities(entity_id) -> array of entity ids` | Entities currently in contact; empty table if the entity isn't in the physics engine |
+
+Game flow:
+
+| Function | Notes |
+|---|---|
+| `end_game()` | Request a game-over: the runtime freezes on the current frame in an `Ended` state; only Reset exits it |
 
 Input:
 
@@ -60,6 +67,7 @@ ECS (all IDs are UUID strings):
 | `create_attribute_float` / `_bool(scene_id, entity_id, name, value)` | |
 | `create_attribute_vector2(scene_id, entity_id, name, x, y)` | |
 | `list_entities_name_x_y(scene_id) -> array of {id, name, x, y}` | x/y reflect the physics-synced position |
+| `get_entity_name(scene_id, entity_id) -> string or nil` | nil when the entity no longer exists |
 
 ## Example
 
@@ -78,7 +86,8 @@ end
 
 ## Known limitations / TODO
 
-- Only an `update` hook exists — no `init`, no collision callbacks, no `on_destroy`.
+- Only an `update` hook exists — no `init`, no collision callbacks (poll
+  `get_colliding_entities` instead), no `on_destroy`.
 - No audio bindings (scripts can't play sounds yet) and only one input binding.
 - Delta time is a fixed `1/target_fps` — not measured wall-clock time.
 - `script_state` is shared by all scripts; key collisions are the script author's problem.

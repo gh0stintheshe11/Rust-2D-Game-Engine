@@ -338,6 +338,23 @@ impl LuaScripting {
         })?;
         globals.set("list_entities_name_x_y", list_entities_name_x_y)?;
 
+        // get_entity_name(scene_id, entity_id) -> name string, or nil if the
+        // entity no longer exists
+        let manager = Rc::clone(scene_manager);
+        let get_entity_name =
+            self.lua
+                .create_function(move |_, (scene_id, entity_id): (String, String)| {
+                    let manager = manager.borrow();
+                    let scene_uuid = parse_uuid(&scene_id, "scene")?;
+                    let entity_uuid = parse_uuid(&entity_id, "entity")?;
+                    let name = manager
+                        .get_scene(scene_uuid)
+                        .and_then(|scene| scene.entities.get(&entity_uuid))
+                        .map(|entity| entity.name.clone());
+                    Ok(name)
+                })?;
+        globals.set("get_entity_name", get_entity_name)?;
+
         Ok(())
     }
 }

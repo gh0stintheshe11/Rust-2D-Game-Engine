@@ -17,6 +17,9 @@ use std::rc::Rc;
 pub enum RuntimeState {
     Playing,
     Paused,
+    /// A script ended the game (e.g. player death). The final frame stays
+    /// on screen; the only way out is Reset.
+    Ended,
     Stopped,
 }
 
@@ -100,6 +103,14 @@ impl GameRuntime {
             }
             RuntimeState::Paused => {
                 // Stay in game mode but paused
+                self.running = false;
+            }
+            RuntimeState::Ended => {
+                // Game over: freeze the frame, hand input back to the editor.
+                // The world stays loaded so the final state remains visible.
+                self.input_handler
+                    .borrow_mut()
+                    .set_context(InputContext::EngineUI);
                 self.running = false;
             }
             RuntimeState::Stopped => {
@@ -223,6 +234,15 @@ impl GameRuntime {
                 }
             }
 
+            // A script may have requested the game to stop (e.g. player died)
+            if self.lua_scripting.take_game_stop_request() {
+                LOGGER.info("Game over: a script called end_game()");
+                self.set_state(RuntimeState::Ended);
+                self.paint_scene(ui, viewport_rect);
+                ctx.request_repaint();
+                return;
+            }
+
             // Run physics
             let mut scene_lost = false;
             {
@@ -261,8 +281,8 @@ impl GameRuntime {
 
             // Render
             self.paint_scene(ui, viewport_rect);
-        } else if self.state == RuntimeState::Paused {
-            // Keep drawing the current state while paused
+        } else if matches!(self.state, RuntimeState::Paused | RuntimeState::Ended) {
+            // Keep drawing the current state while paused or after game over
             self.paint_scene(ui, viewport_rect);
         }
 

@@ -265,8 +265,28 @@ impl PhysicsEngine {
             })
             .unwrap_or(false);
 
+        let is_kinematic = entity
+            .get_attribute_by_name("is_kinematic")
+            .and_then(|attr| {
+                if let AttributeValue::Boolean(v) = attr.value {
+                    Ok(v)
+                } else {
+                    Err("Attribute value is not a boolean".to_string())
+                }
+            })
+            .unwrap_or(false);
+
         // Create rigid body
-        let rigid_body = if is_movable {
+        //
+        // - kinematic: moved only via set_velocity; ignores gravity, forces
+        //   and collisions with dynamic bodies (script-driven obstacles)
+        // - dynamic (is_movable): full simulation
+        // - fixed: static geometry
+        let rigid_body = if is_kinematic {
+            RigidBodyBuilder::kinematic_velocity_based()
+                .translation(position)
+                .build()
+        } else if is_movable {
             let mut rb = RigidBodyBuilder::dynamic()
                 .translation(position)
                 .gravity_scale(if affected_by_gravity { 1.0 } else { 0.0 });
@@ -482,6 +502,12 @@ impl PhysicsEngine {
         if let Some(collider_handle) = self.entity_to_collider.get(entity_id) {
             let contact_pairs = self.narrow_phase.contact_pairs_with(*collider_handle);
             for pair in contact_pairs {
+                // A contact pair also exists for shapes that are merely close
+                // (broad-phase candidates); only report actual touching.
+                if !pair.has_any_active_contact {
+                    continue;
+                }
+
                 let other_handle = if pair.collider1 == *collider_handle {
                     pair.collider2
                 } else {

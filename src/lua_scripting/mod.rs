@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -47,6 +47,8 @@ pub struct LuaScripting {
     accumulated_time: f32,
     script_cache: HashMap<PathBuf, CachedScript>,
     scene_manager: Option<Rc<RefCell<SceneManager>>>,
+    // Set by the end_game() binding; polled by the runtime each frame
+    game_stop_requested: Rc<Cell<bool>>,
 }
 
 pub(crate) fn parse_uuid(value: &str, what: &str) -> Result<Uuid, mlua::Error> {
@@ -61,6 +63,7 @@ impl LuaScripting {
             accumulated_time: 0.0,
             script_cache: HashMap::new(),
             scene_manager: None,
+            game_stop_requested: Rc::new(Cell::new(false)),
         }
     }
 
@@ -76,6 +79,7 @@ impl LuaScripting {
         self.script_cache.clear();
         self.accumulated_time = 0.0;
         self.scene_manager = Some(Rc::clone(&scene_manager));
+        self.game_stop_requested.set(false);
 
         let globals = self.lua.globals();
         globals.set("accumulated_time", 0.0)?;
@@ -87,12 +91,27 @@ impl LuaScripting {
 
         globals.set("keys_pressed", self.lua.create_table()?)?;
 
+        // end_game(): scripts call this to stop the running game (e.g. on
+        // player death). The runtime polls the flag after scripts run.
+        let stop_flag = Rc::clone(&self.game_stop_requested);
+        let end_game = self.lua.create_function(move |_, ()| {
+            stop_flag.set(true);
+            Ok(())
+        })?;
+        globals.set("end_game", end_game)?;
+
         self.register_physics_bindings(&physics_engine, &scene_manager)?;
         self.register_input_bindings(&input_handler)?;
         self.register_ecs_bindings(&scene_manager)?;
 
         LOGGER.info("Lua scripting session started");
         Ok(())
+    }
+
+    /// Returns true (once) if a script requested the game to stop since the
+    /// last call. Clears the flag.
+    pub fn take_game_stop_request(&self) -> bool {
+        self.game_stop_requested.replace(false)
     }
 
     /// Increment the shared game clock and expose it to scripts.

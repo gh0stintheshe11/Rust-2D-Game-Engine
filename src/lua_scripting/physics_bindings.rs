@@ -97,6 +97,20 @@ impl LuaScripting {
             remove_entity_from_physics_engine,
         )?;
 
+        // get_colliding_entities(entity_id) -> array of entity id strings.
+        // Returns an empty table for entities not in the physics engine.
+        let physics = Rc::clone(physics_engine);
+        let get_colliding_entities = self.lua.create_function(move |lua, entity_id: String| {
+            let uuid = parse_uuid(&entity_id, "entity")?;
+            let colliding = physics.borrow().get_colliding_entities(&uuid);
+            let table = lua.create_table()?;
+            for (index, id) in colliding.iter().enumerate() {
+                table.set(index + 1, id.to_string())?;
+            }
+            Ok(table)
+        })?;
+        globals.set("get_colliding_entities", get_colliding_entities)?;
+
         Ok(())
     }
 }

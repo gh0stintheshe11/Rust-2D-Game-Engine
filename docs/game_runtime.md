@@ -27,6 +27,7 @@ graph TD
 | ▶ Play (`run()`) | Native `Game::init` (if set) → ensure an active scene → `physics.cleanup()` + `load_scene` (fresh world, no leaked bodies) → `lua.start_session(...)` → Playing. A **dev snapshot** of the scene manager is taken on the first Play |
 | ⏸ Pause | Stops simulation; the scene keeps rendering (velocities and physics world are preserved) |
 | ▶ Resume | Just unpauses — nothing is reloaded |
+| Script `end_game()` | Game over: transitions to `Ended` after that frame's scripts finish. The final frame stays visible, input returns to the editor, and only Reset exits the state (the editor grays out the play controls) |
 | ⏹ Stop / Reset | Physics/render/audio cleanup, scene manager restored from the dev snapshot, snapshot dropped (next Play snapshots current editor state), input context back to `EngineUI` |
 
 ## Frame order (while Playing)

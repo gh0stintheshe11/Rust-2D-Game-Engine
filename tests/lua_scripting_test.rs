@@ -154,6 +154,7 @@ mod session_tests {
     struct TestSession {
         lua: LuaScripting,
         scene_manager: Rc<RefCell<SceneManager>>,
+        physics: Rc<RefCell<PhysicsEngine>>,
         scene_id: uuid::Uuid,
         script_dir: PathBuf,
     }
@@ -185,6 +186,7 @@ mod session_tests {
         TestSession {
             lua,
             scene_manager,
+            physics: physics_engine,
             scene_id,
             script_dir,
         }
@@ -331,5 +333,109 @@ mod session_tests {
             .unwrap();
         assert_eq!(first, 1, "first script's update() should have run");
         assert_eq!(second, 1, "second script's update() should have run");
+    }
+
+    #[test]
+    fn test_collision_query_and_end_game() {
+        use rust_2d_game_engine::ecs::PhysicsProperties;
+
+        let mut session = setup("collision_end_game");
+
+        // Two physical entities: a fixed obstacle and a player dropped onto
+        // it from above. (Spawning bodies deeply overlapped is degenerate -
+        // the solver can produce NaN positions - so simulate a real fall.)
+        let (obstacle_id, player_id) = {
+            let mut manager = session.scene_manager.borrow_mut();
+            let scene = manager.get_scene_mut(session.scene_id).unwrap();
+            let obstacle_id = scene
+                .create_physical_entity(
+                    "obstacle",
+                    (0.0, 0.0, 0.0),
+                    PhysicsProperties {
+                        is_movable: false,
+                        has_collision: true,
+                        ..Default::default()
+                    },
+                )
+                .unwrap();
+            let player_id = scene
+                .create_physical_entity(
+                    "player",
+                    // Directly above the obstacle; +Y is down, so it falls onto it
+                    (0.0, -3.0, 0.0),
+                    PhysicsProperties {
+                        is_movable: true,
+                        affected_by_gravity: true,
+                        has_collision: true,
+                        ..Default::default()
+                    },
+                )
+                .unwrap();
+            (obstacle_id, player_id)
+        };
+
+        // The player's script ends the game when touching the obstacle
+        let script_path = session.script_dir.join("player.lua");
+        std::fs::write(
+            &script_path,
+            r#"
+            function update(scene_id, entity_id)
+                local hits = get_colliding_entities(entity_id)
+                for i = 1, #hits do
+                    if get_entity_name(scene_id, hits[i]) == "obstacle" then
+                        end_game()
+                    end
+                end
+            end
+            "#,
+        )
+        .unwrap();
+        {
+            let mut manager = session.scene_manager.borrow_mut();
+            let scene = manager.get_scene_mut(session.scene_id).unwrap();
+            scene
+                .get_entity_mut(player_id)
+                .unwrap()
+                .set_script(script_path)
+                .unwrap();
+        }
+
+        // Register bodies and step until the player lands on the obstacle
+        {
+            let mut manager = session.scene_manager.borrow_mut();
+            let scene = manager.get_scene_mut(session.scene_id).unwrap();
+            let mut physics = session.physics.borrow_mut();
+            physics.add_entity(scene.get_entity(obstacle_id).unwrap());
+            physics.add_entity(scene.get_entity(player_id).unwrap());
+
+            let mut touched = false;
+            for _ in 0..240 {
+                physics.step(scene);
+                if physics
+                    .get_colliding_entities(&player_id)
+                    .contains(&obstacle_id)
+                {
+                    touched = true;
+                    break;
+                }
+            }
+            assert!(touched, "player should land on the obstacle within 4s");
+        }
+
+        assert!(
+            !session.lua.take_game_stop_request(),
+            "no stop should be requested before scripts run"
+        );
+
+        session.lua.run_scripts_for_scene(session.scene_id).unwrap();
+
+        assert!(
+            session.lua.take_game_stop_request(),
+            "script should detect the collision and request end_game"
+        );
+        assert!(
+            !session.lua.take_game_stop_request(),
+            "the stop request flag must clear after being taken"
+        );
     }
 }

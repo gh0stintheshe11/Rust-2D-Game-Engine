@@ -55,7 +55,12 @@ impl ProjectManager {
         project_path_lock.clone()
     }
 
-    // Creates a new game project at the specified path
+    // Loads project metadata from project.epm.
+    //
+    // The stored project_path is ignored and replaced with the actual
+    // location the project was opened from (in memory only - loading must
+    // not mutate the project on disk). The path is persisted on the next
+    // explicit save.
     pub fn load_project(project_path: &Path) -> Result<ProjectMetadata, String> {
         let file_path = project_path.join(Self::PROJECT_FILE_NAME);
         let file = File::open(&file_path).map_err(|e| format!("Failed to open file: {}", e))?;
@@ -68,9 +73,6 @@ impl ProjectManager {
             .to_str()
             .ok_or("Invalid project path")?
             .to_string();
-
-        // Save the updated metadata back to file
-        Self::save_project(project_path, &metadata)?;
 
         Ok(metadata)
     }

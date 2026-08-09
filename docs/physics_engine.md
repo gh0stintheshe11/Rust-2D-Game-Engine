@@ -21,7 +21,7 @@ A wrapper around [rapier2d](https://crates.io/crates/rapier2d) that mirrors scen
 - Skipped entirely unless the entity has at least one of `has_gravity`, `has_collision`, `creates_gravity`.
 - **Idempotent**: re-adding an entity that already has a body removes the old body/collider first (no leaked duplicates on scene reload).
 - Spawn position: prefers a `position` Vector2 attribute if present, otherwise **falls back to the `x`/`y` Float attributes** every entity has. (Entities made with `Entity::new_physical` only have `x`/`y`/`z`; `position` Vector2 typically exists only on script-created entities.)
-- Body type: dynamic if `is_movable` (default false → fixed). `has_gravity` maps to gravity scale 1/0. Rotation locked unless `can_rotate`.
+- Body type: kinematic (velocity-based) if `is_kinematic` — moved only via `set_velocity`, immune to gravity, forces and pushes from dynamic bodies (script-driven obstacles); otherwise dynamic if `is_movable` (default false → fixed). `has_gravity` maps to gravity scale 1/0. Rotation locked unless `can_rotate`.
 - Collider (if `has_collision`, default true): shape is **inferred from the entity's first image** — the file is opened and its pixel dimensions read at add time. Aspect ratio within 0.9–1.1 → ball of radius `width/2`; otherwise a cuboid of half the image size. Offset by `(w/2, h/2)`. Fallback: ball of radius 0.5 if there's no loadable image. `density`, `friction`, `restitution` come from attributes (defaults 1.0 / 0.5 / 0.0).
 
 ## Per-frame flow
