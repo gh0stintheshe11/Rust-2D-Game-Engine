@@ -2,7 +2,7 @@
 
 A lightweight 2D game engine with a built-in editor, written in Rust. Scenes, entities and attributes are edited visually; game logic is written in Lua; physics is powered by rapier2d. Projects build into standalone native executables.
 
-![Editor](docs/final_report_assets/editor.png)
+![Editor](docs/final_report_assets/light_mode.png)
 
 > Originally built as a university course project (see the [archived final report](docs/course_report.md) and [video demo](docs/course_report.md#video-demo)); now under active development to finish what we started.
 
