@@ -67,9 +67,6 @@ jobs:
           - os: macos-latest
             binary: rust-2d-game-engine
             asset: rust-2d-game-engine-macos-aarch64
-          - os: macos-13
-            binary: rust-2d-game-engine
-            asset: rust-2d-game-engine-macos-x86_64
 
     steps:
       - uses: actions/checkout@v4
