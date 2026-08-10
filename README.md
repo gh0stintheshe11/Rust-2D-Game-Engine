@@ -2,7 +2,7 @@
 
 A lightweight 2D game engine with a built-in editor, written in Rust. Scenes, entities and attributes are edited visually; game logic is written in Lua; physics is powered by rapier2d. Projects build into standalone native executables.
 
-![Editor](final_report_assets/editor.png)
+![Editor](docs/final_report_assets/editor.png)
 
 > Originally built as a university course project (see the [archived final report](docs/course_report.md) and [video demo](docs/course_report.md#video-demo)); now under active development to finish what we started.
 
@@ -54,16 +54,7 @@ cargo test          # run the test suite
 cargo clippy        # lints (warning burn-down in progress)
 ```
 
-CI builds and tests every push/PR (`.github/workflows/ci.yml`, clippy + fmt enforcing).
-
-**Releasing**: bump `version` in `Cargo.toml`, then push a matching tag —
-`release.yml` verifies the version, runs tests, builds Linux/Windows/macOS
-(Intel + Apple Silicon) binaries, and publishes them on a GitHub release
-with generated notes:
-
-```bash
-git tag v0.2.0 && git push origin v0.2.0
-```
+CI builds and tests every push/PR (`.github/workflows/ci.yml`); tagged releases build via `release.yml`.
 
 ## Status
 

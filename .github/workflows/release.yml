@@ -44,6 +44,12 @@ jobs:
       - name: Test
         run: cargo test
 
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Format check
+        run: cargo fmt --check
+
   build:
     name: Build ${{ matrix.asset }}
     needs: test
