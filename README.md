@@ -54,7 +54,16 @@ cargo test          # run the test suite
 cargo clippy        # lints (warning burn-down in progress)
 ```
 
-CI builds and tests every push/PR (`.github/workflows/ci.yml`); tagged releases build via `release.yml`.
+CI builds and tests every push/PR (`.github/workflows/ci.yml`, clippy + fmt enforcing).
+
+**Releasing**: bump `version` in `Cargo.toml`, then push a matching tag —
+`release.yml` verifies the version, runs tests, builds Linux/Windows/macOS
+(Intel + Apple Silicon) binaries, and publishes them on a GitHub release
+with generated notes:
+
+```bash
+git tag v0.2.0 && git push origin v0.2.0
+```
 
 ## Status
 
