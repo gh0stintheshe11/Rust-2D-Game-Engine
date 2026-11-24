@@ -18,7 +18,7 @@ standalone executable.
 | Scenes | Scenes made of entities with named, typed attributes (numbers, booleans, strings, vectors); saved as portable JSON |
 | Physics | rapier2d bodies and colliders built from entity attributes: dynamic, kinematic and fixed bodies, rotation, gravity scale, gravity fields, collision events |
 | Scripting | Lua 5.4 scripts per entity with `init` / `update` / `on_collision` hooks, hot reload while playing, and a sandbox |
-| Rendering | Sprites with rotation, scale and z-order, camera framing with letterboxing |
+| Rendering | Sprites with rotation, scale, z-order, mirroring, opacity and tint; sprite sheet animation; text over the game; camera framing with letterboxing |
 | Audio | Sound effects and looping music with per-sound and master volume (wav, ogg, mp3, flac); runs fine without an audio device |
 | Export | One click builds a standalone game for your platform |
 
@@ -106,9 +106,9 @@ builds and publishes the editor binaries.
 
 ## Status
 
-The engine is young: it has a small API and no text rendering, animation,
-tilemaps or UI widgets for games yet. The "Known limitations" sections of the
-[docs](docs/README.md) list what's missing per module.
+The engine is young: it has a small API, and no tilemaps, particles or UI
+widgets (buttons, menus) for games yet. The "Known limitations" sections of
+the [docs](docs/README.md) list what's missing per module.
 
 ## License and credits
 

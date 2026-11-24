@@ -9,7 +9,7 @@ known limitations). Any change to a module's behavior updates its document.
 |---|---|
 | [scene.md](scene.md) | Data model: scenes, entities, typed attributes, templates (`src/scene/`) |
 | [physics.md](physics.md) | rapier2d bodies and colliders from attributes, forces, gravity fields (`src/physics/`) |
-| [render.md](render.md) | Sprite rendering, camera, game camera framing, texture caches (`src/render/`) |
+| [render.md](render.md) | Sprites (sheets and animation, mirroring, tint), text, camera framing, texture caches (`src/render/`) |
 | [scripting.md](scripting.md) | Lua sessions, hooks, hot reload, sandbox, the complete script API (`src/scripting/`) |
 | [runtime.md](runtime.md) | Play-mode state machine and the per-frame loop (`src/runtime/`, `src/player.rs`) |
 | [audio.md](audio.md) | Sound playback (`src/audio/`) |

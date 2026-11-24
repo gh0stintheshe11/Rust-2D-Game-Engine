@@ -9,24 +9,24 @@ versions may contain breaking changes).
 
 ### Added
 
+- Text: `draw_text(text, x, y, {size, color, align})` draws text over the
+  game (scores, timers, messages). It is laid out in the camera frame's
+  pixels, so it scales with the window like the sprites.
+- Sprite sheets and animation. An entity with a `frame_size` shows one frame
+  of its image (`frame`); `animation = "0-3"` (with `animation_fps` and
+  `animation_loop`) plays frames while the game runs, and scripts call
+  `play_animation(scene_id, entity_id, "0-3", {fps, loop, restart})`.
+  Physics bodies are one frame big.
+- Sprites can be mirrored (`flip_x`, `flip_y`), faded (`opacity`) and tinted
+  (`tint = "#rrggbb"`) through attributes, in the editor and in games.
 - Audio volume and looping. Scripts call
   `play_sound(path, {volume = 0.5, loop = true})`, `set_sound_volume` and
   `set_master_volume`; Rust code uses `AudioEngine::play_sound_with`,
   `set_volume` and `set_master_volume`.
 - `AudioEngine::offline` mixes sounds into a sample stream instead of an audio
   device, so playback can be tested on machines without one.
-- Sprites can be mirrored (`flip_x`, `flip_y`), faded (`opacity`) and tinted
-  (`tint = "#rrggbb"`) through attributes, in the editor and in games.
-- Sprite sheets and animation. An entity with a `frame_size` shows one frame
-  of its image (`frame`); `animation = "0-3"` (with `animation_fps` and
-  `animation_loop`) plays frames while the game runs, and scripts call
-  `play_animation(scene_id, entity_id, "0-3", {fps, loop, restart})`.
-  Physics bodies are one frame big.
 - `Entity::get_bool`, `get_float`, `get_string`, `get_vector2` and
   `set_or_create_attribute` read and write optional attributes by name.
-- `draw_text(text, x, y, {size, color, align})` draws text over the game
-  (scores, timers, messages). It is laid out in the camera frame's pixels, so
-  it scales with the window like the sprites.
 
 ### Changed
 
