@@ -32,7 +32,7 @@ cargo run
 - **WSLg note:** the Wayland session can occasionally drop the connection (`Broken pipe`) on long sessions — a WSLg quirk. For stability, run through X11: `WAYLAND_DISPLAY= cargo run`
 - macOS/Windows: `cargo run` (no extra system packages needed)
 
-Try the bundled Flappy Bird demo in [`demo/flappy_bird/`](demo/flappy_bird/) — open it via `File → Open Project` (note: its asset paths are currently machine-specific; portability fixes are in progress).
+Try the bundled demo game, [Star Catcher](demo/star_catcher/): open `demo/star_catcher` via `File → Open Project` and press ▶ Play, or run it standalone with `cargo run -p star_catcher`.
 
 ## Documentation
 

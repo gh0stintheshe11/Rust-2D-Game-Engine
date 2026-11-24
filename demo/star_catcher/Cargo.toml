@@ -1,5 +1,5 @@
 [package]
-name = "flappy_bird"
+name = "star_catcher"
 version = "0.1.0"
 edition = "2024"
 publish = false

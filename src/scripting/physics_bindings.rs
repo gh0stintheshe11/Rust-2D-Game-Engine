@@ -47,6 +47,25 @@ impl LuaScripting {
                 })?;
         globals.set("apply_force", apply_force)?;
 
+        // set_angular_velocity(entity_id, radians_per_second); +y is down,
+        // so positive values spin clockwise on screen
+        let physics = Rc::clone(physics_engine);
+        let set_angular_velocity =
+            self.lua
+                .create_function(move |_, (entity_id, velocity): (String, f32)| {
+                    let mut physics = physics.borrow_mut();
+                    let uuid = parse_uuid(&entity_id, "entity")?;
+                    if !physics.has_rigid_body(uuid) {
+                        return Err(mlua::Error::external(format!(
+                            "Entity '{}' not found in physics engine",
+                            uuid
+                        )));
+                    }
+                    physics.set_angular_velocity(uuid, velocity);
+                    Ok(())
+                })?;
+        globals.set("set_angular_velocity", set_angular_velocity)?;
+
         let physics = Rc::clone(physics_engine);
         let apply_impulse =
             self.lua

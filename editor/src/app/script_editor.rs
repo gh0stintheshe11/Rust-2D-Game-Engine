@@ -68,6 +68,11 @@ const API_GROUPS: &[(&str, &[ApiEntry])] = &[
                 "Instant velocity change",
             ),
             (
+                "set_angular_velocity",
+                "set_angular_velocity(entity_id, 0.0)",
+                "Spin in radians per second (positive is clockwise); needs can_rotate",
+            ),
+            (
                 "get_colliding_entities",
                 "get_colliding_entities(entity_id)",
                 "Array of entity ids currently in contact",
@@ -168,6 +173,16 @@ const API_GROUPS: &[(&str, &[ApiEntry])] = &[
                 "create_attribute_bool",
                 "create_attribute_bool(scene_id, entity_id, \"name\", false)",
                 "Add a Boolean attribute",
+            ),
+            (
+                "create_attribute_string",
+                "create_attribute_string(scene_id, entity_id, \"name\", \"\")",
+                "Add a String attribute",
+            ),
+            (
+                "create_attribute_int",
+                "create_attribute_int(scene_id, entity_id, \"name\", 0)",
+                "Add an Integer attribute",
             ),
             (
                 "create_attribute_vector2",

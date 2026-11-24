@@ -1,0 +1,651 @@
+{
+  "scenes": {
+    "d2c90bb1-264b-4ccc-a710-1858539a5890": {
+      "id": "d2c90bb1-264b-4ccc-a710-1858539a5890",
+      "name": "main",
+      "entities": {
+        "ba0c1a0f-0471-4dc6-b8e5-bf7529b52f0c": {
+          "id": "ba0c1a0f-0471-4dc6-b8e5-bf7529b52f0c",
+          "name": "main_camera",
+          "attributes": {
+            "acfd55b1-7782-48cf-b007-23b439515aab": {
+              "id": "acfd55b1-7782-48cf-b007-23b439515aab",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 240.0
+              }
+            },
+            "e5de7098-4808-40a9-af5c-c5612af4d70a": {
+              "id": "e5de7098-4808-40a9-af5c-c5612af4d70a",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 320.0
+              }
+            },
+            "51ff5482-919f-4700-90b3-2a1843c4bb7d": {
+              "id": "51ff5482-919f-4700-90b3-2a1843c4bb7d",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "03a78bff-bde3-426d-86da-a57e4027ee7b": {
+              "id": "03a78bff-bde3-426d-86da-a57e4027ee7b",
+              "name": "width",
+              "data_type": "Float",
+              "value": {
+                "Float": 480.0
+              }
+            },
+            "dd69c5da-f4cc-4186-9afc-c1e582ea1284": {
+              "id": "dd69c5da-f4cc-4186-9afc-c1e582ea1284",
+              "name": "height",
+              "data_type": "Float",
+              "value": {
+                "Float": 640.0
+              }
+            },
+            "e50f0bff-ca70-442b-b26a-618bc5df4214": {
+              "id": "e50f0bff-ca70-442b-b26a-618bc5df4214",
+              "name": "zoom",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "7319e599-8995-4a55-8398-d60db12aa991": {
+              "id": "7319e599-8995-4a55-8398-d60db12aa991",
+              "name": "rotation",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "1517766f-a368-462d-94da-34f1daed3919": {
+              "id": "1517766f-a368-462d-94da-34f1daed3919",
+              "name": "is_camera",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            }
+          },
+          "images": [],
+          "sounds": [],
+          "script": null
+        },
+        "14a35333-7b76-4317-814d-29fba33b7aa4": {
+          "id": "14a35333-7b76-4317-814d-29fba33b7aa4",
+          "name": "background",
+          "attributes": {
+            "e31afa6a-f071-491b-a486-e73236a48ef7": {
+              "id": "e31afa6a-f071-491b-a486-e73236a48ef7",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "e71b8c71-0fe4-4249-9f3b-fc5d7f02555a": {
+              "id": "e71b8c71-0fe4-4249-9f3b-fc5d7f02555a",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "afbd5306-ab7d-4b39-b393-e33a651436b9": {
+              "id": "afbd5306-ab7d-4b39-b393-e33a651436b9",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": -10.0
+              }
+            }
+          },
+          "images": [
+            "assets/images/bg.png"
+          ],
+          "sounds": [],
+          "script": null
+        },
+        "dc1379ea-f94e-4163-849f-aeb3ee19b0ff": {
+          "id": "dc1379ea-f94e-4163-849f-aeb3ee19b0ff",
+          "name": "ground",
+          "attributes": {
+            "8483dfcd-9ba4-4f20-97f2-1a13b3eb3dd9": {
+              "id": "8483dfcd-9ba4-4f20-97f2-1a13b3eb3dd9",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "202ab1c6-266c-4824-97a8-9854b62d6dbb": {
+              "id": "202ab1c6-266c-4824-97a8-9854b62d6dbb",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 600.0
+              }
+            },
+            "3b9d23fe-0aa2-4d3b-afa7-b56ac2b167d9": {
+              "id": "3b9d23fe-0aa2-4d3b-afa7-b56ac2b167d9",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "9ecc5d01-ccca-4714-8cbe-2992f2f26f99": {
+              "id": "9ecc5d01-ccca-4714-8cbe-2992f2f26f99",
+              "name": "is_movable",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "74c42dbc-0165-4884-81f9-e98cfd04d9e0": {
+              "id": "74c42dbc-0165-4884-81f9-e98cfd04d9e0",
+              "name": "has_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "91a454bb-2d21-465e-805a-91dc7c999cf5": {
+              "id": "91a454bb-2d21-465e-805a-91dc7c999cf5",
+              "name": "creates_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "a7409790-4c19-45f3-87c7-6d412f80881a": {
+              "id": "a7409790-4c19-45f3-87c7-6d412f80881a",
+              "name": "has_collision",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "a0cb9d6b-d546-4dab-89cb-faad6673079a": {
+              "id": "a0cb9d6b-d546-4dab-89cb-faad6673079a",
+              "name": "friction",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.5
+              }
+            },
+            "9c783c6e-33c7-4db0-ab2e-6f08eb144b7f": {
+              "id": "9c783c6e-33c7-4db0-ab2e-6f08eb144b7f",
+              "name": "restitution",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "2ad8c3ad-e817-4d54-bd2d-e5a13e9173b8": {
+              "id": "2ad8c3ad-e817-4d54-bd2d-e5a13e9173b8",
+              "name": "density",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "42a801e3-5fac-4e66-b198-b7ed6bab6173": {
+              "id": "42a801e3-5fac-4e66-b198-b7ed6bab6173",
+              "name": "can_rotate",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "a4797c70-612b-427e-8e46-02d5e7515558": {
+              "id": "a4797c70-612b-427e-8e46-02d5e7515558",
+              "name": "collider_width",
+              "data_type": "Float",
+              "value": {
+                "Float": 480.0
+              }
+            },
+            "d6c2a32b-acbc-4d01-a7c8-79fb22170f03": {
+              "id": "d6c2a32b-acbc-4d01-a7c8-79fb22170f03",
+              "name": "collider_height",
+              "data_type": "Float",
+              "value": {
+                "Float": 40.0
+              }
+            }
+          },
+          "images": [
+            "assets/images/ground.png"
+          ],
+          "sounds": [],
+          "script": null
+        },
+        "384b087c-6847-4969-856e-130057a959c9": {
+          "id": "384b087c-6847-4969-856e-130057a959c9",
+          "name": "left_wall",
+          "attributes": {
+            "2b68beaa-081e-43fb-a693-d275e951ef75": {
+              "id": "2b68beaa-081e-43fb-a693-d275e951ef75",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": -20.0
+              }
+            },
+            "1dbdbd11-8d73-41d6-8477-e7bcddae43d8": {
+              "id": "1dbdbd11-8d73-41d6-8477-e7bcddae43d8",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": -200.0
+              }
+            },
+            "ea7e8fb5-f225-40d3-bb40-26700c421a5e": {
+              "id": "ea7e8fb5-f225-40d3-bb40-26700c421a5e",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "df39e87e-4f78-41ef-a6c0-022d2f6afc69": {
+              "id": "df39e87e-4f78-41ef-a6c0-022d2f6afc69",
+              "name": "is_movable",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "053da6bb-efd8-4af1-b408-086a2f88ec87": {
+              "id": "053da6bb-efd8-4af1-b408-086a2f88ec87",
+              "name": "has_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "1ea51f50-c0a7-4fc0-9f9d-24137912a3ce": {
+              "id": "1ea51f50-c0a7-4fc0-9f9d-24137912a3ce",
+              "name": "creates_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "a4ffe153-7ab5-43f6-a6f2-6b5bd9da08f9": {
+              "id": "a4ffe153-7ab5-43f6-a6f2-6b5bd9da08f9",
+              "name": "has_collision",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "610a816c-d7e1-4dea-91d1-fcdda3bfd9b8": {
+              "id": "610a816c-d7e1-4dea-91d1-fcdda3bfd9b8",
+              "name": "friction",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.5
+              }
+            },
+            "bab6fa33-bfc9-404d-8c96-b37ec1ca8bfc": {
+              "id": "bab6fa33-bfc9-404d-8c96-b37ec1ca8bfc",
+              "name": "restitution",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "cdef71a0-afd7-44d3-8a4e-bc082e236169": {
+              "id": "cdef71a0-afd7-44d3-8a4e-bc082e236169",
+              "name": "density",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "7e21c0d0-fddb-4674-aec4-212a7074a862": {
+              "id": "7e21c0d0-fddb-4674-aec4-212a7074a862",
+              "name": "can_rotate",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "e507bd71-30ea-4d82-b6e9-7cce0775395f": {
+              "id": "e507bd71-30ea-4d82-b6e9-7cce0775395f",
+              "name": "collider_width",
+              "data_type": "Float",
+              "value": {
+                "Float": 20.0
+              }
+            },
+            "42a8a5cd-0f2c-4c00-bdcb-4c7aff4cf081": {
+              "id": "42a8a5cd-0f2c-4c00-bdcb-4c7aff4cf081",
+              "name": "collider_height",
+              "data_type": "Float",
+              "value": {
+                "Float": 840.0
+              }
+            }
+          },
+          "images": [],
+          "sounds": [],
+          "script": null
+        },
+        "269e72d0-c0d0-42aa-9f03-2d76dee1d0f5": {
+          "id": "269e72d0-c0d0-42aa-9f03-2d76dee1d0f5",
+          "name": "right_wall",
+          "attributes": {
+            "e0643ddc-12eb-4676-ac92-0cd1dd02ee12": {
+              "id": "e0643ddc-12eb-4676-ac92-0cd1dd02ee12",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 480.0
+              }
+            },
+            "4d355639-d6c6-4c52-a001-010e1a21171c": {
+              "id": "4d355639-d6c6-4c52-a001-010e1a21171c",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": -200.0
+              }
+            },
+            "e18cd178-2723-4767-9dbc-68d471098405": {
+              "id": "e18cd178-2723-4767-9dbc-68d471098405",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "a2b6a5d1-1aa1-489b-b2dc-9cfb7ea1e787": {
+              "id": "a2b6a5d1-1aa1-489b-b2dc-9cfb7ea1e787",
+              "name": "is_movable",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "b77ae627-6a6d-4ae9-a18a-b5d57b275b6e": {
+              "id": "b77ae627-6a6d-4ae9-a18a-b5d57b275b6e",
+              "name": "has_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "00d14f9c-be4b-4a04-a86e-6100bbea90c8": {
+              "id": "00d14f9c-be4b-4a04-a86e-6100bbea90c8",
+              "name": "creates_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "4a127d36-ea94-4506-ab5e-db50a70b5c6c": {
+              "id": "4a127d36-ea94-4506-ab5e-db50a70b5c6c",
+              "name": "has_collision",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "ad5d8435-0dd6-46b5-b06a-10b3c67d957c": {
+              "id": "ad5d8435-0dd6-46b5-b06a-10b3c67d957c",
+              "name": "friction",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.5
+              }
+            },
+            "c2bf7d89-ce70-4211-9e95-f86071f6bdaa": {
+              "id": "c2bf7d89-ce70-4211-9e95-f86071f6bdaa",
+              "name": "restitution",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "1c5408ed-7369-436b-9449-6fb76b992853": {
+              "id": "1c5408ed-7369-436b-9449-6fb76b992853",
+              "name": "density",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "8a0a1b09-5c17-426b-8de9-5193d7e65534": {
+              "id": "8a0a1b09-5c17-426b-8de9-5193d7e65534",
+              "name": "can_rotate",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "f622f70e-d350-4023-a6a8-ae04c27f5e57": {
+              "id": "f622f70e-d350-4023-a6a8-ae04c27f5e57",
+              "name": "collider_width",
+              "data_type": "Float",
+              "value": {
+                "Float": 20.0
+              }
+            },
+            "5327d93f-3715-403d-bd7f-e4eedbedc478": {
+              "id": "5327d93f-3715-403d-bd7f-e4eedbedc478",
+              "name": "collider_height",
+              "data_type": "Float",
+              "value": {
+                "Float": 840.0
+              }
+            }
+          },
+          "images": [],
+          "sounds": [],
+          "script": null
+        },
+        "74532c26-7452-41ee-ad92-3e391abf5475": {
+          "id": "74532c26-7452-41ee-ad92-3e391abf5475",
+          "name": "paddle",
+          "attributes": {
+            "07cc6c67-939f-446a-9150-2658785297cf": {
+              "id": "07cc6c67-939f-446a-9150-2658785297cf",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 192.0
+              }
+            },
+            "407ca30d-feae-49fb-bb12-615863c2cf10": {
+              "id": "407ca30d-feae-49fb-bb12-615863c2cf10",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 560.0
+              }
+            },
+            "0b8dcad4-6d36-46c4-ac39-e69646431372": {
+              "id": "0b8dcad4-6d36-46c4-ac39-e69646431372",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "539adb06-65ae-416c-9b5b-26beff6c23d0": {
+              "id": "539adb06-65ae-416c-9b5b-26beff6c23d0",
+              "name": "is_movable",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "ebc5e569-a491-4dfd-b01b-7c8a9dbaa2ea": {
+              "id": "ebc5e569-a491-4dfd-b01b-7c8a9dbaa2ea",
+              "name": "has_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "07db0ef1-5b9c-4560-a907-77c19ab2a9e0": {
+              "id": "07db0ef1-5b9c-4560-a907-77c19ab2a9e0",
+              "name": "creates_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "6c683e13-8bcf-4ccf-8802-1117ebe752dd": {
+              "id": "6c683e13-8bcf-4ccf-8802-1117ebe752dd",
+              "name": "has_collision",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "e0f3deb3-e01e-40e5-97d8-836b69bfa634": {
+              "id": "e0f3deb3-e01e-40e5-97d8-836b69bfa634",
+              "name": "friction",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.5
+              }
+            },
+            "45ce72e0-b0f9-43c6-8aac-3d58b2cb62ab": {
+              "id": "45ce72e0-b0f9-43c6-8aac-3d58b2cb62ab",
+              "name": "restitution",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "592ee1be-3045-4011-9cf8-63fa91690337": {
+              "id": "592ee1be-3045-4011-9cf8-63fa91690337",
+              "name": "density",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "ad25bb82-8759-474d-b68a-1900f42edea7": {
+              "id": "ad25bb82-8759-474d-b68a-1900f42edea7",
+              "name": "can_rotate",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "f66d7b1e-98a5-4c7a-a026-0c282dd9ca1c": {
+              "id": "f66d7b1e-98a5-4c7a-a026-0c282dd9ca1c",
+              "name": "is_kinematic",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "1750a578-88bb-4888-99f5-5de189efb586": {
+              "id": "1750a578-88bb-4888-99f5-5de189efb586",
+              "name": "collider_width",
+              "data_type": "Float",
+              "value": {
+                "Float": 96.0
+              }
+            },
+            "0c613ab7-c9fb-4fc3-9048-b04fd7c57567": {
+              "id": "0c613ab7-c9fb-4fc3-9048-b04fd7c57567",
+              "name": "collider_height",
+              "data_type": "Float",
+              "value": {
+                "Float": 20.0
+              }
+            },
+            "54dd2425-5a76-4d7f-bdbb-ce3d8b7d45d3": {
+              "id": "54dd2425-5a76-4d7f-bdbb-ce3d8b7d45d3",
+              "name": "speed",
+              "data_type": "Float",
+              "value": {
+                "Float": 320.0
+              }
+            }
+          },
+          "images": [
+            "assets/images/paddle.png"
+          ],
+          "sounds": [],
+          "script": "assets/scripts/paddle.lua"
+        },
+        "bfce6049-c41a-46d4-bae1-8a5ee077586e": {
+          "id": "bfce6049-c41a-46d4-bae1-8a5ee077586e",
+          "name": "spawner",
+          "attributes": {
+            "ea5e2fd6-d4ad-4d44-bc09-64d6c8c11580": {
+              "id": "ea5e2fd6-d4ad-4d44-bc09-64d6c8c11580",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "9a87b3f3-0536-4d62-b73a-e041d03aa34b": {
+              "id": "9a87b3f3-0536-4d62-b73a-e041d03aa34b",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "dc4e1620-c588-4cd4-be28-6296209723af": {
+              "id": "dc4e1620-c588-4cd4-be28-6296209723af",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "6f829742-8c3e-47f7-819e-05a27ea27f8d": {
+              "id": "6f829742-8c3e-47f7-819e-05a27ea27f8d",
+              "name": "spawn_interval",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "e8daf9d7-45e8-4012-a21a-37ccb13ee0e1": {
+              "id": "e8daf9d7-45e8-4012-a21a-37ccb13ee0e1",
+              "name": "rock_chance",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.2
+              }
+            },
+            "6d522bf4-de6c-4623-a15e-02823a265900": {
+              "id": "6d522bf4-de6c-4623-a15e-02823a265900",
+              "name": "seed",
+              "data_type": "Integer",
+              "value": {
+                "Integer": 0
+              }
+            }
+          },
+          "images": [],
+          "sounds": [],
+          "script": "assets/scripts/spawner.lua"
+        }
+      },
+      "shared_entity_refs": [],
+      "default_camera": "ba0c1a0f-0471-4dc6-b8e5-bf7529b52f0c"
+    }
+  },
+  "shared_entities": {},
+  "active_scene": "d2c90bb1-264b-4ccc-a710-1858539a5890"
+}

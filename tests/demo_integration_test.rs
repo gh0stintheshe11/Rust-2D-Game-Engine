@@ -1,256 +1,174 @@
-/// End-to-end integration test: loads the real Flappy Bird demo project and
-/// simulates several seconds of gameplay headlessly (scripts + physics),
-/// asserting the game actually plays: the bird falls, the spawner script
-/// creates pipes at runtime, and pipes move left under script control.
-#[cfg(test)]
-mod tests {
-    use rust_2d_game_engine::audio::AudioEngine;
-    use rust_2d_game_engine::input::InputHandler;
-    use rust_2d_game_engine::physics::PhysicsEngine;
-    use rust_2d_game_engine::project::ProjectManager;
-    use rust_2d_game_engine::scripting::LuaScripting;
-    use std::cell::RefCell;
-    use std::path::PathBuf;
-    use std::rc::Rc;
+//! End-to-end tests: load the Star Catcher demo project and play it
+//! headlessly through the real game loop (scripts, physics, collisions).
 
-    const FRAME_DT: f32 = 1.0 / 60.0;
+use rust_2d_game_engine::audio::AudioEngine;
+use rust_2d_game_engine::input::InputHandler;
+use rust_2d_game_engine::logger::{ConsoleMessageType, LOGGER};
+use rust_2d_game_engine::physics::PhysicsEngine;
+use rust_2d_game_engine::project::ProjectManager;
+use rust_2d_game_engine::render::RenderEngine;
+use rust_2d_game_engine::runtime::{GameRuntime, RuntimeState};
+use rust_2d_game_engine::scene::{AttributeValue, Entity, SceneManager};
+use std::path::PathBuf;
 
-    struct Sim {
-        lua: LuaScripting,
-        scene_manager: Rc<RefCell<rust_2d_game_engine::scene::SceneManager>>,
-        physics: Rc<RefCell<PhysicsEngine>>,
-        input: Rc<RefCell<InputHandler>>,
-        scene_id: uuid::Uuid,
+const FRAME: f32 = 1.0 / 60.0;
+
+fn demo_dir() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("demo/star_catcher")
+}
+
+fn load_demo() -> SceneManager {
+    ProjectManager::load_project_full(&demo_dir())
+        .expect("the demo project loads")
+        .scene_manager
+}
+
+/// The demo with a fixed random seed and the given share of rocks.
+fn runtime(seed: i32, rock_chance: f32) -> GameRuntime {
+    let mut manager = load_demo();
+    let spawner = manager
+        .get_active_scene_mut()
+        .unwrap()
+        .entities
+        .values_mut()
+        .find(|e| e.name == "spawner")
+        .expect("spawner entity");
+    set(spawner, "seed", AttributeValue::Integer(seed));
+    set(spawner, "rock_chance", AttributeValue::Float(rock_chance));
+
+    let mut runtime = GameRuntime::new(
+        manager,
+        PhysicsEngine::new(),
+        RenderEngine::new(),
+        InputHandler::new(),
+        AudioEngine::new(),
+        60,
+    );
+    runtime.run().expect("the demo starts");
+    runtime
+}
+
+fn set(entity: &mut Entity, name: &str, value: AttributeValue) {
+    let id = entity.get_attribute_by_name(name).unwrap().id;
+    entity.modify_attribute(id, None, None, Some(value)).unwrap();
+}
+
+fn play(runtime: &mut GameRuntime, seconds: f32) {
+    for _ in 0..(seconds / FRAME) as usize {
+        runtime.tick(FRAME);
+    }
+}
+
+fn entities_named<'a>(manager: &'a SceneManager, name: &str) -> Vec<&'a Entity> {
+    manager
+        .get_active_scene()
+        .unwrap()
+        .entities
+        .values()
+        .filter(|e| e.name == name)
+        .collect()
+}
+
+fn position(manager: &SceneManager, name: &str) -> (f32, f32) {
+    let entity = entities_named(manager, name)[0];
+    (entity.get_x(), entity.get_y())
+}
+
+fn script_errors() -> Vec<String> {
+    LOGGER
+        .get_console_messages()
+        .into_iter()
+        .filter(|m| m.message_type == ConsoleMessageType::Error)
+        .map(|m| m.text)
+        .collect()
+}
+
+#[test]
+fn test_demo_assets_resolve() {
+    let manager = load_demo();
+    let scene = manager.get_active_scene().expect("an active scene");
+    for name in ["background", "ground", "paddle", "spawner", "main_camera"] {
+        assert!(
+            scene.entities.values().any(|e| e.name == name),
+            "missing entity {}",
+            name
+        );
     }
 
-    impl Sim {
-        fn step_frames(&mut self, frames: usize) {
-            for _ in 0..frames {
-                self.lua.update_global_time(FRAME_DT).unwrap();
-                self.lua.bind_keys_pressed(&self.input.borrow()).unwrap();
-                self.lua.run_scripts_for_scene(self.scene_id).unwrap();
-
-                {
-                    let mut manager = self.scene_manager.borrow_mut();
-                    let scene = manager.get_active_scene_mut().unwrap();
-                    self.physics.borrow_mut().step(scene);
-                }
-
-                // Mirror the runtime: collision hooks fire after physics
-                self.lua.dispatch_collision_events(self.scene_id).unwrap();
-            }
-        }
-
-        fn entity_x_by_name_prefix(&self, prefix: &str) -> Vec<(String, f32)> {
-            let manager = self.scene_manager.borrow();
-            let scene = manager.get_active_scene().unwrap();
-            scene
-                .entities
-                .values()
-                .filter(|e| e.name.starts_with(prefix))
-                .map(|e| (e.name.clone(), e.get_x()))
-                .collect()
+    // Every stored path resolves to a file on this machine
+    for entity in scene.entities.values() {
+        let paths = entity
+            .images
+            .iter()
+            .chain(&entity.sounds)
+            .chain(entity.script.iter());
+        for path in paths {
+            assert!(
+                path.is_absolute() && path.is_file(),
+                "{:?} of {} doesn't resolve",
+                path,
+                entity.name
+            );
         }
     }
-
-    fn load_demo() -> Sim {
-        let demo = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("demo/flappy_bird");
-        assert!(demo.exists(), "demo project not found at {:?}", demo);
-
-        // Scripts resolve relative asset paths against the open project
-        ProjectManager::set_project_path(demo.to_string_lossy().to_string());
-
-        let loaded = ProjectManager::load_project_full(&demo).expect("demo project should load");
-        let scene_manager = Rc::new(RefCell::new(loaded.scene_manager));
-        let scene_id = scene_manager
-            .borrow()
-            .active_scene
-            .expect("demo should have an active scene");
-
-        let physics = Rc::new(RefCell::new(PhysicsEngine::new()));
-        physics
-            .borrow_mut()
-            .load_scene(scene_manager.borrow().get_active_scene().unwrap());
-
-        let input = Rc::new(RefCell::new(InputHandler::new()));
-        let audio = Rc::new(RefCell::new(AudioEngine::new()));
-        let mut lua = LuaScripting::new();
-        lua.start_session(
-            Rc::clone(&scene_manager),
-            Rc::clone(&physics),
-            Rc::clone(&input),
-            Rc::clone(&audio),
-        )
-        .expect("Lua session should start");
-
-        Sim {
-            lua,
-            scene_manager,
-            physics,
-            input,
-            scene_id,
-        }
+    for file in ["star.png", "rock.png", "tally.png"] {
+        assert!(demo_dir().join("assets/images").join(file).is_file());
     }
+}
 
-    #[test]
-    fn test_demo_loads_with_resolved_asset_paths() {
-        let sim = load_demo();
-        let manager = sim.scene_manager.borrow();
-        let scene = manager.get_active_scene().unwrap();
+#[test]
+fn test_demo_drops_and_catches_stars() {
+    let mut runtime = runtime(42, 0.0);
+    let paddle_start = position(&runtime.get_scene_manager(), "paddle");
+    let ground_start = position(&runtime.get_scene_manager(), "ground");
 
+    play(&mut runtime, 2.5);
+    {
+        let manager = runtime.get_scene_manager();
+        let stars = entities_named(&manager, "star");
+        assert!(!stars.is_empty(), "the spawner drops stars");
         assert!(
-            scene.entities.values().any(|e| e.name == "bird"),
-            "demo scene should contain the bird"
+            stars.iter().any(|s| s.get_y() > 0.0),
+            "stars fall into the field"
         );
-
-        // Every stored asset/script path must resolve to a real file on this
-        // machine (this is the portability fix's ground truth)
-        for entity in scene.entities.values() {
-            for image in &entity.images {
-                assert!(
-                    image.is_absolute() && image.exists(),
-                    "image path should resolve to an existing file: {:?} (entity {})",
-                    image,
-                    entity.name
-                );
-            }
-            for sound in &entity.sounds {
-                assert!(
-                    sound.is_absolute() && sound.exists(),
-                    "sound path should resolve to an existing file: {:?} (entity {})",
-                    sound,
-                    entity.name
-                );
-            }
-            if let Some(script) = &entity.script {
-                assert!(
-                    script.is_absolute() && script.exists(),
-                    "script path should resolve to an existing file: {:?} (entity {})",
-                    script,
-                    entity.name
-                );
-            }
-        }
-    }
-
-    #[test]
-    fn test_demo_plays_headlessly() {
-        let mut sim = load_demo();
-
-        let initial_bird_y = {
-            let manager = sim.scene_manager.borrow();
-            let scene = manager.get_active_scene().unwrap();
-            scene
-                .entities
-                .values()
-                .find(|e| e.name == "bird")
-                .expect("bird entity")
-                .get_y()
-        };
-        let ground_positions_before: Vec<(String, f32, f32)> = {
-            let manager = sim.scene_manager.borrow();
-            let scene = manager.get_active_scene().unwrap();
-            scene
-                .entities
-                .values()
-                .filter(|e| e.name.starts_with("ground"))
-                .map(|e| (e.name.clone(), e.get_x(), e.get_y()))
-                .collect()
-        };
         assert!(
-            !ground_positions_before.is_empty(),
-            "demo should have ground entities"
-        );
-        let initial_entity_count = sim
-            .scene_manager
-            .borrow()
-            .get_active_scene()
-            .unwrap()
-            .entities
-            .len();
-
-        // ~5.5 simulated seconds: past the spawner's 5s threshold
-        sim.step_frames(330);
-
-        // Bird must have fallen (no input; +Y is down)
-        let bird_y = {
-            let manager = sim.scene_manager.borrow();
-            let scene = manager.get_active_scene().unwrap();
-            scene
-                .entities
-                .values()
-                .find(|e| e.name == "bird")
-                .expect("bird entity")
-                .get_y()
-        };
-        assert!(
-            bird_y > initial_bird_y + 5.0,
-            "bird should fall under gravity: initial y {}, now {}",
-            initial_bird_y,
-            bird_y
-        );
-
-        // The spawner script must have created a pipe pair at runtime
-        let spawned = sim.entity_x_by_name_prefix("top_pipe_");
-        assert!(
-            spawned.len() >= 2,
-            "pipe spawner should have created at least one pipe pair; entities now: {} (was {})",
-            sim.scene_manager
-                .borrow()
-                .get_active_scene()
-                .unwrap()
-                .entities
-                .len(),
-            initial_entity_count
-        );
-
-        // Spawned pipes are script-driven: they must move left over the next second
-        let before = sim.entity_x_by_name_prefix("top_pipe_");
-        sim.step_frames(60);
-        let after = sim.entity_x_by_name_prefix("top_pipe_");
-
-        let moved_left = before.iter().any(|(name, x_before)| {
-            after
+            stars
                 .iter()
-                .find(|(n, _)| n == name)
-                .map(|(_, x_after)| *x_after < *x_before - 20.0)
-                .unwrap_or(false)
-        });
-        assert!(
-            moved_left,
-            "spawned pipes should move left ~50px/s under script control.\nbefore: {:?}\nafter: {:?}",
-            before, after
-        );
-
-        // Static scenery must not move: the grounds are fixed bodies
-        // (regression: they used to spawn from a stale "position" attribute
-        // and fall under gravity; large kinematic pipes also used to be put
-        // to sleep mid-flight by rapier's size-normalized thresholds)
-        let ground_positions_after: Vec<(String, f32, f32)> = {
-            let manager = sim.scene_manager.borrow();
-            let scene = manager.get_active_scene().unwrap();
-            scene
-                .entities
-                .values()
-                .filter(|e| e.name.starts_with("ground"))
-                .map(|e| (e.name.clone(), e.get_x(), e.get_y()))
-                .collect()
-        };
-        assert_eq!(
-            ground_positions_before, ground_positions_after,
-            "ground entities must stay exactly where they were placed"
-        );
-
-        // Pre-placed pipes must still be moving at the end of the sim
-        // (regression: they froze mid-flight when rapier slept them)
-        let pre_placed_before = sim.entity_x_by_name_prefix("top_pipe1");
-        sim.step_frames(30);
-        let pre_placed_after = sim.entity_x_by_name_prefix("top_pipe1");
-        assert!(
-            pre_placed_after[0].1 < pre_placed_before[0].1 - 10.0,
-            "pre-placed pipes must keep scrolling: {:?} -> {:?}",
-            pre_placed_before,
-            pre_placed_after
+                .any(|s| s.get_attribute_by_name("rotation").is_ok()),
+            "falling stars spin"
         );
     }
+
+    play(&mut runtime, 30.0);
+    assert_eq!(runtime.get_state(), RuntimeState::Playing, "stars never end the game");
+    let manager = runtime.get_scene_manager();
+    assert!(
+        !entities_named(&manager, "tally").is_empty(),
+        "stars landing on the paddle are caught"
+    );
+    assert!(
+        entities_named(&manager, "star").len() < 15,
+        "missed stars are removed when they hit the ground"
+    );
+    assert_eq!(position(&manager, "paddle"), paddle_start, "no input, no movement");
+    assert_eq!(position(&manager, "ground"), ground_start, "the ground is fixed");
+    let errors = script_errors();
+    assert!(errors.is_empty(), "script errors: {:?}", errors);
+}
+
+#[test]
+fn test_a_rock_on_the_paddle_ends_the_game() {
+    let mut runtime = runtime(7, 1.0);
+    for _ in 0..(60.0 / FRAME) as usize {
+        runtime.tick(FRAME);
+        if runtime.get_state() == RuntimeState::Ended {
+            break;
+        }
+    }
+    assert_eq!(runtime.get_state(), RuntimeState::Ended);
+
+    // Restarting begins a new game from the saved scene
+    runtime.restart().unwrap();
+    assert_eq!(runtime.get_state(), RuntimeState::Playing);
+    assert!(entities_named(&runtime.get_scene_manager(), "rock").is_empty());
 }

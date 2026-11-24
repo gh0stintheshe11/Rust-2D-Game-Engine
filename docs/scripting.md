@@ -78,6 +78,7 @@ Physics:
 | `set_velocity(entity_id, x, y)` | Entity must have a physics body |
 | `apply_force(entity_id, x, y)` | Pushes for the current frame; call it every frame for a continuous force (independent of the frame rate) |
 | `apply_impulse(entity_id, x, y)` | Instant change of momentum |
+| `set_angular_velocity(entity_id, radians_per_second)` | Positive spins clockwise on screen; the body needs `can_rotate` |
 | `add_entity_to_physics_engine(entity_id)` | Builds the body from the entity's attributes (active scene); re-adding replaces it, e.g. after changing physics attributes |
 | `remove_entity_from_physics_engine(entity_id)` | |
 | `get_colliding_entities(entity_id)` | Array of entity ids currently touching; empty if the entity has no body |
@@ -123,7 +124,7 @@ Attributes:
 | `get_attribute(scene_id, entity_id, name)` | Number, boolean, string or `{x, y}` table; nil if missing |
 | `set_attribute(scene_id, entity_id, name, value)` | Coerces the value to the attribute's type; errors on a mismatch, a missing attribute, or an Integer out of range. Setting `x`, `y` or `position` moves the physics body |
 | `has_attribute(scene_id, entity_id, name)` | |
-| `create_attribute_float` / `create_attribute_bool(scene_id, entity_id, name, value)` | |
+| `create_attribute_float` / `_bool` / `_string` / `_int(scene_id, entity_id, name, value)` | |
 | `create_attribute_vector2(scene_id, entity_id, name, x, y)` | |
 | `update_entity_attribute_bool(scene_id, entity_id, name, value)` | Sets a Boolean attribute |
 

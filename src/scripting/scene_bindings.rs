@@ -303,6 +303,18 @@ impl LuaScripting {
             AttributeType::Boolean,
             AttributeValue::Boolean
         );
+        register_attribute_creator!(
+            "create_attribute_string",
+            String,
+            AttributeType::String,
+            AttributeValue::String
+        );
+        register_attribute_creator!(
+            "create_attribute_int",
+            i32,
+            AttributeType::Integer,
+            AttributeValue::Integer
+        );
 
         let manager = Rc::clone(scene_manager);
         let create_attribute_vector2 = self.lua.create_function(
