@@ -1,3 +1,5 @@
+*Archived course project proposal (Oct 2024). The current documentation is in [docs/](../README.md).*
+
 # ECE 1724 Project Proposal: Rust 2D Game Engine
 
 ## Team Members

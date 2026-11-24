@@ -1,4 +1,4 @@
-*Archived course final report (Dec 2024). Kept for historical reference; module docs in this folder supersede it.*
+*Archived course final report (Dec 2024), describing the project at that time. The current documentation is in [docs/](../README.md).*
 
 # Rust 2D Game Engine
 
@@ -2122,8 +2122,8 @@ _An intuitive, real-time development interface powered by [egui](https://crates.
 
 Overview of the GUI:
 
-![Night GUI Overview](../final_report_assets/GUI.png)
-![Light GUI Overview](../final_report_assets/light_mode.png)
+![Night GUI Overview](final_report_assets/GUI.png)
+![Light GUI Overview](../images/editor.png)
 
 > [!IMPORTANT]
 > YES, we DID make a flappy bird game in the engine :)
@@ -2134,27 +2134,27 @@ Overview of the GUI:
 
   - Create, load, and work with projects.<br>
 
-    ![New Project](../final_report_assets/newproject.png)
+    ![New Project](final_report_assets/newproject.png)
 
   - Automatic saving
 
 - Customization Options: <br>
 
-    ![Customization Overview](../final_report_assets/panel_control.png)
+    ![Customization Overview](final_report_assets/panel_control.png)
 
   - Dark Mode
   - Show or hide panels
   - Debug Overlay <br>
 
-    ![Debug Overview](../final_report_assets/debug_overlay.png)
+    ![Debug Overview](final_report_assets/debug_overlay.png)
 
 - File Import
 
-    ![File Import](../final_report_assets/import_resources.png)
+    ![File Import](final_report_assets/import_resources.png)
 
 - Editor Switching
 
-    ![Editor Switching](../final_report_assets/editor.png)
+    ![Editor Switching](final_report_assets/editor.png)
 
 #### Scene
 
@@ -2169,13 +2169,13 @@ Overview of the GUI:
 - Clicking any Scene, Entity, or Resource displays its details in the Inspector Panel.
 
     <a href="modify_scene">
-    <img height=150 align="top" src="../final_report_assets/modify_scene.png" />
+    <img height=150 align="top" src="final_report_assets/modify_scene.png" />
     </a>
     <a href="modify_entity">
-    <img height=300 align="top" src="../final_report_assets/modify_entity.png" />
+    <img height=300 align="top" src="final_report_assets/modify_entity.png" />
     </a>
     <a href="new_scene">
-    <img height=300 align="top" src="../final_report_assets/new_scene.png" />
+    <img height=300 align="top" src="final_report_assets/new_scene.png" />
     </a>
 
 #### File Panel
@@ -2194,21 +2194,21 @@ Overview of the GUI:
   - Modify entity data or add new attributes directly.
 
     <a href="Edit Attributes">
-    <img height=300 align="top" src="../final_report_assets/edit_add_attr.png" />
+    <img height=300 align="top" src="final_report_assets/edit_add_attr.png" />
     </a>
     <a href="Remove Attributes">
-    <img height=300 align="top" src="../final_report_assets/remove_attr.png" />
+    <img height=300 align="top" src="final_report_assets/remove_attr.png" />
     </a>
 
 - Resource Preview:
   - Preview images, sounds, fonts, scripts and thier metadata in the Inspector Panel.
   - Use optimized lib for fast metadata preview
 
-    <a href="../final_report_assets/inspector_preview.png">
-    <img height=300 align="top" src="../final_report_assets/inspector_preview.png" />
+    <a href="final_report_assets/inspector_preview.png">
+    <img height=300 align="top" src="final_report_assets/inspector_preview.png" />
     </a>
-    <a href="../final_report_assets/inspector_sound.png">
-    <img height=300 align="top" src="../final_report_assets/inspector_sound.png" />
+    <a href="final_report_assets/inspector_sound.png">
+    <img height=300 align="top" src="final_report_assets/inspector_sound.png" />
     </a>
 
 ## User's Guide
@@ -2408,7 +2408,7 @@ ProjectManager::build_project(project_path)?;
 #### Create new project
 
 To create a new project, click on `File`->`New Project`->enter your project name and path you wish to save it in->press `Create`.
-![alt text](../final_report_assets/newproject.png)
+![alt text](final_report_assets/newproject.png)
 
 #### Open project
 
@@ -2433,7 +2433,7 @@ To save a project, click on `File`->`Save Project`->enter your project path.
 #### Create new scene
 
 Top left Scene panel ->`+`-> select `Scene` -> enter name and click `Create`
-![alt text](../final_report_assets/new_scene.png)
+![alt text](final_report_assets/new_scene.png)
 
 #### Scene camera control
 Right click and hold to move around. Middle mouse button to zoom in and out.
@@ -2441,30 +2441,30 @@ Right click and hold to move around. Middle mouse button to zoom in and out.
 #### Create new entity/camera/physics
 
 Top left Scene panel ->`+`-> select `Entity`/`Camera`/`Physics` -> enter name and click `Create` (There must be at least one scene first)
-![alt text](../final_report_assets/new_entity.png)
+![alt text](final_report_assets/new_entity.png)
 
 #### Create new resource(image/sound/script)
 
-![alt text](../final_report_assets/new_resource.png)
+![alt text](final_report_assets/new_resource.png)
 
 #### Import new resources(image/sound/script)
-![alt text](../final_report_assets/import_resources.png)
+![alt text](final_report_assets/import_resources.png)
 
 #### Edit/rename/delete entity
 
 Right click on the entity you wish to edit.
-![alt text](../final_report_assets/edit_entity.png)
+![alt text](final_report_assets/edit_entity.png)
 
 #### Add/Edit metadatas
 
 Select an entity/resource, then click on `Add Metadata` at the right inspector panel.
 Enter name, select types, and enter value. Click on `Save`
-![alt text](../final_report_assets/edit_entity.png)
-![alt text](../final_report_assets/edit_data.png)
+![alt text](final_report_assets/edit_entity.png)
+![alt text](final_report_assets/edit_data.png)
 
 #### Editor
 At the top right corner, click on `Editor` to switch to editor view
-![alt text](../final_report_assets/editor.png)
+![alt text](final_report_assets/editor.png)
 
 #### Build and Run your game
 
@@ -2480,7 +2480,6 @@ This video demonstrates the features and functionality of our game engine from a
 
 [![demo video](https://img.youtube.com/vi/bnbo6p0eurM/0.jpg)](https://www.youtube.com/watch?v=bnbo6p0eurM)
 
-[Download the video demo here.](../final_report_assets/demo_v4.mp4)
 
 To run our Flappy Bird demo project, click on **File -> Open Project** and enter the demo project path. The demo project is already included under `demo/flappy_bird`. 
 

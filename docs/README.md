@@ -1,19 +1,32 @@
-# Engine Docs
+# Documentation
 
-Per-module documentation for the current state of the code.
+One document per module, describing how the code works today (including its
+known limitations). Any change to a module's behavior updates its document.
 
-| Doc | Covers |
+## Engine (`src/`)
+
+| Document | Covers |
 |---|---|
-| [scene.md](scene.md) | Scene/Entity/Attribute data model (`src/scene/`) |
-| [physics.md](physics.md) | rapier2d wrapper: bodies, colliders, step/write-back (`src/physics/`) |
-| [render.md](render.md) | egui-painter renderer: camera, texture caches, render queue (`src/render/`) |
-| [scripting.md](scripting.md) | Lua session model, script environments, engine bindings (`src/scripting/`) |
-| [runtime.md](runtime.md) | Play-mode state machine and per-frame loop (`src/runtime/`) |
-| [audio.md](audio.md) | rodio-based sound cache + playback (`src/audio/`) |
-| [input.md](input.md) | Per-frame egui input snapshot + context flag (`src/input/`) |
-| [project.md](project.md) | Project files and scene save/load (`src/project/`); scaffolding, asset import and build (`editor/src/project/`) |
-| [logger.md](logger.md) | Global in-memory console logger (`src/logger/`) |
-| [editor.md](editor.md) | Editor shell, panels, viewport interaction, script editor (`editor/src/`) |
-| [course_report.md](course_report.md) | Archived course final report (Dec 2024) — historical reference only |
+| [scene.md](scene.md) | Data model: scenes, entities, typed attributes, templates (`src/scene/`) |
+| [physics.md](physics.md) | rapier2d bodies and colliders from attributes, forces, gravity fields (`src/physics/`) |
+| [render.md](render.md) | Sprite rendering, camera, game camera framing, texture caches (`src/render/`) |
+| [scripting.md](scripting.md) | Lua sessions, hooks, hot reload, sandbox, the complete script API (`src/scripting/`) |
+| [runtime.md](runtime.md) | Play-mode state machine and the per-frame loop (`src/runtime/`, `src/player.rs`) |
+| [audio.md](audio.md) | Sound playback (`src/audio/`) |
+| [input.md](input.md) | Keyboard and mouse state, key names (`src/input/`) |
+| [project.md](project.md) | Project files and folders (`src/project/`); creating, importing, building (`editor/src/project/`) |
+| [logger.md](logger.md) | The log behind the editor console (`src/logger/`) |
 
-Convention: any PR that changes a module's behavior updates its doc.
+## Editor (`editor/`)
+
+| Document | Covers |
+|---|---|
+| [editor.md](editor.md) | Panels, how they cooperate, saving and undo, viewport, script editor |
+
+## Archive
+
+Documents from the 2024 university course the project started as. They
+describe the project at that time, not the current code.
+
+- [Course project proposal](archive/proposal.md)
+- [Course final report](archive/course_report.md)

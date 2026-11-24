@@ -1,75 +1,123 @@
 # Rust 2D Game Engine
 
-A lightweight 2D game engine with a built-in editor, written in Rust. Scenes, entities and attributes are edited visually; game logic is written in Lua; physics is powered by rapier2d. Projects build into standalone native executables.
+[![CI](https://github.com/gh0stintheshe11/Rust-2D-Game-Engine/actions/workflows/ci.yml/badge.svg)](https://github.com/gh0stintheshe11/Rust-2D-Game-Engine/actions/workflows/ci.yml)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-![Editor](docs/final_report_assets/light_mode.png)
+A lightweight 2D game engine with a built-in visual editor, written in Rust.
+Build scenes in the editor, write game logic in Lua, let
+[rapier2d](https://rapier.rs) handle the physics, and export your game as a
+standalone executable.
 
-> Originally built as a university course project (see the [archived final report](docs/course_report.md) and [video demo](docs/course_report.md#video-demo)); now under active development to finish what we started.
+![The editor](docs/images/editor.png)
 
 ## Features
 
 | Area | What you get |
 |---|---|
-| Editor | Scene hierarchy, inspector, asset browser, Lua code editor, viewport click-to-select and drag-to-move, undo/redo (Ctrl+Z/Y), play/pause/reset preview, debug overlay, console |
-| ECS | Scene → Entity → typed attributes data model, serialized to JSON with the project |
-| Physics | rapier2d bodies/colliders auto-built from entity attributes, custom gravity fields, collision queries |
-| Scripting | Lua 5.4 (mlua): per-entity `update()` scripts, hot reload while playing, safe engine bindings |
-| Rendering | egui-painter sprite renderer with camera pan/zoom, texture caching, z-ordering |
-| Audio | Sound playback + caching (rodio); degrades gracefully on machines without audio devices |
-| Projects | New/open/save projects, asset import, one-click `cargo build` of a standalone game |
+| Editor | Scene hierarchy, inspector, file browser, Lua script editor with live syntax checking and an API palette, click-to-select and drag-to-move in the viewport, undo/redo, play/pause/reset, console |
+| Scenes | Scenes made of entities with named, typed attributes (numbers, booleans, strings, vectors); saved as portable JSON |
+| Physics | rapier2d bodies and colliders built from entity attributes: dynamic, kinematic and fixed bodies, rotation, gravity scale, gravity fields, collision events |
+| Scripting | Lua 5.4 scripts per entity with `init` / `update` / `on_collision` hooks, hot reload while playing, and a sandbox |
+| Rendering | Sprites with rotation, scale and z-order, camera framing with letterboxing |
+| Audio | Sound playback (wav, ogg, mp3, flac); runs fine without an audio device |
+| Export | One click builds a standalone game for your platform |
 
 ## Getting started
 
 ```bash
-# Linux (Debian/Ubuntu) build dependencies
+# Linux (Debian/Ubuntu) build dependencies; macOS and Windows need none
 sudo apt-get install -y build-essential pkg-config libasound2-dev \
   libx11-dev libxi-dev libxcursor-dev libxrandr-dev \
   libxkbcommon-dev libgl1-mesa-dev libwayland-dev
 
-cargo run
+git clone https://github.com/gh0stintheshe11/Rust-2D-Game-Engine
+cd Rust-2D-Game-Engine
+cargo run --release            # launches the editor
 ```
 
-- **WSLg note:** the Wayland session can occasionally drop the connection (`Broken pipe`) on long sessions — a WSLg quirk. For stability, run through X11: `WAYLAND_DISPLAY= cargo run`
-- macOS/Windows: `cargo run` (no extra system packages needed)
+Requires Rust 1.95 or newer. Prebuilt editor binaries for Linux, Windows and
+macOS (Apple Silicon) are attached to each
+[GitHub release](https://github.com/gh0stintheshe11/Rust-2D-Game-Engine/releases).
+Building games from the editor needs the Rust toolchain
+([rustup](https://rustup.rs)) either way.
 
-Try the bundled demo game, [Star Catcher](demo/star_catcher/): open `demo/star_catcher` via `File → Open Project` and press ▶ Play, or run it standalone with `cargo run -p star_catcher`.
+On WSLg, if the window loses its connection (`Broken pipe`) after a while, run
+through X11 instead: `WAYLAND_DISPLAY= cargo run --release`.
+
+### Try the demo
+
+[Star Catcher](demo/star_catcher/) is a small game made with the engine: catch
+the falling stars, dodge the rocks.
+
+![Star Catcher](docs/images/star_catcher.png)
+
+- In the editor: **File → Open Project** → `demo/star_catcher`, then **▶ Play**.
+- Standalone: `cargo run -p star_catcher`.
+
+### Make your own game
+
+1. **File → New Project** and pick an empty folder. The project starts with
+   a scene and a camera.
+2. Import images, sounds and scripts with the **Import** menu, create entities
+   with **➕** in the scene panel, and attach assets from an entity's context
+   menu.
+3. Add physics through the "Physics" entity template, or by adding attributes
+   such as `has_gravity` and `collider_width` in the inspector.
+4. Write a script and attach it to an entity:
+
+   ```lua
+   function update(scene_id, entity_id)
+       if is_key_just_pressed("Space") then
+           local jump = get_attribute(scene_id, entity_id, "jump_velocity") or -260
+           set_velocity(entity_id, 0, jump)
+       end
+   end
+   ```
+
+5. **▶ Play** to test, then **Project → Build Project**. The finished game is
+   in `<project>/target/release/`.
 
 ## Documentation
 
-Per-module design docs live in [`docs/`](docs/README.md):
-[Scene](docs/scene.md) ·
-[Physics](docs/physics.md) ·
-[Rendering](docs/render.md) ·
-[Lua scripting](docs/scripting.md) ·
-[Game runtime](docs/runtime.md) ·
-[Audio](docs/audio.md) ·
-[Input](docs/input.md) ·
-[Projects](docs/project.md) ·
-[Logger](docs/logger.md) ·
-[Editor](docs/editor.md)
+[docs/](docs/README.md) has a design document for every module, describing
+how it works today and its known limitations. Start with
+[Lua scripting](docs/scripting.md) for the script API, and [Editor](docs/editor.md)
+for the editor.
 
-## Development
+## Project layout
 
-```bash
-cargo test --workspace     # run the test suite
-cargo clippy --workspace --all-targets -- -D warnings
-```
+| Path | Contents |
+|---|---|
+| `src/` | The engine library (`rust-2d-game-engine`), linked into every game |
+| `editor/` | The editor application (`rust-2d-game-editor`) |
+| `demo/star_catcher/` | The demo game |
+| `docs/` | Module documentation |
+| `tests/` | Engine integration tests |
 
-CI builds and tests every push/PR (`.github/workflows/ci.yml`, clippy + fmt enforcing).
+## Contributing
 
-**Releasing**: bump `version` in the root `Cargo.toml` (`[workspace.package]`), then push a matching tag —
-`release.yml` verifies the version, runs the same gates as CI, builds
-Linux x86_64 / Windows x86_64 / macOS Apple Silicon editor binaries, and publishes
-them on a GitHub release with generated notes:
+Contributions are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) explains the
+setup, the checks every change must pass, and the commit conventions;
+[CHANGELOG.md](CHANGELOG.md) lists what changed between releases.
 
-```bash
-git tag v0.2.1 && git push origin v0.2.1
-```
+Releases are made by bumping `version` in the root `Cargo.toml` and pushing a
+matching `v<version>` tag; [release.yml](.github/workflows/release.yml) tests,
+builds and publishes the editor binaries.
 
 ## Status
 
-The engine is functional but under heavy renovation. Recent work: critical physics/runtime bug fixes, a rewritten Lua scripting core (persistent VM, memory-safe bindings), GPU texture caching, and this documentation split. See the docs' "Known limitations" sections for what's still rough.
+The engine is young: it has a small API and no text rendering, animation,
+tilemaps or UI widgets for games yet. The "Known limitations" sections of the
+[docs](docs/README.md) list what's missing per module.
 
-## License & credits
+## License and credits
 
-Originally built by [Lang Sun](https://github.com/gh0stintheshe11), [Feiyang Fan](https://github.com/feiyangfan) and [Frank Chen](https://github.com/frankjc2022) — see the [archived report](docs/course_report.md#contributions) for the original contribution breakdown.
+Licensed under the [Apache License, Version 2.0](LICENSE). If you distribute
+the engine or a game built with it, include the license and the attribution in
+[NOTICE](NOTICE); the editor's Build command puts both next to your game.
+
+Originally created as a university course project (ECE 1724, University of
+Toronto, 2024) by [Lang Sun](https://github.com/gh0stintheshe11),
+[Feiyang Fan](https://github.com/feiyangfan) and
+[Frank Chen](https://github.com/frankjc2022); see the
+[archived course report](docs/archive/course_report.md).
