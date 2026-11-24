@@ -1,195 +1,183 @@
-#[cfg(test)]
-mod tests {
-    use rust_2d_game_engine::audio::AudioEngine;
-    use std::path::{Path, PathBuf};
-    use std::thread;
-    use std::time::Duration;
+//! Audio engine tests. Playback runs on an offline engine (mixed into a
+//! sample stream instead of a sound card), so the tests measure what is
+//! actually heard on every machine, including CI.
 
-    /// Write a two-second 440 Hz tone (16-bit mono WAV) to a temp file.
-    fn test_tone() -> PathBuf {
-        let rate: u32 = 22050;
-        let samples: Vec<i16> = (0..rate * 2)
-            .map(|i| {
-                let t = i as f32 / rate as f32;
-                ((2.0 * std::f32::consts::PI * 440.0 * t).sin() * 8000.0) as i16
-            })
-            .collect();
-        let data_len = (samples.len() * 2) as u32;
-        let mut wav = Vec::new();
-        wav.extend_from_slice(b"RIFF");
-        wav.extend_from_slice(&(36 + data_len).to_le_bytes());
-        wav.extend_from_slice(b"WAVEfmt ");
-        wav.extend_from_slice(&16u32.to_le_bytes());
-        wav.extend_from_slice(&1u16.to_le_bytes()); // PCM
-        wav.extend_from_slice(&1u16.to_le_bytes()); // mono
-        wav.extend_from_slice(&rate.to_le_bytes());
-        wav.extend_from_slice(&(rate * 2).to_le_bytes());
-        wav.extend_from_slice(&2u16.to_le_bytes());
-        wav.extend_from_slice(&16u16.to_le_bytes());
-        wav.extend_from_slice(b"data");
-        wav.extend_from_slice(&data_len.to_le_bytes());
-        for sample in samples {
-            wav.extend_from_slice(&sample.to_le_bytes());
-        }
-        let path = std::env::temp_dir().join(format!("rust2d_tone_{}.wav", uuid::Uuid::new_v4()));
-        std::fs::write(&path, wav).unwrap();
-        path
+mod common;
+
+use common::{TONE_PEAK, assert_level, level, offline_audio, render, write_tone};
+use rust_2d_game_engine::audio::{AudioEngine, PlayOptions};
+use std::path::Path;
+
+fn looping() -> PlayOptions {
+    PlayOptions {
+        looping: true,
+        ..PlayOptions::default()
     }
+}
 
-    /// Returns an engine if an audio output device is available,
-    /// otherwise logs a skip notice (headless machines, CI, WSL).
-    fn engine_or_skip() -> Option<AudioEngine> {
-        let audio_engine = AudioEngine::new();
-        if audio_engine.has_output() {
-            Some(audio_engine)
-        } else {
-            eprintln!("skipping: no audio output device available");
-            None
-        }
-    }
-
-    #[test]
-    fn test_audio_engine_initialization() {
-        // Must not panic even without an audio device.
-        let audio_engine = AudioEngine::new();
+#[test]
+fn test_engine_without_device_does_not_panic() {
+    let mut engine = AudioEngine::new();
+    assert!(engine.list_playing_sounds().is_empty());
+    if !engine.has_output() {
         assert!(
-            audio_engine.list_playing_sounds().is_empty(),
-            "No sounds should be playing initially"
+            engine.play_sound(&write_tone(0.1)).is_err(),
+            "no device: an error, not a panic"
         );
     }
+}
 
-    #[test]
-    fn test_play_sound_fails_gracefully_without_device() {
-        let mut audio_engine = AudioEngine::new();
-        if audio_engine.has_output() {
-            return; // Only meaningful on devices without audio output.
-        }
-        let result = audio_engine.play_sound(&test_tone());
-        assert!(
-            result.is_err(),
-            "play_sound should return Err, not panic, without a device"
-        );
+#[test]
+fn test_device_playback_smoke() {
+    let mut engine = AudioEngine::new();
+    if !engine.has_output() {
+        eprintln!("skipping: no audio output device available");
+        return;
     }
+    let id = engine.play_sound(&write_tone(0.5)).unwrap();
+    assert!(engine.is_playing(id));
+    engine.stop(id).unwrap();
+    assert!(engine.is_stopped(id));
+}
 
-    #[test]
-    fn test_play_sound() {
-        let Some(mut audio_engine) = engine_or_skip() else {
-            return;
+#[test]
+fn test_playback_lifecycle() {
+    let (mut engine, mut output) = offline_audio();
+    let id = engine.play_sound(&write_tone(0.2)).unwrap();
+    assert!(engine.is_playing(id));
+    assert_level(level(&mut output), TONE_PEAK);
+
+    engine.pause(id).unwrap();
+    assert!(engine.is_paused(id) && !engine.is_playing(id));
+    assert!(level(&mut output) < 1e-6, "silent while paused");
+
+    // Nothing advances while paused: the end of the tone is still to come
+    render(&mut output, 0.5);
+    engine.update();
+    assert!(engine.is_paused(id));
+
+    engine.resume(id).unwrap();
+    assert!(engine.is_playing(id));
+    render(&mut output, 0.3);
+    engine.update();
+    assert!(engine.is_stopped(id), "finished sounds are dropped");
+}
+
+#[test]
+fn test_stop_and_cleanup() {
+    let (mut engine, mut output) = offline_audio();
+    let tone = write_tone(1.0);
+    let first = engine.play_sound(&tone).unwrap();
+    let second = engine.play_sound(&tone).unwrap();
+    assert_eq!(
+        engine.get_memory_usage() as u64,
+        std::fs::metadata(&tone).unwrap().len(),
+        "both playbacks share one cached copy of the file"
+    );
+
+    engine.stop(first).unwrap();
+    assert!(engine.is_stopped(first) && engine.is_playing(second));
+    assert!(engine.stop(first).is_err(), "already stopped");
+
+    engine.set_master_volume(0.5).unwrap();
+    engine.cleanup();
+    assert!(engine.is_stopped(second));
+    assert_eq!(engine.get_memory_usage(), 0);
+    assert_eq!(
+        engine.master_volume(),
+        1.0,
+        "cleanup restores the master volume"
+    );
+    assert!(level(&mut output) < 1e-6, "silent after cleanup");
+}
+
+#[test]
+fn test_volume_scales_the_output() {
+    let (mut engine, mut output) = offline_audio();
+    let half = PlayOptions {
+        volume: 0.5,
+        ..PlayOptions::default()
+    };
+    let id = engine.play_sound_with(&write_tone(2.0), half).unwrap();
+    assert_eq!(engine.volume(id), Some(0.5));
+    assert_level(level(&mut output), 0.5 * TONE_PEAK);
+
+    engine.set_volume(id, 0.25).unwrap();
+    assert_level(level(&mut output), 0.25 * TONE_PEAK);
+
+    // The master volume scales every sound, including ones started later
+    engine.set_master_volume(0.5).unwrap();
+    assert_level(level(&mut output), 0.125 * TONE_PEAK);
+    engine.stop(id).unwrap();
+    engine.play_sound(&write_tone(2.0)).unwrap();
+    assert_level(level(&mut output), 0.5 * TONE_PEAK);
+}
+
+#[test]
+fn test_looping_sounds_play_until_stopped() {
+    let (mut engine, mut output) = offline_audio();
+    let tone = write_tone(0.1);
+    let looped = engine.play_sound_with(&tone, looping()).unwrap();
+    let once = engine.play_sound(&tone).unwrap();
+
+    render(&mut output, 0.5);
+    engine.update();
+    assert!(engine.is_stopped(once), "a normal sound ends with its file");
+    assert!(engine.is_playing(looped), "a looping sound starts over");
+    assert_level(level(&mut output), TONE_PEAK);
+
+    engine.stop(looped).unwrap();
+    assert!(level(&mut output) < 1e-6);
+}
+
+#[test]
+fn test_invalid_volumes_are_rejected() {
+    let (mut engine, _output) = offline_audio();
+    let tone = write_tone(0.1);
+    for volume in [-0.5, f32::NAN, f32::INFINITY] {
+        let options = PlayOptions {
+            volume,
+            ..PlayOptions::default()
         };
-        let tone = test_tone();
-        let path = tone.as_path();
-
-        // Test audio playback
-        let sound_id = audio_engine.play_sound(path).expect("Failed to play sound");
-
-        // Wait for playback to start
-        thread::sleep(Duration::from_millis(500));
-
-        // Verify sound is playing
         assert!(
-            audio_engine.is_playing(sound_id),
-            "The audio should be playing"
+            engine.play_sound_with(&tone, options).is_err(),
+            "volume {}",
+            volume
         );
-
-        // Stop the sound
-        audio_engine.stop(sound_id).expect("Failed to stop sound");
-
-        // Verify sound stopped
         assert!(
-            audio_engine.is_stopped(sound_id),
-            "The audio should be stopped"
+            engine.set_master_volume(volume).is_err(),
+            "volume {}",
+            volume
         );
     }
+    assert_eq!(engine.master_volume(), 1.0);
 
-    #[test]
-    fn test_playback_controls() {
-        let Some(mut audio_engine) = engine_or_skip() else {
-            return;
-        };
-        let tone = test_tone();
-        let path = tone.as_path();
+    let id = engine.play_sound(&tone).unwrap();
+    assert!(engine.set_volume(id, -1.0).is_err());
+    assert!(
+        engine.set_volume(uuid::Uuid::new_v4(), 0.5).is_err(),
+        "unknown play id"
+    );
+}
 
-        // Play sound and get ID
-        let sound_id = audio_engine.play_sound(path).expect("Failed to play sound");
-        thread::sleep(Duration::from_millis(500));
+#[test]
+fn test_preview_slot_plays_one_sound_at_a_time() {
+    let (mut engine, mut output) = offline_audio();
+    let tone = write_tone(1.0);
+    engine.play_sound_immediate(&tone).unwrap();
+    // Replaces the first preview; both together would be twice as loud
+    engine.play_sound_immediate(&tone).unwrap();
+    assert_level(level(&mut output), TONE_PEAK);
 
-        // Test pause
-        audio_engine.pause(sound_id).expect("Failed to pause");
-        assert!(audio_engine.is_paused(sound_id), "Audio should be paused");
-        assert!(
-            !audio_engine.is_playing(sound_id),
-            "Audio should not be playing while paused"
-        );
+    engine.stop_immediate();
+    assert!(level(&mut output) < 1e-6);
+}
 
-        // Test resume
-        audio_engine.resume(sound_id).expect("Failed to resume");
-        assert!(
-            audio_engine.is_playing(sound_id),
-            "Audio should be playing after resume"
-        );
-        assert!(
-            !audio_engine.is_paused(sound_id),
-            "Audio should not be paused"
-        );
-
-        // Test stop
-        audio_engine.stop(sound_id).expect("Failed to stop");
-        assert!(audio_engine.is_stopped(sound_id), "Audio should be stopped");
-    }
-
-    #[test]
-    fn test_immediate_playback() {
-        let Some(mut audio_engine) = engine_or_skip() else {
-            return;
-        };
-        let tone = test_tone();
-        let path = tone.as_path();
-
-        // Play immediate sound
-        audio_engine
-            .play_sound_immediate(path)
-            .expect("Failed to play immediate sound");
-        thread::sleep(Duration::from_millis(500));
-
-        // Stop immediate sound
-        audio_engine.stop_immediate();
-    }
-
-    #[test]
-    fn test_cleanup() {
-        let Some(mut audio_engine) = engine_or_skip() else {
-            return;
-        };
-        let tone = test_tone();
-        let path = tone.as_path();
-
-        // Load and play sound
-        let sound_id = audio_engine.play_sound(path).expect("Failed to play sound");
-
-        // Cleanup should stop all sounds and clear caches
-        audio_engine.cleanup();
-
-        assert!(
-            audio_engine.is_stopped(sound_id),
-            "Sound should be stopped after cleanup"
-        );
-        assert_eq!(
-            audio_engine.get_memory_usage(),
-            0,
-            "Cache should be empty after cleanup"
-        );
-    }
-
-    #[test]
-    fn test_audio_duration() {
-        // Reads the file header only; works without an audio device
-        let audio_engine = AudioEngine::new();
-        let duration = audio_engine.get_audio_duration(&test_tone()).unwrap();
-        assert!((duration - 2.0).abs() < 0.01, "duration {}", duration);
-        assert!(
-            audio_engine
-                .get_audio_duration(Path::new("missing.wav"))
-                .is_err()
-        );
-    }
+#[test]
+fn test_audio_duration() {
+    // Reads the file header only; works without an audio device
+    let engine = AudioEngine::new();
+    let duration = engine.get_audio_duration(&write_tone(2.0)).unwrap();
+    assert!((duration - 2.0).abs() < 0.01, "duration {}", duration);
+    assert!(engine.get_audio_duration(Path::new("missing.wav")).is_err());
 }

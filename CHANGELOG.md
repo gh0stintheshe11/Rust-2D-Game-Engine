@@ -7,6 +7,15 @@ versions may contain breaking changes).
 
 ## [Unreleased]
 
+### Added
+
+- Audio volume and looping. Scripts call
+  `play_sound(path, {volume = 0.5, loop = true})`, `set_sound_volume` and
+  `set_master_volume`; Rust code uses `AudioEngine::play_sound_with`,
+  `set_volume` and `set_master_volume`.
+- `AudioEngine::offline` mixes sounds into a sample stream instead of an audio
+  device, so playback can be tested on machines without one.
+
 ## [0.3.0] - 2026-11-24
 
 The first release as an open-source project, after a full audit of the code.

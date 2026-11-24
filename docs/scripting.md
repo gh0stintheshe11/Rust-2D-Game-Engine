@@ -98,10 +98,19 @@ Audio:
 
 | Function | Notes |
 |---|---|
-| `play_sound(path)` | Returns a play id, or nil when nothing can be played (missing file, no audio device; reported once per file) |
+| `play_sound(path [, options])` | Returns a play id, or nil when nothing can be played (missing file, no audio device; reported once per file). `options` is a table with `volume` (1.0 plays as recorded, 0.5 at half the amplitude; default 1.0) and `loop` (start over at the end until stopped; default false). Unknown options and negative volumes raise an error |
+| `set_sound_volume(play_id, volume)` | Change a playing sound's volume; accepts nil |
+| `set_master_volume(volume)` | Scales every sound, playing or started later; back to 1.0 when the game stops |
 | `stop_sound(play_id)` | Accepts nil |
-| `is_sound_playing(play_id)` | False for nil |
+| `is_sound_playing(play_id)` | False for nil; a looping sound plays until stopped |
 | `stop_all_sounds()` | |
+
+```lua
+function init(scene_id, entity_id)
+    -- Background music for the whole game
+    script_state.state.music = play_sound("assets/sounds/music.ogg", {loop = true, volume = 0.4})
+end
+```
 
 Scenes and entities:
 

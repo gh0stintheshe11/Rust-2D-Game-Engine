@@ -19,7 +19,7 @@ standalone executable.
 | Physics | rapier2d bodies and colliders built from entity attributes: dynamic, kinematic and fixed bodies, rotation, gravity scale, gravity fields, collision events |
 | Scripting | Lua 5.4 scripts per entity with `init` / `update` / `on_collision` hooks, hot reload while playing, and a sandbox |
 | Rendering | Sprites with rotation, scale and z-order, camera framing with letterboxing |
-| Audio | Sound playback (wav, ogg, mp3, flac); runs fine without an audio device |
+| Audio | Sound effects and looping music with per-sound and master volume (wav, ogg, mp3, flac); runs fine without an audio device |
 | Export | One click builds a standalone game for your platform |
 
 ## Getting started

@@ -205,6 +205,21 @@ const API_GROUPS: &[(&str, &[ApiEntry])] = &[
                 "Returns a play id, or nil if playback isn't possible",
             ),
             (
+                "play_sound with options",
+                "play_sound(\"assets/sounds/music.ogg\", {loop = true, volume = 0.5})",
+                "volume: 1.0 plays as recorded; loop: start over until stopped",
+            ),
+            (
+                "set_sound_volume",
+                "set_sound_volume(play_id, 0.5)",
+                "Change a playing sound's volume",
+            ),
+            (
+                "set_master_volume",
+                "set_master_volume(1.0)",
+                "Scale all sounds (back to 1.0 when the game stops)",
+            ),
+            (
                 "stop_sound",
                 "stop_sound(play_id)",
                 "Stop one playing sound",

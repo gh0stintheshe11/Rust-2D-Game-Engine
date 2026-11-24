@@ -1,3 +1,5 @@
+mod common;
+
 #[cfg(test)]
 mod tests {
     use mlua::Lua;
@@ -156,11 +158,16 @@ mod session_tests {
         lua: LuaScripting,
         scene_manager: Rc<RefCell<SceneManager>>,
         physics: Rc<RefCell<PhysicsEngine>>,
+        audio: Rc<RefCell<AudioEngine>>,
         scene_id: uuid::Uuid,
         script_dir: PathBuf,
     }
 
     fn setup(test_name: &str) -> TestSession {
+        setup_with_audio(test_name, AudioEngine::new())
+    }
+
+    fn setup_with_audio(test_name: &str, audio_engine: AudioEngine) -> TestSession {
         let script_dir = std::env::temp_dir().join(format!(
             "rust2d_engine_test_{}_{}",
             test_name,
@@ -175,7 +182,7 @@ mod session_tests {
         let scene_manager = Rc::new(RefCell::new(manager));
         let physics_engine = Rc::new(RefCell::new(PhysicsEngine::new()));
         let input_handler = Rc::new(RefCell::new(InputHandler::new()));
-        let audio_engine = Rc::new(RefCell::new(AudioEngine::new()));
+        let audio_engine = Rc::new(RefCell::new(audio_engine));
 
         let mut lua = LuaScripting::new();
         lua.start_session(
@@ -190,6 +197,7 @@ mod session_tests {
             lua,
             scene_manager,
             physics: physics_engine,
+            audio: audio_engine,
             scene_id,
             script_dir,
         }
@@ -1129,5 +1137,62 @@ mod session_tests {
             state::<bool>(&session, "stopped"),
             "nil play ids are accepted"
         );
+    }
+
+    #[test]
+    fn test_sound_volume_and_looping_bindings() {
+        use crate::common::{TONE_PEAK, assert_level, level, offline_audio, render, write_tone};
+
+        let (engine, mut output) = offline_audio();
+        let session = setup_with_audio("sound_options", engine);
+        let lua = session.lua.lua();
+        let tone = write_tone(0.1).to_string_lossy().into_owned();
+        lua.globals().set("TONE", tone).unwrap();
+
+        lua.load("MUSIC = play_sound(TONE, {loop = true, volume = 0.5})")
+            .exec()
+            .unwrap();
+        assert_level(level(&mut output), 0.5 * TONE_PEAK);
+
+        // Looping: still playing long after the 0.1 s file ended
+        render(&mut output, 0.5);
+        session.audio.borrow_mut().update();
+        let playing: bool = lua.load("return is_sound_playing(MUSIC)").eval().unwrap();
+        assert!(playing);
+
+        lua.load("set_sound_volume(MUSIC, 0.2); set_master_volume(0.5)")
+            .exec()
+            .unwrap();
+        assert_level(level(&mut output), 0.1 * TONE_PEAK);
+
+        // Bad options are errors, not silently ignored
+        let (typo_ok, typo_error, negative_ok, nan_ok): (bool, String, bool, bool) = lua
+            .load(
+                r#"
+                local typo_ok, typo_error = pcall(play_sound, TONE, {looping = true})
+                local negative_ok = pcall(play_sound, TONE, {volume = -1})
+                local nan_ok = pcall(set_master_volume, 0/0)
+                return typo_ok, tostring(typo_error), negative_ok, nan_ok
+                "#,
+            )
+            .eval()
+            .unwrap();
+        assert!(
+            !typo_ok && typo_error.contains("unknown option 'looping'"),
+            "{}",
+            typo_error
+        );
+        assert!(!negative_ok && !nan_ok);
+
+        // nil play ids (sounds that couldn't play) are accepted
+        let playing: bool = lua
+            .load(
+                "stop_sound(MUSIC); stop_sound(nil); set_sound_volume(nil, 1)
+                 return is_sound_playing(MUSIC)",
+            )
+            .eval()
+            .unwrap();
+        assert!(!playing);
+        assert!(level(&mut output) < 1e-6);
     }
 }
