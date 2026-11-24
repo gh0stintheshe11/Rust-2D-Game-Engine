@@ -7,6 +7,11 @@ versions may contain breaking changes).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-24
+
+Games with several scenes and prefabs, and trigger zones, collision layers
+and raycasts for physics.
+
 ### Added
 
 - Trigger zones: colliders with `is_sensor = true` report overlaps (through
@@ -28,8 +33,8 @@ versions may contain breaking changes).
 
 ### Changed
 
-- `ColliderOutline` has an `is_sensor` field, and collider outlines draw
-  sensors in green.
+- `ColliderOutline` has an `is_sensor` field (breaking for Rust code that
+  constructs outlines), and collider outlines draw sensors in green.
 - The Star Catcher demo starts on a title screen that shows the best score,
   and a game over is a screen of its own: Space plays again, Esc returns to
   the title. Stars and rocks are prefabs in a `prefabs` scene, on a collision
@@ -173,7 +178,8 @@ Renovation of the 2024 course project: rewritten Lua scripting core, physics
 and runtime fixes, GPU texture caching, undo/redo, viewport picking and
 dragging, script editor improvements, CI and multi-platform releases.
 
-[Unreleased]: https://github.com/gh0stintheshe11/Rust-2D-Game-Engine/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/gh0stintheshe11/Rust-2D-Game-Engine/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/gh0stintheshe11/Rust-2D-Game-Engine/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/gh0stintheshe11/Rust-2D-Game-Engine/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/gh0stintheshe11/Rust-2D-Game-Engine/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/gh0stintheshe11/Rust-2D-Game-Engine/releases/tag/v0.2.0
