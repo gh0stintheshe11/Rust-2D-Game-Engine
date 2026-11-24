@@ -246,6 +246,22 @@ end
 "#;
 
 impl EditorApp {
+    /// Write the editor buffer to its file if it has unsaved changes.
+    pub(super) fn save_editor_if_dirty(&mut self) {
+        if !self.editor_dirty {
+            return;
+        }
+        if let Some(path) = &self.current_edited_file {
+            match std::fs::write(path, &self.editor_content) {
+                Ok(_) => {
+                    self.editor_dirty = false;
+                    LOGGER.info(format!("Saved {}", path.display()));
+                }
+                Err(err) => LOGGER.error(format!("Failed to save file: {}", err)),
+            }
+        }
+    }
+
     /// Insert `text` at the current cursor position of the script editor
     /// (or at the end of the buffer when there's no cursor state yet).
     pub(super) fn insert_into_editor(&mut self, ctx: &egui::Context, text: &str) {
