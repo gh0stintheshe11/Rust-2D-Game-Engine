@@ -113,7 +113,7 @@ fn test_demo_assets_resolve() {
             );
         }
     }
-    for file in ["star.png", "rock.png", "tally.png"] {
+    for file in ["star.png", "rock.png"] {
         assert!(demo_dir().join("assets/images").join(file).is_file());
     }
 }
@@ -147,11 +147,23 @@ fn test_demo_drops_and_catches_stars() {
         RuntimeState::Playing,
         "stars never end the game"
     );
+    let score: i64 = runtime
+        .scripting()
+        .lua()
+        .load("return script_state.state.score")
+        .eval()
+        .unwrap();
+    assert!(score > 0, "stars landing on the paddle are caught");
+    {
+        let texts = runtime.scripting().hud_texts();
+        assert_eq!(texts.len(), 1);
+        assert_eq!(
+            texts[0].text,
+            format!("Stars: {}", score),
+            "the score is shown"
+        );
+    }
     let manager = runtime.get_scene_manager();
-    assert!(
-        !entities_named(&manager, "tally").is_empty(),
-        "stars landing on the paddle are caught"
-    );
     assert!(
         entities_named(&manager, "star").len() < 15,
         "missed stars are removed when they hit the ground"

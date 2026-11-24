@@ -24,6 +24,7 @@ faster over time.
 | `on_collision`, removing entities, sounds, `end_game` | `falling.lua` |
 | Explicit collider sizes on entities without images (the side walls) | `left_wall`, `right_wall` |
 | Global gravity from a script, random seeds from an attribute | `spawner.lua` (`seed` = 0 is random) |
+| Text over the game: the score, drawn every frame | `spawner.lua` (`draw_text`) |
 | Camera framing: a 480 × 640 frame centered on the camera entity | `main_camera` |
 
 ## Assets

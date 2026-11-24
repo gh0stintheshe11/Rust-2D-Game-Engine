@@ -19,6 +19,11 @@ versions may contain breaking changes).
   (scores, timers, messages). It is laid out in the camera frame's pixels, so
   it scales with the window like the sprites.
 
+### Changed
+
+- The Star Catcher demo shows its score as text instead of a row of small
+  stars.
+
 ### Fixed
 
 - Exported games drew the physics collider outlines, a debugging aid, over

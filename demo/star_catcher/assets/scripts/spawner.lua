@@ -1,5 +1,5 @@
 -- Drops stars (catch them) and rocks (avoid them) from the top of the field,
--- faster and faster.
+-- faster and faster, and shows the score.
 --
 -- Tuning attributes on this entity:
 --   spawn_interval (Float): seconds between drops at the start
@@ -31,6 +31,9 @@ end
 
 function update(scene_id, entity_id)
     local state = script_state.state
+    -- Text is drawn for one frame, so every frame
+    draw_text("Stars: " .. state.score, 12, 8, {size = 28, color = "#ffd84a"})
+
     if accumulated_time < state.next_drop then
         return
     end
