@@ -22,7 +22,8 @@ every physics step it calls `dispatch_collision_events(scene_id)`.
 |---|---|
 | `init(scene_id, entity_id)` | Once per entity, before any other hook of that entity (spawned entities get it on their first frame) |
 | `update(scene_id, entity_id)` | Every rendered frame |
-| `on_collision(scene_id, entity_id, other_id)` | When a contact with another physics entity **begins** (checked after every physics step; skipped if either entity was removed meanwhile) |
+| `on_collision(scene_id, entity_id, other_id)` | When a contact with another physics entity **begins**, or an overlap with a sensor (checked after every physics step; skipped if either entity was removed meanwhile) |
+| `on_collision_end(scene_id, entity_id, other_id)` | When such a contact **ends**: the entities separated, or the other one was removed (`get_entity_name` then returns nil). An entity's ended contacts are reported before its new ones |
 
 All hooks are optional. If `init` raises an error, the entity's other hooks are
 skipped until its script file changes.
@@ -81,8 +82,21 @@ Physics:
 | `set_angular_velocity(entity_id, radians_per_second)` | Positive spins clockwise on screen; the body needs `can_rotate` |
 | `add_entity_to_physics_engine(entity_id)` | Builds the body from the entity's attributes (active scene); re-adding replaces it, e.g. after changing physics attributes |
 | `remove_entity_from_physics_engine(entity_id)` | |
-| `get_colliding_entities(entity_id)` | Array of entity ids currently touching; empty if the entity has no body |
+| `get_colliding_entities(entity_id)` | Array of entity ids currently touching, or overlapping when either is a sensor; empty if the entity has no body |
+| `raycast(x1, y1, x2, y2 [, exclude_id])` | `{id, x, y, distance}` of the first collider the segment from (x1, y1) to (x2, y2) hits, or nil. Sensors are ignored, and so is the entity `exclude_id` (pass the caster when the ray starts inside it). Sees bodies as of the last physics step |
 | `set_gravity(x, y)` | Global gravity (+y is down; default `(0, 50)`, restored on every Play) |
+
+```lua
+function update(scene_id, entity_id)
+    -- Standing on something? Look 2 px below the feet (a 32 x 32 sprite)
+    local x = get_attribute(scene_id, entity_id, "x")
+    local y = get_attribute(scene_id, entity_id, "y")
+    local ground = raycast(x + 16, y + 32, x + 16, y + 34, entity_id)
+    if ground and is_key_just_pressed("Space") then
+        set_velocity(entity_id, 0, -260)
+    end
+end
+```
 
 Input:
 
@@ -181,7 +195,7 @@ for live error reporting.
 
 ## Known limitations
 
-- No `on_destroy` hook, and `on_collision` reports contacts beginning only.
+- No `on_destroy` hook.
 - `get_mouse_position` is in window coordinates, not world coordinates.
 - `script_state` is shared by all scripts; key collisions are the script
   author's problem.

@@ -78,6 +78,11 @@ const API_GROUPS: &[(&str, &[ApiEntry])] = &[
                 "Array of entity ids currently in contact",
             ),
             (
+                "raycast",
+                "raycast(x1, y1, x2, y2, entity_id)",
+                "First collider on the segment: {id, x, y, distance} or nil; skips sensors and entity_id",
+            ),
+            (
                 "set_gravity",
                 "set_gravity(0.0, 50.0)",
                 "Change the global gravity vector (reset on every Play)",
@@ -295,8 +300,13 @@ function update(scene_id, entity_id)
 
 end
 
--- Runs when this entity starts touching another physics entity
+-- Runs when this entity starts touching (or overlapping) another physics entity
 function on_collision(scene_id, entity_id, other_id)
+
+end
+
+-- Runs when that contact ends (other_id may have been removed meanwhile)
+function on_collision_end(scene_id, entity_id, other_id)
 
 end
 "#;

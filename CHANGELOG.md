@@ -7,6 +7,23 @@ versions may contain breaking changes).
 
 ## [Unreleased]
 
+### Added
+
+- Trigger zones: colliders with `is_sensor = true` report overlaps (through
+  `get_colliding_entities` and `on_collision`) without blocking anything.
+- Collision layers: `collision_layer` (1 to 32) and `collides_with` (e.g.
+  `"1,3"`) decide which colliders interact.
+- Raycasts: `PhysicsEngine::raycast`, and `raycast(x1, y1, x2, y2,
+  exclude_id)` in scripts, return the first collider a segment hits.
+- An `on_collision_end(scene_id, entity_id, other_id)` script hook, called
+  when a contact or overlap ends, including when the other entity was
+  removed.
+
+### Changed
+
+- `ColliderOutline` has an `is_sensor` field, and collider outlines draw
+  sensors in green.
+
 ## [0.4.0] - 2026-11-24
 
 Text, sprite animation and audio volume for games, and exported games no

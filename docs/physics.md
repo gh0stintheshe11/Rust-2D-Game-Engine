@@ -25,6 +25,9 @@ attributes, read by name:
 | `collider_width` / `collider_height` | Float | sprite size | Body size; otherwise the first image's pixel size (one frame's, for a sprite sheet with `frame_size`) times `scale` |
 | `collider_shape` | String | `"rectangle"` | `"circle"` fits a circle inside the body size |
 | `density` / `friction` / `restitution` | Float | 1.0 / 0.5 / 0.0 | Collider material |
+| `is_sensor` | Boolean | false | A trigger zone: reports overlaps without pushing anything (see below) |
+| `collision_layer` | Integer | 1 | The collider's layer, 1 to 32 |
+| `collides_with` | String | every layer | Layers the collider interacts with, e.g. `"1,3"`; empty means every layer |
 | `creates_gravity` | Boolean | false | Attract `has_gravity` bodies (see below) |
 | `gravity_strength` | Float | 500000 | Field strength: acceleration is `strength / distance²` px/s² |
 
@@ -64,6 +67,34 @@ The runtime calls, every rendered frame:
 `cleanup()` removes every body and restores the default gravity, so changes a
 script made with `set_gravity` don't carry over into the next Play.
 
+## Trigger zones and collision layers
+
+A **sensor** (`is_sensor = true`) is a trigger zone: other colliders pass
+through it, and the overlap is reported like a contact, by
+`get_colliding_entities` and by the scripts' `on_collision` /
+`on_collision_end` hooks. Sensors notice every kind of body, fixed and
+kinematic ones included, and a movable sensor still moves and falls (a coin
+dropping from a broken box). Debug outlines draw sensors in green.
+
+**Collision layers** decide which colliders interact at all. Every collider is
+on one layer (`collision_layer`, default 1) and lists the layers it interacts
+with (`collides_with`, default all). Two colliders touch, or overlap when one
+is a sensor, only if each one's layer is in the other's list. Invalid values
+are reported in the console and replaced by the defaults.
+
+For example, with the player on layer 2 and bullets on layer 3 with
+`collides_with = "1"`, bullets hit walls and enemies (layer 1) but pass
+through the player and each other.
+
+## Raycasts
+
+`raycast(from, to, exclude)` returns the first collider the segment from
+`from` to `to` hits as a `RayHit` (`entity_id`, world `point`, and `distance`
+from `from`), or `None`. Sensors are ignored, and so is the body of `exclude`:
+pass the entity casting the ray, which a ray starting inside it would hit at
+distance 0. Queries see the colliders as of the last `step`, so a body added
+since isn't found yet.
+
 ## Gravity fields
 
 Every `creates_gravity` entity attracts every dynamic `has_gravity` body
@@ -79,8 +110,9 @@ Distances below 10 px count as 10 px.
 - **Bodies**: `get_velocity` / `set_velocity`, `apply_force`, `apply_impulse`,
   `set_position` (teleport, keeps velocity), `get_angular_velocity` /
   `set_angular_velocity`, `apply_torque`
-- **Queries**: `get_colliding_entities` (entities currently touching),
-  `collider_outlines` (debug drawing), `has_rigid_body`, `has_collider`,
+- **Queries**: `get_colliding_entities` (entities currently touching, or
+  overlapping when either is a sensor), `raycast`, `collider_outlines` (debug
+  drawing), `has_rigid_body`, `has_collider`,
   `is_empty`, `rigid_body_count`
 
 Vectors are `(f32, f32)` tuples; rapier types don't appear in the API.
@@ -102,8 +134,9 @@ let touching = physics.get_colliding_entities(player_id);
 - Attributes are read by name with linear lookups when a body is created and
   when results are written back.
 - Gravity fields are O(sources × bodies) per step.
-- Joints, continuous collision detection settings, and raycasts are not
-  exposed.
+- Joints, continuous collision detection settings and shape casts are not
+  exposed; raycasts can exclude one entity only.
+- `raycast` doesn't see bodies added since the last `step`.
 - `load_scene` adds only a scene's local entities; shared entities are
   ignored.
 - Changing a physics attribute while playing has no effect until the entity is

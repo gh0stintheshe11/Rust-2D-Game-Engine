@@ -14,7 +14,7 @@ screen space; callers paint them with `paint_sprite`, using GPU textures from
 | `RenderQueueEntry` | One sprite: entity, texture, screen position and size, rotation (radians), z |
 | `paint_sprite` | Draws a textured rect, rotated around its center if needed |
 | `game_view(scene, viewport_size)` | Fits the scene's default camera into a viewport (see below) |
-| `render_colliders` / `paint_collider_outline` | Debug outlines of physics colliders, rotated with their bodies |
+| `render_colliders` / `paint_collider_outline` | Debug outlines of physics colliders, rotated with their bodies: circles red, rectangles blue, sensors (trigger zones) green |
 
 ## Sprites
 

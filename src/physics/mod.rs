@@ -5,9 +5,10 @@
 //! is centered on the sprite (or on the explicit collider size), so bodies
 //! rotate around the sprite's center like the renderer does.
 
+use crate::logger::LOGGER;
 use crate::scene::{AttributeType, AttributeValue, Entity, Scene};
 use rapier2d::prelude::*;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 
 /// Global gravity of a new world (and after [`PhysicsEngine::cleanup`]).
@@ -23,6 +24,16 @@ pub const DEFAULT_GRAVITY_FIELD_STRENGTH: f32 = 500_000.0;
 /// Gravity fields treat closer bodies as being this far away, so the
 /// attraction stays finite when two bodies overlap.
 const MIN_GRAVITY_FIELD_DISTANCE: f32 = 10.0;
+
+/// Where a ray first hits a collider (see [`PhysicsEngine::raycast`]).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RayHit {
+    pub entity_id: Uuid,
+    /// World position of the hit.
+    pub point: (f32, f32),
+    /// Distance from the ray's start to the hit.
+    pub distance: f32,
+}
 
 /// Shape of a collider, for debug drawing.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -40,6 +51,8 @@ pub struct ColliderOutline {
     /// Rotation around `center`, in radians.
     pub rotation: f32,
     pub shape: ColliderShape,
+    /// A trigger zone (`is_sensor`), which reports overlaps without blocking.
+    pub is_sensor: bool,
 }
 
 /// Bookkeeping for one entity mirrored into the physics world.
@@ -67,6 +80,9 @@ pub struct PhysicsEngine {
     /// Linear and angular impulses from `apply_force` / `apply_torque`,
     /// applied at the next simulation step.
     pending_impulses: HashMap<Uuid, (Vector, f32)>,
+    /// Invalid attribute values already reported, so entities added again
+    /// and again (spawned copies) don't flood the console.
+    reported_problems: HashSet<String>,
 }
 
 impl Default for PhysicsEngine {
@@ -86,6 +102,7 @@ impl PhysicsEngine {
             time_step: DEFAULT_TIME_STEP,
             frame_dt: DEFAULT_TIME_STEP,
             pending_impulses: HashMap::new(),
+            reported_problems: HashSet::new(),
         }
     }
 
@@ -177,14 +194,27 @@ impl PhysicsEngine {
                 .build(),
         );
 
+        let is_sensor = attr_bool(entity, "is_sensor", false);
+        let (groups, problems) = collision_groups(entity);
+        for problem in problems {
+            if self.reported_problems.insert(problem.clone()) {
+                LOGGER.warning(problem);
+            }
+        }
         let collider = has_collision.then(|| {
-            let collider = collider_builder(entity, size)
+            let mut collider = collider_builder(entity, size)
                 .density(attr_float(entity, "density", 1.0))
                 .friction(attr_float(entity, "friction", 0.5))
                 .restitution(attr_float(entity, "restitution", 0.0))
-                .user_data(entity.id.as_u128())
-                .build();
-            self.world.insert_collider(collider, Some(body))
+                .sensor(is_sensor)
+                .collision_groups(groups)
+                .user_data(entity.id.as_u128());
+            if is_sensor {
+                // Trigger zones notice every kind of body, including
+                // kinematic ones entering fixed zones
+                collider = collider.active_collision_types(ActiveCollisionTypes::all());
+            }
+            self.world.insert_collider(collider.build(), Some(body))
         });
 
         self.bodies.insert(
@@ -296,6 +326,7 @@ impl PhysicsEngine {
     pub fn cleanup(&mut self) {
         self.bodies.clear();
         self.pending_impulses.clear();
+        self.reported_problems.clear();
         self.world = new_world(
             Vector::new(DEFAULT_GRAVITY.0, DEFAULT_GRAVITY.1),
             self.time_step,
@@ -362,12 +393,14 @@ impl PhysicsEngine {
         }
     }
 
-    /// Entities whose colliders currently touch this entity's collider.
+    /// Entities whose colliders currently touch this entity's collider, or
+    /// overlap it when either is a sensor.
     pub fn get_colliding_entities(&self, entity_id: Uuid) -> Vec<Uuid> {
         let Some(collider) = self.bodies.get(&entity_id).and_then(|info| info.collider) else {
             return Vec::new();
         };
-        self.world
+        let contacts = self
+            .world
             .narrow_phase
             .contact_pairs_with(collider)
             // Pairs also exist for shapes that are merely close; only
@@ -379,12 +412,55 @@ impl PhysicsEngine {
                 } else {
                     pair.collider1
                 };
-                self.world
-                    .colliders
-                    .get(other)
-                    .map(|c| Uuid::from_u128(c.user_data))
-            })
+                self.world.colliders.get(other)
+            });
+        // Sensors don't touch: they overlap
+        let overlaps = self
+            .world
+            .intersection_pairs_with(collider)
+            .filter(|(.., intersecting)| *intersecting)
+            .map(|(handle1, collider1, _, collider2, _)| {
+                if handle1 == collider {
+                    collider2
+                } else {
+                    collider1
+                }
+            });
+        contacts
+            .chain(overlaps)
+            .map(|other| Uuid::from_u128(other.user_data))
             .collect()
+    }
+
+    /// The first collider the segment from `from` to `to` hits, ignoring
+    /// sensors and, if given, the body of `exclude` (e.g. the entity casting
+    /// the ray). Colliders added since the last [`step`](Self::step) aren't
+    /// found yet.
+    pub fn raycast(
+        &self,
+        from: (f32, f32),
+        to: (f32, f32),
+        exclude: Option<Uuid>,
+    ) -> Option<RayHit> {
+        let origin = Vector::new(from.0, from.1);
+        let delta = Vector::new(to.0 - from.0, to.1 - from.1);
+        let length = delta.length();
+        if !(length.is_finite() && length > 0.0) {
+            return None;
+        }
+        let ray = Ray::new(origin, delta / length);
+        let mut filter = QueryFilter::default().exclude_sensors();
+        if let Some(info) = exclude.and_then(|id| self.bodies.get(&id)) {
+            filter = filter.exclude_rigid_body(info.body);
+        }
+        let (handle, distance) = self.world.cast_ray(&ray, length, true, filter)?;
+        let collider = self.world.colliders.get(handle)?;
+        let point = ray.point_at(distance);
+        Some(RayHit {
+            entity_id: Uuid::from_u128(collider.user_data),
+            point: (point.x, point.y),
+            distance,
+        })
     }
 
     /// World-space outlines of all colliders, for debug drawing.
@@ -409,6 +485,7 @@ impl PhysicsEngine {
                     size,
                     rotation,
                     shape,
+                    is_sensor: collider.is_sensor(),
                 })
             })
             .collect()
@@ -550,6 +627,53 @@ fn collider_builder(entity: &Entity, size: Option<(f32, f32)>) -> ColliderBuilde
     } else {
         ColliderBuilder::cuboid(width / 2.0, height / 2.0)
     }
+}
+
+/// Collision filtering from two attributes: `collision_layer` (Integer from
+/// 1 to 32, default 1) and `collides_with` (String of comma-separated layer
+/// numbers; empty or missing means every layer). Two entities interact only
+/// if each one's layer is in the other's `collides_with`. Invalid values are
+/// replaced by the defaults and described in the returned problems.
+fn collision_groups(entity: &Entity) -> (InteractionGroups, Vec<String>) {
+    let mut problems = Vec::new();
+    let layer_bit = |layer: i64| Group::from_bits_truncate(1 << (layer - 1));
+    let layer = match entity.get_float("collision_layer") {
+        None => 1,
+        Some(layer) if layer.fract() == 0.0 && (1.0..=32.0).contains(&layer) => layer as i64,
+        Some(layer) => {
+            problems.push(format!(
+                "Entity '{}': collision_layer must be a layer from 1 to 32, not {}",
+                entity.name, layer
+            ));
+            1
+        }
+    };
+    let filter = match entity.get_string("collides_with").map(str::trim) {
+        None | Some("") => Group::ALL,
+        Some(list) => {
+            let layers: Result<Vec<i64>, _> = list
+                .split(',')
+                .map(|part| part.trim().parse::<i64>())
+                .collect();
+            match layers {
+                Ok(layers) if layers.iter().all(|layer| (1..=32).contains(layer)) => layers
+                    .into_iter()
+                    .fold(Group::NONE, |groups, layer| groups | layer_bit(layer)),
+                _ => {
+                    problems.push(format!(
+                        "Entity '{}': collides_with must list layers from 1 to 32 \
+                         (like \"1,3\"), not \"{}\"; it collides with every layer",
+                        entity.name, list
+                    ));
+                    Group::ALL
+                }
+            }
+        }
+    };
+    (
+        InteractionGroups::new(layer_bit(layer), filter, InteractionTestMode::And),
+        problems,
+    )
 }
 
 fn attr_bool(entity: &Entity, name: &str, default: bool) -> bool {

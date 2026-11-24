@@ -642,4 +642,165 @@ mod tests {
 
         assert_eq!(physics.collider_outlines()[0].size, (16.0, 16.0));
     }
+
+    fn set_attribute(scene: &mut Scene, id: Uuid, name: &str, value: AttributeValue) {
+        scene
+            .get_entity_mut(id)
+            .unwrap()
+            .set_or_create_attribute(name, value)
+            .unwrap();
+    }
+
+    fn y(scene: &Scene, id: Uuid) -> f32 {
+        scene.get_entity(id).unwrap().get_y()
+    }
+
+    #[test]
+    fn test_sensors_detect_overlaps_without_blocking() {
+        let mut scene = Scene::new("test_scene").unwrap();
+        let mut physics = PhysicsEngine::new();
+        // A trigger zone across the path of a falling box
+        let zone = sized_entity(&mut scene, "zone", (0.0, 50.0), (100.0, 20.0), fixed());
+        set_attribute(&mut scene, zone, "is_sensor", AttributeValue::Boolean(true));
+        let falling = sized_entity(&mut scene, "box", (40.0, 0.0), (10.0, 10.0), dynamic(true));
+        physics.load_scene(&scene);
+        // Debug outlines tell trigger zones apart
+        let sensor_sizes: Vec<(f32, f32)> = physics
+            .collider_outlines()
+            .iter()
+            .filter(|outline| outline.is_sensor)
+            .map(|outline| outline.size)
+            .collect();
+        assert_eq!(sensor_sizes, vec![(100.0, 20.0)]);
+
+        let mut overlapped = false;
+        for _ in 0..240 {
+            physics.step(&mut scene);
+            if physics.get_colliding_entities(falling).contains(&zone) {
+                overlapped = true;
+                assert!(
+                    physics.get_colliding_entities(zone).contains(&falling),
+                    "both sides see the overlap"
+                );
+            }
+        }
+        assert!(overlapped, "the box passed through the zone");
+        assert!(y(&scene, falling) > 100.0, "sensors don't block");
+    }
+
+    #[test]
+    fn test_dynamic_sensors_still_fall() {
+        let mut scene = Scene::new("test_scene").unwrap();
+        let mut physics = PhysicsEngine::new();
+        let coin = sized_entity(&mut scene, "coin", (0.0, 0.0), (10.0, 10.0), dynamic(true));
+        set_attribute(&mut scene, coin, "is_sensor", AttributeValue::Boolean(true));
+        physics.load_scene(&scene);
+        for _ in 0..60 {
+            physics.step(&mut scene);
+        }
+        assert!(y(&scene, coin) > 10.0, "y = {}", y(&scene, coin));
+    }
+
+    #[test]
+    fn test_collision_layers_filter_contacts() {
+        let mut scene = Scene::new("test_scene").unwrap();
+        let mut physics = PhysicsEngine::new();
+        let floor = sized_entity(&mut scene, "floor", (0.0, 100.0), (200.0, 20.0), fixed());
+        // On layer 2 and colliding only with layer 2: falls through the floor
+        let ghost = sized_entity(
+            &mut scene,
+            "ghost",
+            (20.0, 50.0),
+            (10.0, 10.0),
+            dynamic(true),
+        );
+        set_attribute(
+            &mut scene,
+            ghost,
+            "collision_layer",
+            AttributeValue::Integer(2),
+        );
+        set_attribute(
+            &mut scene,
+            ghost,
+            "collides_with",
+            AttributeValue::String("2".to_string()),
+        );
+        let solid = sized_entity(
+            &mut scene,
+            "solid",
+            (60.0, 50.0),
+            (10.0, 10.0),
+            dynamic(true),
+        );
+        // Invalid values fall back to the defaults: layer 1, every layer
+        let odd = sized_entity(
+            &mut scene,
+            "odd",
+            (100.0, 50.0),
+            (10.0, 10.0),
+            dynamic(true),
+        );
+        set_attribute(
+            &mut scene,
+            odd,
+            "collision_layer",
+            AttributeValue::Integer(40),
+        );
+        set_attribute(
+            &mut scene,
+            odd,
+            "collides_with",
+            AttributeValue::String("enemies".to_string()),
+        );
+        physics.load_scene(&scene);
+
+        for _ in 0..300 {
+            physics.step(&mut scene);
+        }
+        assert!(y(&scene, ghost) > 150.0, "y = {}", y(&scene, ghost));
+        assert!(!physics.get_colliding_entities(ghost).contains(&floor));
+        for id in [solid, odd] {
+            assert!((y(&scene, id) - 90.0).abs() < 1.0, "y = {}", y(&scene, id));
+            assert!(physics.get_colliding_entities(id).contains(&floor));
+        }
+    }
+
+    #[test]
+    fn test_raycast() {
+        let mut scene = Scene::new("test_scene").unwrap();
+        let mut physics = PhysicsEngine::new();
+        let floor = sized_entity(&mut scene, "floor", (0.0, 100.0), (200.0, 20.0), fixed());
+        let zone = sized_entity(&mut scene, "zone", (0.0, 40.0), (200.0, 20.0), fixed());
+        set_attribute(&mut scene, zone, "is_sensor", AttributeValue::Boolean(true));
+        let player = sized_entity(&mut scene, "player", (45.0, 0.0), (10.0, 10.0), fixed());
+        physics.load_scene(&scene);
+        // Queries see the colliders that existed at the last step
+        physics.step(&mut scene);
+
+        // Down from the player's center: through the sensor, onto the floor
+        let hit = physics
+            .raycast((50.0, 5.0), (50.0, 500.0), Some(player))
+            .unwrap();
+        assert_eq!(hit.entity_id, floor);
+        assert!((hit.point.0 - 50.0).abs() < 0.01 && (hit.point.1 - 100.0).abs() < 0.01);
+        assert!((hit.distance - 95.0).abs() < 0.01);
+
+        // Without excluding the player, the ray starts inside it
+        let hit = physics.raycast((50.0, 5.0), (50.0, 500.0), None).unwrap();
+        assert_eq!(hit.entity_id, player);
+
+        // Too short, pointing away, or no length at all: no hit
+        assert!(
+            physics
+                .raycast((50.0, 5.0), (50.0, 90.0), Some(player))
+                .is_none()
+        );
+        assert!(
+            physics
+                .raycast((50.0, 5.0), (50.0, -100.0), Some(player))
+                .is_none()
+        );
+        assert!(physics.raycast((1.0, 1.0), (1.0, 1.0), None).is_none());
+    }
 }

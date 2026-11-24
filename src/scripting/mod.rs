@@ -63,6 +63,7 @@ struct CompiledScript {
     update_fn: Option<LuaFunction>,
     init_fn: Option<LuaFunction>,
     on_collision_fn: Option<LuaFunction>,
+    on_collision_end_fn: Option<LuaFunction>,
 }
 
 /// What is known about one script file this session.
@@ -366,9 +367,10 @@ impl LuaScripting {
         Ok(())
     }
 
-    /// Fire `on_collision(scene_id, entity_id, other_id)` for every scripted
-    /// entity whose contact set gained an entity since the last call. Called
-    /// by the runtime after each physics step.
+    /// Fire `on_collision(scene_id, entity_id, other_id)` for every contact a
+    /// scripted entity gained since the last call, and
+    /// `on_collision_end(scene_id, entity_id, other_id)` for every contact it
+    /// lost. Called by the runtime after each physics step.
     pub fn dispatch_collision_events(&mut self, active_scene_id: Uuid) -> Result<(), String> {
         let scene_manager = self
             .scene_manager
@@ -403,8 +405,9 @@ impl LuaScripting {
                 .previous_contacts
                 .insert(entity_id, current.clone())
                 .unwrap_or_default();
-            let new_contacts: Vec<Uuid> = current.difference(&previous).copied().collect();
-            if new_contacts.is_empty() {
+            let started: Vec<Uuid> = current.difference(&previous).copied().collect();
+            let ended: Vec<Uuid> = previous.difference(&current).copied().collect();
+            if started.is_empty() && ended.is_empty() {
                 continue;
             }
 
@@ -412,33 +415,49 @@ impl LuaScripting {
             let Some(script) = self.usable_script(&script_path) else {
                 continue;
             };
-            let Some(on_collision) = script.on_collision_fn.clone() else {
-                continue;
-            };
-
-            for other_id in new_contacts {
-                // An earlier handler may have removed either entity
-                if !entity_exists(&scene_manager, active_scene_id, entity_id)
-                    || !entity_exists(&scene_manager, active_scene_id, other_id)
-                {
+            // Contacts that ended first, so leaving one zone comes before
+            // entering the next
+            let hooks = [
+                (
+                    ended,
+                    script.on_collision_end_fn.clone(),
+                    "on_collision_end",
+                ),
+                (started, script.on_collision_fn.clone(), "on_collision"),
+            ];
+            for (others, hook, hook_name) in hooks {
+                let Some(hook) = hook else {
                     continue;
-                }
-                // Hooks always see an initialized entity
-                if !self.ensure_initialized(entity_id, &script_path, &script, active_scene_id) {
-                    break;
-                }
-                let args = (
-                    active_scene_id.to_string(),
-                    entity_id.to_string(),
-                    other_id.to_string(),
-                );
-                if let Err(e) = self.with_time_limit(|| on_collision.call::<()>(args)) {
-                    LOGGER.error(format!(
-                        "Script on_collision() error for entity {} ({}): {}",
-                        entity_id,
-                        script_path.display(),
-                        e
-                    ));
+                };
+                for other_id in others {
+                    // An earlier handler may have removed an entity. A
+                    // contact that started needs both; one that ended is
+                    // reported even when the other entity is gone.
+                    let other_needed = hook_name == "on_collision";
+                    if !entity_exists(&scene_manager, active_scene_id, entity_id)
+                        || (other_needed
+                            && !entity_exists(&scene_manager, active_scene_id, other_id))
+                    {
+                        continue;
+                    }
+                    // Hooks always see an initialized entity
+                    if !self.ensure_initialized(entity_id, &script_path, &script, active_scene_id) {
+                        break;
+                    }
+                    let args = (
+                        active_scene_id.to_string(),
+                        entity_id.to_string(),
+                        other_id.to_string(),
+                    );
+                    if let Err(e) = self.with_time_limit(|| hook.call::<()>(args)) {
+                        LOGGER.error(format!(
+                            "Script {}() error for entity {} ({}): {}",
+                            hook_name,
+                            entity_id,
+                            script_path.display(),
+                            e
+                        ));
+                    }
                 }
             }
         }
@@ -563,6 +582,7 @@ impl LuaScripting {
             update_fn: env.get("update").ok(),
             init_fn: env.get("init").ok(),
             on_collision_fn: env.get("on_collision").ok(),
+            on_collision_end_fn: env.get("on_collision_end").ok(),
             env,
         })
     }

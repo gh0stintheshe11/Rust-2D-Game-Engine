@@ -136,6 +136,26 @@ impl LuaScripting {
         })?;
         globals.set("set_gravity", set_gravity)?;
 
+        // raycast(x1, y1, x2, y2 [, exclude_entity_id]) -> {id, x, y, distance}
+        // of the first collider the segment hits (sensors ignored), or nil
+        let physics = Rc::clone(physics_engine);
+        let raycast = self.lua.create_function(
+            move |lua, (x1, y1, x2, y2, exclude): (f32, f32, f32, f32, Option<String>)| {
+                let exclude = exclude.map(|id| parse_uuid(&id, "entity")).transpose()?;
+                let hit = physics.borrow().raycast((x1, y1), (x2, y2), exclude);
+                let Some(hit) = hit else {
+                    return Ok(None);
+                };
+                let table = lua.create_table()?;
+                table.set("id", hit.entity_id.to_string())?;
+                table.set("x", hit.point.0)?;
+                table.set("y", hit.point.1)?;
+                table.set("distance", hit.distance)?;
+                Ok(Some(table))
+            },
+        )?;
+        globals.set("raycast", raycast)?;
+
         Ok(())
     }
 }

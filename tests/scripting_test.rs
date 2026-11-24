@@ -1353,4 +1353,162 @@ mod session_tests {
             Some(AttributeValue::String("4-7".into()))
         );
     }
+
+    /// A physical entity with an explicit collider size, top-left at `x`/`y`.
+    fn sized_body(
+        session: &TestSession,
+        name: &str,
+        top_left: (f32, f32),
+        size: (f32, f32),
+        movable: bool,
+        sensor: bool,
+    ) -> uuid::Uuid {
+        use rust_2d_game_engine::scene::{AttributeValue, PhysicsProperties};
+
+        let mut manager = session.scene_manager.borrow_mut();
+        let scene = manager.get_scene_mut(session.scene_id).unwrap();
+        let id = scene
+            .create_physical_entity(
+                name,
+                (top_left.0, top_left.1, 0.0),
+                PhysicsProperties {
+                    is_movable: movable,
+                    affected_by_gravity: movable,
+                    has_collision: true,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        let entity = scene.get_entity_mut(id).unwrap();
+        for (attribute, value) in [
+            ("collider_width", AttributeValue::Float(size.0)),
+            ("collider_height", AttributeValue::Float(size.1)),
+            ("is_sensor", AttributeValue::Boolean(sensor)),
+        ] {
+            entity.set_or_create_attribute(attribute, value).unwrap();
+        }
+        session.physics.borrow_mut().add_entity(entity);
+        id
+    }
+
+    /// One frame the way the runtime runs it: scripts, a physics step, then
+    /// the collision hooks.
+    fn run_frame(session: &mut TestSession) {
+        session.lua.run_scripts_for_scene(session.scene_id).unwrap();
+        {
+            let mut manager = session.scene_manager.borrow_mut();
+            let scene = manager.get_scene_mut(session.scene_id).unwrap();
+            session.physics.borrow_mut().step(scene);
+        }
+        session
+            .lua
+            .dispatch_collision_events(session.scene_id)
+            .unwrap();
+    }
+
+    #[test]
+    fn test_on_collision_end_fires_when_contacts_end() {
+        let mut session = setup("on_collision_end_hook");
+        // A box falls through a trigger zone, then onto a coin it collects
+        sized_body(&session, "zone", (0.0, 50.0), (100.0, 20.0), false, true);
+        let coin = sized_body(&session, "coin", (40.0, 120.0), (10.0, 10.0), false, true);
+        let falling = sized_body(&session, "box", (40.0, 0.0), (10.0, 10.0), true, false);
+
+        let script_path = session.script_dir.join("box.lua");
+        std::fs::write(
+            &script_path,
+            r#"
+            function init(scene_id, entity_id)
+                script_state.state.events = {}
+            end
+
+            function on_collision(scene_id, entity_id, other_id)
+                local name = get_entity_name(scene_id, other_id)
+                table.insert(script_state.state.events, "enter " .. name)
+                if name == "coin" then
+                    remove_entity(scene_id, other_id)
+                end
+            end
+
+            function on_collision_end(scene_id, entity_id, other_id)
+                -- The coin is gone by now: its name is nil
+                local name = get_entity_name(scene_id, other_id) or other_id
+                table.insert(script_state.state.events, "exit " .. name)
+            end
+            "#,
+        )
+        .unwrap();
+        session
+            .scene_manager
+            .borrow_mut()
+            .get_scene_mut(session.scene_id)
+            .unwrap()
+            .get_entity_mut(falling)
+            .unwrap()
+            .set_script(script_path)
+            .unwrap();
+
+        for _ in 0..240 {
+            run_frame(&mut session);
+        }
+
+        let events: Vec<String> = session
+            .lua
+            .lua()
+            .load("return script_state.state.events")
+            .eval()
+            .unwrap();
+        assert_eq!(
+            events,
+            vec![
+                "enter zone".to_string(),
+                "exit zone".to_string(),
+                "enter coin".to_string(),
+                format!("exit {}", coin),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_raycast_binding() {
+        let mut session = setup("raycast_binding");
+        let floor = sized_body(&session, "floor", (0.0, 100.0), (200.0, 20.0), false, false);
+        let player = sized_body(&session, "player", (45.0, 0.0), (10.0, 10.0), false, false);
+        // Queries see the colliders that existed at the last physics step
+        run_frame(&mut session);
+
+        let lua = session.lua.lua();
+        lua.globals().set("PLAYER", player.to_string()).unwrap();
+        let (id, x, y, distance): (String, f32, f32, f32) = lua
+            .load(
+                r#"
+                local hit = raycast(50, 5, 50, 500, PLAYER)
+                return hit.id, hit.x, hit.y, hit.distance
+                "#,
+            )
+            .eval()
+            .unwrap();
+        assert_eq!(id, floor.to_string());
+        assert!(
+            (x - 50.0).abs() < 0.01 && (y - 100.0).abs() < 0.01,
+            "({}, {})",
+            x,
+            y
+        );
+        assert!((distance - 95.0).abs() < 0.01, "{}", distance);
+
+        let (short, starts_inside, bad_id): (bool, String, bool) = lua
+            .load(
+                r#"
+                return raycast(50, 5, 50, 90, PLAYER) == nil,
+                    raycast(50, 5, 50, 500).id,
+                    (pcall(raycast, 50, 5, 50, 500, "not an id"))
+                "#,
+            )
+            .eval()
+            .unwrap();
+        assert!(short, "the floor is out of reach");
+        assert_eq!(starts_inside, player.to_string(), "without exclude");
+        assert!(!bad_id, "an invalid id is an error");
+    }
 }

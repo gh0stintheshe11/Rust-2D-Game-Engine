@@ -132,20 +132,32 @@ pub fn paint_sprite(
     painter.add(mesh);
 }
 
+/// Outline color of sensors (trigger zones), whatever their shape.
+pub const SENSOR_OUTLINE_COLOR: egui::Color32 = egui::Color32::GREEN;
+
 /// Paint a collider outline given in viewport-relative screen space (see
 /// [`RenderEngine::render_colliders`]); `origin` is the viewport's top-left.
+/// Solid circles are red and solid rectangles blue; sensors are
+/// [`SENSOR_OUTLINE_COLOR`].
 pub fn paint_collider_outline(
     painter: &egui::Painter,
     outline: &ColliderOutline,
     origin: egui::Pos2,
 ) {
     let center = origin + egui::vec2(outline.center.0, outline.center.1);
+    let color = |solid: egui::Color32| {
+        if outline.is_sensor {
+            SENSOR_OUTLINE_COLOR
+        } else {
+            solid
+        }
+    };
     match outline.shape {
         ColliderShape::Circle => {
             painter.circle_stroke(
                 center,
                 outline.size.0 / 2.0,
-                egui::Stroke::new(1.0, egui::Color32::RED),
+                egui::Stroke::new(1.0, color(egui::Color32::RED)),
             );
         }
         ColliderShape::Rectangle => {
@@ -160,7 +172,7 @@ pub fn paint_collider_outline(
             .map(|(x, y)| center + egui::vec2(x * cos - y * sin, x * sin + y * cos));
             painter.add(egui::Shape::closed_line(
                 corners.to_vec(),
-                egui::Stroke::new(1.0, egui::Color32::BLUE),
+                egui::Stroke::new(1.0, color(egui::Color32::BLUE)),
             ));
         }
     }

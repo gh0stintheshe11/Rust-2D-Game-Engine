@@ -321,3 +321,42 @@ fn test_sprite_sheet_frames() {
     );
     assert_eq!(size, (10.0, 10.0));
 }
+
+#[test]
+fn test_sensor_outlines_have_their_own_color() {
+    use rust_2d_game_engine::physics::{ColliderOutline, ColliderShape};
+    use rust_2d_game_engine::render::{SENSOR_OUTLINE_COLOR, paint_collider_outline};
+
+    // The stroke colors painted for each outline
+    let colors = |is_sensor: bool| -> Vec<egui::Color32> {
+        let ctx = egui::Context::default();
+        let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
+            for shape in [ColliderShape::Circle, ColliderShape::Rectangle] {
+                let outline = ColliderOutline {
+                    center: (50.0, 50.0),
+                    size: (20.0, 20.0),
+                    rotation: 0.0,
+                    shape,
+                    is_sensor,
+                };
+                paint_collider_outline(ui.painter(), &outline, egui::Pos2::ZERO);
+            }
+        });
+        // Nothing renders here; textures don't need uploading
+        output.textures_delta.clear();
+        output
+            .shapes
+            .into_iter()
+            .filter_map(|clipped| match clipped.shape {
+                egui::Shape::Circle(circle) => Some(circle.stroke.color),
+                egui::Shape::Path(path) => match path.stroke.color {
+                    egui::epaint::ColorMode::Solid(color) => Some(color),
+                    _ => None,
+                },
+                _ => None,
+            })
+            .collect()
+    };
+    assert_eq!(colors(false), vec![egui::Color32::RED, egui::Color32::BLUE]);
+    assert_eq!(colors(true), vec![SENSOR_OUTLINE_COLOR; 2]);
+}
