@@ -6,6 +6,12 @@
 local FIELD_WIDTH = 480
 
 function update(scene_id, entity_id)
+    -- The paddle stops when the round is over
+    if script_state.state.game_over then
+        set_velocity(entity_id, 0, 0)
+        return
+    end
+
     local speed = get_attribute(scene_id, entity_id, "speed") or 320
     local direction = 0
     if is_key_pressed("ArrowLeft") or is_key_pressed("A") then

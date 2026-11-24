@@ -1,22 +1,22 @@
--- Attached to every falling star and rock by the spawner.
+-- Attached to the star and rock prefabs, so to every falling star and rock.
 
 function on_collision(scene_id, entity_id, other_id)
+    local state = script_state.state
     local kind = get_entity_name(scene_id, entity_id)
     local other = get_entity_name(scene_id, other_id)
 
-    if other == "paddle" then
+    if other == "paddle" and not state.game_over then
         if kind == "star" then
             play_sound("assets/sounds/catch.wav")
-            local state = script_state.state
             state.score = state.score + 1
             remove_entity(scene_id, entity_id)
         else
             play_sound("assets/sounds/crash.wav")
-            print("Game over! Stars caught: " .. script_state.state.score)
-            end_game()
+            state.game_over = true
+            state.best = math.max(state.best or 0, state.score)
         end
-    elseif other == "ground" then
-        -- Missed: it just disappears
+    elseif other == "ground" or other == "paddle" then
+        -- Missed, or the round is over: it just disappears
         remove_entity(scene_id, entity_id)
     end
 end

@@ -30,6 +30,10 @@ versions may contain breaking changes).
 
 - `ColliderOutline` has an `is_sensor` field, and collider outlines draw
   sensors in green.
+- The Star Catcher demo starts on a title screen that shows the best score,
+  and a game over is a screen of its own: Space plays again, Esc returns to
+  the title. Stars and rocks are prefabs in a `prefabs` scene, on a collision
+  layer of their own so they no longer bump into each other.
 
 ### Fixed
 
