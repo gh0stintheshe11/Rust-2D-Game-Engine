@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
 
-use super::{parse_uuid, LuaScripting};
+use super::{LuaScripting, parse_uuid};
 use crate::project::ProjectManager;
 use crate::scene::{AttributeType, AttributeValue, SceneManager};
 

@@ -396,8 +396,8 @@ impl EditorApp {
                                 self.game_runtime.update(ctx, ui, game_view_rect);
 
                                 // Then draw the game camera bounds
-                                if let Some(scene_manager) = &self.gui_state.scene_manager {
-                                    if let Some(active_scene) = scene_manager.get_active_scene() {
+                                if let Some(scene_manager) = &self.gui_state.scene_manager
+                                    && let Some(active_scene) = scene_manager.get_active_scene() {
                                         let camera_lines =
                                             self.render_engine.get_game_camera_bounds(active_scene);
                                         for (start, end) in camera_lines {
@@ -416,7 +416,6 @@ impl EditorApp {
                                             );
                                         }
                                     }
-                                }
                             } else {
                                 // Render the game view first
                                 self.render_scene(ui);
@@ -533,10 +532,9 @@ impl EditorApp {
                             });
 
                             // Then handle editor viewport controls only when not playing
-                            if self.game_runtime.get_state() != RuntimeState::Playing {
-                                if let Some(cursor_pos) = ui.ctx().input(|i| i.pointer.hover_pos())
-                                {
-                                    if viewport_rect.contains(cursor_pos) {
+                            if self.game_runtime.get_state() != RuntimeState::Playing
+                                && let Some(cursor_pos) = ui.ctx().input(|i| i.pointer.hover_pos())
+                                    && viewport_rect.contains(cursor_pos) {
                                         // Editor camera controls
                                         if self
                                             .input_handler
@@ -583,8 +581,6 @@ impl EditorApp {
                                             camera.position.1 = world_y - local.y / new_zoom;
                                         }
                                     }
-                                }
-                            }
 
                             // Debug overlay in the bottom-left of the game view
                             if self.gui_state.show_debug_overlay {
@@ -806,86 +802,78 @@ impl EditorApp {
         };
 
         // Click: select (or clear the selection when clicking empty space)
-        if response.clicked() {
-            if let Some(pointer) = response.interact_pointer_pos() {
-                match hit_test(pointer) {
-                    Some(entity_id) => {
-                        self.gui_state.selected_item =
-                            crate::state::SelectedItem::Entity(active_scene_id, entity_id);
-                        self.gui_state.scene_panel_selected_item =
-                            crate::state::ScenePanelSelectedItem::Entity(
-                                active_scene_id,
-                                entity_id,
-                            );
-                    }
-                    None => {
-                        self.gui_state.selected_item = crate::state::SelectedItem::None;
-                        self.gui_state.scene_panel_selected_item =
-                            crate::state::ScenePanelSelectedItem::None;
-                    }
+        if response.clicked()
+            && let Some(pointer) = response.interact_pointer_pos()
+        {
+            match hit_test(pointer) {
+                Some(entity_id) => {
+                    self.gui_state.selected_item =
+                        crate::state::SelectedItem::Entity(active_scene_id, entity_id);
+                    self.gui_state.scene_panel_selected_item =
+                        crate::state::ScenePanelSelectedItem::Entity(active_scene_id, entity_id);
+                }
+                None => {
+                    self.gui_state.selected_item = crate::state::SelectedItem::None;
+                    self.gui_state.scene_panel_selected_item =
+                        crate::state::ScenePanelSelectedItem::None;
                 }
             }
         }
 
         // Drag start: grab the entity under the cursor (Alt+drag pans instead)
-        if response.drag_started_by(egui::PointerButton::Primary) && !alt_held {
-            if let Some(pointer) = response.interact_pointer_pos() {
-                if let Some(entity_id) = hit_test(pointer) {
-                    // World position of the cursor and the entity's grab offset
-                    let camera = &self.render_engine.camera;
-                    let world_x = (pointer.x - content_rect.min.x) / zoom + camera.position.0;
-                    let world_y = (pointer.y - content_rect.min.y) / zoom + camera.position.1;
+        if response.drag_started_by(egui::PointerButton::Primary)
+            && !alt_held
+            && let Some(pointer) = response.interact_pointer_pos()
+            && let Some(entity_id) = hit_test(pointer)
+        {
+            // World position of the cursor and the entity's grab offset
+            let camera = &self.render_engine.camera;
+            let world_x = (pointer.x - content_rect.min.x) / zoom + camera.position.0;
+            let world_y = (pointer.y - content_rect.min.y) / zoom + camera.position.1;
 
-                    if let Some(scene_manager) = &self.gui_state.scene_manager {
-                        if let Some(scene) = scene_manager.get_scene(active_scene_id) {
-                            if let Ok(entity) = scene.get_entity(entity_id) {
-                                let offset = (world_x - entity.get_x(), world_y - entity.get_y());
-                                self.viewport_drag = Some((entity_id, offset));
-                                // Select what we grab
-                                self.gui_state.selected_item =
-                                    crate::state::SelectedItem::Entity(active_scene_id, entity_id);
-                                self.gui_state.scene_panel_selected_item =
-                                    crate::state::ScenePanelSelectedItem::Entity(
-                                        active_scene_id,
-                                        entity_id,
-                                    );
-                            }
-                        }
-                    }
-                }
+            if let Some(scene_manager) = &self.gui_state.scene_manager
+                && let Some(scene) = scene_manager.get_scene(active_scene_id)
+                && let Ok(entity) = scene.get_entity(entity_id)
+            {
+                let offset = (world_x - entity.get_x(), world_y - entity.get_y());
+                self.viewport_drag = Some((entity_id, offset));
+                // Select what we grab
+                self.gui_state.selected_item =
+                    crate::state::SelectedItem::Entity(active_scene_id, entity_id);
+                self.gui_state.scene_panel_selected_item =
+                    crate::state::ScenePanelSelectedItem::Entity(active_scene_id, entity_id);
             }
         }
 
         // Dragging: move the grabbed entity with the cursor
-        if response.dragged_by(egui::PointerButton::Primary) && !alt_held {
-            if let (Some((entity_id, offset)), Some(pointer)) =
+        if response.dragged_by(egui::PointerButton::Primary)
+            && !alt_held
+            && let (Some((entity_id, offset)), Some(pointer)) =
                 (self.viewport_drag, response.interact_pointer_pos())
-            {
-                let camera = &self.render_engine.camera;
-                let world_x = (pointer.x - content_rect.min.x) / zoom + camera.position.0;
-                let world_y = (pointer.y - content_rect.min.y) / zoom + camera.position.1;
-                let new_x = world_x - offset.0;
-                let new_y = world_y - offset.1;
+        {
+            let camera = &self.render_engine.camera;
+            let world_x = (pointer.x - content_rect.min.x) / zoom + camera.position.0;
+            let world_y = (pointer.y - content_rect.min.y) / zoom + camera.position.1;
+            let new_x = world_x - offset.0;
+            let new_y = world_y - offset.1;
 
-                if let Some(scene_manager) = &mut self.gui_state.scene_manager {
-                    if let Some(scene) = scene_manager.get_scene_mut(active_scene_id) {
-                        if let Ok(entity) = scene.get_entity_mut(entity_id) {
-                            let _ = entity.set_x(new_x);
-                            let _ = entity.set_y(new_y);
-                            // Keep the optional position Vector2 in sync
-                            if let Ok(pos_attr) = entity.get_attribute_by_name("position") {
-                                let pos_id = pos_attr.id;
-                                let _ = entity.modify_attribute(
-                                    pos_id,
-                                    None,
-                                    None,
-                                    Some(rust_2d_game_engine::scene::AttributeValue::Vector2(
-                                        new_x, new_y,
-                                    )),
-                                );
-                            }
-                        }
-                    }
+            if let Some(scene_manager) = &mut self.gui_state.scene_manager
+                && let Some(scene) = scene_manager.get_scene_mut(active_scene_id)
+                && let Ok(entity) = scene.get_entity_mut(entity_id)
+            {
+                let _ = entity.set_x(new_x);
+                let _ = entity.set_y(new_y);
+                // Keep the optional position Vector2 in sync
+                if let Ok(pos_attr) = entity.get_attribute_by_name("position") {
+                    let pos_id = pos_attr.id;
+                    let _ = entity.modify_attribute(
+                        pos_id,
+                        None,
+                        None,
+                        Some(rust_2d_game_engine::scene::AttributeValue::Vector2(
+                            new_x, new_y,
+                        )),
+                    );
                 }
             }
         }

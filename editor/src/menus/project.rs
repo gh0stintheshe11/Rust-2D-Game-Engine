@@ -55,7 +55,7 @@ impl ProjectMenu {
 
         if is_building || result.is_some() {
             // Block interactions with a transparent layer
-            egui::Area::new(egui::Id::new("blocking_Layer"))
+            egui::Area::new(egui::Id::unique("blocking_Layer"))
                 .order(egui::Order::Foreground)
                 .interactable(false)
                 .show(ctx, |ui| {

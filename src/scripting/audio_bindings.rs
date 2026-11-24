@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
 
-use super::{parse_uuid, LuaScripting};
+use super::{LuaScripting, parse_uuid};
 use crate::audio::AudioEngine;
 use crate::logger::LOGGER;
 use crate::project::ProjectManager;

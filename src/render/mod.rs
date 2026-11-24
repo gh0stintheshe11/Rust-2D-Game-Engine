@@ -1,6 +1,5 @@
 use crate::scene::{AttributeValue, Scene};
 use image::GenericImageView;
-use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::path::Path;
 use uuid::Uuid;
@@ -96,18 +95,9 @@ impl Default for RenderEngine {
 }
 
 impl RenderEngine {
-    // Generate deterministic UUID from path
+    /// Deterministic cache key for an image path.
     pub fn path_to_uuid(path: &Path) -> Uuid {
-        let mut hasher = Sha256::new();
-        hasher.update(path.to_string_lossy().as_bytes());
-        let result = hasher.finalize();
-
-        let mut bytes = [0u8; 16];
-        bytes.copy_from_slice(&result[..16]);
-        bytes[6] = (bytes[6] & 0x0f) | 0x40;
-        bytes[8] = (bytes[8] & 0x3f) | 0x80;
-
-        Uuid::from_bytes(bytes)
+        Uuid::new_v5(&Uuid::NAMESPACE_URL, path.to_string_lossy().as_bytes())
     }
 
     // Load texture and return its ID
@@ -366,33 +356,33 @@ impl RenderEngine {
     pub fn get_game_camera_bounds(&self, scene: &Scene) -> Vec<((f32, f32), (f32, f32))> {
         let mut lines = Vec::new();
 
-        if let Some(camera_id) = scene.default_camera {
-            if let Ok(camera_entity) = scene.get_entity(camera_id) {
-                let x = camera_entity.get_x();
-                let y = camera_entity.get_y();
-                let width = camera_entity.get_camera_width();
-                let height = camera_entity.get_camera_height();
+        if let Some(camera_id) = scene.default_camera
+            && let Ok(camera_entity) = scene.get_entity(camera_id)
+        {
+            let x = camera_entity.get_x();
+            let y = camera_entity.get_y();
+            let width = camera_entity.get_camera_width();
+            let height = camera_entity.get_camera_height();
 
-                // Convert game camera bounds to screen space using editor camera
-                let top_left = self
-                    .camera
-                    .world_to_screen((x - width / 2.0, y - height / 2.0));
-                let top_right = self
-                    .camera
-                    .world_to_screen((x + width / 2.0, y - height / 2.0));
-                let bottom_left = self
-                    .camera
-                    .world_to_screen((x - width / 2.0, y + height / 2.0));
-                let bottom_right = self
-                    .camera
-                    .world_to_screen((x + width / 2.0, y + height / 2.0));
+            // Convert game camera bounds to screen space using editor camera
+            let top_left = self
+                .camera
+                .world_to_screen((x - width / 2.0, y - height / 2.0));
+            let top_right = self
+                .camera
+                .world_to_screen((x + width / 2.0, y - height / 2.0));
+            let bottom_left = self
+                .camera
+                .world_to_screen((x - width / 2.0, y + height / 2.0));
+            let bottom_right = self
+                .camera
+                .world_to_screen((x + width / 2.0, y + height / 2.0));
 
-                // Add the lines for the rectangle
-                lines.push((top_left, top_right));
-                lines.push((bottom_left, bottom_right));
-                lines.push((top_left, bottom_left));
-                lines.push((top_right, bottom_right));
-            }
+            // Add the lines for the rectangle
+            lines.push((top_left, top_right));
+            lines.push((bottom_left, bottom_right));
+            lines.push((top_left, bottom_left));
+            lines.push((top_right, bottom_right));
         }
 
         lines

@@ -58,19 +58,9 @@ impl AudioEngine {
             .ok_or_else(|| "No audio output device available".to_string())
     }
 
-    // Generate deterministic UUID from path
+    /// Deterministic cache key for a sound path.
     fn path_to_uuid(path: &Path) -> Uuid {
-        use sha2::{Digest, Sha256};
-        let mut hasher = Sha256::new();
-        hasher.update(path.to_string_lossy().as_bytes());
-        let result = hasher.finalize();
-
-        let mut bytes = [0u8; 16];
-        bytes.copy_from_slice(&result[..16]);
-        bytes[6] = (bytes[6] & 0x0f) | 0x40;
-        bytes[8] = (bytes[8] & 0x3f) | 0x80;
-
-        Uuid::from_bytes(bytes)
+        Uuid::new_v5(&Uuid::NAMESPACE_URL, path.to_string_lossy().as_bytes())
     }
 
     // === Loading Operations ===

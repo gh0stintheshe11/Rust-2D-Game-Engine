@@ -9,40 +9,9 @@ use uuid::Uuid;
 pub type ColliderData = ((f32, f32), (f32, f32), String);
 
 pub struct PhysicsEngine {
-    // Global gravity force applied to all dynamic bodies
-    gravity: Vector,
-
-    // Controls physics simulation timing and accuracy
-    integration_parameters: IntegrationParameters,
-
-    // Main physics simulation pipeline that coordinates all systems
-    physics_pipeline: PhysicsPipeline,
-
-    // Manages groups of interacting bodies (optimization for large scenes)
-    island_manager: IslandManager,
-
-    // Broad phase: Quick, rough check of which objects MIGHT be colliding
-    // Uses spatial partitioning to avoid checking every object against every other object
-    broad_phase: DefaultBroadPhase,
-
-    // Narrow phase: Detailed collision detection between objects that broad phase found
-    // Calculates exact collision points and forces
-    narrow_phase: NarrowPhase,
-
-    // Stores and manages all rigid bodies (physical objects that can move)
-    rigid_body_set: RigidBodySet,
-
-    // Stores and manages all colliders (shapes that define how objects collide)
-    collider_set: ColliderSet,
-
-    // For future: Handles physical joints/constraints between bodies
-    impulse_joint_set: ImpulseJointSet,
-
-    // For future: Handles more complex joint systems
-    multibody_joint_set: MultibodyJointSet,
-
-    // For future: Handles continuous collision detection for fast-moving objects
-    ccd_solver: CCDSolver,
+    // The rapier world: bodies, colliders, pipelines, gravity and
+    // integration parameters
+    world: PhysicsWorld,
 
     // Maps our entity IDs to Rapier's physics handles
     entity_to_body: HashMap<Uuid, RigidBodyHandle>,
@@ -62,7 +31,7 @@ impl Default for PhysicsEngine {
 
 impl PhysicsEngine {
     pub fn new() -> Self {
-        Self {
+        let world = PhysicsWorld {
             // Default gravity: +Y is downward in screen space, so this pulls entities down
             gravity: Vector::new(0.0, 50.0),
 
@@ -81,17 +50,11 @@ impl PhysicsEngine {
                 length_unit: 100.0,
                 ..Default::default()
             },
+            ..Default::default()
+        };
 
-            // Initialize all physics systems
-            physics_pipeline: PhysicsPipeline::new(),
-            island_manager: IslandManager::new(),
-            broad_phase: DefaultBroadPhase::new(),
-            narrow_phase: NarrowPhase::new(),
-            rigid_body_set: RigidBodySet::new(),
-            collider_set: ColliderSet::new(),
-            impulse_joint_set: ImpulseJointSet::new(),
-            multibody_joint_set: MultibodyJointSet::new(),
-            ccd_solver: CCDSolver::new(),
+        Self {
+            world,
             entity_to_body: HashMap::new(),
             entity_to_collider: HashMap::new(),
             time_step: 1.0 / 60.0, // Default 60Hz physics
@@ -101,18 +64,18 @@ impl PhysicsEngine {
 
     /// Set the global gravity vector (screen space: +y is down).
     pub fn set_gravity(&mut self, x: f32, y: f32) {
-        self.gravity = Vector::new(x, y);
+        self.world.gravity = Vector::new(x, y);
     }
 
     /// Current global gravity vector.
     pub fn get_gravity(&self) -> (f32, f32) {
-        (self.gravity.x, self.gravity.y)
+        (self.world.gravity.x, self.world.gravity.y)
     }
 
     // Time step control
     pub fn set_time_step(&mut self, time_step: f32) {
         self.time_step = time_step;
-        self.integration_parameters.dt = time_step;
+        self.world.integration_parameters.dt = time_step;
     }
 
     pub fn get_time_step(&self) -> f32 {
@@ -121,12 +84,12 @@ impl PhysicsEngine {
 
     // CCD control
     pub fn set_min_ccd_dt(&mut self, min_dt: f32) {
-        self.integration_parameters.min_ccd_dt = min_dt;
+        self.world.integration_parameters.min_ccd_dt = min_dt;
     }
 
     // Contact parameters
     pub fn set_contact_parameters(&mut self, damping: f32, frequency: f32) {
-        self.integration_parameters.contact_softness = SpringCoefficients {
+        self.world.integration_parameters.contact_softness = SpringCoefficients {
             natural_frequency: frequency,
             damping_ratio: damping,
         };
@@ -372,14 +335,12 @@ impl PhysicsEngine {
             RigidBodyBuilder::fixed().translation(position).build()
         };
 
-        let rb_handle = self.rigid_body_set.insert(rigid_body);
+        let rb_handle = self.world.insert_body(rigid_body);
 
         // Create collider with automatic shape detection
         if has_collision {
             let collider = self.create_collider(entity, density, friction, restitution);
-            let collider_handle =
-                self.collider_set
-                    .insert_with_parent(collider, rb_handle, &mut self.rigid_body_set);
+            let collider_handle = self.world.insert_collider(collider, Some(rb_handle));
             self.entity_to_collider.insert(entity.id, collider_handle);
         }
 
@@ -389,63 +350,47 @@ impl PhysicsEngine {
     pub fn remove_entity(&mut self, entity_id: Uuid) {
         self.entity_position_attrs.remove(&entity_id);
         if let Some(rb_handle) = self.entity_to_body.remove(&entity_id) {
-            self.rigid_body_set.remove(
-                rb_handle,
-                &mut self.island_manager,
-                &mut self.collider_set,
-                &mut self.impulse_joint_set,
-                &mut self.multibody_joint_set,
-                true,
-            );
+            self.world.remove_body(rb_handle);
         }
 
         if let Some(collider_handle) = self.entity_to_collider.remove(&entity_id) {
-            self.collider_set.remove(
-                collider_handle,
-                &mut self.island_manager,
-                &mut self.rigid_body_set,
-                true,
-            );
+            self.world.remove_collider(collider_handle);
         }
     }
 
     pub fn step(&mut self, scene: &mut Scene) -> Vec<(Uuid, Uuid, AttributeValue)> {
         // Process custom gravity fields
         for (_, entity1) in &scene.entities {
-            if let Ok(creates_gravity) = entity1.get_attribute_by_name("creates_gravity") {
-                if let AttributeValue::Boolean(true) = creates_gravity.value {
-                    let pos1 = if let Ok(pos) = entity1.get_attribute_by_name("position") {
-                        if let AttributeValue::Vector2(x, y) = pos.value {
-                            Vector::new(x, y)
-                        } else {
-                            continue;
-                        }
+            if let Ok(creates_gravity) = entity1.get_attribute_by_name("creates_gravity")
+                && let AttributeValue::Boolean(true) = creates_gravity.value
+            {
+                let pos1 = if let Ok(pos) = entity1.get_attribute_by_name("position") {
+                    if let AttributeValue::Vector2(x, y) = pos.value {
+                        Vector::new(x, y)
                     } else {
                         continue;
-                    };
+                    }
+                } else {
+                    continue;
+                };
 
-                    // Apply gravity to other entities
-                    for (_, entity2) in &scene.entities {
-                        if entity1.id == entity2.id {
-                            continue;
-                        }
+                // Apply gravity to other entities
+                for (_, entity2) in &scene.entities {
+                    if entity1.id == entity2.id {
+                        continue;
+                    }
 
-                        if let Ok(affected_by_gravity) =
-                            entity2.get_attribute_by_name("has_gravity")
-                        {
-                            if let AttributeValue::Boolean(true) = affected_by_gravity.value {
-                                if let Some(rb_handle) = self.entity_to_body.get(&entity2.id) {
-                                    if let Some(rb) = self.rigid_body_set.get_mut(*rb_handle) {
-                                        let pos2 = rb.translation();
-                                        let direction = pos1 - pos2;
-                                        let distance = direction.length();
-                                        if distance > 0.0 {
-                                            let force = direction * (1.0 / (distance * distance));
-                                            rb.add_force(force * 10.0, true); // Scale force as needed
-                                        }
-                                    }
-                                }
-                            }
+                    if let Ok(affected_by_gravity) = entity2.get_attribute_by_name("has_gravity")
+                        && let AttributeValue::Boolean(true) = affected_by_gravity.value
+                        && let Some(rb_handle) = self.entity_to_body.get(&entity2.id)
+                        && let Some(rb) = self.world.bodies.get_mut(*rb_handle)
+                    {
+                        let pos2 = rb.translation();
+                        let direction = pos1 - pos2;
+                        let distance = direction.length();
+                        if distance > 0.0 {
+                            let force = direction * (1.0 / (distance * distance));
+                            rb.add_force(force * 10.0, true); // Scale force as needed
                         }
                     }
                 }
@@ -453,26 +398,13 @@ impl PhysicsEngine {
         }
 
         // Run physics simulation
-        self.physics_pipeline.step(
-            self.gravity,
-            &self.integration_parameters,
-            &mut self.island_manager,
-            &mut self.broad_phase,
-            &mut self.narrow_phase,
-            &mut self.rigid_body_set,
-            &mut self.collider_set,
-            &mut self.impulse_joint_set,
-            &mut self.multibody_joint_set,
-            &mut self.ccd_solver,
-            &(),
-            &(),
-        );
+        self.world.step();
 
         // Update positions using stored attribute IDs
         let mut updates = Vec::new();
 
         for (entity_id, rb_handle) in &self.entity_to_body {
-            if let Some(rb) = self.rigid_body_set.get_mut(*rb_handle) {
+            if let Some(rb) = self.world.bodies.get_mut(*rb_handle) {
                 // User-applied and gravity-field forces are persistent in Rapier;
                 // clear them each step so they don't accumulate across frames.
                 rb.reset_forces(true);
@@ -517,51 +449,46 @@ impl PhysicsEngine {
         self.entity_to_collider.clear();
         self.entity_position_attrs.clear();
 
-        // Remove all physics objects
-        self.rigid_body_set = RigidBodySet::new();
-        self.collider_set = ColliderSet::new();
-
-        // Reset physics state with new instances
-        self.island_manager = IslandManager::new();
-        self.broad_phase = DefaultBroadPhase::new();
-        self.narrow_phase = NarrowPhase::new();
-        self.impulse_joint_set = ImpulseJointSet::new();
-        self.multibody_joint_set = MultibodyJointSet::new();
-        self.ccd_solver = CCDSolver::new();
+        // Replace the world, keeping its configuration
+        self.world = PhysicsWorld {
+            gravity: self.world.gravity,
+            integration_parameters: self.world.integration_parameters,
+            ..Default::default()
+        };
     }
 
     // Get velocity of an entity
     pub fn get_velocity(&self, entity_id: &Uuid) -> Option<Vector> {
         self.entity_to_body
             .get(entity_id)
-            .and_then(|rb_handle| self.rigid_body_set.get(*rb_handle))
+            .and_then(|rb_handle| self.world.bodies.get(*rb_handle))
             .map(|rb| rb.linvel())
     }
 
     // Set velocity of an entity
     pub fn set_velocity(&mut self, entity_id: &Uuid, velocity: Vector) {
-        if let Some(rb_handle) = self.entity_to_body.get(entity_id) {
-            if let Some(rb) = self.rigid_body_set.get_mut(*rb_handle) {
-                rb.set_linvel(velocity, true);
-            }
+        if let Some(rb_handle) = self.entity_to_body.get(entity_id)
+            && let Some(rb) = self.world.bodies.get_mut(*rb_handle)
+        {
+            rb.set_linvel(velocity, true);
         }
     }
 
     // Apply force to an entity
     pub fn apply_force(&mut self, entity_id: &Uuid, force: Vector) {
-        if let Some(rb_handle) = self.entity_to_body.get(entity_id) {
-            if let Some(rb) = self.rigid_body_set.get_mut(*rb_handle) {
-                rb.add_force(force, true);
-            }
+        if let Some(rb_handle) = self.entity_to_body.get(entity_id)
+            && let Some(rb) = self.world.bodies.get_mut(*rb_handle)
+        {
+            rb.add_force(force, true);
         }
     }
 
     // Apply impulse (immediate force) to an entity
     pub fn apply_impulse(&mut self, entity_id: &Uuid, impulse: Vector) {
-        if let Some(rb_handle) = self.entity_to_body.get(entity_id) {
-            if let Some(rb) = self.rigid_body_set.get_mut(*rb_handle) {
-                rb.apply_impulse(impulse, true);
-            }
+        if let Some(rb_handle) = self.entity_to_body.get(entity_id)
+            && let Some(rb) = self.world.bodies.get_mut(*rb_handle)
+        {
+            rb.apply_impulse(impulse, true);
         }
     }
 
@@ -570,7 +497,7 @@ impl PhysicsEngine {
         let mut colliding = Vec::new();
 
         if let Some(collider_handle) = self.entity_to_collider.get(entity_id) {
-            let contact_pairs = self.narrow_phase.contact_pairs_with(*collider_handle);
+            let contact_pairs = self.world.narrow_phase.contact_pairs_with(*collider_handle);
             for pair in contact_pairs {
                 // A contact pair also exists for shapes that are merely close
                 // (broad-phase candidates); only report actual touching.
@@ -606,25 +533,24 @@ impl PhysicsEngine {
         let mut colliders = Vec::new();
 
         for (entity_id, collider_handle) in &self.entity_to_collider {
-            if let Some(collider) = self.collider_set.get(*collider_handle) {
-                if let Some(rb_handle) = self.entity_to_body.get(entity_id) {
-                    if let Some(_rb) = self.rigid_body_set.get(*rb_handle) {
-                        let position = (collider.translation().x, collider.translation().y);
+            if let Some(collider) = self.world.colliders.get(*collider_handle)
+                && let Some(rb_handle) = self.entity_to_body.get(entity_id)
+                && let Some(_rb) = self.world.bodies.get(*rb_handle)
+            {
+                let position = (collider.translation().x, collider.translation().y);
 
-                        if let Some(ball) = collider.shape().as_ball() {
-                            colliders.push((
-                                position,
-                                (ball.radius * 2.0, ball.radius * 2.0),
-                                "Circle".to_string(),
-                            ));
-                        } else if let Some(cuboid) = collider.shape().as_cuboid() {
-                            colliders.push((
-                                position,
-                                (cuboid.half_extents.x * 2.0, cuboid.half_extents.y * 2.0),
-                                "Rectangle".to_string(),
-                            ));
-                        }
-                    }
+                if let Some(ball) = collider.shape().as_ball() {
+                    colliders.push((
+                        position,
+                        (ball.radius * 2.0, ball.radius * 2.0),
+                        "Circle".to_string(),
+                    ));
+                } else if let Some(cuboid) = collider.shape().as_cuboid() {
+                    colliders.push((
+                        position,
+                        (cuboid.half_extents.x * 2.0, cuboid.half_extents.y * 2.0),
+                        "Rectangle".to_string(),
+                    ));
                 }
             }
         }
@@ -636,23 +562,23 @@ impl PhysicsEngine {
     pub fn get_angular_velocity(&self, entity_id: &Uuid) -> Option<Real> {
         self.entity_to_body
             .get(entity_id)
-            .and_then(|rb_handle| self.rigid_body_set.get(*rb_handle))
+            .and_then(|rb_handle| self.world.bodies.get(*rb_handle))
             .map(|rb| rb.angvel())
     }
 
     pub fn set_angular_velocity(&mut self, entity_id: &Uuid, angular_vel: Real) {
-        if let Some(rb_handle) = self.entity_to_body.get(entity_id) {
-            if let Some(rb) = self.rigid_body_set.get_mut(*rb_handle) {
-                rb.set_angvel(angular_vel, true);
-            }
+        if let Some(rb_handle) = self.entity_to_body.get(entity_id)
+            && let Some(rb) = self.world.bodies.get_mut(*rb_handle)
+        {
+            rb.set_angvel(angular_vel, true);
         }
     }
 
     pub fn apply_torque(&mut self, entity_id: &Uuid, torque: Real) {
-        if let Some(rb_handle) = self.entity_to_body.get(entity_id) {
-            if let Some(rb) = self.rigid_body_set.get_mut(*rb_handle) {
-                rb.add_torque(torque, true);
-            }
+        if let Some(rb_handle) = self.entity_to_body.get(entity_id)
+            && let Some(rb) = self.world.bodies.get_mut(*rb_handle)
+        {
+            rb.add_torque(torque, true);
         }
     }
 
@@ -681,7 +607,7 @@ impl PhysicsEngine {
     /// Total number of rigid bodies in the physics world (including any
     /// no longer mapped to an entity - useful to detect leaks).
     pub fn rigid_body_count(&self) -> usize {
-        self.rigid_body_set.len()
+        self.world.bodies.len()
     }
 
     pub fn has_rigid_body(&self, entity_id: &Uuid) -> bool {

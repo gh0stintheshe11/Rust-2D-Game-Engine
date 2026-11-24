@@ -3,6 +3,7 @@ name = "rust-2d-game-editor"
 description = "Visual editor for the Rust 2D Game Engine"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 repository.workspace = true
 publish = false
 
@@ -12,6 +13,6 @@ egui.workspace = true
 eframe.workspace = true
 image.workspace = true
 uuid.workspace = true
-egui_extras = { version = "0.36.1", features = ["syntect"] }
-rfd = "0.17.2"
+egui_extras = { version = "0.37", features = ["syntect"] }
+rfd = "0.18"
 strip-ansi-escapes = "0.2.1"

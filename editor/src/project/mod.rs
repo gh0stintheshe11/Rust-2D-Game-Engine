@@ -7,5 +7,5 @@ mod import;
 mod scaffold;
 
 pub use build::build_project;
-pub use import::{import_asset, AssetType};
+pub use import::{AssetType, import_asset};
 pub use scaffold::create_project;

@@ -70,14 +70,13 @@ impl FileMenu {
                     if ui.text_edit_singleline(&mut path_str).changed() {
                         self.temp_project_path = PathBuf::from(&path_str);
                     }
-                    if ui.button("Browse…").clicked() {
-                        if let Some(parent) = rfd::FileDialog::new()
+                    if ui.button("Browse…").clicked()
+                        && let Some(parent) = rfd::FileDialog::new()
                             .set_title("Choose where to create the project")
                             .pick_folder()
-                        {
-                            // Suggest a subfolder inside the chosen directory
-                            self.temp_project_path = parent.join("my_game");
-                        }
+                    {
+                        // Suggest a subfolder inside the chosen directory
+                        self.temp_project_path = parent.join("my_game");
                     }
                 });
 
@@ -151,14 +150,13 @@ impl FileMenu {
                         self.temp_project_path = PathBuf::from(&path_str);
                         self.error_message.clear();
                     }
-                    if ui.button("Browse…").clicked() {
-                        if let Some(folder) = rfd::FileDialog::new()
+                    if ui.button("Browse…").clicked()
+                        && let Some(folder) = rfd::FileDialog::new()
                             .set_title("Open a project folder")
                             .pick_folder()
-                        {
-                            self.temp_project_path = folder;
-                            self.error_message.clear();
-                        }
+                    {
+                        self.temp_project_path = folder;
+                        self.error_message.clear();
                     }
                 });
 

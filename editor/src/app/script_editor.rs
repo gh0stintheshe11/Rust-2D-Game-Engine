@@ -231,7 +231,7 @@ impl EditorApp {
             return;
         }
 
-        let id = egui::Id::new("script_editor_text");
+        let id = egui::Id::unique("script_editor_text");
         let mut state = egui::text_edit::TextEditState::load(ctx, id).unwrap_or_default();
 
         let char_index = state
@@ -306,22 +306,21 @@ impl EditorApp {
                 // Ln/Col of the primary cursor
                 if let Some(state) = egui::text_edit::TextEditState::load(
                     ui.ctx(),
-                    egui::Id::new("script_editor_text"),
-                ) {
-                    if let Some(range) = state.cursor.char_range() {
-                        let index = range.primary.index.0;
-                        let mut line = 1usize;
-                        let mut column = 1usize;
-                        for c in self.editor_content.chars().take(index) {
-                            if c == '\n' {
-                                line += 1;
-                                column = 1;
-                            } else {
-                                column += 1;
-                            }
+                    egui::Id::unique("script_editor_text"),
+                ) && let Some(range) = state.cursor.char_range()
+                {
+                    let index = range.primary.index.0;
+                    let mut line = 1usize;
+                    let mut column = 1usize;
+                    for c in self.editor_content.chars().take(index) {
+                        if c == '\n' {
+                            line += 1;
+                            column = 1;
+                        } else {
+                            column += 1;
                         }
-                        ui.weak(format!("Ln {}, Col {}", line, column));
                     }
+                    ui.weak(format!("Ln {}, Col {}", line, column));
                 }
             });
         });
@@ -407,7 +406,7 @@ impl EditorApp {
                             (row_height * line_count as f32).max(ui.available_height()),
                         ),
                         egui::TextEdit::multiline(&mut self.editor_content)
-                            .id(egui::Id::new("script_editor_text"))
+                            .id(egui::Id::unique("script_editor_text"))
                             .code_editor()
                             .lock_focus(true)
                             .desired_width(f32::INFINITY)

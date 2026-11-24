@@ -103,7 +103,7 @@ fn create_cargo_package(base_path: &Path, project_name: &str) -> Result<(), Stri
         r#"[package]
 name = "{package_name}"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 rust-2d-game-engine = {{ path = "{engine_path}" }}

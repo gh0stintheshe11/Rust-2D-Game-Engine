@@ -119,11 +119,11 @@ impl PopupManager {
             let new_name = self.rename_input.trim().to_string();
             if let Some(entity_id) = entity_id {
                 // Rename entity
-                if let Some(scene) = scene_manager.get_scene_mut(scene_id) {
-                    if let Ok(entity) = scene.get_entity_mut(entity_id) {
-                        entity.name = new_name;
-                        println!("Renamed entity to: {}", entity.name);
-                    }
+                if let Some(scene) = scene_manager.get_scene_mut(scene_id)
+                    && let Ok(entity) = scene.get_entity_mut(entity_id)
+                {
+                    entity.name = new_name;
+                    println!("Renamed entity to: {}", entity.name);
                 }
             } else {
                 // Rename scene
@@ -360,17 +360,17 @@ impl PopupManager {
         }
 
         // Render manage assets popup
-        if self.manage_assets_popup_active {
-            if let Some(scene_manager) = &mut gui_state.scene_manager {
-                self.show_manage_assets_popup(ctx, scene_manager);
-            }
+        if self.manage_assets_popup_active
+            && let Some(scene_manager) = &mut gui_state.scene_manager
+        {
+            self.show_manage_assets_popup(ctx, scene_manager);
         }
 
         // Render resource selection popup
-        if self.resource_selection.is_some() {
-            if let Some(scene_manager) = &mut gui_state.scene_manager {
-                self.show_resource_selection_popup(ctx, scene_manager, &gui_state.project_path);
-            }
+        if self.resource_selection.is_some()
+            && let Some(scene_manager) = &mut gui_state.scene_manager
+        {
+            self.show_resource_selection_popup(ctx, scene_manager, &gui_state.project_path);
         }
 
         // Persist attach/detach changes made by the popups above
@@ -522,53 +522,36 @@ impl PopupManager {
                         .show(ui, |ui| {
                             egui::ScrollArea::vertical().show(ui, |ui| {
                                 for resource_path in &self.available_resources {
-                                    if let Some(filename) = resource_path.file_name() {
-                                        if ui
+                                    if let Some(filename) = resource_path.file_name()
+                                        && ui
                                             .button(filename.to_string_lossy().to_string())
                                             .clicked()
-                                        {
-                                            if let Some(scene) =
-                                                scene_manager.get_scene_mut(scene_id)
-                                            {
-                                                if let Ok(entity) = scene.get_entity_mut(entity_id)
-                                                {
-                                                    match self.selected_resource_type.as_str() {
-                                                        "Images" => {
-                                                            // Check if image is already attached
-                                                            if !entity
-                                                                .images
-                                                                .contains(resource_path)
-                                                            {
-                                                                entity
-                                                                    .images
-                                                                    .push(resource_path.clone());
-                                                                changed = true;
-                                                            }
-                                                        }
-                                                        "Sounds" => {
-                                                            // Check if sound is already attached
-                                                            if !entity
-                                                                .sounds
-                                                                .contains(resource_path)
-                                                            {
-                                                                entity
-                                                                    .sounds
-                                                                    .push(resource_path.clone());
-                                                                changed = true;
-                                                            }
-                                                        }
-                                                        "Scripts"
-                                                            if entity.script.as_ref()
-                                                                != Some(resource_path) =>
-                                                        {
-                                                            entity.script =
-                                                                Some(resource_path.clone());
-                                                            changed = true;
-                                                        }
-                                                        _ => {}
-                                                    }
+                                        && let Some(scene) = scene_manager.get_scene_mut(scene_id)
+                                        && let Ok(entity) = scene.get_entity_mut(entity_id)
+                                    {
+                                        match self.selected_resource_type.as_str() {
+                                            "Images" => {
+                                                // Check if image is already attached
+                                                if !entity.images.contains(resource_path) {
+                                                    entity.images.push(resource_path.clone());
+                                                    changed = true;
                                                 }
                                             }
+                                            "Sounds" => {
+                                                // Check if sound is already attached
+                                                if !entity.sounds.contains(resource_path) {
+                                                    entity.sounds.push(resource_path.clone());
+                                                    changed = true;
+                                                }
+                                            }
+                                            "Scripts"
+                                                if entity.script.as_ref()
+                                                    != Some(resource_path) =>
+                                            {
+                                                entity.script = Some(resource_path.clone());
+                                                changed = true;
+                                            }
+                                            _ => {}
                                         }
                                     }
                                 }
@@ -600,85 +583,85 @@ impl PopupManager {
                 .resizable(false)
                 .order(egui::Order::Foreground)
                 .show(ctx, |ui| {
-                    if let Some(scene) = scene_manager.get_scene_mut(scene_id) {
-                        if let Ok(entity) = scene.get_entity_mut(entity_id) {
-                            // Images section as collapsing header
-                            if !entity.images.is_empty() {
-                                egui::CollapsingHeader::new("Images")
-                                    .default_open(true)
-                                    .show(ui, |ui| {
-                                        let mut images_to_remove = Vec::new();
-                                        for (i, path) in entity.images.iter().enumerate() {
-                                            ui.horizontal(|ui| {
-                                                ui.label(
-                                                    path.file_name()
-                                                        .unwrap_or_default()
-                                                        .to_string_lossy()
-                                                        .to_string(),
-                                                );
-                                                if ui.button("Remove").clicked() {
-                                                    images_to_remove.push(i);
-                                                }
-                                            });
-                                        }
-                                        // Remove images outside the loop
-                                        for &i in images_to_remove.iter().rev() {
-                                            entity.images.remove(i);
-                                            changed = true;
-                                        }
-                                    });
-                            }
-
-                            // Sounds section as collapsing header
-                            if !entity.sounds.is_empty() {
-                                egui::CollapsingHeader::new("Sounds")
-                                    .default_open(true)
-                                    .show(ui, |ui| {
-                                        let mut sounds_to_remove = Vec::new();
-                                        for (i, path) in entity.sounds.iter().enumerate() {
-                                            ui.horizontal(|ui| {
-                                                ui.label(
-                                                    path.file_name()
-                                                        .unwrap_or_default()
-                                                        .to_string_lossy()
-                                                        .to_string(),
-                                                );
-                                                if ui.button("Remove").clicked() {
-                                                    sounds_to_remove.push(i);
-                                                }
-                                            });
-                                        }
-                                        // Remove sounds outside the loop
-                                        for &i in sounds_to_remove.iter().rev() {
-                                            entity.sounds.remove(i);
-                                            changed = true;
-                                        }
-                                    });
-                            }
-
-                            // Script section as collapsing header
-                            if entity.script.is_some() {
-                                egui::CollapsingHeader::new("Script")
-                                    .default_open(true)
-                                    .show(ui, |ui| {
+                    if let Some(scene) = scene_manager.get_scene_mut(scene_id)
+                        && let Ok(entity) = scene.get_entity_mut(entity_id)
+                    {
+                        // Images section as collapsing header
+                        if !entity.images.is_empty() {
+                            egui::CollapsingHeader::new("Images")
+                                .default_open(true)
+                                .show(ui, |ui| {
+                                    let mut images_to_remove = Vec::new();
+                                    for (i, path) in entity.images.iter().enumerate() {
                                         ui.horizontal(|ui| {
                                             ui.label(
-                                                entity
-                                                    .script
-                                                    .clone()
-                                                    .unwrap()
-                                                    .file_name()
+                                                path.file_name()
                                                     .unwrap_or_default()
                                                     .to_string_lossy()
                                                     .to_string(),
                                             );
                                             if ui.button("Remove").clicked() {
-                                                entity.script = None;
-                                                changed = true;
+                                                images_to_remove.push(i);
                                             }
                                         });
+                                    }
+                                    // Remove images outside the loop
+                                    for &i in images_to_remove.iter().rev() {
+                                        entity.images.remove(i);
+                                        changed = true;
+                                    }
+                                });
+                        }
+
+                        // Sounds section as collapsing header
+                        if !entity.sounds.is_empty() {
+                            egui::CollapsingHeader::new("Sounds")
+                                .default_open(true)
+                                .show(ui, |ui| {
+                                    let mut sounds_to_remove = Vec::new();
+                                    for (i, path) in entity.sounds.iter().enumerate() {
+                                        ui.horizontal(|ui| {
+                                            ui.label(
+                                                path.file_name()
+                                                    .unwrap_or_default()
+                                                    .to_string_lossy()
+                                                    .to_string(),
+                                            );
+                                            if ui.button("Remove").clicked() {
+                                                sounds_to_remove.push(i);
+                                            }
+                                        });
+                                    }
+                                    // Remove sounds outside the loop
+                                    for &i in sounds_to_remove.iter().rev() {
+                                        entity.sounds.remove(i);
+                                        changed = true;
+                                    }
+                                });
+                        }
+
+                        // Script section as collapsing header
+                        if entity.script.is_some() {
+                            egui::CollapsingHeader::new("Script")
+                                .default_open(true)
+                                .show(ui, |ui| {
+                                    ui.horizontal(|ui| {
+                                        ui.label(
+                                            entity
+                                                .script
+                                                .clone()
+                                                .unwrap()
+                                                .file_name()
+                                                .unwrap_or_default()
+                                                .to_string_lossy()
+                                                .to_string(),
+                                        );
+                                        if ui.button("Remove").clicked() {
+                                            entity.script = None;
+                                            changed = true;
+                                        }
                                     });
-                            }
+                                });
                         }
                     }
                 });

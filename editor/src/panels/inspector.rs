@@ -65,21 +65,20 @@ impl Inspector {
                 self.show_entity_details(ui, ctx, scene_id, entity_id, gui_state);
 
                 // Then get a new borrow for images and sounds
-                if let Some(scene_manager) = &gui_state.scene_manager {
-                    if let Some(scene) = scene_manager.get_scene(scene_id) {
-                        if let Ok(entity) = scene.get_entity(entity_id) {
-                            ui.separator();
-                            ui.label("Images:");
-                            for path in &entity.images {
-                                ui.label(path.to_string_lossy());
-                            }
+                if let Some(scene_manager) = &gui_state.scene_manager
+                    && let Some(scene) = scene_manager.get_scene(scene_id)
+                    && let Ok(entity) = scene.get_entity(entity_id)
+                {
+                    ui.separator();
+                    ui.label("Images:");
+                    for path in &entity.images {
+                        ui.label(path.to_string_lossy());
+                    }
 
-                            ui.separator();
-                            ui.label("Sounds:");
-                            for path in &entity.sounds {
-                                ui.label(path.to_string_lossy());
-                            }
-                        }
+                    ui.separator();
+                    ui.label("Sounds:");
+                    for path in &entity.sounds {
+                        ui.label(path.to_string_lossy());
                     }
                 }
             }
@@ -209,10 +208,10 @@ impl Inspector {
                     }
                     "mp3" | "wav" | "ogg" => {
                         ui.horizontal(|ui| {
-                            if ui.button("▶ Play").clicked() {
-                                if let Err(e) = self.audio_engine.play_sound_immediate(file_path) {
-                                    println!("Failed to play sound: {}", e);
-                                }
+                            if ui.button("▶ Play").clicked()
+                                && let Err(e) = self.audio_engine.play_sound_immediate(file_path)
+                            {
+                                println!("Failed to play sound: {}", e);
                             }
 
                             if ui.button("⏹ Stop").clicked() {
@@ -655,10 +654,10 @@ impl Inspector {
             AttributeValue::Boolean(_) => input.parse::<bool>().ok().map(AttributeValue::Boolean),
             AttributeValue::Vector2(_, _) => {
                 let parts: Vec<&str> = input.split(',').map(|s| s.trim()).collect();
-                if parts.len() == 2 {
-                    if let (Ok(x), Ok(y)) = (parts[0].parse::<f32>(), parts[1].parse::<f32>()) {
-                        return Some(AttributeValue::Vector2(x, y));
-                    }
+                if parts.len() == 2
+                    && let (Ok(x), Ok(y)) = (parts[0].parse::<f32>(), parts[1].parse::<f32>())
+                {
+                    return Some(AttributeValue::Vector2(x, y));
                 }
                 None
             }

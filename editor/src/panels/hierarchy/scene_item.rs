@@ -1,6 +1,6 @@
 use crate::panels::hierarchy::{
-    entity_item::{EntityDisplay, EntityItem},
     SceneHierarchy,
+    entity_item::{EntityDisplay, EntityItem},
 };
 use crate::state::{GuiState, ScenePanelSelectedItem, SelectedItem};
 use egui::{Context, Ui};
@@ -131,10 +131,10 @@ impl SceneItem {
                         ));
                     ui.close();
                 }
-                if ui.button("Set Active").clicked() {
-                    if let Some(scene_manager) = &mut gui_state.scene_manager {
-                        let _ = scene_manager.set_active_scene(*scene_id);
-                    }
+                if ui.button("Set Active").clicked()
+                    && let Some(scene_manager) = &mut gui_state.scene_manager
+                {
+                    let _ = scene_manager.set_active_scene(*scene_id);
                 }
             });
         });

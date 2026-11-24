@@ -235,13 +235,13 @@ impl GameRuntime {
             }
 
             let active_scene_id = self.scene_manager.borrow().active_scene;
-            if let Some(active_scene_id) = active_scene_id {
-                if let Err(err) = self.lua_scripting.run_scripts_for_scene(active_scene_id) {
-                    LOGGER.error(format!(
-                        "Error running scripts for scene {}: {}",
-                        active_scene_id, err
-                    ));
-                }
+            if let Some(active_scene_id) = active_scene_id
+                && let Err(err) = self.lua_scripting.run_scripts_for_scene(active_scene_id)
+            {
+                LOGGER.error(format!(
+                    "Error running scripts for scene {}: {}",
+                    active_scene_id, err
+                ));
             }
 
             // A script may have requested the game to stop (e.g. player died)

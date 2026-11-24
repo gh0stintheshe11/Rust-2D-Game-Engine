@@ -228,19 +228,17 @@ impl LuaScripting {
             };
 
             // init(scene_id, entity_id): once per entity, before first update
-            if self.initialized_entities.insert(entity_id) {
-                if let Some(init_fn) = &script.init_fn {
-                    if let Err(e) =
-                        init_fn.call::<()>((active_scene_id.to_string(), entity_id.to_string()))
-                    {
-                        LOGGER.error(format!(
-                            "Script init() error for entity {} ({}): {}",
-                            entity_id,
-                            script_path.display(),
-                            e
-                        ));
-                    }
-                }
+            if self.initialized_entities.insert(entity_id)
+                && let Some(init_fn) = &script.init_fn
+                && let Err(e) =
+                    init_fn.call::<()>((active_scene_id.to_string(), entity_id.to_string()))
+            {
+                LOGGER.error(format!(
+                    "Script init() error for entity {} ({}): {}",
+                    entity_id,
+                    script_path.display(),
+                    e
+                ));
             }
 
             if let Err(e) = script
@@ -335,10 +333,10 @@ impl LuaScripting {
     fn get_or_load_script(&mut self, path: &Path) -> Result<CachedScript, String> {
         let modified = std::fs::metadata(path).and_then(|m| m.modified()).ok();
 
-        if let Some(cached) = self.script_cache.get(path) {
-            if cached.modified == modified {
-                return Ok(cached.clone());
-            }
+        if let Some(cached) = self.script_cache.get(path)
+            && cached.modified == modified
+        {
+            return Ok(cached.clone());
         }
 
         let source = std::fs::read_to_string(path)

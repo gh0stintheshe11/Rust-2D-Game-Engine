@@ -53,13 +53,12 @@ pub fn run(title: &str) -> eframe::Result<()> {
 
     let mut camera_width = 800.0;
     let mut camera_height = 600.0;
-    if let Some(scene) = scene_manager.get_active_scene() {
-        if let Some(camera_id) = scene.default_camera {
-            if let Ok(camera_entity) = scene.get_entity(camera_id) {
-                camera_width = camera_entity.get_camera_width();
-                camera_height = camera_entity.get_camera_height();
-            }
-        }
+    if let Some(scene) = scene_manager.get_active_scene()
+        && let Some(camera_id) = scene.default_camera
+        && let Ok(camera_entity) = scene.get_entity(camera_id)
+    {
+        camera_width = camera_entity.get_camera_width();
+        camera_height = camera_entity.get_camera_height();
     }
 
     let native_options = eframe::NativeOptions {

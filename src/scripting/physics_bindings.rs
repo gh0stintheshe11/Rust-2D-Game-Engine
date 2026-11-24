@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use rapier2d::prelude::*;
 
-use super::{parse_uuid, LuaScripting};
+use super::{LuaScripting, parse_uuid};
 use crate::physics::PhysicsEngine;
 use crate::scene::SceneManager;
 
@@ -72,11 +72,11 @@ impl LuaScripting {
             self.lua.create_function(move |_, entity_id: String| {
                 let uuid = parse_uuid(&entity_id, "entity")?;
                 let manager = manager.borrow();
-                if let Some(active_scene) = manager.get_active_scene() {
-                    if let Some(entity) = active_scene.entities.get(&uuid) {
-                        physics.borrow_mut().add_entity(entity);
-                        return Ok(());
-                    }
+                if let Some(active_scene) = manager.get_active_scene()
+                    && let Some(entity) = active_scene.entities.get(&uuid)
+                {
+                    physics.borrow_mut().add_entity(entity);
+                    return Ok(());
                 }
                 Err(mlua::Error::external(format!(
                     "Entity '{}' not found in active scene",
