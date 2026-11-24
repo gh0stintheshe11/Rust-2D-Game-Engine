@@ -1,24 +1,35 @@
 # Logger (`src/logger/`)
 
-A global, in-memory logger for the editor's console panel. `LOGGER` is a `once_cell::Lazy` static; any module can call `LOGGER.info/warning/error/debug(...)`. Messages (`text` + local timestamp + `ConsoleMessageType`) are pushed into two mutex-guarded buffers: a *console* buffer capped at the last 1 000 messages and a *stored* buffer capped at 50 000.
+The global in-memory log behind the editor console. Every subsystem reports
+through `logger::LOGGER`:
 
-## Key types
+```rust
+use rust_2d_game_engine::logger::LOGGER;
 
-| Type | Responsibility |
-|---|---|
-| `Logger` / `LOGGER` | Global sink; `info`/`warning`/`error`/`debug` plus `get_console_messages`/`get_stored_messages` |
-| `ConsoleMessage` | `text`, `timestamp` (chrono `Local`), `message_type` |
-| `ConsoleMessageType` | `Info` \| `Warning` \| `Error` \| `Debug` |
+LOGGER.info("Game started");
+LOGGER.warning(format!("Can't load image {}", path.display()));
+LOGGER.error(format!("Script update() error: {}", e));
+LOGGER.debug(line_of_cargo_output);
+```
 
-## Interactions with other modules
+## Behavior
 
-- **`engine_gui`** polls `get_console_messages()` every frame to render the console panel.
-- **`audio`** warns when no output device is available.
-- **`project`** streams `cargo build` output as `Debug` messages.
+- Messages carry a level (`Info`, `Warning`, `Error`, `Debug`), a timestamp
+  and a repeat **count**: a message identical to the previous one (same text
+  and level) only bumps that message's count and timestamp, so a script failing
+  every frame produces one console line, not thousands.
+- The newest 1000 messages are kept.
+- `revision()` changes whenever something is logged; the editor polls it each
+  frame and copies the messages only when it changed.
+- `clear()` empties the log.
+- `LOGGER` is a `LazyLock<Logger>` with a `Mutex` inside, so build threads can
+  log too.
 
-## Known limitations / TODO
+The console shows `Info` and above by level filter; `Debug` messages (cargo
+build output) have their own filter.
 
-- Not wired into the `log`/`tracing` ecosystems and writes nothing to stdout/file — messages are only visible in the editor console. Many modules still use bare `println!` instead.
-- `get_console_messages` **clones the whole buffer** and the GUI calls it every frame.
-- `get_stored_messages` currently has no callers (no log export feature).
-- No level filtering; `.lock().unwrap()` panics if a mutex is ever poisoned.
+## Known limitations
+
+- Nothing is written to disk; the log is lost when the editor exits.
+- Messages are plain strings; there are no structured fields or per-module
+  targets.

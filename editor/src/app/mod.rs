@@ -40,6 +40,8 @@ pub struct EditorApp {
     input_handler: InputHandler,
 
     console_messages: Vec<ConsoleMessage>,
+    // LOGGER revision console_messages was copied at
+    console_revision: Option<u64>,
     selected_log_level: ConsoleMessageType,
 
     game_runtime: GameRuntime,
@@ -92,6 +94,7 @@ impl EditorApp {
             render_engine,
             input_handler,
             console_messages: Vec::new(),
+            console_revision: None,
             selected_log_level: ConsoleMessageType::Info,
             game_runtime,
             editor_content: String::new(),
@@ -362,7 +365,7 @@ impl EditorApp {
                                 self.show_console_messages(
                                     ui,
                                     &self.console_messages,
-                                    self.selected_log_level.clone(),
+                                    self.selected_log_level,
                                 );
                             }
                         });
@@ -650,6 +653,9 @@ impl EditorApp {
                             ui.label(format!("[{}]", time_str));
                             ui.colored_label(color, prefix);
                             ui.label(&message.text);
+                            if message.count > 1 {
+                                ui.weak(format!("×{}", message.count));
+                            }
                             ui.allocate_exact_size(
                                 egui::Vec2::new(ui.available_width(), 0.0),
                                 egui::Sense::hover(),
@@ -959,6 +965,10 @@ impl eframe::App for EditorApp {
         self.show_windows(&ctx);
         self.handle_exit_flow(&ctx);
 
-        self.console_messages = LOGGER.get_console_messages();
+        let revision = LOGGER.revision();
+        if self.console_revision != Some(revision) {
+            self.console_messages = LOGGER.get_console_messages();
+            self.console_revision = Some(revision);
+        }
     }
 }
