@@ -317,3 +317,120 @@ fn test_animations_advance_only_while_playing() {
     }
     assert_eq!(frame(&runtime), Some(2.0), "frozen while paused");
 }
+
+fn lua_number(runtime: &GameRuntime, expression: &str) -> f64 {
+    runtime
+        .scripting()
+        .lua()
+        .load(format!("return {}", expression))
+        .eval()
+        .unwrap()
+}
+
+fn lua_exec(runtime: &GameRuntime, code: &str) {
+    runtime.scripting().lua().load(code).exec().unwrap();
+}
+
+#[test]
+fn test_scripts_switch_scenes() {
+    // "main" has a falling box whose script changes scenes on request;
+    // "title", where the game starts, switches to main on its first frame
+    let (mut manager, box_id) = falling_box_scene();
+    let main = manager.active_scene.unwrap();
+    with_script(
+        &mut manager,
+        box_id,
+        r#"
+        function init(scene_id, entity_id)
+            script_state.state.main_inits = (script_state.state.main_inits or 0) + 1
+        end
+        function update(scene_id, entity_id)
+            local go = script_state.state.go
+            if go then
+                script_state.state.go = nil
+                change_scene(go == "here" and scene_id or go)
+            end
+        end
+        "#,
+    );
+    let title = manager.create_scene("title").unwrap();
+    manager.set_active_scene(title).unwrap();
+    let logo = manager
+        .get_scene_mut(title)
+        .unwrap()
+        .create_entity("logo")
+        .unwrap();
+    with_script(
+        &mut manager,
+        logo,
+        r#"
+        function init(scene_id, entity_id)
+            script_state.state.title_inits = (script_state.state.title_inits or 0) + 1
+        end
+        function update(scene_id, entity_id)
+            draw_text("Press start", 0, 0)
+            set_gravity(0, 100)
+            change_scene("main")
+        end
+        "#,
+    );
+    let mut runtime = runtime(manager);
+    assert!(runtime.switch_scene(main).is_err(), "no game is running");
+    runtime.run().unwrap();
+    assert!(
+        runtime.switch_scene(Uuid::new_v4()).is_err(),
+        "unknown scene"
+    );
+    let active = |runtime: &GameRuntime| runtime.get_scene_manager().active_scene;
+
+    // The title's first frame switches to main, which gets its own physics
+    // world, keeping the gravity the title set
+    runtime.tick(FRAME);
+    assert_eq!(active(&runtime), Some(main));
+    assert!(
+        runtime.scripting().hud_texts().is_empty(),
+        "the title's text is gone"
+    );
+    for _ in 0..30 {
+        runtime.tick(FRAME);
+    }
+    // Half a second of falling: about 12.9 at gravity 100, 6.5 at 50
+    let fallen = box_y(&runtime, box_id);
+    assert!(fallen > 9.0, "y = {}", fallen);
+    assert_eq!(lua_number(&runtime, "script_state.state.title_inits"), 1.0);
+    assert_eq!(lua_number(&runtime, "script_state.state.main_inits"), 1.0);
+
+    // Switching to the current scene restarts it
+    lua_exec(&runtime, "script_state.state.go = 'here'");
+    runtime.tick(FRAME);
+    assert_eq!(box_y(&runtime, box_id), 0.0, "back where it started");
+    runtime.tick(FRAME);
+    assert_eq!(
+        lua_number(&runtime, "script_state.state.main_inits"),
+        2.0,
+        "init runs again"
+    );
+
+    // Back to the title, which starts over and switches to main again
+    lua_exec(&runtime, "script_state.state.go = 'title'");
+    runtime.tick(FRAME);
+    assert_eq!(active(&runtime), Some(title));
+    runtime.tick(FRAME);
+    assert_eq!(lua_number(&runtime, "script_state.state.title_inits"), 2.0);
+    assert_eq!(active(&runtime), Some(main));
+
+    // Stopping restores the scenes, including which one is active
+    runtime.reset();
+    assert_eq!(active(&runtime), Some(title));
+    assert_eq!(box_y_in(&runtime, main, box_id), 0.0);
+}
+
+fn box_y_in(runtime: &GameRuntime, scene_id: Uuid, box_id: Uuid) -> f32 {
+    runtime
+        .get_scene_manager()
+        .get_scene(scene_id)
+        .unwrap()
+        .get_entity(box_id)
+        .unwrap()
+        .get_y()
+}

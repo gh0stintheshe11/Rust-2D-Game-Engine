@@ -13,6 +13,7 @@ use egui::Rect;
 use std::cell::{Ref, RefCell};
 use std::collections::HashSet;
 use std::rc::Rc;
+use uuid::Uuid;
 
 /// At most this many fixed physics steps run per rendered frame; slower
 /// frames make the whole game (scripts included) run in slow motion instead
@@ -198,8 +199,13 @@ impl GameRuntime {
 
     /// Advance the game by one rendered frame of `frame_dt` seconds: scripts
     /// run once, then physics catches up in fixed steps, each followed by
-    /// the `on_collision` hooks of contacts it started. Does nothing unless
-    /// playing.
+    /// the collision hooks of contacts it started or ended. Does nothing
+    /// unless playing.
+    ///
+    /// When a script calls `end_game()` or `change_scene()`, the request
+    /// takes effect as soon as the current pass of hooks (the scripts'
+    /// updates, or one step's collision hooks) finishes, and the rest of the
+    /// frame is skipped.
     pub fn tick(&mut self, frame_dt: f32) {
         if self.state != RuntimeState::Playing {
             return;
@@ -230,7 +236,7 @@ impl GameRuntime {
                 scene_id, e
             ));
         }
-        if self.end_if_requested() {
+        if self.end_if_requested() || self.switch_if_requested() {
             return;
         }
 
@@ -247,7 +253,7 @@ impl GameRuntime {
             if let Err(e) = self.lua_scripting.dispatch_collision_events(scene_id) {
                 LOGGER.error(format!("Error dispatching collision events: {}", e));
             }
-            if self.end_if_requested() {
+            if self.end_if_requested() || self.switch_if_requested() {
                 return;
             }
         }
@@ -277,6 +283,64 @@ impl GameRuntime {
         self.audio_engine.borrow_mut().stop_all();
         self.state = RuntimeState::Ended;
         true
+    }
+
+    /// Switch scenes if a script called `change_scene()`.
+    fn switch_if_requested(&mut self) -> bool {
+        let Some(scene_id) = self.lua_scripting.take_scene_change_request() else {
+            return false;
+        };
+        match self.switch_scene(scene_id) {
+            Ok(()) => true,
+            Err(e) => {
+                LOGGER.error(format!("change_scene failed: {}", e));
+                false
+            }
+        }
+    }
+
+    /// Make another scene the active one while the game runs (what the
+    /// `change_scene` script binding does). The scene starts over as it was
+    /// when the game started, so switching to the current scene restarts
+    /// it: a new physics world (keeping the current gravity) is built from
+    /// it, and its scripted entities run `init` again. The scripting session
+    /// (`script_state`, loaded scripts) and playing sounds carry over.
+    ///
+    /// Fails when no game is running or the scene doesn't exist.
+    pub fn switch_scene(&mut self, scene_id: Uuid) -> Result<(), String> {
+        if self.state == RuntimeState::Stopped {
+            return Err("no game is running".to_string());
+        }
+        let name = {
+            let mut manager = self.scene_manager.borrow_mut();
+            let Some(scene) = manager.get_scene(scene_id) else {
+                return Err(format!("scene {} not found", scene_id));
+            };
+            let name = scene.name.clone();
+            if let Some(fresh) = self
+                .initial_state
+                .as_ref()
+                .and_then(|initial| initial.get_scene(scene_id))
+            {
+                manager.scenes.insert(scene_id, fresh.clone());
+            }
+            manager.set_active_scene(scene_id)?;
+            name
+        };
+
+        {
+            let mut physics = self.physics_engine.borrow_mut();
+            let (gravity_x, gravity_y) = physics.get_gravity();
+            physics.cleanup();
+            physics.set_gravity(gravity_x, gravity_y);
+            if let Some(scene) = self.scene_manager.borrow().get_scene(scene_id) {
+                physics.load_scene(scene);
+            }
+        }
+        self.lua_scripting.begin_scene();
+        self.time_accumulator = 0.0;
+        LOGGER.info(format!("Switched to scene '{}'", name));
+        Ok(())
     }
 
     /// Paint the active scene into `viewport_rect`, through the current

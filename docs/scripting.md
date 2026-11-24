@@ -5,12 +5,14 @@ While the game plays, the engine calls each script's hooks for its entity.
 
 ## Sessions
 
-A **session** spans one Play (from ▶ until Stop/Reset/restart).
+A **session** spans one Play (from ▶ until Stop/Reset/restart), including
+scene changes (see [Scenes and prefabs](#scenes-and-prefabs)).
 `GameRuntime::run` calls `start_session(scene_manager, physics, input, audio)`,
-which creates a fresh sandboxed VM, resets the globals, and registers all
-engine bindings. Bindings hold `Rc<RefCell<…>>` handles to the runtime's
-subsystems (no `unsafe`, no raw pointers), and never call back into Lua while
-holding a borrow.
+which creates a fresh sandboxed VM, resets the globals, registers all engine
+bindings, and keeps a copy of the scenes for `spawn` to copy templates from.
+Bindings hold `Rc<RefCell<…>>` handles to the runtime's subsystems (no
+`unsafe`, no raw pointers), and never call back into Lua while holding a
+borrow.
 
 Every rendered frame the runtime calls `update_global_time(dt)`,
 `bind_keys_pressed(&input)` and `run_scripts_for_scene(scene_id)`; after
@@ -20,7 +22,7 @@ every physics step it calls `dispatch_collision_events(scene_id)`.
 
 | Hook | When |
 |---|---|
-| `init(scene_id, entity_id)` | Once per entity, before any other hook of that entity (spawned entities get it on their first frame) |
+| `init(scene_id, entity_id)` | Once per entity and visit of its scene, before any other hook of that entity (spawned entities get it on their first frame) |
 | `update(scene_id, entity_id)` | Every rendered frame |
 | `on_collision(scene_id, entity_id, other_id)` | When a contact with another physics entity **begins**, or an overlap with a sensor (checked after every physics step; skipped if either entity was removed meanwhile) |
 | `on_collision_end(scene_id, entity_id, other_id)` | When such a contact **ends**: the entities separated, or the other one was removed (`get_entity_name` then returns nil). An entity's ended contacts are reported before its new ones |
@@ -159,6 +161,9 @@ Scenes and entities:
 | `set_script(entity_id, path)` | Active scene; replaces the current script |
 | `list_entities_name_x_y(scene_id)` | Array of `{id, name, x, y}` |
 | `get_entity_name(scene_id, entity_id)` | Name, or nil if the entity no longer exists |
+| `find_entity(scene_id, name)` | Id of the scene's first entity with that name, or nil |
+| `spawn(scene_id, template, x, y)` | Copy a template entity to (x, y) and return the copy's id; see [Scenes and prefabs](#scenes-and-prefabs) |
+| `change_scene(scene)` | Switch to another scene, given by name or id, once the current hooks finish; an unknown scene raises an error |
 
 Attributes:
 
@@ -173,6 +178,44 @@ Attributes:
 
 Game flow: `end_game()` ends the game; the runtime freezes on the current frame
 in the `Ended` state.
+
+## Scenes and prefabs
+
+`change_scene("level 2")` (a scene's name or id) switches the game to another
+scene once the current pass of hooks finishes: the scripts' updates, or the
+collision hooks of one physics step. The scene starts over as it was when
+the game started (switching to the current scene restarts it), and its
+entities run `init` again. `script_state`, the scripts' variables and the
+sounds that are playing carry over. Stop returns to the scene that was active
+when Play started.
+
+`spawn(scene_id, template, x, y)` copies an entity, with its attributes,
+images and script, puts the copy's top-left corner at (x, y) and returns its
+id. Copies in the playing scene get their physics body right away and run
+`init` on their first frame. `template` is `"Scene/Entity"`, or `"Entity"`,
+looked up in the scene `scene_id` first and then in the others. Templates are
+copied as they were when the game started, so changing or removing them while
+playing doesn't affect the copies.
+
+A scene that never plays makes a prefab library: design the bullets, enemies
+and coins in a scene named "prefabs", and keep another scene active.
+
+```lua
+function update(scene_id, entity_id)
+    if is_key_just_pressed("Space") then
+        local x = get_attribute(scene_id, entity_id, "x")
+        local y = get_attribute(scene_id, entity_id, "y")
+        local bullet = spawn(scene_id, "prefabs/bullet", x + 12, y - 8)
+        set_velocity(bullet, 0, -400)
+    end
+end
+
+function on_collision(scene_id, entity_id, other_id)
+    if get_entity_name(scene_id, other_id) == "exit" then
+        change_scene("level 2")
+    end
+end
+```
 
 ## Example
 
@@ -196,6 +239,8 @@ for live error reporting.
 ## Known limitations
 
 - No `on_destroy` hook.
+- Prefabs are single entities: there are no groups of entities or nested
+  prefabs.
 - `get_mouse_position` is in window coordinates, not world coordinates.
 - `script_state` is shared by all scripts; key collisions are the script
   author's problem.

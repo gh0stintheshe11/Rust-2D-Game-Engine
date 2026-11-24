@@ -36,7 +36,7 @@ graph TD
 |---|---|---|
 | `run()` | Stopped → Playing | Activates the first scene if none is active, remembers the scenes' initial state, loads a fresh physics world (default gravity), starts a fresh Lua session. Running from another state resets first |
 | `pause()` / `resume()` | Playing ⇄ Paused | Simulation and audio freeze; the scene keeps rendering |
-| script calls `end_game()` | Playing → Ended | Detected after the scripts or after a physics step; sounds stop and the last frame stays visible |
+| script calls `end_game()` | Playing → Ended | Sounds stop and the last frame stays visible |
 | `reset()` | any → Stopped | Physics, render caches and audio cleared; scenes restored to their initial state |
 | `restart()` | any → Playing | `reset()` then `run()` (the player's "play again") |
 
@@ -50,11 +50,34 @@ graph TD
 3. Lua: `accumulated_time += frame_dt`, `keys_pressed` refreshed, every
    scripted entity's `update` runs (once per rendered frame).
 4. Physics runs as many fixed steps (`1/target_fps`) as the accumulated time
-   allows. After **each step**, `on_collision` fires for contacts that step
-   started, so short contacts aren't missed between frames.
-5. Finished sounds are reaped.
+   allows. After **each step**, `on_collision_end` and `on_collision` fire for
+   the contacts that step ended and started, so short contacts aren't missed
+   between frames.
+5. Sprite sheet animations advance by the frame time.
+6. Finished sounds are reaped.
 
-Script errors are logged to the editor console and never stop the loop.
+When a script calls `end_game()` or `change_scene()`, the request takes
+effect as soon as the pass of hooks that made it finishes (step 3, or one
+physics step's collision hooks), and the rest of the tick is skipped. Script
+errors are logged to the editor console and never stop the loop.
+
+## Switching scenes
+
+A game can span several scenes: a title screen, levels, a game-over screen.
+`switch_scene(scene_id)`, which the `change_scene` script binding triggers,
+makes another scene the active one while the game runs:
+
+- The scene is replaced by a copy of how it was when the game started, so
+  every visit starts it over; switching to the current scene restarts it.
+- A new physics world is loaded from it, keeping the current gravity.
+- Its scripted entities run `init` again, and their contacts and drawn text
+  start empty (`LuaScripting::begin_scene`).
+- The Lua session carries over: `script_state`, the scripts' variables, and
+  the sounds that are playing.
+
+The scene that was left keeps its state until it is entered again. `reset()`
+restores every scene, and which one is active, to how they were at `run()`.
+`switch_scene` fails when the game is stopped or the scene doesn't exist.
 
 ## Painting and cameras
 
@@ -83,3 +106,5 @@ shows them while playing unless View → Collider Outlines is unchecked.
 - Shared entities (`SceneManager::shared_entities`) never reach physics or
   scripts.
 - In the editor, the game only advances while the Viewer tab is shown.
+- Scene switches are immediate, with no transition effect, and every scene
+  stays in memory twice while playing: as played, and as it was at `run()`.

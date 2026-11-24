@@ -123,6 +123,16 @@ const API_GROUPS: &[(&str, &[ApiEntry])] = &[
                 "Name string, or nil if the entity is gone",
             ),
             (
+                "find_entity",
+                "find_entity(scene_id, \"player\")",
+                "Id of the first entity with that name, or nil",
+            ),
+            (
+                "spawn",
+                "spawn(scene_id, \"prefabs/bullet\", 0.0, 0.0)",
+                "Copy a template entity (\"Scene/Entity\" or \"Entity\") to x, y; returns its id",
+            ),
+            (
                 "set_position",
                 "set_position(scene_id, entity_id, 0.0, 0.0)",
                 "Set x and y, moving the physics body too (z untouched)",
@@ -269,6 +279,11 @@ const API_GROUPS: &[(&str, &[ApiEntry])] = &[
                 "end_game",
                 "end_game()",
                 "Game over: freezes on this frame; only Reset exits",
+            ),
+            (
+                "change_scene",
+                "change_scene(\"level 2\")",
+                "Switch scenes (name or id): it starts over; script_state carries over",
             ),
             (
                 "accumulated_time",

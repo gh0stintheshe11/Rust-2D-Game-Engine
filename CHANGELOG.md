@@ -18,6 +18,13 @@ versions may contain breaking changes).
 - An `on_collision_end(scene_id, entity_id, other_id)` script hook, called
   when a contact or overlap ends, including when the other entity was
   removed.
+- Scene switching: scripts call `change_scene("level 2")` (Rust code:
+  `GameRuntime::switch_scene`). The scene starts over as it was when the game
+  started; `script_state` and playing sounds carry over.
+- Prefabs: `spawn(scene_id, "prefabs/bullet", x, y)` copies an entity, with
+  its attributes, images, script and physics body, as it was when the game
+  started. A scene that never plays works as a prefab library.
+  `find_entity(scene_id, name)` returns an entity's id by name.
 
 ### Changed
 
@@ -27,7 +34,8 @@ versions may contain breaking changes).
 ### Fixed
 
 - While playing, the editor's red camera rectangle stayed where the camera
-  was before Play. It now follows the game's camera as scripts move it.
+  was before Play. It now follows the game's camera as scripts move it, and
+  shows the camera of the scene the game switched to.
 
 ## [0.4.0] - 2026-11-24
 

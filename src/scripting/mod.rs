@@ -127,6 +127,8 @@ pub struct LuaScripting {
     previous_contacts: HashMap<Uuid, HashSet<Uuid>>,
     // Set by the end_game() binding; polled by the runtime
     game_stop_requested: Rc<Cell<bool>>,
+    // Set by the change_scene() binding; polled by the runtime
+    scene_change_request: Rc<Cell<Option<Uuid>>>,
     // Text drawn by scripts this frame (draw_text), painted by the runtime
     hud: Rc<RefCell<Vec<HudText>>>,
     // When the running script call must be aborted (see SCRIPT_TIME_LIMIT)
@@ -173,24 +175,27 @@ impl LuaScripting {
             init_states: HashMap::new(),
             previous_contacts: HashMap::new(),
             game_stop_requested: Rc::new(Cell::new(false)),
+            scene_change_request: Rc::new(Cell::new(None)),
             hud: Rc::new(RefCell::new(Vec::new())),
             deadline: Rc::new(Cell::new(None)),
         }
     }
 
-    /// The session's Lua VM, e.g. to inspect globals in tests.
     /// Text drawn with `draw_text` since the current frame's scripts
     /// started.
     pub fn hud_texts(&self) -> Ref<'_, Vec<HudText>> {
         self.hud.borrow()
     }
 
+    /// The session's Lua VM, e.g. to inspect globals in tests.
     pub fn lua(&self) -> &Lua {
         &self.lua
     }
 
     /// Start a fresh scripting session: new sandboxed VM, fresh globals,
-    /// all engine bindings registered. Called when the game starts playing.
+    /// all engine bindings registered, and a copy of the scenes as they are
+    /// now, which `spawn` copies templates from. Called when the game starts
+    /// playing.
     pub fn start_session(
         &mut self,
         scene_manager: Rc<RefCell<SceneManager>>,
@@ -207,6 +212,7 @@ impl LuaScripting {
         self.scene_manager = Some(Rc::clone(&scene_manager));
         self.physics_engine = Some(Rc::clone(&physics_engine));
         self.game_stop_requested.set(false);
+        self.scene_change_request.set(None);
 
         let globals = self.lua.globals();
         globals.set("accumulated_time", 0.0)?;
@@ -279,6 +285,23 @@ impl LuaScripting {
     /// last call. Clears the flag.
     pub fn take_game_stop_request(&self) -> bool {
         self.game_stop_requested.replace(false)
+    }
+
+    /// The scene a script asked to switch to with `change_scene` since the
+    /// last call (the last request wins), if any. Clears the request.
+    pub fn take_scene_change_request(&self) -> Option<Uuid> {
+        self.scene_change_request.take()
+    }
+
+    /// Start over in a newly activated scene: forget the previous scene's
+    /// per-entity state (which entities ran `init`, their contacts) and the
+    /// text drawn this frame. The VM, its globals (`script_state`) and the
+    /// loaded script files carry over. Called by the runtime when it
+    /// switches scenes.
+    pub fn begin_scene(&mut self) {
+        self.init_states.clear();
+        self.previous_contacts.clear();
+        self.hud.borrow_mut().clear();
     }
 
     /// Advance the game clock: `accumulated_time` grows by `delta_time`.

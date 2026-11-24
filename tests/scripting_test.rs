@@ -168,6 +168,17 @@ mod session_tests {
     }
 
     fn setup_with_audio(test_name: &str, audio_engine: AudioEngine) -> TestSession {
+        setup_with_scenes(test_name, audio_engine, |_, _| {})
+    }
+
+    /// A session whose scenes `build` fills in before it starts (`spawn`
+    /// copies templates as they were then); gets the scene manager and the
+    /// active scene's id.
+    fn setup_with_scenes(
+        test_name: &str,
+        audio_engine: AudioEngine,
+        build: impl FnOnce(&mut SceneManager, uuid::Uuid),
+    ) -> TestSession {
         let script_dir = std::env::temp_dir().join(format!(
             "rust2d_engine_test_{}_{}",
             test_name,
@@ -178,6 +189,7 @@ mod session_tests {
         let mut manager = SceneManager::new();
         let scene_id = manager.create_scene("test_scene").unwrap();
         manager.set_active_scene(scene_id).unwrap();
+        build(&mut manager, scene_id);
 
         let scene_manager = Rc::new(RefCell::new(manager));
         let physics_engine = Rc::new(RefCell::new(PhysicsEngine::new()));
@@ -1510,5 +1522,206 @@ mod session_tests {
         assert!(short, "the floor is out of reach");
         assert_eq!(starts_inside, player.to_string(), "without exclude");
         assert!(!bad_id, "an invalid id is an error");
+    }
+
+    #[test]
+    fn test_change_scene_and_find_entity_bindings() {
+        let session = setup("change_scene");
+        let (level, first_enemy) = {
+            let mut manager = session.scene_manager.borrow_mut();
+            let level = manager.create_scene("level 2").unwrap();
+            let scene = manager.get_scene_mut(session.scene_id).unwrap();
+            let first_enemy = scene.create_entity("enemy").unwrap();
+            scene.create_entity("enemy").unwrap();
+            (level, first_enemy)
+        };
+        let lua = session.lua.lua();
+        let globals = lua.globals();
+        globals.set("SCENE", session.scene_id.to_string()).unwrap();
+        globals.set("LEVEL", level.to_string()).unwrap();
+
+        assert_eq!(session.lua.take_scene_change_request(), None);
+        lua.load(r#"change_scene("level 2")"#).exec().unwrap();
+        assert_eq!(
+            session.lua.take_scene_change_request(),
+            Some(level),
+            "by name"
+        );
+        assert_eq!(session.lua.take_scene_change_request(), None, "taken once");
+
+        // By id, and the last request wins
+        lua.load("change_scene(LEVEL) change_scene(SCENE)")
+            .exec()
+            .unwrap();
+        assert_eq!(
+            session.lua.take_scene_change_request(),
+            Some(session.scene_id)
+        );
+
+        let unknown: bool = lua
+            .load(r#"return (pcall(change_scene, "level 3"))"#)
+            .eval()
+            .unwrap();
+        assert!(!unknown, "an unknown scene is an error");
+        assert_eq!(session.lua.take_scene_change_request(), None);
+
+        // find_entity: the first entity with the name, or nil
+        let (enemy, missing, bad_scene): (String, Option<String>, bool) = lua
+            .load(
+                r#"
+                return find_entity(SCENE, "enemy"),
+                    find_entity(SCENE, "boss"),
+                    (pcall(find_entity, "00000000-0000-0000-0000-000000000000", "enemy"))
+                "#,
+            )
+            .eval()
+            .unwrap();
+        assert_eq!(enemy, first_enemy.to_string());
+        assert_eq!(missing, None);
+        assert!(!bad_scene, "an unknown scene is an error");
+    }
+
+    #[test]
+    fn test_spawn_copies_templates_as_they_were_at_the_start() {
+        use rust_2d_game_engine::scene::{AttributeValue, PhysicsProperties};
+
+        let script_dir =
+            std::env::temp_dir().join(format!("rust2d_spawn_{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&script_dir).unwrap();
+        let bullet_script = script_dir.join("bullet.lua");
+        std::fs::write(
+            &bullet_script,
+            r#"
+            function init(scene_id, entity_id)
+                script_state.state.bullet_inits = (script_state.state.bullet_inits or 0) + 1
+            end
+            "#,
+        )
+        .unwrap();
+
+        // A "prefabs" scene that never plays holds the templates; the
+        // playing scene has an "enemy" of its own
+        let mut ids = None;
+        let mut session = setup_with_scenes("spawn", AudioEngine::new(), |manager, scene_id| {
+            let prefabs = manager.create_scene("prefabs").unwrap();
+            let scene = manager.get_scene_mut(prefabs).unwrap();
+            let bullet = scene
+                .create_physical_entity(
+                    "bullet",
+                    (0.0, 0.0, 0.0),
+                    PhysicsProperties {
+                        is_movable: true,
+                        ..Default::default()
+                    },
+                )
+                .unwrap();
+            let entity = scene.get_entity_mut(bullet).unwrap();
+            for (name, value) in [
+                ("damage", AttributeValue::Integer(3)),
+                ("position", AttributeValue::Vector2(0.0, 0.0)),
+            ] {
+                entity.set_or_create_attribute(name, value).unwrap();
+            }
+            entity.set_script(bullet_script.clone()).unwrap();
+            scene.create_entity("enemy").unwrap();
+
+            let scene = manager.get_scene_mut(scene_id).unwrap();
+            let local_enemy = scene.create_entity("enemy").unwrap();
+            scene
+                .get_entity_mut(local_enemy)
+                .unwrap()
+                .set_or_create_attribute("local", AttributeValue::Boolean(true))
+                .unwrap();
+            ids = Some((prefabs, bullet));
+        });
+        let (prefabs, template) = ids.unwrap();
+
+        // The templates change once the game runs: spawn doesn't care
+        session
+            .scene_manager
+            .borrow_mut()
+            .get_scene_mut(prefabs)
+            .unwrap()
+            .delete_entity(template)
+            .unwrap();
+
+        let lua = session.lua.lua();
+        lua.globals()
+            .set("SCENE", session.scene_id.to_string())
+            .unwrap();
+        lua.globals().set("PREFABS", prefabs.to_string()).unwrap();
+        let spawned: Vec<String> = lua
+            .load(
+                r#"
+                return {
+                    spawn(SCENE, "prefabs/bullet", 10, 20),
+                    spawn(SCENE, "bullet", 30, 40),       -- found in another scene
+                    spawn(SCENE, "enemy", 0, 0),          -- this scene's first
+                    spawn(SCENE, "prefabs/enemy", 0, 0),
+                    spawn(PREFABS, "bullet", 5, 5),       -- a scene that isn't playing
+                }
+                "#,
+            )
+            .eval()
+            .unwrap();
+        let ids: Vec<uuid::Uuid> = spawned.iter().map(|id| id.parse().unwrap()).collect();
+        assert!(!ids.contains(&template), "copies get new ids");
+
+        {
+            let manager = session.scene_manager.borrow();
+            let scene = manager.get_scene(session.scene_id).unwrap();
+            let physics = session.physics.borrow();
+            for (id, position) in [(ids[0], (10.0, 20.0)), (ids[1], (30.0, 40.0))] {
+                let bullet = scene.get_entity(id).unwrap();
+                assert_eq!(bullet.name, "bullet");
+                assert_eq!((bullet.get_x(), bullet.get_y()), position);
+                assert_eq!(bullet.get_vector2("position"), Some(position));
+                assert_eq!(bullet.get_float("damage"), Some(3.0));
+                assert_eq!(bullet.script.as_ref(), Some(&bullet_script));
+                assert!(
+                    physics.has_rigid_body(id),
+                    "copies in the playing scene get a body"
+                );
+            }
+            assert_eq!(
+                scene.get_entity(ids[2]).unwrap().get_bool("local"),
+                Some(true)
+            );
+            assert_eq!(scene.get_entity(ids[3]).unwrap().get_bool("local"), None);
+
+            let elsewhere = manager
+                .get_scene(prefabs)
+                .unwrap()
+                .get_entity(ids[4])
+                .unwrap();
+            assert_eq!(elsewhere.name, "bullet");
+            assert!(!physics.has_rigid_body(ids[4]));
+        }
+
+        // Copies run their scripts like any entity
+        session.lua.run_scripts_for_scene(session.scene_id).unwrap();
+        let inits: i64 = session
+            .lua
+            .lua()
+            .load("return script_state.state.bullet_inits")
+            .eval()
+            .unwrap();
+        assert_eq!(inits, 2);
+
+        let failures: Vec<bool> = session
+            .lua
+            .lua()
+            .load(
+                r#"
+                return {
+                    (pcall(spawn, SCENE, "prefabs/boss", 0, 0)),
+                    (pcall(spawn, SCENE, "bullet", 0/0, 0)),
+                    (pcall(spawn, "00000000-0000-0000-0000-000000000000", "bullet", 0, 0)),
+                }
+                "#,
+            )
+            .eval()
+            .unwrap();
+        assert_eq!(failures, vec![false; 3]);
     }
 }

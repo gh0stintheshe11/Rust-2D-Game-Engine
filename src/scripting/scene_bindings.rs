@@ -1,10 +1,48 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use uuid::Uuid;
+
 use super::{LuaScripting, parse_uuid};
 use crate::physics::PhysicsEngine;
 use crate::project::ProjectManager;
-use crate::scene::{AttributeType, AttributeValue, SceneManager};
+use crate::scene::{AttributeType, AttributeValue, Entity, Scene, SceneManager};
+
+fn spawn_error(message: impl std::fmt::Display) -> mlua::Error {
+    mlua::Error::external(format!("spawn: {}", message))
+}
+
+/// The first entity named `name` in `scene`.
+fn entity_named<'a>(scene: &'a Scene, name: &str) -> Option<&'a Entity> {
+    scene.entities.values().find(|entity| entity.name == name)
+}
+
+/// The entity a `spawn` template names: `"Scene/Entity"`, or `"Entity"`
+/// looked up in the scene `scene_id` first, then in the other scenes.
+fn find_template<'a>(
+    templates: &'a SceneManager,
+    scene_id: Uuid,
+    template: &str,
+) -> Option<&'a Entity> {
+    if let Some((scene_name, entity_name)) = template.split_once('/')
+        && let Some(found) = templates
+            .scenes
+            .values()
+            .filter(|scene| scene.name == scene_name)
+            .find_map(|scene| entity_named(scene, entity_name))
+    {
+        return Some(found);
+    }
+    templates
+        .get_scene(scene_id)
+        .and_then(|scene| entity_named(scene, template))
+        .or_else(|| {
+            templates
+                .scenes
+                .values()
+                .find_map(|scene| entity_named(scene, template))
+        })
+}
 
 impl LuaScripting {
     pub(crate) fn register_scene_bindings(
@@ -489,6 +527,94 @@ impl LuaScripting {
                     Ok(name)
                 })?;
         globals.set("get_entity_name", get_entity_name)?;
+
+        // find_entity(scene_id, name) -> id of the scene's first entity with
+        // that name, or nil
+        let manager = Rc::clone(scene_manager);
+        let find_entity =
+            self.lua
+                .create_function(move |_, (scene_id, name): (String, String)| {
+                    let manager = manager.borrow();
+                    let scene_uuid = parse_uuid(&scene_id, "scene")?;
+                    let scene = manager.get_scene(scene_uuid).ok_or_else(|| {
+                        mlua::Error::external(format!("Scene '{}' not found", scene_uuid))
+                    })?;
+                    Ok(scene
+                        .entities
+                        .iter()
+                        .find(|(_, entity)| entity.name == name)
+                        .map(|(id, _)| id.to_string()))
+                })?;
+        globals.set("find_entity", find_entity)?;
+
+        // change_scene(scene): switch to another scene, given by name or id,
+        // when the current hook pass finishes (the runtime polls the request)
+        let manager = Rc::clone(scene_manager);
+        let request = Rc::clone(&self.scene_change_request);
+        let change_scene = self.lua.create_function(move |_, scene: String| {
+            let manager = manager.borrow();
+            let by_id = Uuid::parse_str(&scene)
+                .ok()
+                .filter(|id| manager.get_scene(*id).is_some());
+            let scene_id = by_id
+                .or_else(|| {
+                    manager
+                        .scenes
+                        .iter()
+                        .find(|(_, candidate)| candidate.name == scene)
+                        .map(|(id, _)| *id)
+                })
+                .ok_or_else(|| {
+                    mlua::Error::external(format!("change_scene: no scene named '{}'", scene))
+                })?;
+            request.set(Some(scene_id));
+            Ok(())
+        })?;
+        globals.set("change_scene", change_scene)?;
+
+        // spawn(scene_id, template, x, y) -> id of a copy of the template
+        // entity with its top-left at (x, y). Templates are copied as they
+        // were when the game started, so a template scene that never plays
+        // works as a prefab library. Copies in the active scene get their
+        // physics body right away.
+        let templates = Rc::new(scene_manager.borrow().clone());
+        let manager = Rc::clone(scene_manager);
+        let physics = Rc::clone(physics_engine);
+        let spawn = self.lua.create_function(
+            move |_, (scene_id, template, x, y): (String, String, f32, f32)| {
+                if !x.is_finite() || !y.is_finite() {
+                    return Err(spawn_error(format!(
+                        "the position must be finite, got ({}, {})",
+                        x, y
+                    )));
+                }
+                let scene_uuid = parse_uuid(&scene_id, "scene")?;
+                let mut entity = find_template(&templates, scene_uuid, &template)
+                    .ok_or_else(|| spawn_error(format!("no entity '{}' to copy", template)))?
+                    .clone();
+                entity.id = Uuid::new_v4();
+                entity.set_x(x).map_err(spawn_error)?;
+                entity.set_y(y).map_err(spawn_error)?;
+                if entity.get_vector2("position").is_some() {
+                    entity
+                        .set_or_create_attribute("position", AttributeValue::Vector2(x, y))
+                        .map_err(spawn_error)?;
+                }
+
+                let mut manager = manager.borrow_mut();
+                let is_active = manager.active_scene == Some(scene_uuid);
+                let scene = manager
+                    .get_scene_mut(scene_uuid)
+                    .ok_or_else(|| spawn_error(format!("scene '{}' not found", scene_uuid)))?;
+                if is_active {
+                    physics.borrow_mut().add_entity(&entity);
+                }
+                let id = entity.id;
+                scene.entities.insert(id, entity);
+                Ok(id.to_string())
+            },
+        )?;
+        globals.set("spawn", spawn)?;
 
         Ok(())
     }
