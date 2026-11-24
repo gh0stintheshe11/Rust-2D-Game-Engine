@@ -16,8 +16,8 @@ Cargo workspace:
 | `src/` | Engine library `rust-2d-game-engine` (crate `rust_2d_game_engine`): `scene`, `physics`, `render`, `scripting`, `audio`, `input`, `runtime`, `player`, `project`, `logger` |
 | `tests/` | Engine integration tests; headless (no window or audio device needed) |
 | `editor/` | Editor binary `rust-2d-game-editor`: app shell, panels, menus, project scaffolding/build |
-| `demo/` | Example game project (a workspace member), also loaded by `tests/demo_integration_test.rs` |
-| `docs/` | One design doc per module; `docs/README.md` is the index |
+| `demo/star_catcher/` | Demo game (a workspace member), also played by `tests/demo_integration_test.rs` |
+| `docs/` | One design doc per module; `docs/README.md` is the index; `docs/archive/` holds historical course documents (don't update them) |
 
 Exported games depend on the engine crate only; a game's `main.rs` is a
 single call to `rust_2d_game_engine::player::run`.
@@ -31,7 +31,9 @@ cargo clippy --workspace --all-targets -- -D warnings  # must be clean, CI enfor
 cargo fmt --all --check                                # must be clean, CI enforces it
 ```
 
-Linux system packages needed to build are listed in `README.md`.
+Linux system packages needed to build are listed in `README.md`. Editor UI
+code can be tested headlessly through `EditorApp::frame` (see the tests in
+`editor/src/app/mod.rs`).
 
 ## Definition of done
 
@@ -41,6 +43,8 @@ Linux system packages needed to build are listed in `README.md`.
 3. The module's doc in `docs/` describes the code as it now is, including its
    "Known limitations" section. Docs describe current behavior only — no
    history, no plans presented as facts.
+4. User-visible changes are listed under the newest version in
+   `CHANGELOG.md`.
 
 ## Code conventions
 
@@ -55,6 +59,8 @@ Linux system packages needed to build are listed in `README.md`.
   (scaffolding, asset import, builds, GUI) lives in `editor/`.
 - Diagrams in docs are mermaid, laid out top-down (`graph TD`); rendering width
   is limited.
+- Assets committed to the repository must be original or carry a license
+  compatible with Apache-2.0 (the demo's assets are generated).
 
 ## Git
 

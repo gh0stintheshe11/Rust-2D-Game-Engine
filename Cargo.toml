@@ -6,9 +6,10 @@ default-members = [".", "editor"]
 resolver = "3"
 
 [workspace.package]
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 rust-version = "1.95"
+license = "Apache-2.0"
 repository = "https://github.com/gh0stintheshe11/Rust-2D-Game-Engine"
 
 [workspace.dependencies]
@@ -19,11 +20,16 @@ uuid = { version = "1.29", features = ["v4", "v5", "serde"] }
 
 [package]
 name = "rust-2d-game-engine"
-description = "Runtime of the Rust 2D Game Engine: scenes, physics, rendering, audio and Lua scripting"
+description = "A lightweight 2D game engine with a visual editor: scenes, rapier2d physics, egui rendering, audio and Lua scripting"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+license.workspace = true
 repository.workspace = true
+readme = "README.md"
+keywords = ["gamedev", "game-engine", "2d", "lua", "editor"]
+categories = ["game-engines", "game-development"]
+include = ["/src", "/README.md", "/CHANGELOG.md", "/LICENSE", "/NOTICE"]
 
 [lib]
 name = "rust_2d_game_engine"

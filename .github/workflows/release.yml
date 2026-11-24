@@ -102,10 +102,15 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           path: dist
           merge-multiple: true
+
+      - name: Add license files
+        run: cp LICENSE NOTICE dist/
 
       - name: Create Release
         uses: softprops/action-gh-release@v2

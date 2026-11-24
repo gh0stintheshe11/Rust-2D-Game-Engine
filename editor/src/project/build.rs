@@ -7,6 +7,12 @@ use strip_ansi_escapes::strip;
 
 use rust_2d_game_engine::logger::LOGGER;
 
+/// The engine's license and attribution notice. Apache-2.0 requires both to
+/// accompany every distribution of the engine, including games built with
+/// it, so builds put them next to the game.
+const ENGINE_LICENSE: &str = include_str!("../../../LICENSE");
+const ENGINE_NOTICE: &str = include_str!("../../../NOTICE");
+
 /// Build the game with `cargo build --release` and copy its project files
 /// next to the executable, so `target/release/` can be run or shipped as is.
 pub fn build_project(project_path: &Path) -> Result<(), String> {
@@ -47,7 +53,16 @@ pub fn build_project(project_path: &Path) -> Result<(), String> {
                 .map_err(|e| format!("Failed to copy {}: {}", folder, e))?;
         }
     }
-    Ok(())
+    write_engine_licenses(&release_dir)
+        .map_err(|e| format!("Failed to write the engine's license files: {}", e))
+}
+
+/// Put the engine's LICENSE and NOTICE in `<dir>/licenses/rust-2d-game-engine/`.
+fn write_engine_licenses(dir: &Path) -> io::Result<()> {
+    let licenses = dir.join("licenses").join("rust-2d-game-engine");
+    fs::create_dir_all(&licenses)?;
+    fs::write(licenses.join("LICENSE"), ENGINE_LICENSE)?;
+    fs::write(licenses.join("NOTICE"), ENGINE_NOTICE)
 }
 
 /// Start `cargo` with `args` in `dir`, with piped output. Editors launched
@@ -123,4 +138,19 @@ fn copy_directory_contents(src: &Path, dst: &Path) -> io::Result<()> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_engine_licenses_are_written() {
+        let dir = std::env::temp_dir().join(format!("rust2d_licenses_{}", uuid::Uuid::new_v4()));
+        write_engine_licenses(&dir).unwrap();
+        let notice = fs::read_to_string(dir.join("licenses/rust-2d-game-engine/NOTICE")).unwrap();
+        assert!(notice.contains("Rust 2D Game Engine"));
+        let license = fs::read_to_string(dir.join("licenses/rust-2d-game-engine/LICENSE")).unwrap();
+        assert!(license.contains("Apache License"));
+    }
 }

@@ -67,7 +67,10 @@ over it, so a crash mid-save can't leave a truncated project behind.
   <project>/target` (cargo is also looked for in `~/.cargo/bin` when it isn't
   on the editor's PATH), streams the output to the console, and copies
   `assets/` and `scenes/` into `target/release/`, which is then a complete
-  game folder.
+  game folder. The engine's `LICENSE` and `NOTICE` are written to
+  `target/release/licenses/rust-2d-game-engine/`: Apache-2.0 requires them to
+  accompany the game. Licenses of the game's other dependencies are not
+  collected (tools like `cargo-about` can do that).
 
 ## Known limitations
 
