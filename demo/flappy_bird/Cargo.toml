@@ -2,8 +2,7 @@
 name = "flappy_bird"
 version = "0.1.0"
 edition = "2021"
+publish = false
 
 [dependencies]
-# The demo lives inside the engine repository, so a relative path works on
-# every machine. For a standalone project, point this at your engine checkout.
-rust-2d-game-engine = { path = "../../" }
+rust-2d-game-engine = { path = "../.." }

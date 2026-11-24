@@ -13,8 +13,8 @@ A global, in-memory logger for the editor's console panel. `LOGGER` is a `once_c
 ## Interactions with other modules
 
 - **`engine_gui`** polls `get_console_messages()` every frame to render the console panel.
-- **`audio_engine`** warns when no output device is available.
-- **`project_manager`** streams `cargo build` output as `Debug` messages.
+- **`audio`** warns when no output device is available.
+- **`project`** streams `cargo build` output as `Debug` messages.
 
 ## Known limitations / TODO
 

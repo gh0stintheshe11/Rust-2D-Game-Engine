@@ -2,4 +2,3 @@ target/
 .DS_Store
 /test_project
 .idea/
-.rules

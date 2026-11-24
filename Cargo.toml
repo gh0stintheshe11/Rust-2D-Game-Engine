@@ -1,27 +1,43 @@
-[package]
-name = "rust-2d-game-engine"
+[workspace]
+members = ["editor", "demo/flappy_bird"]
+# `cargo run` / `cargo test` at the root cover the engine and the editor;
+# the demo is built and linted with `--workspace`
+default-members = [".", "editor"]
+resolver = "2"
+
+[workspace.package]
 version = "0.2.0"
 edition = "2021"
+repository = "https://github.com/gh0stintheshe11/Rust-2D-Game-Engine"
 
-[dependencies]
+[workspace.dependencies]
 egui = "0.36.1"
-egui_extras = { version = "0.36.1", features = ["syntect"] }
-eframe = "0.36.1" # renderer of the engine UI
-serde = { version = "1.0", features = ["derive"] }
-uuid = { version = "1.24", features = ["v4", "serde"] }
-serde_json = "1.0"
-mlua = { version = "0.12.0", features = ["lua54", "vendored", "serialize"] }  # Lua scripting
-rapier2d = "0.35.1"
-rodio = "0.22.2"
-rfd = "0.17.2"
+eframe = "0.36.1"
 image = "0.25.10"
-chrono = "0.4.45"
-indexmap = { version = "2.14", features = ["serde", "rayon"] }
-rayon = "1.12"
-lofty = "0.25.0"
-sha2 = "0.10"
-strip-ansi-escapes = "0.2.1"
+uuid = { version = "1.24", features = ["v4", "serde"] }
+
+[package]
+name = "rust-2d-game-engine"
+description = "Runtime of the Rust 2D Game Engine: scenes, physics, rendering, audio and Lua scripting"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
 
 [lib]
 name = "rust_2d_game_engine"
 path = "src/lib.rs"
+
+[dependencies]
+egui.workspace = true
+eframe.workspace = true
+image.workspace = true
+uuid.workspace = true
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+mlua = { version = "0.12.0", features = ["lua54", "vendored", "serialize"] }
+rapier2d = "0.35.1"
+rodio = "0.22.2"
+chrono = "0.4.45"
+indexmap = { version = "2.14", features = ["serde"] }
+lofty = "0.25.0"
+sha2 = "0.10"

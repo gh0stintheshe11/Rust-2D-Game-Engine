@@ -4,12 +4,12 @@
 /// creates pipes at runtime, and pipes move left under script control.
 #[cfg(test)]
 mod tests {
-    use rust_2d_game_engine::audio_engine::AudioEngine;
-    use rust_2d_game_engine::ecs::AttributeValue;
-    use rust_2d_game_engine::input_handler::InputHandler;
-    use rust_2d_game_engine::lua_scripting::LuaScripting;
-    use rust_2d_game_engine::physics_engine::PhysicsEngine;
-    use rust_2d_game_engine::project_manager::ProjectManager;
+    use rust_2d_game_engine::audio::AudioEngine;
+    use rust_2d_game_engine::input::InputHandler;
+    use rust_2d_game_engine::physics::PhysicsEngine;
+    use rust_2d_game_engine::project::ProjectManager;
+    use rust_2d_game_engine::scene::AttributeValue;
+    use rust_2d_game_engine::scripting::LuaScripting;
     use std::cell::RefCell;
     use std::path::PathBuf;
     use std::rc::Rc;
@@ -18,7 +18,7 @@ mod tests {
 
     struct Sim {
         lua: LuaScripting,
-        scene_manager: Rc<RefCell<rust_2d_game_engine::ecs::SceneManager>>,
+        scene_manager: Rc<RefCell<rust_2d_game_engine::scene::SceneManager>>,
         physics: Rc<RefCell<PhysicsEngine>>,
         input: Rc<RefCell<InputHandler>>,
         scene_id: uuid::Uuid,

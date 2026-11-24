@@ -1539,6 +1539,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "26b73573e6edcd2af0cdf47bd6cb58f0b3839491263c314eaad1ccf24430e1de"
 
 [[package]]
+name = "flappy_bird"
+version = "0.1.0"
+dependencies = [
+ "rust-2d-game-engine",
+]
+
+[[package]]
 name = "flate2"
 version = "1.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2114,7 +2121,6 @@ checksum = "d466e9454f08e4a911e14806c24e16fba1b4c121d1ea474396f396069cf949d9"
 dependencies = [
  "equivalent",
  "hashbrown 0.17.1",
- "rayon",
  "serde",
  "serde_core",
 ]
@@ -3980,25 +3986,35 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4ade083ccbb4bf536df69d1f6432cc23deb7acccff86b183f3923a6fd56a1153"
 
 [[package]]
+name = "rust-2d-game-editor"
+version = "0.2.0"
+dependencies = [
+ "eframe",
+ "egui",
+ "egui_extras",
+ "image",
+ "rfd",
+ "rust-2d-game-engine",
+ "strip-ansi-escapes",
+ "uuid",
+]
+
+[[package]]
 name = "rust-2d-game-engine"
 version = "0.2.0"
 dependencies = [
  "chrono",
  "eframe",
  "egui",
- "egui_extras",
  "image",
  "indexmap",
  "lofty",
  "mlua",
  "rapier2d",
- "rayon",
- "rfd",
  "rodio",
  "serde",
  "serde_json",
  "sha2",
- "strip-ansi-escapes",
  "uuid",
 ]
 

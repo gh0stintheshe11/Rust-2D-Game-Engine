@@ -1,9 +1,10 @@
 name: Release
 
 # Releasing a new engine version:
-#   1. Bump `version` in Cargo.toml (the workflow checks it matches the tag)
+#   1. Bump `version` in the root Cargo.toml (`[workspace.package]`); the
+#      workflow checks it matches the tag
 #   2. git tag v<version> && git push origin v<version>
-#   3. This workflow tests, builds Linux/Windows/macOS binaries, and
+#   3. This workflow tests, builds Linux/Windows/macOS editor binaries, and
 #      publishes them on a GitHub release with generated notes.
 
 on:
@@ -24,9 +25,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: dtolnay/rust-toolchain@stable
+
       - name: Check the tag matches Cargo.toml
         run: |
-          CARGO_VERSION=$(grep '^version' Cargo.toml | head -1 | cut -d'"' -f2)
+          CARGO_VERSION=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "rust-2d-game-engine") | .version')
           TAG_VERSION="${GITHUB_REF_NAME#v}"
           if [ "$CARGO_VERSION" != "$TAG_VERSION" ]; then
             echo "::error::Tag $GITHUB_REF_NAME does not match Cargo.toml version $CARGO_VERSION"
@@ -38,17 +41,16 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y pkg-config libasound2-dev libx11-dev libxi-dev libgl1-mesa-dev
 
-      - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
 
       - name: Test
-        run: cargo test
+        run: cargo test --workspace
 
       - name: Clippy
-        run: cargo clippy --all-targets -- -D warnings
+        run: cargo clippy --workspace --all-targets -- -D warnings
 
       - name: Format check
-        run: cargo fmt --check
+        run: cargo fmt --all --check
 
   build:
     name: Build ${{ matrix.asset }}
@@ -59,14 +61,14 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            binary: rust-2d-game-engine
-            asset: rust-2d-game-engine-linux-x86_64
+            binary: rust-2d-game-editor
+            asset: rust-2d-game-editor-linux-x86_64
           - os: windows-latest
-            binary: rust-2d-game-engine.exe
-            asset: rust-2d-game-engine-windows-x86_64.exe
+            binary: rust-2d-game-editor.exe
+            asset: rust-2d-game-editor-windows-x86_64.exe
           - os: macos-latest
-            binary: rust-2d-game-engine
-            asset: rust-2d-game-engine-macos-aarch64
+            binary: rust-2d-game-editor
+            asset: rust-2d-game-editor-macos-aarch64
 
     steps:
       - uses: actions/checkout@v4
@@ -81,7 +83,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Build
-        run: cargo build --release
+        run: cargo build --release -p rust-2d-game-editor
 
       - name: Stage artifact
         shell: bash

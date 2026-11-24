@@ -37,28 +37,29 @@ Try the bundled Flappy Bird demo in [`demo/flappy_bird/`](demo/flappy_bird/) —
 ## Documentation
 
 Per-module design docs live in [`docs/`](docs/README.md):
-[ECS](docs/ecs.md) ·
-[Physics](docs/physics_engine.md) ·
-[Rendering](docs/render_engine.md) ·
-[Lua scripting](docs/lua_scripting.md) ·
-[Game runtime](docs/game_runtime.md) ·
-[Audio](docs/audio_engine.md) ·
-[Input](docs/input_handler.md) ·
-[Projects](docs/project_manager.md) ·
-[Logger](docs/logger.md)
+[Scene](docs/scene.md) ·
+[Physics](docs/physics.md) ·
+[Rendering](docs/render.md) ·
+[Lua scripting](docs/scripting.md) ·
+[Game runtime](docs/runtime.md) ·
+[Audio](docs/audio.md) ·
+[Input](docs/input.md) ·
+[Projects](docs/project.md) ·
+[Logger](docs/logger.md) ·
+[Editor](docs/editor.md)
 
 ## Development
 
 ```bash
-cargo test          # run the test suite
-cargo clippy        # lints (warning burn-down in progress)
+cargo test --workspace     # run the test suite
+cargo clippy --workspace --all-targets -- -D warnings
 ```
 
 CI builds and tests every push/PR (`.github/workflows/ci.yml`, clippy + fmt enforcing).
 
-**Releasing**: bump `version` in `Cargo.toml`, then push a matching tag —
+**Releasing**: bump `version` in the root `Cargo.toml` (`[workspace.package]`), then push a matching tag —
 `release.yml` verifies the version, runs the same gates as CI, builds
-Linux x86_64 / Windows x86_64 / macOS Apple Silicon binaries, and publishes
+Linux x86_64 / Windows x86_64 / macOS Apple Silicon editor binaries, and publishes
 them on a GitHub release with generated notes:
 
 ```bash
