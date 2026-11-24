@@ -24,6 +24,11 @@ versions may contain breaking changes).
 - `ColliderOutline` has an `is_sensor` field, and collider outlines draw
   sensors in green.
 
+### Fixed
+
+- While playing, the editor's red camera rectangle stayed where the camera
+  was before Play. It now follows the game's camera as scripts move it.
+
 ## [0.4.0] - 2026-11-24
 
 Text, sprite animation and audio volume for games, and exported games no

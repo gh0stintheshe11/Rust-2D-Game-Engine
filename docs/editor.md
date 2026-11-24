@@ -73,9 +73,10 @@ running game (Play gives the game its own copy). Undo works while playing.
 - The grid is world-locked with power-of-two spacing; the red rectangle is the
   frame of the scene's default camera.
 
-While playing, the viewport shows the game through the editor's camera (the
-red rectangle shows what the exported game will frame), with collider outlines
-drawn over it; View → Collider Outlines turns them off. Paused and Ended keep
+While playing, the viewport shows the game through the editor's camera, with
+collider outlines drawn over it (View → Collider Outlines turns them off). The
+red rectangle then shows what the exported game frames: the camera of the
+scene the game is in, where the game's scripts moved it. Paused and Ended keep
 the last frame. The game only advances while the Viewer tab is shown.
 
 ## Script editor (Editor tab)

@@ -35,11 +35,14 @@ impl EditorApp {
                 let game_view_rect = ui.available_rect_before_wrap();
                 self.game_runtime.update(ctx, ui, game_view_rect);
 
-                // Then draw the game camera bounds
-                if let Some(scene_manager) = &self.gui_state.scene_manager
-                    && let Some(active_scene) = scene_manager.get_active_scene()
-                {
-                    let camera_lines = self.render_engine.get_game_camera_bounds(active_scene);
+                // Then draw the game camera bounds, from the game's own
+                // scenes: scripts may move the camera or switch scenes
+                let camera_lines = self
+                    .game_runtime
+                    .get_scene_manager()
+                    .get_active_scene()
+                    .map(|scene| self.render_engine.get_game_camera_bounds(scene));
+                if let Some(camera_lines) = camera_lines {
                     for (start, end) in camera_lines {
                         ui.painter().line_segment(
                             [

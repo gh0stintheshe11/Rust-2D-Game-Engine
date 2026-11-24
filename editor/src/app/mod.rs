@@ -490,4 +490,88 @@ mod tests {
         assert!(app.current_edited_file.is_none());
         assert_eq!(std::fs::read_to_string(&script).unwrap(), "-- unsaved");
     }
+
+    /// The game camera's frame as the viewport paints it in one frame: its
+    /// red 2 px line segments.
+    fn painted_camera_frame(app: &mut EditorApp, ctx: &egui::Context) -> Vec<[egui::Pos2; 2]> {
+        let input = egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(
+                egui::Pos2::ZERO,
+                egui::vec2(1280.0, 720.0),
+            )),
+            ..Default::default()
+        };
+        let mut output = ctx.run_ui(input, |ui| app.frame(ui));
+        output.textures_delta.clear();
+        // Pure red, whatever its opacity: the main window is still fading in
+        // after the few frames a test runs
+        let red = |color: egui::Color32| color.r() > 0 && color.g() == 0 && color.b() == 0;
+        output
+            .shapes
+            .into_iter()
+            .filter_map(|clipped| match clipped.shape {
+                egui::Shape::LineSegment { points, stroke }
+                    if red(stroke.color) && stroke.width == 2.0 =>
+                {
+                    Some(points)
+                }
+                _ => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn test_play_mode_frames_the_camera_where_the_game_moved_it() {
+        let (ctx, mut app, project) = app_with_project();
+        let script = project.join("assets").join("scripts").join("pan.lua");
+        std::fs::write(
+            &script,
+            r#"
+            function update(scene_id, entity_id)
+                if script_state.state.pan then
+                    script_state.state.pan = false
+                    set_x(scene_id, entity_id, get_attribute(scene_id, entity_id, "x") + 100)
+                end
+            end
+            "#,
+        )
+        .unwrap();
+        {
+            let manager = app.gui_state.scene_manager.as_mut().unwrap();
+            let scene = manager.get_active_scene_mut().unwrap();
+            let camera = scene.default_camera.unwrap();
+            scene
+                .get_entity_mut(camera)
+                .unwrap()
+                .set_script(script)
+                .unwrap();
+        }
+        app.sync_scene_manager_to_runtime();
+        app.game_runtime.run().unwrap();
+
+        let before = painted_camera_frame(&mut app, &ctx);
+        assert_eq!(before.len(), 4, "the frame's four sides");
+        app.game_runtime
+            .scripting()
+            .lua()
+            .load("script_state.state.pan = true")
+            .exec()
+            .unwrap();
+        let after = painted_camera_frame(&mut app, &ctx);
+
+        // The game panned its camera 100 world units to the right
+        let shift = 100.0 * app.render_engine.camera.zoom;
+        assert_eq!(after.len(), 4);
+        for (old, new) in before.iter().zip(&after) {
+            for (a, b) in old.iter().zip(new) {
+                assert!(
+                    (b.x - a.x - shift).abs() < 0.01 && (b.y - a.y).abs() < 0.01,
+                    "{:?} -> {:?}",
+                    a,
+                    b
+                );
+            }
+        }
+        app.game_runtime.reset();
+    }
 }
