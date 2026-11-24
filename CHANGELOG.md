@@ -7,6 +7,11 @@ versions may contain breaking changes).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-24
+
+Text, sprite animation and audio volume for games, and exported games no
+longer show debug outlines.
+
 ### Added
 
 - Text: `draw_text(text, x, y, {size, color, align})` draws text over the
@@ -30,6 +35,9 @@ versions may contain breaking changes).
 
 ### Changed
 
+- `render::paint_sprite` takes the texture rectangle and tint color to draw
+  with, and `RenderQueueEntry` has `uv` and `tint` fields (breaking for Rust
+  code that paints sprites itself).
 - The Star Catcher demo shows its score as text instead of a row of small
   stars.
 
@@ -131,6 +139,7 @@ Renovation of the 2024 course project: rewritten Lua scripting core, physics
 and runtime fixes, GPU texture caching, undo/redo, viewport picking and
 dragging, script editor improvements, CI and multi-platform releases.
 
-[Unreleased]: https://github.com/gh0stintheshe11/Rust-2D-Game-Engine/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/gh0stintheshe11/Rust-2D-Game-Engine/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/gh0stintheshe11/Rust-2D-Game-Engine/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/gh0stintheshe11/Rust-2D-Game-Engine/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/gh0stintheshe11/Rust-2D-Game-Engine/releases/tag/v0.2.0
