@@ -38,6 +38,9 @@ pub fn import_asset(
         .ok_or("Invalid asset filename")?;
 
     let target_path = target_dir.join(file_name);
+    // The folder may be missing, e.g. in a project cloned from git
+    fs::create_dir_all(&target_dir)
+        .map_err(|e| format!("Failed to create {}: {}", target_dir.display(), e))?;
 
     // Check for duplicate files
     if target_path.exists() {
@@ -50,16 +53,19 @@ pub fn import_asset(
     // Copy the asset file
     fs::copy(asset_path, &target_path).map_err(|e| format!("Failed to copy asset: {}", e))?;
 
-    // Return relative path from project root
-    Ok(target_path
+    // Return the project-relative path, with `/` separators on every OS
+    let relative = target_path
         .strip_prefix(project_path)
-        .map_err(|e| format!("Failed to get relative path: {}", e))?
-        .to_string_lossy()
-        .into_owned())
+        .map_err(|e| format!("Failed to get relative path: {}", e))?;
+    Ok(relative
+        .components()
+        .map(|c| c.as_os_str().to_string_lossy())
+        .collect::<Vec<_>>()
+        .join("/"))
 }
 
-// Enum defining supported asset types
-#[derive(Debug)]
+/// Kinds of files the editor imports, each into its own `assets/` folder.
+#[derive(Debug, Clone, Copy)]
 pub enum AssetType {
     Image,  // Image files (textures, sprites)
     Sound,  // Audio files
@@ -67,7 +73,7 @@ pub enum AssetType {
 }
 
 impl AssetType {
-    // Returns the valid file extensions for each asset type
+    /// Accepted file extensions (lowercase).
     pub fn valid_extensions(&self) -> &[&str] {
         match self {
             AssetType::Image => &["png", "jpg", "jpeg", "gif"],

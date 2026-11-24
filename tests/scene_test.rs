@@ -1,4 +1,3 @@
-// Import the ECS module from the main project
 use rust_2d_game_engine::scene::*;
 
 #[cfg(test)]
@@ -112,5 +111,93 @@ mod tests {
 
         // Verify shared entity reference
         assert!(scene.shared_entity_refs.contains(&shared_id));
+    }
+
+    #[test]
+    fn test_scene_key_is_the_scene_id() {
+        let mut manager = SceneManager::new();
+        let id = manager.create_scene("level").unwrap();
+        assert_eq!(manager.get_scene(id).unwrap().id, id);
+    }
+
+    #[test]
+    fn test_repair_ids_matches_ids_to_keys() {
+        let mut manager = SceneManager::new();
+        let id = manager.create_scene("level").unwrap();
+        manager.get_scene_mut(id).unwrap().id = uuid::Uuid::new_v4();
+        manager.repair_ids();
+        assert_eq!(manager.get_scene(id).unwrap().id, id);
+    }
+
+    #[test]
+    fn test_attribute_values_must_fit_their_type() {
+        let mut scene = Scene::new("test_scene").unwrap();
+        let entity_id = scene.create_entity("e").unwrap();
+        let entity = scene.get_entity_mut(entity_id).unwrap();
+
+        // Values JSON can't represent are refused, not saved as null
+        assert!(
+            entity
+                .create_attribute(
+                    "speed",
+                    AttributeType::Float,
+                    AttributeValue::Float(f32::NAN)
+                )
+                .is_err()
+        );
+        let x = entity.get_attribute_by_name("x").unwrap().id;
+        assert!(
+            entity
+                .modify_attribute(x, None, None, Some(AttributeValue::Float(f32::INFINITY)))
+                .is_err()
+        );
+        assert!(
+            entity
+                .modify_attribute(x, None, None, Some(AttributeValue::Boolean(true)))
+                .is_err(),
+            "type mismatch"
+        );
+        assert!(
+            entity
+                .modify_attribute(x, Some("left".to_string()), None, None)
+                .is_err(),
+            "core attributes keep their names"
+        );
+        assert!(
+            entity
+                .create_attribute("", AttributeType::Integer, AttributeValue::Integer(1))
+                .is_err()
+        );
+        assert_eq!(entity.get_x(), 0.0);
+    }
+
+    #[test]
+    fn test_camera_attributes_stay_protected_after_rename() {
+        let mut scene = Scene::new("test_scene").unwrap();
+        let camera_id = scene.default_camera.unwrap();
+        let camera = scene.get_entity_mut(camera_id).unwrap();
+        camera.change_entity_name("Player View").unwrap();
+
+        let width = camera.get_attribute_by_name("width").unwrap().id;
+        assert!(camera.delete_attribute(width).is_err());
+    }
+
+    #[test]
+    fn test_one_bad_update_does_not_block_the_others() {
+        let mut scene = Scene::new("test_scene").unwrap();
+        let entity_id = scene.create_entity("e").unwrap();
+        let x = scene
+            .get_entity(entity_id)
+            .unwrap()
+            .get_attribute_by_name("x")
+            .unwrap()
+            .id;
+
+        let result = scene.update_entity_attributes(vec![
+            (uuid::Uuid::new_v4(), x, AttributeValue::Float(1.0)),
+            (entity_id, x, AttributeValue::Float(42.0)),
+        ]);
+        assert!(result.is_err(), "the missing entity is reported");
+        assert_eq!(scene.get_entity(entity_id).unwrap().get_x(), 42.0);
     }
 }

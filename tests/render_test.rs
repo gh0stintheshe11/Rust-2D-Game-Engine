@@ -90,16 +90,21 @@ fn test_missing_images_and_nan_depth_are_harmless() {
         PathBuf::from("/nonexistent/sprite.png"),
         (0.0, 0.0, 0.0),
     );
-    // More than 20 sprites, some with a NaN depth: sorting must not panic
+    // More than 20 sprites, some with a NaN depth (only possible by writing
+    // the attribute directly, e.g. corrupted data): sorting must not panic
     let image = temp_png(2, 2);
     for i in 0..30 {
-        let z = if i % 3 == 0 { f32::NAN } else { i as f32 };
-        sprite(
+        let id = sprite(
             &mut scene,
             &format!("s{}", i),
             image.clone(),
-            (i as f32, 0.0, z),
+            (i as f32, 0.0, i as f32),
         );
+        if i % 3 == 0 {
+            let entity = scene.get_entity_mut(id).unwrap();
+            let z = entity.get_attribute_by_name("z").unwrap().id;
+            entity.attributes.get_mut(&z).unwrap().value = AttributeValue::Float(f32::NAN);
+        }
     }
 
     let queue = renderer.render(&scene);

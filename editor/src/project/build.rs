@@ -1,110 +1,126 @@
 use std::fs;
-use std::io::{BufRead, BufReader};
-use std::path::Path;
-use std::process::{Command, Stdio};
+use std::io::{self, BufRead, BufReader, Read};
+use std::path::{Path, PathBuf};
+use std::process::{Child, Command, Stdio};
 
 use strip_ansi_escapes::strip;
 
 use rust_2d_game_engine::logger::LOGGER;
 
 /// Build the game with `cargo build --release` and copy its project files
-/// next to the executable, so the result can be run or shipped as is.
+/// next to the executable, so `target/release/` can be run or shipped as is.
 pub fn build_project(project_path: &Path) -> Result<(), String> {
-    // Run cargo build --release. The target directory is pinned to the
-    // project so the executable lands where the project files are copied,
-    // even if the project is a member of a cargo workspace (like the demo)
-    // or CARGO_TARGET_DIR is set.
-    let mut child = Command::new("cargo")
-        .arg("build")
-        .arg("--release")
-        .arg("--color=always")
-        .arg("--target-dir")
-        .arg(project_path.join("target"))
-        .current_dir(project_path)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|e| format!("Failed to start build process: {}", e))?;
+    let target_dir = project_path.join("target");
+    // The target directory is pinned to the project so the executable lands
+    // where the project files are copied, even if the project is a member of
+    // a cargo workspace (like the demo) or CARGO_TARGET_DIR is set.
+    let mut child = spawn_cargo(
+        &[
+            "build".as_ref(),
+            "--release".as_ref(),
+            "--color=always".as_ref(),
+            "--target-dir".as_ref(),
+            target_dir.as_os_str(),
+        ],
+        project_path,
+    )?;
 
-    let stdout = child.stdout.take().unwrap();
-    let stderr = child.stderr.take().unwrap();
-
-    let stdout_thread = std::thread::spawn(move || {
-        let reader = BufReader::new(stdout);
-        // Print colored output to the terminal, and log plain text output to the Debug panel
-        for line in reader.lines().map_while(Result::ok) {
-            println!("{}", line);
-            // Strip ANSI escape codes (for color)
-            let clean_line = strip(line.as_bytes());
-            LOGGER.debug(String::from_utf8_lossy(&clean_line));
-        }
-    });
-
-    let stderr_thread = std::thread::spawn(move || {
-        let reader = BufReader::new(stderr);
-        // Print colored output to the terminal, and log plain text output to the Debug panel
-        for line in reader.lines().map_while(Result::ok) {
-            eprintln!("{}", line);
-            // Strip ANSI escape codes (for color)
-            let clean_line = strip(line.as_bytes());
-            LOGGER.debug(String::from_utf8_lossy(&clean_line));
-        }
-    });
-
+    let stdout = child.stdout.take().map(|out| forward_lines(out, false));
+    let stderr = child.stderr.take().map(|err| forward_lines(err, true));
     let status = child
         .wait()
         .map_err(|e| format!("Failed to wait on build process: {}", e))?;
-
-    stdout_thread.join().unwrap();
-    stderr_thread.join().unwrap();
-
+    for reader in [stdout, stderr].into_iter().flatten() {
+        // A reader thread that panicked only loses log lines
+        let _ = reader.join();
+    }
     if !status.success() {
         return Err("Project build failed".into());
     }
 
-    // Copy assets to target directory for distribution
-    let target_dir = project_path.join("target/release");
-    let assets_dir = project_path.join("assets");
-    if assets_dir.exists() {
-        let target_assets = target_dir.join("assets");
-        fs::create_dir_all(&target_assets)
-            .map_err(|e| format!("Failed to create target assets directory: {}", e))?;
-
-        copy_directory_contents(&assets_dir, &target_assets)
-            .map_err(|e| format!("Failed to copy assets: {}", e))?;
+    // Copy the project files next to the executable
+    let release_dir = target_dir.join("release");
+    for folder in ["assets", "scenes"] {
+        let source = project_path.join(folder);
+        if source.exists() {
+            copy_directory_contents(&source, &release_dir.join(folder))
+                .map_err(|e| format!("Failed to copy {}: {}", folder, e))?;
+        }
     }
-
-    // Copy scenes to target directory
-    let scenes_dir = project_path.join("scenes");
-    if scenes_dir.exists() {
-        let target_scenes = target_dir.join("scenes");
-        fs::create_dir_all(&target_scenes)
-            .map_err(|e| format!("Failed to create target scenes directory: {}", e))?;
-
-        copy_directory_contents(&scenes_dir, &target_scenes)
-            .map_err(|e| format!("Failed to copy scenes: {}", e))?;
-    }
-
     Ok(())
 }
 
-/// Recursively copy directory contents, preserving the structure.
-fn copy_directory_contents(src: &Path, dst: &Path) -> std::io::Result<()> {
-    if !dst.exists() {
-        fs::create_dir_all(dst)?;
+/// Start `cargo` with `args` in `dir`, with piped output. Editors launched
+/// from a desktop environment (e.g. Finder on macOS) often don't have
+/// `~/.cargo/bin` on their PATH, so that location is tried too.
+fn spawn_cargo(args: &[&std::ffi::OsStr], dir: &Path) -> Result<Child, String> {
+    let spawn = |program: &Path| {
+        Command::new(program)
+            .args(args)
+            .current_dir(dir)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+    };
+    match spawn(Path::new("cargo")) {
+        Err(e) if e.kind() == io::ErrorKind::NotFound => {
+            let fallback = cargo_home().map(|home| home.join("bin").join("cargo"));
+            match fallback {
+                Some(cargo) => spawn(&cargo).map_err(|e| {
+                    format!(
+                        "Can't run cargo (not on PATH, and {}: {}). Install Rust from https://rustup.rs",
+                        cargo.display(),
+                        e
+                    )
+                }),
+                None => Err(format!("Can't run cargo: {}", e)),
+            }
+        }
+        other => other.map_err(|e| format!("Can't run cargo: {}", e)),
     }
+}
 
+fn cargo_home() -> Option<PathBuf> {
+    std::env::var_os("CARGO_HOME")
+        .map(PathBuf::from)
+        .or_else(|| {
+            std::env::var_os(if cfg!(windows) { "USERPROFILE" } else { "HOME" })
+                .map(|home| PathBuf::from(home).join(".cargo"))
+        })
+}
+
+/// Echo a child process's output to the terminal (in color) and to the
+/// editor console (plain text), line by line. Lines that aren't valid UTF-8
+/// are converted lossily instead of ending the stream.
+fn forward_lines(
+    stream: impl Read + Send + 'static,
+    is_stderr: bool,
+) -> std::thread::JoinHandle<()> {
+    std::thread::spawn(move || {
+        for line in BufReader::new(stream).split(b'\n').map_while(Result::ok) {
+            let line = String::from_utf8_lossy(&line);
+            let line = line.trim_end_matches('\r');
+            if is_stderr {
+                eprintln!("{}", line);
+            } else {
+                println!("{}", line);
+            }
+            LOGGER.debug(String::from_utf8_lossy(&strip(line.as_bytes())));
+        }
+    })
+}
+
+/// Recursively copy directory contents, preserving the structure.
+fn copy_directory_contents(src: &Path, dst: &Path) -> io::Result<()> {
+    fs::create_dir_all(dst)?;
     for entry in fs::read_dir(src)? {
         let entry = entry?;
-        let ty = entry.file_type()?;
         let dst_path = dst.join(entry.file_name());
-
-        if ty.is_dir() {
+        if entry.file_type()?.is_dir() {
             copy_directory_contents(&entry.path(), &dst_path)?;
         } else {
             fs::copy(entry.path(), dst_path)?;
         }
     }
-
     Ok(())
 }

@@ -1,22 +1,24 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use super::ProjectManager;
+use super::{ProjectManager, write_atomically};
 use crate::scene::{Entity, SceneManager};
 
-/// Asset/script paths are stored **relative to the project root** (with `/`
-/// separators) in `scene_manager.json`, and resolved back to absolute paths
-/// against the opened project's location at load time. This keeps projects
-/// portable across machines and operating systems.
+/// Asset and script paths are stored **relative to the project root** (with
+/// `/` separators) in `scene_manager.json`, and resolved back to absolute
+/// paths against the opened project's location at load time. This keeps
+/// projects portable across machines and operating systems.
 ///
-/// In memory, entities always hold absolute paths (renderer/audio/physics
-/// open them directly).
+/// In memory, entities hold absolute paths (renderer, audio and physics open
+/// them directly).
 impl ProjectManager {
     pub fn save_scene_hierarchy(
         project_path: &Path,
         scene_manager: &SceneManager,
     ) -> Result<(), String> {
-        let scene_file = project_path.join("scenes").join("scene_manager.json");
+        let scenes_dir = project_path.join("scenes");
+        fs::create_dir_all(&scenes_dir)
+            .map_err(|e| format!("Failed to create {}: {}", scenes_dir.display(), e))?;
 
         // Serialize a copy whose resource paths are relative to the project
         // root, so the file stays machine-independent.
@@ -29,34 +31,23 @@ impl ProjectManager {
 
         let json = serde_json::to_string_pretty(&portable)
             .map_err(|e| format!("Failed to serialize scene hierarchy: {}", e))?;
-
-        fs::write(&scene_file, json)
-            .map_err(|e| format!("Failed to write scene hierarchy: {}", e))?;
-
-        // Update project metadata with active scene
-        if let Ok(mut metadata) = Self::load_project(project_path) {
-            metadata.active_scene_id = scene_manager.active_scene;
-            Self::save_project(project_path, &metadata)?;
-        }
-
-        Ok(())
+        write_atomically(&scenes_dir.join("scene_manager.json"), &json)
     }
 
-    // Loads the scene hierarchy from scene_manager.json
+    /// Load `scenes/scene_manager.json`; a project without one has no
+    /// scenes yet.
     pub fn load_scene_hierarchy(project_path: &Path) -> Result<SceneManager, String> {
         let scene_file = project_path.join("scenes").join("scene_manager.json");
-
-        // Return new scene manager if file doesn't exist
         if !scene_file.exists() {
             return Ok(SceneManager::new());
         }
 
         let json = fs::read_to_string(&scene_file)
             .map_err(|e| format!("Failed to read scene hierarchy: {}", e))?;
-
         let mut scene_manager: SceneManager = serde_json::from_str(&json)
             .map_err(|e| format!("Failed to parse scene hierarchy: {}", e))?;
 
+        scene_manager.repair_ids();
         // Resolve stored paths against this machine's project location
         map_entity_paths(&mut scene_manager, |path| resolve_path(path, project_path));
 
@@ -79,12 +70,12 @@ fn map_entity_paths(scene_manager: &mut SceneManager, mut f: impl FnMut(&Path) -
         }
     };
 
-    for (_, scene) in scene_manager.scenes.iter_mut() {
-        for (_, entity) in scene.entities.iter_mut() {
+    for scene in scene_manager.scenes.values_mut() {
+        for entity in scene.entities.values_mut() {
             apply(entity);
         }
     }
-    for (_, entity) in scene_manager.shared_entities.iter_mut() {
+    for entity in scene_manager.shared_entities.values_mut() {
         apply(entity);
     }
 }
@@ -105,18 +96,33 @@ fn to_relative_string(path: &Path, project_path: &Path) -> Option<String> {
 /// Turn a stored path into an absolute one for this machine.
 ///
 /// - Relative paths (the current format) are joined onto the project root.
-/// - Absolute paths (legacy scene files) are remapped by locating the
-///   `assets/` directory in the stored string, so projects saved on another
-///   machine still open.
+/// - Absolute paths (written by older versions, possibly on another OS) are
+///   remapped by locating their `assets/` directory. Stored paths are
+///   compared as strings with `/` separators, so a Windows path is
+///   recognized on Unix and vice versa.
 fn resolve_path(stored: &Path, project_path: &Path) -> PathBuf {
-    if stored.is_relative() {
-        return project_path.join(stored);
-    }
-
     let original = stored.to_string_lossy();
-    if let Some(pos) = original.rfind("/assets/") {
-        return project_path.join(&original[pos + 1..]);
-    }
+    let normalized = original.replace('\\', "/");
 
+    if !is_absolute_on_any_os(&normalized) {
+        return join_slash_path(project_path, &normalized);
+    }
+    if let Some(pos) = normalized.rfind("/assets/") {
+        return join_slash_path(project_path, &normalized[pos + 1..]);
+    }
     stored.to_path_buf()
+}
+
+/// `/unix`, `C:/windows` and `//server/share` paths.
+fn is_absolute_on_any_os(path: &str) -> bool {
+    let bytes = path.as_bytes();
+    path.starts_with('/')
+        || (bytes.len() >= 3 && bytes[0].is_ascii_alphabetic() && &bytes[1..3] == b":/")
+}
+
+fn join_slash_path(root: &Path, relative: &str) -> PathBuf {
+    relative
+        .split('/')
+        .filter(|part| !part.is_empty() && *part != ".")
+        .fold(root.to_path_buf(), |path, part| path.join(part))
 }

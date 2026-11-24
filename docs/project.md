@@ -1,51 +1,78 @@
 # Projects (`src/project/`, `editor/src/project/`)
 
-Stateless utility (all associated functions on a unit struct, plus one global `RwLock<Option<String>>` holding the "current project path") for managing game projects on disk: scaffolding a new project, loading/saving metadata (`project.epm`) and the scene hierarchy (`scenes/scene_manager.json`), importing assets into typed folders, and driving `cargo build --release` for the game.
+A **project** is a folder containing `project.epm`. The engine reads and
+writes project files (`src/project/`); creating projects, importing assets
+and building games are editor features (`editor/src/project/`).
 
-## Key types
-
-| Type | Responsibility |
-|---|---|
-| `ProjectManager` | Unit struct; all functionality is associated functions |
-| `ProjectMetadata` | `project_name`, `version`, `project_path` (absolute), `default_scene`, `active_scene_id` — serialized as JSON into `project.epm` |
-| `LoadedProject` | Bundle of `ProjectMetadata` + deserialized `SceneManager` |
-| `AssetType` | `Image` (png/jpg/jpeg/gif), `Sound` (wav/mp3/ogg), `Font` (ttf/otf), `Script` (lua); `valid_extensions()` drives import validation |
-
-## Generated project layout
+## Layout
 
 ```
-project_root/
-├── project.epm              # metadata JSON (the "is a project" marker)
-├── Cargo.toml               # generated, see limitations
-├── src/main.rs              # generated eframe game shell
-├── assets/{images,sounds,fonts,scripts}/
-└── scenes/scene_manager.json
+my_game/
+├── project.epm              # metadata (JSON): project_name, version
+├── scenes/scene_manager.json
+├── assets/{images,sounds,scripts}/
+├── Cargo.toml               # the game's cargo package
+├── src/main.rs              # calls rust_2d_game_engine::player::run
+└── .gitignore               # /target
 ```
 
-## Interactions with other modules
+Only `project.epm` is required: version control drops empty folders, so a
+cloned project may lack some `assets/` folders, and the editor creates them on
+import.
 
-- **Editor GUI menus**: `file_menu` calls `create_project`/`load_project_full`; `import_menu` calls `import_asset`; `project_menu` runs `build_project` on a background thread.
-- **`scene`**: the entire `SceneManager` is serialized/deserialized here.
-- **`scripting`**: calls `ProjectManager::get_project_path()` to resolve script-supplied relative asset paths to absolute ones.
-- **`logger`**: build output is streamed line-by-line to `LOGGER.debug` (ANSI colors stripped) as well as stdout.
-- **Generated `main.rs`**: the built game itself calls `load_scene_hierarchy` + `set_project_path` at startup, using the executable's directory as the project root.
+## Engine: `ProjectManager`
 
-## Public API overview
+- `load_project_full(dir)` → `LoadedProject { metadata, scene_manager }`, and
+  makes `dir` the current project. `load_project` / `save_project` handle
+  `project.epm` alone; `save_project_full` saves both files.
+- `save_scene_hierarchy` / `load_scene_hierarchy` handle
+  `scenes/scene_manager.json`.
+- `set_project_path` / `get_project_path`: the current project, which script
+  bindings resolve asset paths against (`resolve_asset_path`).
+- `is_valid_project_directory(dir)`: `project.epm` exists.
 
-- **Global path**: `set_project_path`, `get_project_path`
-- **Lifecycle**: `create_project` (scaffold + empty scene hierarchy), `load_project` (metadata only), `save_project`, `load_project_full`, `save_project_full`
-- **Scenes**: `save_scene_hierarchy`, `load_scene_hierarchy` (rewrites entity resource paths on load, see below)
-- **Assets**: `import_asset(project, file, type)` — validates extension, copies into `assets/<type>/`, rejects duplicates, returns the project-relative path
-- **Build**: `build_project` — `cargo build --release` in the project dir, then copies `assets/` and `scenes/` into `target/release/`
-- **Validation**: `is_valid_project_directory` (checks `project.epm` exists), `validate_project_structure` (checks required folders + scene file)
+### Paths
 
-## Known limitations / TODO
+Asset and script paths are stored **relative to the project root with `/`
+separators**, and resolved to absolute paths for this machine when loading.
+In memory, entities hold absolute paths. Scene files written by older versions
+contain absolute paths, possibly from another OS; they are remapped by
+locating their `assets/` folder (Windows paths are recognized on Unix and vice
+versa).
 
-- Generated projects reference the engine via the **absolute path of the engine checkout that built the editor** (baked in at compile time). Building the project on another machine requires editing the dependency (a commented git-dependency line is included in the generated `Cargo.toml`).
-- **Absolute paths break portability.** `ProjectMetadata.project_path` is absolute, and entity resource paths end up absolute in `scene_manager.json` (Lua bindings join them with the project path; `load_scene_hierarchy` rewrites whatever it finds to absolute paths under the *current* project root). Moving a project relies entirely on that load-time rewrite.
-- **The path rewrite is a substring hack.** It searches for `/assets/{type}` with forward slashes — Windows backslash paths and assets outside the recognized folders pass through untouched; font path rewriting is commented out.
-- **`load_project` has a write side effect**: it rewrites `project_path` in the metadata and saves the file back to disk on every load. `save_scene_hierarchy` calls it too, so saving scenes also rewrites `project.epm`.
-- **Global `PROJECT_PATH` allows exactly one open project per process** and creates hidden coupling (`scripting` reads it at a distance).
-- **`default_scene: "main.scene"` is dead** — no such file is ever created or read.
-- **`version` is unused** — no migration/versioning of project or scene formats.
-- `build_project` assumes `cargo` is on `PATH` and copies assets into `target/release/` without cleaning stale files; `import_asset` copies flat (no subfolders) and rejects name collisions rather than renaming.
+`project.epm` does not store the project's location (`ProjectMetadata::
+project_path` is filled in on load), so a project can be moved or cloned
+freely.
+
+### Saving
+
+Files are written to a temporary file next to the target and then renamed
+over it, so a crash mid-save can't leave a truncated project behind.
+
+## Editor: `editor/src/project/`
+
+- **`create_project(dir)`**: refuses existing non-empty folders, creates the
+  layout above, a starter scene (active, with a camera), and the game's cargo
+  package. The package name is derived from the folder name (prefixed with
+  `game_` when it would start with a non-letter or clash with a reserved
+  name). The engine dependency is the local engine checkout the editor was
+  built from when it exists, otherwise the engine release matching the
+  editor's version (`git = <repository>, tag = "v<version>"`), so editors
+  downloaded from GitHub releases create buildable projects.
+- **`import_asset(project, file, type)`**: checks the extension (images:
+  png/jpg/jpeg/gif, sounds: wav/mp3/ogg, scripts: lua), copies the file into
+  `assets/<type>/`, refuses name collisions, and returns the project-relative
+  path.
+- **`build_project(project)`**: runs `cargo build --release --target-dir
+  <project>/target` (cargo is also looked for in `~/.cargo/bin` when it isn't
+  on the editor's PATH), streams the output to the console, and copies
+  `assets/` and `scenes/` into `target/release/`, which is then a complete
+  game folder.
+
+## Known limitations
+
+- One open project per process: the current project path is global.
+- No format versioning or migrations for `project.epm` and scene files.
+- Builds copy files into `target/release/` without removing stale ones.
+- `import_asset` copies flat (no subfolders) and doesn't rename on
+  collisions.

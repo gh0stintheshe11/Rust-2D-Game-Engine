@@ -131,19 +131,6 @@ impl Scene {
         }
     }
 
-    // Get shared entity reference mut through scene manager
-    pub fn get_shared_entity_ref_mut<'a>(
-        &'a self,
-        scene_manager: &'a mut SceneManager,
-        id: Uuid,
-    ) -> Option<&'a mut Entity> {
-        if self.shared_entity_refs.contains(&id) {
-            scene_manager.get_shared_entity_mut(id)
-        } else {
-            None
-        }
-    }
-
     // Helper to get all entities (both local and shared)
     pub fn get_all_entities<'a>(&'a self, scene_manager: &'a SceneManager) -> Vec<&'a Entity> {
         let mut all_entities = Vec::new();
@@ -177,18 +164,24 @@ impl Scene {
         Ok(id)
     }
 
+    /// Apply `(entity, attribute, value)` updates. Updates for missing
+    /// entities or invalid values are skipped (the others still apply) and
+    /// reported together in the error.
     pub fn update_entity_attributes(
         &mut self,
         updates: Vec<(Uuid, Uuid, AttributeValue)>,
     ) -> Result<(), String> {
+        let mut errors = Vec::new();
         for (entity_id, attr_id, new_value) in updates {
-            if let Some(entity) = self.entities.get_mut(&entity_id) {
-                entity.modify_attribute(attr_id, None, None, Some(new_value.clone()))?;
-            } else {
-                return Err(format!("Entity {} not found", entity_id));
+            if let Err(e) = self.update_entity_attribute(entity_id, attr_id, new_value) {
+                errors.push(e);
             }
         }
-        Ok(())
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(errors.join("; "))
+        }
     }
 
     pub fn update_entity_attribute(
@@ -197,11 +190,9 @@ impl Scene {
         attr_id: Uuid,
         new_value: AttributeValue,
     ) -> Result<(), String> {
-        if let Some(entity) = self.entities.get_mut(&entity_id) {
-            entity.modify_attribute(attr_id, None, None, Some(new_value.clone()))?;
-        } else {
-            return Err(format!("Entity {} not found", entity_id));
-        }
-        Ok(())
+        self.entities
+            .get_mut(&entity_id)
+            .ok_or_else(|| format!("Entity {} not found", entity_id))?
+            .modify_attribute(attr_id, None, None, Some(new_value))
     }
 }

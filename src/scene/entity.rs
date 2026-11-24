@@ -160,17 +160,23 @@ impl Entity {
         self.script.as_ref()
     }
 
-    // Attribute management
+    /// Add an attribute. Fails if the name is empty or taken, or if the
+    /// value doesn't fit `data_type` (see [`AttributeValue::validate_for`]).
     pub fn create_attribute(
         &mut self,
         name: &str,
         data_type: AttributeType,
         value: AttributeValue,
     ) -> Result<Uuid, String> {
-        // Check for duplicate names
+        if name.trim().is_empty() {
+            return Err("Attribute name cannot be empty".to_string());
+        }
         if self.get_attribute_by_name(name).is_ok() {
             return Err(format!("Attribute '{}' already exists", name));
         }
+        value
+            .validate_for(&data_type)
+            .map_err(|e| format!("Attribute '{}': {}", name, e))?;
 
         let id = Uuid::new_v4();
         let attribute = Attribute {
@@ -183,36 +189,22 @@ impl Entity {
         Ok(id)
     }
 
-    // Modify delete_attribute to protect physics attributes too
+    /// Delete an attribute. The core `x`/`y`/`z` attributes, and a camera's
+    /// `width`/`height`/`zoom`/`rotation`/`is_camera`, can't be deleted.
     pub fn delete_attribute(&mut self, id: Uuid) -> Result<bool, String> {
-        if let Some(attr) = self.attributes.get(&id) {
-            // Core position attributes that can't be deleted
-            match attr.name.as_str() {
-                // Core position attributes
-                "x" | "y" | "z" => {
-                    return Err("Cannot delete core position attributes".to_string());
-                }
-                // Physics-specific attributes
-                "is_movable" | "has_gravity" | "creates_gravity" | "has_collision" | "friction"
-                | "restitution" | "density" | "can_rotate" => {
-                    if self.name.contains("physical") {
-                        return Err(
-                            "Cannot delete physics attributes from physical entity".to_string()
-                        );
-                    }
-                }
-                // Camera-specific attributes - expanded list
-                "width" | "height" | "zoom" | "rotation" | "is_camera"
-                    if self.name.contains("camera") =>
-                {
-                    return Err("Cannot delete camera attributes from camera entity".to_string());
-                }
-                _ => {}
+        let Some(attr) = self.attributes.get(&id) else {
+            return Ok(false);
+        };
+        match attr.name.as_str() {
+            "x" | "y" | "z" => {
+                return Err("Cannot delete core position attributes".to_string());
             }
-            Ok(self.attributes.shift_remove(&id).is_some())
-        } else {
-            Ok(false)
+            "width" | "height" | "zoom" | "rotation" | "is_camera" if self.is_camera() => {
+                return Err("Cannot delete camera attributes from camera entity".to_string());
+            }
+            _ => {}
         }
+        Ok(self.attributes.shift_remove(&id).is_some())
     }
 
     pub fn list_attribute(&self) -> Vec<(Uuid, &str)> {
@@ -234,6 +226,9 @@ impl Entity {
             .ok_or_else(|| format!("Attribute {} not found", id))
     }
 
+    /// Change an attribute's name, type and/or value. The result must stay
+    /// consistent: a unique non-empty name (the core `x`/`y`/`z` can't be
+    /// renamed) and a value that fits the type. `is_camera` can't change.
     pub fn modify_attribute(
         &mut self,
         id: Uuid,
@@ -241,24 +236,41 @@ impl Entity {
         new_type: Option<AttributeType>,
         new_value: Option<AttributeValue>,
     ) -> Result<(), String> {
-        if let Some(attr) = self.attributes.get_mut(&id) {
-            if attr.name == "is_camera" {
-                return Err("Cannot modify is_camera attribute".to_string());
-            }
-
-            if let Some(name) = new_name {
-                attr.name = name;
-            }
-            if let Some(data_type) = new_type {
-                attr.data_type = data_type;
-            }
-            if let Some(value) = new_value {
-                attr.value = value;
-            }
-            Ok(())
-        } else {
-            Err("Attribute not found".to_string())
+        let attr = self.attributes.get(&id).ok_or("Attribute not found")?;
+        if attr.name == "is_camera" {
+            return Err("Cannot modify is_camera attribute".to_string());
         }
+        if let Some(name) = &new_name
+            && name != &attr.name
+        {
+            if matches!(attr.name.as_str(), "x" | "y" | "z") {
+                return Err("Cannot rename core position attributes".to_string());
+            }
+            if name.trim().is_empty() {
+                return Err("Attribute name cannot be empty".to_string());
+            }
+            if self.get_attribute_by_name(name).is_ok() {
+                return Err(format!("Attribute '{}' already exists", name));
+            }
+        }
+        let data_type = new_type.as_ref().unwrap_or(&attr.data_type);
+        new_value
+            .as_ref()
+            .unwrap_or(&attr.value)
+            .validate_for(data_type)
+            .map_err(|e| format!("Attribute '{}': {}", attr.name, e))?;
+
+        let attr = self.attributes.get_mut(&id).ok_or("Attribute not found")?;
+        if let Some(name) = new_name {
+            attr.name = name;
+        }
+        if let Some(data_type) = new_type {
+            attr.data_type = data_type;
+        }
+        if let Some(value) = new_value {
+            attr.value = value;
+        }
+        Ok(())
     }
 
     pub fn get_attribute_by_name(&self, name: &str) -> Result<&Attribute, String> {

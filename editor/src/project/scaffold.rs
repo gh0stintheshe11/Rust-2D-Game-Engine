@@ -1,36 +1,51 @@
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use rust_2d_game_engine::project::{LoadedProject, ProjectManager, ProjectMetadata};
 use rust_2d_game_engine::scene::SceneManager;
 
-/// Create a new game project at `project_path`: folder layout, metadata,
-/// a starter scene, and a cargo package that builds the standalone game.
+/// Folders every new project starts with.
+const PROJECT_FOLDERS: &[&str] = &[
+    "assets/images",
+    "assets/sounds",
+    "assets/scripts",
+    "scenes",
+    "src",
+];
+
+/// Create a new game project at `project_path`: folder layout, metadata, a
+/// starter scene, and a cargo package that builds the standalone game. The
+/// folder must not exist yet, or be empty. On success the project becomes
+/// the current project.
 pub fn create_project(project_path: &Path) -> Result<LoadedProject, String> {
-    // Extract project name from path
     let project_name = project_path
         .file_name()
         .and_then(|name| name.to_str())
-        .ok_or("Invalid project path")?;
+        .filter(|name| !name.trim().is_empty())
+        .ok_or("The project folder needs a name")?;
+    let occupied = fs::read_dir(project_path).is_ok_and(|mut entries| entries.next().is_some());
+    if occupied {
+        return Err(format!(
+            "{} already exists and isn't empty",
+            project_path.display()
+        ));
+    }
 
-    // Create initial project metadata
+    for folder in PROJECT_FOLDERS {
+        let path = project_path.join(folder);
+        fs::create_dir_all(&path)
+            .map_err(|e| format!("Failed to create folder {}: {}", path.display(), e))?;
+    }
+
     let metadata = ProjectMetadata {
         project_name: project_name.to_string(),
         version: "1.0.0".to_string(),
-        project_path: project_path.to_str().unwrap().to_string(),
-        default_scene: "main.scene".to_string(),
-        active_scene_id: None,
+        project_path: project_path.to_string_lossy().into_owned(),
     };
-
-    ProjectManager::set_project_path(metadata.project_path.clone());
-
-    // Set up project structure and files
-    create_folder_structure(project_path)?;
     ProjectManager::save_project(project_path, &metadata)?;
-    create_cargo_package(project_path, project_name)?;
+    write_cargo_package(project_path, project_name)?;
 
-    // Initialize the scene hierarchy with a starter scene so a new project is
-    // immediately playable/buildable
+    // A starter scene, so a new project is immediately playable/buildable
     let mut scene_manager = SceneManager::new();
     let scene_id = scene_manager
         .create_scene("main")
@@ -40,55 +55,91 @@ pub fn create_project(project_path: &Path) -> Result<LoadedProject, String> {
         .map_err(|e| format!("Failed to activate default scene: {}", e))?;
     ProjectManager::save_scene_hierarchy(project_path, &scene_manager)?;
 
+    ProjectManager::set_project_path(metadata.project_path.clone());
     Ok(LoadedProject {
         metadata,
         scene_manager,
     })
 }
 
-/// Create the standard folder structure for a new project.
-fn create_folder_structure(base_path: &Path) -> Result<(), String> {
-    let folders = [
-        "assets/images",  // For image assets (textures, sprites)
-        "assets/sounds",  // For audio assets
-        "assets/fonts",   // For font files
-        "assets/scripts", // For game scripts
-        "scenes",         // For scene data files
-        "src",            // For Rust source files
-    ];
+/// Write `Cargo.toml`, `src/main.rs` and `.gitignore`: the game binary is a
+/// thin wrapper around the engine's standalone player.
+fn write_cargo_package(base_path: &Path, project_name: &str) -> Result<(), String> {
+    let write = |relative: &str, contents: String| {
+        fs::write(base_path.join(relative), contents)
+            .map_err(|e| format!("Failed to create {}: {}", relative, e))
+    };
 
-    for folder in &folders {
-        let path = base_path.join(folder);
-        fs::create_dir_all(&path)
-            .map_err(|e| format!("Failed to create folder {}: {}", path.display(), e))?;
-    }
+    write("src/main.rs", main_rs(project_name))?;
+    write(
+        "Cargo.toml",
+        format!(
+            r#"[package]
+name = "{package}"
+version = "0.1.0"
+edition = "2024"
+publish = false
 
-    Ok(())
+[dependencies]
+{dependency}
+
+# A game project is always its own workspace, even inside another one
+[workspace]
+"#,
+            package = package_name(project_name),
+            dependency = engine_dependency(engine_checkout().as_deref()),
+        ),
+    )?;
+    write(".gitignore", "/target\n".to_string())
 }
 
-/// Write `Cargo.toml` and `src/main.rs`: the game binary is a thin wrapper
-/// around the engine's standalone player.
-fn create_cargo_package(base_path: &Path, project_name: &str) -> Result<(), String> {
-    let main_content = format!(
+/// The game's entry point. The title is embedded as an escaped string
+/// literal, so any folder name produces valid Rust.
+fn main_rs(title: &str) -> String {
+    format!(
         "fn main() -> rust_2d_game_engine::eframe::Result<()> {{\n    \
          rust_2d_game_engine::player::run({:?})\n}}\n",
-        project_name
-    );
-    let main_path = base_path.join("src").join("main.rs");
-    fs::write(&main_path, main_content).map_err(|e| format!("Failed to create main.rs: {}", e))?;
+        title
+    )
+}
 
-    // The engine dependency points at the engine checkout that built this
-    // editor (the editor crate lives in `<engine>/editor`, baked in at
-    // compile time), so a freshly created project builds out of the box on
-    // this machine.
-    let engine_path = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .ok_or("Engine checkout not found")?
-        .to_string_lossy()
-        .replace('\\', "/");
-    // Cargo package names are restricted; derive a safe one from the
-    // project folder name
-    let package_name: String = project_name
+/// The engine checkout this editor was built from, if it still exists on
+/// this machine (it doesn't for downloaded release binaries).
+fn engine_checkout() -> Option<PathBuf> {
+    let engine = Path::new(env!("CARGO_MANIFEST_DIR")).parent()?;
+    engine
+        .join("src")
+        .join("lib.rs")
+        .is_file()
+        .then(|| engine.to_path_buf())
+}
+
+/// The game's dependency on the engine: the local checkout if there is one,
+/// otherwise the engine release matching this editor's version.
+fn engine_dependency(checkout: Option<&Path>) -> String {
+    match checkout {
+        Some(path) => format!(
+            "rust-2d-game-engine = {{ path = {} }}",
+            toml_string(&path.to_string_lossy().replace('\\', "/"))
+        ),
+        None => format!(
+            "rust-2d-game-engine = {{ git = {}, tag = {} }}",
+            toml_string(env!("CARGO_PKG_REPOSITORY")),
+            toml_string(&format!("v{}", env!("CARGO_PKG_VERSION")))
+        ),
+    }
+}
+
+/// A TOML basic string.
+fn toml_string(value: &str) -> String {
+    format!("\"{}\"", value.replace('\\', "\\\\").replace('"', "\\\""))
+}
+
+/// A cargo package name derived from the project name: lowercase ASCII
+/// letters, digits, `-` and `_`, not starting with a digit, and not a name
+/// cargo reserves.
+fn package_name(project_name: &str) -> String {
+    let name: String = project_name
         .to_lowercase()
         .chars()
         .map(|c| {
@@ -99,74 +150,104 @@ fn create_cargo_package(base_path: &Path, project_name: &str) -> Result<(), Stri
             }
         })
         .collect();
-    let cargo_content = format!(
-        r#"[package]
-name = "{package_name}"
-version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-rust-2d-game-engine = {{ path = "{engine_path}" }}
-# If you move this project to another machine, point the dependency at your
-# engine checkout there, or use the git dependency instead:
-# rust-2d-game-engine = {{ git = "https://github.com/gh0stintheshe11/Rust-2D-Game-Engine" }}
-
-# A game project is always its own workspace, even inside another one
-[workspace]
-"#
-    );
-
-    let cargo_path = base_path.join("Cargo.toml");
-    fs::write(&cargo_path, cargo_content)
-        .map_err(|e| format!("Failed to create Cargo.toml: {}", e))?;
-
-    Ok(())
+    const RESERVED: &[&str] = &[
+        "test",
+        "core",
+        "std",
+        "alloc",
+        "proc_macro",
+        "proc-macro",
+        "self",
+        "super",
+        "crate",
+        "build",
+        "deps",
+        "examples",
+        "incremental",
+    ];
+    let starts_with_letter = name.starts_with(|c: char| c.is_ascii_lowercase());
+    if starts_with_letter && !RESERVED.contains(&name.as_str()) {
+        name
+    } else {
+        format!("game_{}", name)
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs;
+
+    fn temp_dir(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("rust2d_scaffold_{}", uuid::Uuid::new_v4()));
+        fs::create_dir_all(&dir).unwrap();
+        dir.join(name)
+    }
 
     #[test]
     fn test_created_project_is_buildable_and_playable() {
-        let parent =
-            std::env::temp_dir().join(format!("rust2d_pm_scaffold_{}", uuid::Uuid::new_v4()));
-        fs::create_dir_all(&parent).unwrap();
-        let project = parent.join("My Cool Game!");
-
+        let project = temp_dir("My Cool Game!");
         let loaded = create_project(&project).expect("create_project");
 
-        // The generated Cargo.toml must reference the real engine, not a
-        // placeholder, and must have a valid package name
         let cargo = fs::read_to_string(project.join("Cargo.toml")).unwrap();
-        let engine_path = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .unwrap()
-            .to_string_lossy()
-            .replace('\\', "/");
+        let engine = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
         assert!(
-            cargo.contains(&format!(
-                "rust-2d-game-engine = {{ path = \"{}\" }}",
-                engine_path
-            )),
-            "generated Cargo.toml must point at the engine that created it:\n{}",
+            cargo.contains(&engine_dependency(Some(engine))),
+            "generated Cargo.toml must point at the engine checkout:\n{}",
             cargo
         );
-        assert!(
-            cargo.contains("name = \"my_cool_game_\""),
-            "package name must be sanitized:\n{}",
-            cargo
-        );
-        assert!(!cargo.contains("path/to/engine"), "no placeholder paths");
+        assert!(cargo.contains("name = \"my_cool_game_\""), "{}", cargo);
+        assert!(cargo.contains("[workspace]"));
+        let main = fs::read_to_string(project.join("src/main.rs")).unwrap();
+        assert!(main.contains("player::run(\"My Cool Game!\")"), "{}", main);
+        assert!(project.join(".gitignore").is_file());
 
         // A starter scene exists and is active, so Play works immediately
         assert_eq!(loaded.scene_manager.scenes.len(), 1);
         assert!(loaded.scene_manager.active_scene.is_some());
 
-        // The scene file round-trips
         let reloaded = ProjectManager::load_project_full(&project).expect("reload");
         assert_eq!(reloaded.scene_manager.scenes.len(), 1);
-        assert!(project.join("src/main.rs").exists());
+    }
+
+    #[test]
+    fn test_existing_folders_are_not_overwritten() {
+        let project = temp_dir("taken");
+        fs::create_dir_all(&project).unwrap();
+        fs::write(project.join("notes.txt"), "keep me").unwrap();
+
+        assert!(create_project(&project).is_err());
+        assert!(!project.join("project.epm").exists());
+        assert_eq!(
+            fs::read_to_string(project.join("notes.txt")).unwrap(),
+            "keep me"
+        );
+    }
+
+    #[test]
+    fn test_unusual_names_produce_valid_packages() {
+        assert_eq!(package_name("2048"), "game_2048");
+        assert_eq!(package_name("Test"), "game_test");
+        assert_eq!(package_name("_hidden"), "game__hidden");
+        assert_eq!(package_name("Space Game"), "space_game");
+
+        // Titles are embedded as escaped literals: braces and quotes are fine
+        assert!(main_rs("a{b}\"c").contains(r#"run("a{b}\"c")"#));
+        let project = temp_dir("a{b}");
+        create_project(&project).expect("create_project");
+    }
+
+    #[test]
+    fn test_release_binaries_depend_on_the_matching_engine_release() {
+        let dependency = engine_dependency(None);
+        assert!(
+            dependency.contains(env!("CARGO_PKG_REPOSITORY")),
+            "{}",
+            dependency
+        );
+        assert!(
+            dependency.contains(&format!("tag = \"v{}\"", env!("CARGO_PKG_VERSION"))),
+            "{}",
+            dependency
+        );
     }
 }

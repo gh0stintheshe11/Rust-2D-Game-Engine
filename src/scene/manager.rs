@@ -26,11 +26,28 @@ impl SceneManager {
         }
     }
 
+    /// Create a scene (with its default camera) and return its id, which is
+    /// both the key in `scenes` and the scene's `id`.
     pub fn create_scene(&mut self, name: &str) -> Result<Uuid, String> {
-        let id = Uuid::new_v4();
         let scene = Scene::new(name)?;
+        let id = scene.id;
         self.scenes.insert(id, scene);
         Ok(id)
+    }
+
+    /// Make every scene's and entity's `id` field match the key it is stored
+    /// under. Scene files written by older versions keyed scenes by a
+    /// different id than `Scene::id`.
+    pub fn repair_ids(&mut self) {
+        for (scene_id, scene) in self.scenes.iter_mut() {
+            scene.id = *scene_id;
+            for (entity_id, entity) in scene.entities.iter_mut() {
+                entity.id = *entity_id;
+            }
+        }
+        for (entity_id, entity) in self.shared_entities.iter_mut() {
+            entity.id = *entity_id;
+        }
     }
 
     pub fn delete_scene(&mut self, id: Uuid) -> Result<bool, String> {

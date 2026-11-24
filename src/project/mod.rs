@@ -1,53 +1,64 @@
-//! Project lifecycle: metadata, save/load, scaffolding, asset import, builds.
+//! Project files: metadata (`project.epm`) and the scene hierarchy
+//! (`scenes/scene_manager.json`).
 //!
-//! Split across submodules for readability; everything is re-exported here so
-//! external code keeps using `crate::project::*` paths.
+//! A project is a folder containing `project.epm`. Scaffolding new projects,
+//! importing assets and building games are editor features
+//! (`editor/src/project/`).
+
 use crate::scene::SceneManager;
 use serde::{Deserialize, Serialize};
-use std::fs::File;
-use std::io::Write;
+use std::fs;
 use std::path::{Path, PathBuf};
-use uuid::Uuid;
+use std::sync::RwLock;
 
 mod scene_io;
 
-use std::sync::RwLock;
 static PROJECT_PATH: RwLock<Option<String>> = RwLock::new(None);
 
-// Project metadata structure that holds basic project information
-// This is serialized to/from project.json
-#[derive(Serialize, Deserialize, Debug)]
+/// Name of the file that marks a folder as a project.
+pub const PROJECT_FILE_NAME: &str = "project.epm";
+
+/// Contents of `project.epm`.
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ProjectMetadata {
-    pub project_name: String,          // Name of the game project
-    pub version: String,               // Project version (e.g., "1.0.0")
-    pub project_path: String,          // Absolute path to project directory
-    pub default_scene: String,         // Default scene file name
-    pub active_scene_id: Option<Uuid>, // Currently active scene's UUID
+    pub project_name: String,
+    #[serde(default = "default_version")]
+    pub version: String,
+    /// The folder the project was opened from. Never written to the file:
+    /// it would tie the project to one machine.
+    #[serde(skip_serializing, default)]
+    pub project_path: String,
 }
 
-// Add a new struct to represent project loading result
+fn default_version() -> String {
+    "1.0.0".to_string()
+}
+
+/// A project as loaded from disk.
 #[derive(Debug)]
 pub struct LoadedProject {
     pub metadata: ProjectMetadata,
     pub scene_manager: SceneManager,
 }
 
-// Main project management structure
+/// Reading and writing project files. All functions are associated
+/// functions; the only state is the "current project" path that scripts
+/// resolve asset paths against.
 pub struct ProjectManager;
 
 impl ProjectManager {
-    // Add constant definition
-    const PROJECT_FILE_NAME: &'static str = "project.epm";
-
+    /// Set the current project, which scripts resolve asset paths against.
     pub fn set_project_path(path: String) {
-        let mut project_path_lock = PROJECT_PATH.write().unwrap();
-        *project_path_lock = Some(path);
+        let mut project_path = PROJECT_PATH.write().unwrap_or_else(|e| e.into_inner());
+        *project_path = Some(path);
     }
 
-    /// Get the global project path
+    /// The current project's folder, if any.
     pub fn get_project_path() -> Option<String> {
-        let project_path_lock = PROJECT_PATH.read().unwrap();
-        project_path_lock.clone()
+        PROJECT_PATH
+            .read()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
     }
 
     /// Resolve a project-relative asset path (as scripts write them, e.g.
@@ -62,69 +73,44 @@ impl ProjectManager {
         }
     }
 
-    // Loads project metadata from project.epm.
-    //
-    // The stored project_path is ignored and replaced with the actual
-    // location the project was opened from (in memory only - loading must
-    // not mutate the project on disk). The path is persisted on the next
-    // explicit save.
+    /// Read `project.epm`. `project_path` is set to where the project was
+    /// opened from; nothing is written to disk.
     pub fn load_project(project_path: &Path) -> Result<ProjectMetadata, String> {
-        let file_path = project_path.join(Self::PROJECT_FILE_NAME);
-        let file = File::open(&file_path).map_err(|e| format!("Failed to open file: {}", e))?;
-
-        let mut metadata: ProjectMetadata =
-            serde_json::from_reader(file).map_err(|e| format!("Failed to read metadata: {}", e))?;
-
-        // Always update project_path to current path
-        metadata.project_path = project_path
-            .to_str()
-            .ok_or("Invalid project path")?
-            .to_string();
-
+        let file_path = project_path.join(PROJECT_FILE_NAME);
+        let json = fs::read_to_string(&file_path)
+            .map_err(|e| format!("Can't read {}: {}", file_path.display(), e))?;
+        let mut metadata: ProjectMetadata = serde_json::from_str(&json)
+            .map_err(|e| format!("Invalid {}: {}", file_path.display(), e))?;
+        metadata.project_path = project_path.to_string_lossy().into_owned();
         Ok(metadata)
     }
 
-    // Saves project metadata to project.json
+    /// Write `project.epm`.
     pub fn save_project(project_path: &Path, metadata: &ProjectMetadata) -> Result<(), String> {
-        let file_path = project_path.join(Self::PROJECT_FILE_NAME);
         let json = serde_json::to_string_pretty(metadata)
             .map_err(|e| format!("Failed to serialize metadata: {}", e))?;
-        let mut file =
-            File::create(&file_path).map_err(|e| format!("Failed to create file: {}", e))?;
-        file.write_all(json.as_bytes())
-            .map_err(|e| format!("Failed to write to file: {}", e))?;
-
-        Ok(())
+        write_atomically(&project_path.join(PROJECT_FILE_NAME), &json)
     }
 
-    // Builds the project using cargo and copies assets to target directory
+    /// Load a project: metadata and scenes. Makes it the current project.
     pub fn load_project_full(project_path: &Path) -> Result<LoadedProject, String> {
-        // First check for EPM file
         if !Self::is_valid_project_directory(project_path) {
-            return Err("Not a valid project - missing project.epm file".to_string());
+            return Err(format!(
+                "{} is not a project: {} is missing",
+                project_path.display(),
+                PROJECT_FILE_NAME
+            ));
         }
-
-        //valid project structure
-        if !Self::validate_project_structure(project_path).is_ok() {
-            return Err("Project structure is invalid".to_string());
-        }
-
-        // Load and update project metadata (this will update and save the new path)
         let metadata = Self::load_project(project_path)?;
-
-        // Load scene manager
         let scene_manager = Self::load_scene_hierarchy(project_path)?;
-
         Self::set_project_path(metadata.project_path.clone());
-
-        // Return loaded project with updated metadata
         Ok(LoadedProject {
             metadata,
             scene_manager,
         })
     }
 
-    // Saves both project metadata and scene hierarchy
+    /// Save metadata and scenes.
     pub fn save_project_full(
         project_path: &Path,
         metadata: &ProjectMetadata,
@@ -135,41 +121,28 @@ impl ProjectManager {
         Ok(())
     }
 
-    // Modify is_valid_project_directory to be more explicit
+    /// Whether `path` is a project folder (contains `project.epm`). Asset
+    /// folders are optional: version control drops empty folders, and the
+    /// editor creates them when importing.
     pub fn is_valid_project_directory(path: &Path) -> bool {
-        path.join(Self::PROJECT_FILE_NAME).exists()
+        path.join(PROJECT_FILE_NAME).is_file()
     }
+}
 
-    // Modify validate_project_structure to check EPM file first
-    pub fn validate_project_structure(project_path: &Path) -> Result<(), String> {
-        // First and most important check - EPM file
-        if !project_path.join(Self::PROJECT_FILE_NAME).exists() {
-            return Err("Not a valid project - missing project.epm file".to_string());
-        }
+/// Replace `path`'s contents without ever leaving a truncated file behind:
+/// write a temporary file next to it, then rename it over the original.
+pub(crate) fn write_atomically(path: &Path, contents: &str) -> Result<(), String> {
+    let file_name = path
+        .file_name()
+        .ok_or_else(|| format!("Invalid file path {}", path.display()))?;
+    let mut temp_name = file_name.to_os_string();
+    temp_name.push(".tmp");
+    let temp_path = path.with_file_name(temp_name);
 
-        let required_folders = [
-            "assets/images",
-            "assets/sounds",
-            "assets/fonts",
-            "assets/scripts",
-            "scenes",
-            "src",
-        ];
-
-        // Then check folders
-        for folder in &required_folders {
-            let folder_path = project_path.join(folder);
-            if !folder_path.exists() {
-                return Err(format!("Required folder '{}' is missing", folder));
-            }
-        }
-
-        // Finally check scene manager
-        let scene_file = project_path.join("scenes").join("scene_manager.json");
-        if !scene_file.exists() {
-            return Err("Scene manager file is missing".to_string());
-        }
-
-        Ok(())
-    }
+    fs::write(&temp_path, contents)
+        .and_then(|()| fs::rename(&temp_path, path))
+        .map_err(|e| {
+            let _ = fs::remove_file(&temp_path);
+            format!("Failed to write {}: {}", path.display(), e)
+        })
 }
