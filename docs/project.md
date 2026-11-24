@@ -60,7 +60,7 @@ over it, so a crash mid-save can't leave a truncated project behind.
   editor's version (`git = <repository>, tag = "v<version>"`), so editors
   downloaded from GitHub releases create buildable projects.
 - **`import_asset(project, file, type)`**: checks the extension (images:
-  png/jpg/jpeg/gif, sounds: wav/mp3/ogg, scripts: lua), copies the file into
+  png/jpg/jpeg/gif, sounds: wav/mp3/ogg/flac, scripts: lua), copies the file into
   `assets/<type>/`, refuses name collisions, and returns the project-relative
   path.
 - **`build_project(project)`**: runs `cargo build --release --target-dir

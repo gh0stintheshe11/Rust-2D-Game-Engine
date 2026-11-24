@@ -77,8 +77,34 @@ impl AssetType {
     pub fn valid_extensions(&self) -> &[&str] {
         match self {
             AssetType::Image => &["png", "jpg", "jpeg", "gif"],
-            AssetType::Sound => &["wav", "mp3", "ogg"],
+            AssetType::Sound => &["wav", "mp3", "ogg", "flac"],
             AssetType::Script => &["lua"], // Currently only supporting Lua scripts
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_sounds_import_in_every_playable_format() {
+        let dir = std::env::temp_dir().join(format!("rust2d_import_{}", uuid::Uuid::new_v4()));
+        let project = dir.join("project");
+        fs::create_dir_all(&project).unwrap();
+        for extension in ["wav", "mp3", "ogg", "flac", "FLAC"] {
+            let file = dir.join(format!("sound_{}.{}", extension, extension));
+            fs::write(&file, b"not decoded by the import").unwrap();
+            let imported = import_asset(&project, &file, AssetType::Sound)
+                .unwrap_or_else(|e| panic!(".{} refused: {}", extension, e));
+            assert_eq!(
+                imported,
+                format!("assets/sounds/sound_{}.{}", extension, extension)
+            );
+        }
+
+        let text = dir.join("notes.txt");
+        fs::write(&text, b"").unwrap();
+        assert!(import_asset(&project, &text, AssetType::Sound).is_err());
     }
 }

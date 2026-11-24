@@ -176,7 +176,7 @@ impl Inspector {
 
         match extension.as_str() {
             "png" | "jpg" | "jpeg" | "gif" => self.show_image_preview(ui, file_path),
-            "mp3" | "wav" | "ogg" => self.show_audio_preview(ui, file_path),
+            "mp3" | "wav" | "ogg" | "flac" => self.show_audio_preview(ui, file_path),
             "lua" if ui.button("Edit Script").clicked() => {
                 gui_state.open_script_request = Some(file_path.to_path_buf());
             }

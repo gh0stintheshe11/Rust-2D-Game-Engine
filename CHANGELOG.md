@@ -16,6 +16,11 @@ versions may contain breaking changes).
 - `AudioEngine::offline` mixes sounds into a sample stream instead of an audio
   device, so playback can be tested on machines without one.
 
+### Fixed
+
+- Import Sound and the inspector's audio preview accept FLAC files, which the
+  engine could already play.
+
 ## [0.3.0] - 2026-11-24
 
 The first release as an open-source project, after a full audit of the code.
