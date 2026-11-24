@@ -92,14 +92,16 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("rust2d_import_{}", uuid::Uuid::new_v4()));
         let project = dir.join("project");
         fs::create_dir_all(&project).unwrap();
-        for extension in ["wav", "mp3", "ogg", "flac", "FLAC"] {
-            let file = dir.join(format!("sound_{}.{}", extension, extension));
+        // Distinct base names: Windows and macOS file names are
+        // case-insensitive, so "a.flac" and "a.FLAC" would be the same file
+        for (index, extension) in ["wav", "mp3", "ogg", "flac", "FLAC"].iter().enumerate() {
+            let file = dir.join(format!("sound_{}.{}", index, extension));
             fs::write(&file, b"not decoded by the import").unwrap();
             let imported = import_asset(&project, &file, AssetType::Sound)
                 .unwrap_or_else(|e| panic!(".{} refused: {}", extension, e));
             assert_eq!(
                 imported,
-                format!("assets/sounds/sound_{}.{}", extension, extension)
+                format!("assets/sounds/sound_{}.{}", index, extension)
             );
         }
 
