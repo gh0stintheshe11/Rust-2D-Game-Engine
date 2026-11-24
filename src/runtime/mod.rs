@@ -4,7 +4,6 @@ use crate::{
     logger::LOGGER,
     physics::PhysicsEngine,
     render::RenderEngine,
-    scene::AttributeValue,
     scene::SceneManager,
     scripting::LuaScripting,
 };
@@ -214,6 +213,9 @@ impl GameRuntime {
             // window drag, breakpoint - doesn't cause a huge catch-up burst)
             let frame_dt = ctx.input(|i| i.stable_dt).min(0.25);
 
+            // Forces scripts apply this frame act for this frame's duration
+            self.physics_engine.borrow_mut().begin_frame(frame_dt);
+
             // Update game logic with the input handler
             if let Some(game) = &mut self.game {
                 game.update(
@@ -268,23 +270,7 @@ impl GameRuntime {
 
                 let mut manager = self.scene_manager.borrow_mut();
                 match manager.get_active_scene_mut() {
-                    Some(scene) => {
-                        let physics_updates = self.physics_engine.borrow_mut().step(scene);
-
-                        // Filter out those values are NaN
-                        let filtered_physics_updates: Vec<(_, _, AttributeValue)> = physics_updates
-                            .into_iter()
-                            .filter(|(_, _, attr)| match attr {
-                                AttributeValue::Float(val) => !val.is_nan(),
-                                AttributeValue::Vector2(x, y) => !x.is_nan() && !y.is_nan(),
-                                _ => true,
-                            })
-                            .collect();
-
-                        if let Err(err) = scene.update_entity_attributes(filtered_physics_updates) {
-                            LOGGER.error(format!("Failed to update entity attributes: {}", err));
-                        }
-                    }
+                    Some(scene) => self.physics_engine.borrow_mut().step(scene),
                     None => {
                         scene_lost = true;
                         break;
@@ -365,41 +351,10 @@ impl GameRuntime {
             crate::render::paint_sprite(&painter, texture.id(), texture_rect, entry.rotation);
         }
 
-        // render colliders
-        let collider_data = self.physics_engine.borrow().get_collider_data();
-        let collider_render_queue = self.render_engine.render_colliders(&collider_data);
-
-        for (screen_position, screen_size, shape) in collider_render_queue {
-            match shape.as_str() {
-                "Circle" => {
-                    let center = egui::pos2(
-                        viewport_rect.min.x + screen_position.0,
-                        viewport_rect.min.y + screen_position.1,
-                    );
-                    let radius = screen_size.0 / 2.0;
-                    painter.circle_stroke(
-                        center,
-                        radius,
-                        egui::Stroke::new(1.0_f32, egui::Color32::RED),
-                    );
-                }
-                "Rectangle" => {
-                    let rect = egui::Rect::from_min_size(
-                        egui::pos2(
-                            viewport_rect.min.x + screen_position.0 - screen_size.0 / 2.0,
-                            viewport_rect.min.y + screen_position.1 - screen_size.1 / 2.0,
-                        ),
-                        egui::vec2(screen_size.0, screen_size.1),
-                    );
-                    painter.rect_stroke(
-                        rect,
-                        0.0,
-                        egui::Stroke::new(1.0_f32, egui::Color32::BLUE),
-                        egui::StrokeKind::Middle,
-                    );
-                }
-                _ => {}
-            }
+        // Collider debug outlines
+        let outlines = self.physics_engine.borrow().collider_outlines();
+        for outline in self.render_engine.render_colliders(&outlines) {
+            crate::render::paint_collider_outline(&painter, &outline, viewport_rect.min);
         }
     }
 

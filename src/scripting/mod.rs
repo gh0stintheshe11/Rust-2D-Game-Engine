@@ -148,7 +148,7 @@ impl LuaScripting {
 
         self.register_physics_bindings(&physics_engine, &scene_manager)?;
         self.register_input_bindings(&input_handler)?;
-        self.register_scene_bindings(&scene_manager)?;
+        self.register_scene_bindings(&scene_manager, &physics_engine)?;
         self.register_audio_bindings(&audio_engine)?;
 
         LOGGER.info("Lua scripting session started");
@@ -283,7 +283,7 @@ impl LuaScripting {
                 .filter_map(|(id, entity)| {
                     let path = entity.script.clone()?;
                     let current: HashSet<Uuid> =
-                        physics.get_colliding_entities(id).into_iter().collect();
+                        physics.get_colliding_entities(*id).into_iter().collect();
                     Some((*id, path, current))
                 })
                 .collect()

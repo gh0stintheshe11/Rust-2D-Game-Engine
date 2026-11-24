@@ -415,7 +415,7 @@ mod session_tests {
             for _ in 0..240 {
                 physics.step(scene);
                 if physics
-                    .get_colliding_entities(&player_id)
+                    .get_colliding_entities(player_id)
                     .contains(&obstacle_id)
                 {
                     touched = true;
@@ -806,5 +806,89 @@ mod session_tests {
         assert_eq!(entity.get_x(), 12.0, "spawn x must be applied");
         assert_eq!(entity.get_y(), 34.0, "spawn y must be applied");
         assert_eq!(entity.get_z(), 2.0, "spawn z must be applied");
+    }
+
+    #[test]
+    fn test_remove_entity_also_removes_physics_body() {
+        let mut session = setup("remove_body");
+        add_scripted_entity(
+            &session,
+            "spawner",
+            r#"
+            function update(scene_id, entity_id)
+                if script_state.state.box == nil then
+                    local box = create_physical_entity(scene_id, "box", 0.0, 0.0, 0.0)
+                    add_entity_to_physics_engine(box)
+                    script_state.state.box = box
+                else
+                    remove_entity(scene_id, script_state.state.box)
+                end
+            end
+            "#,
+        );
+
+        session.lua.run_scripts_for_scene(session.scene_id).unwrap();
+        assert_eq!(session.physics.borrow().rigid_body_count(), 1);
+
+        session.lua.run_scripts_for_scene(session.scene_id).unwrap();
+        assert_eq!(
+            session.physics.borrow().rigid_body_count(),
+            0,
+            "the body must go away with the entity"
+        );
+    }
+
+    #[test]
+    fn test_position_setters_move_physics_bodies() {
+        let mut session = setup("teleport");
+        add_scripted_entity(
+            &session,
+            "teleporter",
+            r#"
+            function update(scene_id, entity_id)
+                if script_state.state.box == nil then
+                    local box = create_physical_entity(scene_id, "box", 0.0, 0.0, 0.0)
+                    add_entity_to_physics_engine(box)
+                    script_state.state.box = box
+                else
+                    set_position(scene_id, script_state.state.box, 300.0, 40.0)
+                end
+            end
+            "#,
+        );
+
+        // Frame 1 spawns, frame 2 teleports; the physics step afterwards
+        // must keep the new position instead of snapping back
+        session.lua.run_scripts_for_scene(session.scene_id).unwrap();
+        session.lua.run_scripts_for_scene(session.scene_id).unwrap();
+        {
+            let mut manager = session.scene_manager.borrow_mut();
+            let scene = manager.get_scene_mut(session.scene_id).unwrap();
+            session.physics.borrow_mut().step(scene);
+        }
+
+        let box_id: String = session
+            .lua
+            .lua
+            .load("return script_state.state.box")
+            .eval()
+            .unwrap();
+        let box_id = uuid::Uuid::parse_str(&box_id).unwrap();
+        let manager = session.scene_manager.borrow();
+        let entity = manager
+            .get_scene(session.scene_id)
+            .unwrap()
+            .get_entity(box_id)
+            .unwrap();
+        assert!(
+            (entity.get_x() - 300.0).abs() < 1.0,
+            "x = {}",
+            entity.get_x()
+        );
+        assert!(
+            entity.get_y() >= 40.0 && entity.get_y() < 41.0,
+            "y = {}",
+            entity.get_y()
+        );
     }
 }

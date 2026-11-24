@@ -8,7 +8,6 @@ mod tests {
     use rust_2d_game_engine::input::InputHandler;
     use rust_2d_game_engine::physics::PhysicsEngine;
     use rust_2d_game_engine::project::ProjectManager;
-    use rust_2d_game_engine::scene::AttributeValue;
     use rust_2d_game_engine::scripting::LuaScripting;
     use std::cell::RefCell;
     use std::path::PathBuf;
@@ -34,16 +33,7 @@ mod tests {
                 {
                     let mut manager = self.scene_manager.borrow_mut();
                     let scene = manager.get_active_scene_mut().unwrap();
-                    let updates = self.physics.borrow_mut().step(scene);
-                    let filtered: Vec<_> = updates
-                        .into_iter()
-                        .filter(|(_, _, value)| match value {
-                            AttributeValue::Float(v) => !v.is_nan(),
-                            AttributeValue::Vector2(x, y) => !x.is_nan() && !y.is_nan(),
-                            _ => true,
-                        })
-                        .collect();
-                    scene.update_entity_attributes(filtered).unwrap();
+                    self.physics.borrow_mut().step(scene);
                 }
 
                 // Mirror the runtime: collision hooks fire after physics

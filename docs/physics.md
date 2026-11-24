@@ -1,81 +1,110 @@
-# Physics Engine (`src/physics/`)
+# Physics (`src/physics/`)
 
-A wrapper around [rapier2d](https://crates.io/crates/rapier2d) that mirrors scene entities into a physics world (rigid bodies + colliders), steps the simulation at a fixed timestep (default 60 Hz), and returns a list of attribute updates for the caller to write back into the ECS. Coordinate convention: **+Y is downward in screen space**, so the default global gravity `vector![0.0, 50.0]` pulls entities down the screen.
+A wrapper around [rapier2d](https://crates.io/crates/rapier2d) that mirrors
+scene entities into a physics world (rigid bodies + colliders), steps it at a
+fixed timestep, and writes positions and rotations back into the entities.
 
-## Key type
+Coordinates are screen-space pixels with **+Y pointing down**; the default
+gravity `(0, 50)` pulls entities down the screen.
 
-`PhysicsEngine` is the only public type. Internals worth knowing:
+## Bodies and entities
 
-| Field | Role |
-|---|---|
-| `rigid_body_set` / `collider_set` | The rapier world |
-| `entity_to_body` / `entity_to_collider` | `Uuid → handle` maps linking ECS entities to rapier objects |
-| `entity_position_attrs` | Cache of each entity's `position` Vector2 attribute id, for fast write-back |
-| `integration_parameters`, `time_step` | Fixed dt = 1/60 by default; `length_unit: 100.0` tells rapier the world is pixel-scale so sleep/penetration tolerances are scaled correctly |
-| `impulse_joint_set`, `multibody_joint_set`, `ccd_solver`, `query_pipeline` | Allocated but effectively unused ("for future") |
+`PhysicsEngine::add_entity(&Entity)` builds a body from the entity's
+attributes, read by name:
 
-## Which entities participate
+| Attribute | Type | Default | Effect |
+|---|---|---|---|
+| `has_gravity` / `has_collision` / `creates_gravity` | Boolean | — | An entity takes part only if it has at least one of these |
+| `is_movable` | Boolean | false | Dynamic body; otherwise fixed |
+| `is_kinematic` | Boolean | false | Kinematic body, moved only by `set_velocity`; never sleeps |
+| `has_gravity` | Boolean | false | Affected by global gravity and gravity fields |
+| `gravity_scale` | Float | 1.0 | Multiplier on global gravity |
+| `has_collision` | Boolean | true | Attach a collider |
+| `can_rotate` | Boolean | false | Dynamic bodies may rotate; their angle is written to `rotation` |
+| `rotation` | Float (degrees) | 0 | Initial angle |
+| `collider_width` / `collider_height` | Float | sprite size | Body size; otherwise the first image's pixel size times `scale` |
+| `collider_shape` | String | `"rectangle"` | `"circle"` fits a circle inside the body size |
+| `density` / `friction` / `restitution` | Float | 1.0 / 0.5 / 0.0 | Collider material |
+| `creates_gravity` | Boolean | false | Attract `has_gravity` bodies (see below) |
+| `gravity_strength` | Float | 500000 | Field strength: acceleration is `strength / distance²` px/s² |
 
-`add_entity(&Entity)` decides everything from **attributes read by name**:
+Re-adding an entity replaces its body. Dynamic bodies without a collider get a
+mass of 1 so gravity and forces still act on them.
 
-- Skipped entirely unless the entity has at least one of `has_gravity`, `has_collision`, `creates_gravity`.
-- **Idempotent**: re-adding an entity that already has a body removes the old body/collider first (no leaked duplicates on scene reload).
-- Spawn position: **always the `x`/`y` Float attributes** (they exist on every entity, the editor edits them, and the renderer draws from them). The optional `position` Vector2 attribute is only synced on write-back — older scene files may carry stale values in it, which is why it is not trusted for spawning.
-- Body type: kinematic (velocity-based) if `is_kinematic` — moved only via `set_velocity`, immune to gravity, forces and pushes from dynamic bodies, and **never put to sleep** (a sleeping kinematic body would freeze mid-motion since a constant velocity doesn't wake it); otherwise dynamic if `is_movable` (default false → fixed). `has_gravity` maps to gravity scale 1/0, multiplied by an optional `gravity_scale` Float attribute (default 1.0) — the per-entity knob for fall speed. Rotation locked unless `can_rotate`.
-- Collider (if `has_collision`, default true): size comes from explicit `collider_width`/`collider_height` Float attributes when present, otherwise it is **inferred from the entity's first image** — the file is opened and its pixel dimensions read at add time (transparent padding inflates the hitbox). Shape comes from an explicit `collider_shape` String attribute (`"circle"`/`"rectangle"`) when present; otherwise the legacy heuristic applies: aspect ratio within 0.9–1.1 → ball of radius `width/2`, else a cuboid of half the image size. Offset by `(w/2, h/2)` so the collider spans from the entity's x/y. Fallback: ball of radius 0.5 if there's no explicit size and no loadable image. `density`, `friction`, `restitution` come from attributes (defaults 1.0 / 0.5 / 0.0).
+### Origin convention
 
-## Per-frame flow
+An entity's `x`/`y` is the **top-left corner** of its sprite (what the
+renderer and the editor use). The rigid body's origin is the **center** of the
+body size, and the collider is centered on it, so bodies rotate around the
+sprite center exactly like the renderer rotates sprites. Write-back converts
+back: `x = center.x - width / 2`, `y = center.y - height / 2`.
 
 ```mermaid
 graph TD
-    A["Scene entities (attributes)"] -->|"load_scene / add_entity"| B[Rapier world]
-    C["step(&mut Scene)"] --> D["Custom gravity fields:<br/>creates_gravity entities attract<br/>has_gravity entities (inverse-square)"]
-    D --> E[Rapier pipeline step]
-    E --> F["Per body: reset_forces,<br/>read new translation"]
-    F --> G["Updates: position Vector2 (if cached)<br/>+ always x/y Floats"]
-    G -->|"returned Vec<(entity, attr, value)>"| H["Caller applies via<br/>scene.update_entity_attributes"]
+    A["Scene entities (attributes)"] -->|"load_scene / add_entity"| B["rapier PhysicsWorld"]
+    C["step(&mut Scene)"] --> D["Drop bodies whose entity is gone"]
+    D --> E["Apply impulses from apply_force / apply_torque"]
+    E --> F["Gravity fields"]
+    F --> G["rapier step"]
+    G --> H["Write x / y / position / rotation back"]
 ```
 
-`step` returns `Vec<(Uuid, Uuid, AttributeValue)>` rather than mutating positions itself; `runtime` filters out NaN values before applying. `reset_forces` is called on every body each step so user-applied and gravity-field forces don't accumulate across frames. `cleanup()` rebuilds the entire world and clears all maps **including the position-attribute cache**.
+## Per-frame use
 
-## Interactions with other modules
+The runtime calls, every rendered frame:
 
-- **`runtime`**: calls `cleanup()` + `load_scene()` when a game run starts (so repeated runs don't leak bodies), `step(scene)` every frame, and applies the returned updates. Also `cleanup()` on stop/reset.
-- **`scripting`**: binds `set_velocity`, `apply_force`/`apply_impulse`, `add_entity_to_physics_engine`, `remove_entity_from_physics_engine`, etc. (via raw pointers into the engine).
-- **`scene`**: source of all configuration (attributes by name) and destination of all results.
-- **Editor GUI**: `get_collider_data()` supplies collider outlines (position, size, `"Circle"`/`"Rectangle"`) for debug rendering.
+1. `begin_frame(frame_dt)` — records the real frame duration.
+2. Scripts run; `apply_force` / `apply_torque` accumulate **impulses**
+   (`force × frame_dt`), so a force applied every frame has the same effect at
+   30, 60 or 144 fps, and a force applied in one frame is never lost.
+3. `step(&mut Scene)` zero or more times (fixed timestep, default 1/60 s).
+   Each step applies the pending impulses, applies gravity fields, simulates,
+   and writes the results into the scene. Fixed bodies are not written back.
 
-## Public API overview
+`cleanup()` removes every body and restores the default gravity, so changes a
+script made with `set_gravity` don't carry over into the next Play.
 
-- **Lifecycle**: `new`, `load_scene`, `add_entity`, `remove_entity`, `step`, `cleanup`
-- **Tuning**: `set_time_step`/`get_time_step`, `set_min_ccd_dt`, `set_contact_parameters`, `set_joint_frequency`
-- **Body control**: `get_velocity`/`set_velocity`, `apply_force`, `apply_impulse`, `get_angular_velocity`/`set_angular_velocity`, `apply_torque`
-- **Queries**: `get_colliding_entities`, `get_collider_data`, `is_moving`/`is_stable`, `is_empty`, `rigid_body_count` (total bodies in the world, useful for leak detection), `has_rigid_body`, `has_collider`
+## Gravity fields
 
-### Usage example (verified against source)
+Every `creates_gravity` entity attracts every dynamic `has_gravity` body
+towards its body center (or its `x`/`y` if it has no body) with acceleration
+`gravity_strength / distance²`, independent of the attracted body's mass.
+Distances below 10 px count as 10 px.
+
+## Public API
+
+- **Lifecycle**: `new`, `add_entity`, `remove_entity`, `load_scene`,
+  `begin_frame`, `step`, `cleanup`
+- **World**: `set_gravity` / `get_gravity`, `set_time_step` / `get_time_step`
+- **Bodies**: `get_velocity` / `set_velocity`, `apply_force`, `apply_impulse`,
+  `set_position` (teleport, keeps velocity), `get_angular_velocity` /
+  `set_angular_velocity`, `apply_torque`
+- **Queries**: `get_colliding_entities` (entities currently touching),
+  `collider_outlines` (debug drawing), `has_rigid_body`, `has_collider`,
+  `is_empty`, `rigid_body_count`
+
+Vectors are `(f32, f32)` tuples; rapier types don't appear in the API.
 
 ```rust
 let mut physics = PhysicsEngine::new();
-physics.load_scene(scene);              // adds every qualifying entity
+physics.load_scene(&scene);
 
-// per frame:
-let updates = physics.step(scene_mut);  // simulate + collect position updates
-scene_mut.update_entity_attributes(updates)?;
+// every frame
+physics.begin_frame(frame_dt);
+physics.apply_force(player_id, (0.0, -300.0));
+physics.step(&mut scene); // as many times as the fixed timestep requires
 
-// gameplay:
-physics.set_velocity(&entity_id, vector![10.0, 0.0]);
-physics.apply_impulse(&entity_id, vector![0.0, -30.0]); // -Y is up
-let touching = physics.get_colliding_entities(&entity_id);
+let touching = physics.get_colliding_entities(player_id);
 ```
 
-(The old report's `add_rigid_body([0.0, 5.0], true)` / `handle_collisions()` API does not exist.)
+## Known limitations
 
-## Known limitations / TODO
-
-- **Colliders are inferred from sprite pixel dimensions.** Physics units are pixels; `image::open` runs synchronously inside `add_entity` for every entity; there is no way to choose a shape or size explicitly, and sprite scale/rotation is ignored. The `(w/2, h/2)` collider offset assumes a top-left sprite origin.
-- **No collision events.** `get_colliding_entities` polls narrow-phase contact pairs and maps handles back to entities with a linear scan — O(n) per contact, and easy to miss short-lived contacts between polls.
-- **Custom gravity fields are O(n²)** over scene entities per step, with string attribute lookups inside the loop; gravity *sources* must have a `position` Vector2 attribute — entities with only `x`/`y` are silently skipped as sources.
-- **String lookups per body per frame**: write-back does `get_attribute_by_name("x")`/`("y")` for every body every step (see ECS doc for why that's O(n)).
-- **Global gravity is hardcoded** at construction (`0, 50`); there is no setter.
-- **Joints, CCD tuning, and spatial queries are stubs** — the sets/pipelines exist but nothing uses them; no raycasts are exposed.
-- `load_scene` only adds a scene's *local* entities; shared entities are not considered.
+- Attributes are read by name with linear lookups when a body is created and
+  when results are written back.
+- Gravity fields are O(sources × bodies) per step.
+- Joints, continuous collision detection settings, and raycasts are not
+  exposed.
+- `load_scene` adds only a scene's local entities; shared entities are
+  ignored.
+- Changing a physics attribute while playing has no effect until the entity is
+  re-added (`add_entity_to_physics_engine` in scripts).

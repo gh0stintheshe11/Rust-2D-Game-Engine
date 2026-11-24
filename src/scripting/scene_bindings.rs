@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 use super::{LuaScripting, parse_uuid};
+use crate::physics::PhysicsEngine;
 use crate::project::ProjectManager;
 use crate::scene::{AttributeType, AttributeValue, SceneManager};
 
@@ -10,6 +11,7 @@ impl LuaScripting {
     pub(crate) fn register_scene_bindings(
         &mut self,
         scene_manager: &Rc<RefCell<SceneManager>>,
+        physics_engine: &Rc<RefCell<PhysicsEngine>>,
     ) -> Result<(), mlua::Error> {
         let globals = self.lua.globals();
 
@@ -32,23 +34,31 @@ impl LuaScripting {
                 })?;
         globals.set("add_entity", add_entity)?;
 
+        // remove_entity also removes the entity's physics body, so it doesn't
+        // linger as an invisible obstacle
         let manager = Rc::clone(scene_manager);
+        let physics = Rc::clone(physics_engine);
         let remove_entity =
             self.lua
                 .create_function(move |_, (scene_id, entity_id): (String, String)| {
-                    let mut manager = manager.borrow_mut();
                     let scene_uuid = parse_uuid(&scene_id, "scene")?;
                     let entity_uuid = parse_uuid(&entity_id, "entity")?;
-                    let scene = manager.get_scene_mut(scene_uuid).ok_or_else(|| {
-                        mlua::Error::external(format!("Scene '{}' not found", scene_uuid))
-                    })?;
-                    let success = scene.delete_entity(entity_uuid).map_err(|e| {
-                        mlua::Error::external(format!(
-                            "Failed to delete entity '{}': {}",
-                            entity_uuid, e
-                        ))
-                    })?;
-                    Ok(success)
+                    let removed = {
+                        let mut manager = manager.borrow_mut();
+                        let scene = manager.get_scene_mut(scene_uuid).ok_or_else(|| {
+                            mlua::Error::external(format!("Scene '{}' not found", scene_uuid))
+                        })?;
+                        scene.delete_entity(entity_uuid).map_err(|e| {
+                            mlua::Error::external(format!(
+                                "Failed to delete entity '{}': {}",
+                                entity_uuid, e
+                            ))
+                        })?
+                    };
+                    if removed {
+                        physics.borrow_mut().remove_entity(entity_uuid);
+                    }
+                    Ok(removed)
                 })?;
         globals.set("remove_entity", remove_entity)?;
 
@@ -96,10 +106,12 @@ impl LuaScripting {
         )?;
         globals.set("create_physical_entity", create_physical_entity)?;
 
-        // Position setters
+        // Position setters. Entities with a physics body are teleported too;
+        // otherwise the next physics step would move them back.
         macro_rules! register_setter {
             ($lua_name:literal, $method:ident) => {{
                 let manager = Rc::clone(scene_manager);
+                let physics = Rc::clone(physics_engine);
                 let setter = self.lua.create_function(
                     move |_, (scene_id, entity_id, value): (String, String, f32)| {
                         let mut manager = manager.borrow_mut();
@@ -121,6 +133,11 @@ impl LuaScripting {
                                 e
                             ))
                         })?;
+                        physics.borrow_mut().set_position(
+                            entity_uuid,
+                            entity.get_x(),
+                            entity.get_y(),
+                        );
                         Ok(())
                     },
                 )?;
@@ -133,6 +150,7 @@ impl LuaScripting {
         register_setter!("set_z", set_z);
 
         let manager = Rc::clone(scene_manager);
+        let physics = Rc::clone(physics_engine);
         let set_position = self.lua.create_function(
             move |_, (scene_id, entity_id, x, y): (String, String, f32, f32)| {
                 let mut manager = manager.borrow_mut();
@@ -149,6 +167,7 @@ impl LuaScripting {
                     .set_x(x)
                     .and_then(|_| entity.set_y(y))
                     .map_err(|e| mlua::Error::external(format!("Failed to set position: {}", e)))?;
+                physics.borrow_mut().set_position(entity_uuid, x, y);
                 Ok(())
             },
         )?;

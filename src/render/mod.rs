@@ -1,3 +1,4 @@
+use crate::physics::{ColliderOutline, ColliderShape};
 use crate::scene::{AttributeValue, Scene};
 use image::GenericImageView;
 use std::collections::HashMap;
@@ -68,8 +69,39 @@ pub fn paint_sprite(
     painter.add(mesh);
 }
 
-/// One collider debug shape: screen position, screen size, shape name.
-pub type ColliderRenderData = ((f32, f32), (f32, f32), String);
+/// Paint a collider outline given in viewport-relative screen space (see
+/// [`RenderEngine::render_colliders`]); `origin` is the viewport's top-left.
+pub fn paint_collider_outline(
+    painter: &egui::Painter,
+    outline: &ColliderOutline,
+    origin: egui::Pos2,
+) {
+    let center = origin + egui::vec2(outline.center.0, outline.center.1);
+    match outline.shape {
+        ColliderShape::Circle => {
+            painter.circle_stroke(
+                center,
+                outline.size.0 / 2.0,
+                egui::Stroke::new(1.0, egui::Color32::RED),
+            );
+        }
+        ColliderShape::Rectangle => {
+            let (half_w, half_h) = (outline.size.0 / 2.0, outline.size.1 / 2.0);
+            let (sin, cos) = outline.rotation.sin_cos();
+            let corners = [
+                (-half_w, -half_h),
+                (half_w, -half_h),
+                (half_w, half_h),
+                (-half_w, half_h),
+            ]
+            .map(|(x, y)| center + egui::vec2(x * cos - y * sin, x * sin + y * cos));
+            painter.add(egui::Shape::closed_line(
+                corners.to_vec(),
+                egui::Stroke::new(1.0, egui::Color32::BLUE),
+            ));
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct TextureInfo {
@@ -209,37 +241,29 @@ impl RenderEngine {
         render_queue
     }
 
-    // collider_data:
-    // - (f32, f32): The world coordinate of the collider (x, y).
-    // - (f32, f32): The size of the collider in world coordinate (width, height).
-    // - String: The shape of the collider (e.g., "Circle", "Rectangle").
-    pub fn render_colliders(
-        &mut self,
-        collider_data: &[crate::physics::ColliderData],
-    ) -> Vec<ColliderRenderData> {
-        let mut render_queue = Vec::new();
-
-        for &(world_position, world_size, ref shape) in collider_data {
-            // Transform position to screen space
-            let screen_position = self.camera.world_to_screen(world_position);
-
-            // Adjust size based on zoom level
-            let screen_size = (
-                world_size.0 * self.camera.zoom,
-                world_size.1 * self.camera.zoom,
-            );
-
-            // Perform viewport culling
-            if screen_position.0 + screen_size.0 >= 0.0
-                && screen_position.0 <= self.viewport_size.0
-                && screen_position.1 + screen_size.1 >= 0.0
-                && screen_position.1 <= self.viewport_size.1
-            {
-                render_queue.push((screen_position, screen_size, shape.clone()));
-            }
-        }
-
-        render_queue
+    /// Project world-space collider outlines into viewport space, dropping
+    /// the ones that can't be visible.
+    pub fn render_colliders(&self, outlines: &[ColliderOutline]) -> Vec<ColliderOutline> {
+        let zoom = self.camera.zoom;
+        let (viewport_w, viewport_h) = self.viewport_size;
+        outlines
+            .iter()
+            .filter_map(|outline| {
+                let center = self.camera.world_to_screen(outline.center);
+                let size = (outline.size.0 * zoom, outline.size.1 * zoom);
+                // Bounding circle: correct for any rotation
+                let radius = size.0.hypot(size.1) / 2.0;
+                let visible = center.0 + radius >= 0.0
+                    && center.0 - radius <= viewport_w
+                    && center.1 + radius >= 0.0
+                    && center.1 - radius <= viewport_h;
+                visible.then_some(ColliderOutline {
+                    center,
+                    size,
+                    ..*outline
+                })
+            })
+            .collect()
     }
 
     pub fn new() -> Self {

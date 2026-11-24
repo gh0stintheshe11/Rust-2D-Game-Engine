@@ -44,12 +44,12 @@ Physics:
 | Function | Notes |
 |---|---|
 | `set_velocity(entity_id, x, y)` | Entity must be registered in the physics engine |
-| `apply_force(entity_id, x, y)` | Forces are reset after every physics step |
+| `apply_force(entity_id, x, y)` | Pushes for the current frame; call it every frame for a continuous force (independent of the frame rate) |
 | `apply_impulse(entity_id, x, y)` | |
 | `add_entity_to_physics_engine(entity_id)` | Reads the entity from the active scene; re-adding replaces the body (useful after changing physics attributes) |
 | `remove_entity_from_physics_engine(entity_id)` | |
 | `get_colliding_entities(entity_id) -> array of entity ids` | Entities currently in contact; empty table if the entity isn't in the physics engine |
-| `set_gravity(x, y)` | Change the global gravity vector (screen space: +y is down; default `(0, 50)`) |
+| `set_gravity(x, y)` | Change the global gravity vector (screen space: +y is down; default `(0, 50)`, restored on every Play) |
 
 Game flow:
 
@@ -81,10 +81,10 @@ ECS (all IDs are UUID strings):
 | Function | Notes |
 |---|---|
 | `add_entity(scene_id, name) -> entity_id` | |
-| `remove_entity(scene_id, entity_id) -> bool` | |
+| `remove_entity(scene_id, entity_id) -> bool` | Also removes the entity's physics body |
 | `create_physical_entity(scene_id, name, x, y, z) -> entity_id` | Seeds attributes from the predefined "Physics" archetype and spawns at the given position |
-| `set_x` / `set_y` / `set_z(scene_id, entity_id, value)` | |
-| `set_position(scene_id, entity_id, x, y)` | Sets x and y; leaves z untouched |
+| `set_x` / `set_y` / `set_z(scene_id, entity_id, value)` | Entities with a physics body are teleported (velocity is kept) |
+| `set_position(scene_id, entity_id, x, y)` | Sets x and y (teleporting the physics body, if any); leaves z untouched |
 | `add_image(entity_id, relative_path)` | Path is joined onto the open project's root |
 | `set_script(entity_id, relative_path)` | Ditto |
 | `update_entity_attribute_bool(scene_id, entity_id, attr_name, value)` | |

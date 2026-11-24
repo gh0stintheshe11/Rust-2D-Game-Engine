@@ -1,8 +1,6 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use rapier2d::prelude::*;
-
 use super::{LuaScripting, parse_uuid};
 use crate::physics::PhysicsEngine;
 use crate::scene::SceneManager;
@@ -21,13 +19,13 @@ impl LuaScripting {
                 .create_function(move |_, (entity_id, x, y): (String, f32, f32)| {
                     let mut physics = physics.borrow_mut();
                     let uuid = parse_uuid(&entity_id, "entity")?;
-                    if !physics.has_rigid_body(&uuid) {
+                    if !physics.has_rigid_body(uuid) {
                         return Err(mlua::Error::external(format!(
                             "Entity '{}' not found in physics engine",
                             uuid
                         )));
                     }
-                    physics.set_velocity(&uuid, Vector::new(x, y));
+                    physics.set_velocity(uuid, (x, y));
                     Ok(())
                 })?;
         globals.set("set_velocity", set_velocity)?;
@@ -38,13 +36,13 @@ impl LuaScripting {
                 .create_function(move |_, (entity_id, x, y): (String, f32, f32)| {
                     let mut physics = physics.borrow_mut();
                     let uuid = parse_uuid(&entity_id, "entity")?;
-                    if !physics.has_rigid_body(&uuid) {
+                    if !physics.has_rigid_body(uuid) {
                         return Err(mlua::Error::external(format!(
                             "Entity '{}' not found in physics engine",
                             uuid
                         )));
                     }
-                    physics.apply_force(&uuid, Vector::new(x, y));
+                    physics.apply_force(uuid, (x, y));
                     Ok(())
                 })?;
         globals.set("apply_force", apply_force)?;
@@ -55,13 +53,13 @@ impl LuaScripting {
                 .create_function(move |_, (entity_id, x, y): (String, f32, f32)| {
                     let mut physics = physics.borrow_mut();
                     let uuid = parse_uuid(&entity_id, "entity")?;
-                    if !physics.has_rigid_body(&uuid) {
+                    if !physics.has_rigid_body(uuid) {
                         return Err(mlua::Error::external(format!(
                             "Entity '{}' not found in physics engine",
                             uuid
                         )));
                     }
-                    physics.apply_impulse(&uuid, Vector::new(x, y));
+                    physics.apply_impulse(uuid, (x, y));
                     Ok(())
                 })?;
         globals.set("apply_impulse", apply_impulse)?;
@@ -102,7 +100,7 @@ impl LuaScripting {
         let physics = Rc::clone(physics_engine);
         let get_colliding_entities = self.lua.create_function(move |lua, entity_id: String| {
             let uuid = parse_uuid(&entity_id, "entity")?;
-            let colliding = physics.borrow().get_colliding_entities(&uuid);
+            let colliding = physics.borrow().get_colliding_entities(uuid);
             let table = lua.create_table()?;
             for (index, id) in colliding.iter().enumerate() {
                 table.set(index + 1, id.to_string())?;
