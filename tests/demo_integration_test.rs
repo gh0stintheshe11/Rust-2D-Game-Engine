@@ -50,7 +50,9 @@ fn runtime(seed: i32, rock_chance: f32) -> GameRuntime {
 
 fn set(entity: &mut Entity, name: &str, value: AttributeValue) {
     let id = entity.get_attribute_by_name(name).unwrap().id;
-    entity.modify_attribute(id, None, None, Some(value)).unwrap();
+    entity
+        .modify_attribute(id, None, None, Some(value))
+        .unwrap();
 }
 
 fn play(runtime: &mut GameRuntime, seconds: f32) {
@@ -140,7 +142,11 @@ fn test_demo_drops_and_catches_stars() {
     }
 
     play(&mut runtime, 30.0);
-    assert_eq!(runtime.get_state(), RuntimeState::Playing, "stars never end the game");
+    assert_eq!(
+        runtime.get_state(),
+        RuntimeState::Playing,
+        "stars never end the game"
+    );
     let manager = runtime.get_scene_manager();
     assert!(
         !entities_named(&manager, "tally").is_empty(),
@@ -150,8 +156,16 @@ fn test_demo_drops_and_catches_stars() {
         entities_named(&manager, "star").len() < 15,
         "missed stars are removed when they hit the ground"
     );
-    assert_eq!(position(&manager, "paddle"), paddle_start, "no input, no movement");
-    assert_eq!(position(&manager, "ground"), ground_start, "the ground is fixed");
+    assert_eq!(
+        position(&manager, "paddle"),
+        paddle_start,
+        "no input, no movement"
+    );
+    assert_eq!(
+        position(&manager, "ground"),
+        ground_start,
+        "the ground is fixed"
+    );
     let errors = script_errors();
     assert!(errors.is_empty(), "script errors: {:?}", errors);
 }

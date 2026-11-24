@@ -1,11 +1,40 @@
 #[cfg(test)]
 mod tests {
     use rust_2d_game_engine::audio::AudioEngine;
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
     use std::thread;
     use std::time::Duration;
 
-    const TEST_AUDIO_FILE: &str = "tests/level-up-22268.mp3";
+    /// Write a two-second 440 Hz tone (16-bit mono WAV) to a temp file.
+    fn test_tone() -> PathBuf {
+        let rate: u32 = 22050;
+        let samples: Vec<i16> = (0..rate * 2)
+            .map(|i| {
+                let t = i as f32 / rate as f32;
+                ((2.0 * std::f32::consts::PI * 440.0 * t).sin() * 8000.0) as i16
+            })
+            .collect();
+        let data_len = (samples.len() * 2) as u32;
+        let mut wav = Vec::new();
+        wav.extend_from_slice(b"RIFF");
+        wav.extend_from_slice(&(36 + data_len).to_le_bytes());
+        wav.extend_from_slice(b"WAVEfmt ");
+        wav.extend_from_slice(&16u32.to_le_bytes());
+        wav.extend_from_slice(&1u16.to_le_bytes()); // PCM
+        wav.extend_from_slice(&1u16.to_le_bytes()); // mono
+        wav.extend_from_slice(&rate.to_le_bytes());
+        wav.extend_from_slice(&(rate * 2).to_le_bytes());
+        wav.extend_from_slice(&2u16.to_le_bytes());
+        wav.extend_from_slice(&16u16.to_le_bytes());
+        wav.extend_from_slice(b"data");
+        wav.extend_from_slice(&data_len.to_le_bytes());
+        for sample in samples {
+            wav.extend_from_slice(&sample.to_le_bytes());
+        }
+        let path = std::env::temp_dir().join(format!("rust2d_tone_{}.wav", uuid::Uuid::new_v4()));
+        std::fs::write(&path, wav).unwrap();
+        path
+    }
 
     /// Returns an engine if an audio output device is available,
     /// otherwise logs a skip notice (headless machines, CI, WSL).
@@ -35,7 +64,7 @@ mod tests {
         if audio_engine.has_output() {
             return; // Only meaningful on devices without audio output.
         }
-        let result = audio_engine.play_sound(Path::new(TEST_AUDIO_FILE));
+        let result = audio_engine.play_sound(&test_tone());
         assert!(
             result.is_err(),
             "play_sound should return Err, not panic, without a device"
@@ -47,7 +76,8 @@ mod tests {
         let Some(mut audio_engine) = engine_or_skip() else {
             return;
         };
-        let path = Path::new(TEST_AUDIO_FILE);
+        let tone = test_tone();
+        let path = tone.as_path();
 
         // Test audio playback
         let sound_id = audio_engine.play_sound(path).expect("Failed to play sound");
@@ -76,7 +106,8 @@ mod tests {
         let Some(mut audio_engine) = engine_or_skip() else {
             return;
         };
-        let path = Path::new(TEST_AUDIO_FILE);
+        let tone = test_tone();
+        let path = tone.as_path();
 
         // Play sound and get ID
         let sound_id = audio_engine.play_sound(path).expect("Failed to play sound");
@@ -111,7 +142,8 @@ mod tests {
         let Some(mut audio_engine) = engine_or_skip() else {
             return;
         };
-        let path = Path::new(TEST_AUDIO_FILE);
+        let tone = test_tone();
+        let path = tone.as_path();
 
         // Play immediate sound
         audio_engine
@@ -128,7 +160,8 @@ mod tests {
         let Some(mut audio_engine) = engine_or_skip() else {
             return;
         };
-        let path = Path::new(TEST_AUDIO_FILE);
+        let tone = test_tone();
+        let path = tone.as_path();
 
         // Load and play sound
         let sound_id = audio_engine.play_sound(path).expect("Failed to play sound");
@@ -144,6 +177,19 @@ mod tests {
             audio_engine.get_memory_usage(),
             0,
             "Cache should be empty after cleanup"
+        );
+    }
+
+    #[test]
+    fn test_audio_duration() {
+        // Reads the file header only; works without an audio device
+        let audio_engine = AudioEngine::new();
+        let duration = audio_engine.get_audio_duration(&test_tone()).unwrap();
+        assert!((duration - 2.0).abs() < 0.01, "duration {}", duration);
+        assert!(
+            audio_engine
+                .get_audio_duration(Path::new("missing.wav"))
+                .is_err()
         );
     }
 }
