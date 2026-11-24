@@ -128,6 +128,8 @@ pub struct GuiState {
     pub show_inspector: bool,
     pub show_console: bool,
     pub show_debug_overlay: bool,
+    /// Draw physics collider outlines while the game plays
+    pub show_colliders: bool,
 
     pub selected_item: SelectedItem,
     pub scene_panel_selected_item: ScenePanelSelectedItem,
@@ -180,6 +182,7 @@ impl GuiState {
             show_inspector: true,
             show_console: true,
             show_debug_overlay: false,
+            show_colliders: true,
 
             selected_item: SelectedItem::None,
             scene_panel_selected_item: ScenePanelSelectedItem::None,

@@ -67,13 +67,15 @@ Script errors are logged to the editor console and never stop the loop.
   The editor shows play mode through its own pan/zoom camera and draws the
   game camera's frame as a red rectangle.
 
-Sprites, then collider debug outlines, are clipped to the visible area.
+Sprites are clipped to the visible area. Collider outlines (a debugging aid)
+are drawn on top only after `set_show_colliders(true)`: exported games never
+show them, and the editor shows them while playing unless View → Collider
+Outlines is unchecked.
 
 ## Known limitations
 
 - Scripts run once per rendered frame, so per-frame counters depend on the
   refresh rate; use `accumulated_time` for timing.
-- Collider debug outlines are always drawn while playing.
 - Shared entities (`SceneManager::shared_entities`) never reach physics or
   scripts.
 - In the editor, the game only advances while the Viewer tab is shown.

@@ -18,6 +18,9 @@ versions may contain breaking changes).
 
 ### Fixed
 
+- Exported games drew the physics collider outlines, a debugging aid, over
+  the game. They are now off unless enabled (`GameRuntime::set_show_colliders`);
+  the editor shows them while playing, and View → Collider Outlines hides them.
 - Import Sound and the inspector's audio preview accept FLAC files, which the
   engine could already play.
 

@@ -54,6 +54,8 @@ pub struct GameRuntime {
     state: RuntimeState,
     lua_scripting: LuaScripting,
     camera_mode: CameraMode,
+    // Draw physics collider outlines over the game (a debugging aid)
+    show_colliders: bool,
     // Fixed-timestep accumulator: real time not yet consumed by physics steps
     time_accumulator: f32,
 }
@@ -81,6 +83,7 @@ impl GameRuntime {
             state: RuntimeState::Stopped,
             lua_scripting: LuaScripting::new(),
             camera_mode: CameraMode::Game,
+            show_colliders: false,
             time_accumulator: 0.0,
         }
     }
@@ -259,8 +262,9 @@ impl GameRuntime {
         true
     }
 
-    /// Paint the active scene (sprites and collider outlines) into
-    /// `viewport_rect`, through the current [`CameraMode`].
+    /// Paint the active scene into `viewport_rect`, through the current
+    /// [`CameraMode`]. Collider outlines are drawn on top when enabled with
+    /// [`set_show_colliders`](Self::set_show_colliders).
     pub fn paint(&mut self, ui: &mut egui::Ui, viewport_rect: Rect) {
         let manager = self.scene_manager.borrow();
         let Some(scene) = manager.get_active_scene() else {
@@ -309,14 +313,22 @@ impl GameRuntime {
             crate::render::paint_sprite(&painter, texture.id(), rect, entry.rotation);
         }
 
-        let outlines = self.physics_engine.borrow().collider_outlines();
-        for outline in self.render_engine.render_colliders(&outlines) {
-            crate::render::paint_collider_outline(&painter, &outline, viewport_rect.min);
+        if self.show_colliders {
+            let outlines = self.physics_engine.borrow().collider_outlines();
+            for outline in self.render_engine.render_colliders(&outlines) {
+                crate::render::paint_collider_outline(&painter, &outline, viewport_rect.min);
+            }
         }
     }
 
     pub fn set_camera_mode(&mut self, mode: CameraMode) {
         self.camera_mode = mode;
+    }
+
+    /// Draw physics collider outlines over the game, for debugging. Off by
+    /// default, so exported games never show them.
+    pub fn set_show_colliders(&mut self, show: bool) {
+        self.show_colliders = show;
     }
 
     /// Replace the scenes, e.g. with the editor's current state before

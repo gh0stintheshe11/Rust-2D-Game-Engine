@@ -29,6 +29,8 @@ impl EditorApp {
                     position: camera.position,
                     zoom: camera.zoom,
                 });
+                self.game_runtime
+                    .set_show_colliders(self.gui_state.show_colliders);
 
                 let game_view_rect = ui.available_rect_before_wrap();
                 self.game_runtime.update(ctx, ui, game_view_rect);

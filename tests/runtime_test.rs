@@ -177,3 +177,38 @@ fn test_end_game_and_restart() {
         "restart begins from the initial scene"
     );
 }
+
+/// Paint one frame headlessly and return the shapes drawn.
+fn paint(runtime: &mut GameRuntime) -> Vec<egui::Shape> {
+    let ctx = egui::Context::default();
+    let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
+        let viewport = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(800.0, 600.0));
+        runtime.paint(ui, viewport);
+    });
+    // Nothing renders here; textures don't need uploading
+    output.textures_delta.clear();
+    output
+        .shapes
+        .into_iter()
+        .map(|clipped| clipped.shape)
+        .collect()
+}
+
+/// Collider outlines are the only circles and paths the runtime draws.
+fn is_collider_outline(shape: &egui::Shape) -> bool {
+    matches!(shape, egui::Shape::Circle(_) | egui::Shape::Path(_))
+}
+
+#[test]
+fn test_collider_outlines_are_opt_in() {
+    let (manager, _) = falling_box_scene();
+    let mut runtime = runtime(manager);
+    runtime.run().unwrap();
+
+    assert!(
+        !paint(&mut runtime).iter().any(is_collider_outline),
+        "exported games must not show debug outlines"
+    );
+    runtime.set_show_colliders(true);
+    assert!(paint(&mut runtime).iter().any(is_collider_outline));
+}

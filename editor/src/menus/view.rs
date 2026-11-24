@@ -26,5 +26,7 @@ impl ViewMenu {
         });
 
         ui.checkbox(&mut gui_state.show_debug_overlay, "Debug Overlay");
+        ui.checkbox(&mut gui_state.show_colliders, "Collider Outlines")
+            .on_hover_text("Draw physics colliders while the game plays (never in exported games)");
     }
 }
