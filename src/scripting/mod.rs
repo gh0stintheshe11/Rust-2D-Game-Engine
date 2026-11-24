@@ -19,9 +19,9 @@ use crate::render::HudText;
 use crate::scene::SceneManager;
 
 mod audio_bindings;
-mod draw_bindings;
 mod input_bindings;
 mod physics_bindings;
+mod render_bindings;
 mod scene_bindings;
 
 /// Longest a single call into a script (a hook, or a file's top-level
@@ -231,7 +231,7 @@ impl LuaScripting {
         self.register_input_bindings(&input_handler)?;
         self.register_scene_bindings(&scene_manager, &physics_engine)?;
         self.register_audio_bindings(&audio_engine)?;
-        self.register_draw_bindings()?;
+        self.register_render_bindings(&scene_manager)?;
 
         LOGGER.info("Lua scripting session started");
         Ok(())

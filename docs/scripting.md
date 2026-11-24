@@ -94,15 +94,23 @@ Input:
 | `get_mouse_position()` | `{x, y}` in window coordinates |
 | `get_scroll_delta()` | `{x, y}`; zero when not scrolling |
 
-Drawing:
+Drawing and animation:
 
 | Function | Notes |
 |---|---|
+| `play_animation(scene_id, entity_id, frames [, options])` | Play frames of the entity's sprite sheet (it needs a `frame_size`, see [render.md](render.md)): `frames` like `"0-3"` or `"0,1,2,1"`. Options: `fps` (default 10), `loop` (default true), `restart`. Playing the animation that is already playing keeps it running, so it can be called every frame; other frames, or `restart = true`, start over. Creates the animation attributes the entity lacks; invalid frames or options raise an error |
 | `draw_text(text, x, y [, options])` | Draw text over the game for the current frame; call it every frame, from `update`. Numbers are converted to text. `x`/`y` (the top of the text) and sizes are in the camera frame's pixels: (0, 0) is its top-left corner, the frame is the camera's `width` × `height`, and the text scales with it like the sprites. Options: `size` (font height, default 24), `color` (`"#rrggbb"` or `"#rrggbbaa"`, default white), `align` (`"left"`, `"center"` or `"right"` of `x`; default left). Text stays on screen while the game is paused or over |
 
 ```lua
 function update(scene_id, entity_id)
     draw_text("Score: " .. script_state.state.score, 10, 10, {size = 28, color = "#ffd84a"})
+
+    -- Frames 0-3 of the sheet while running, frame 4 while standing still
+    if is_key_pressed("ArrowRight") then
+        play_animation(scene_id, entity_id, "0-3", {fps = 12})
+    else
+        play_animation(scene_id, entity_id, "4")
+    end
 end
 ```
 

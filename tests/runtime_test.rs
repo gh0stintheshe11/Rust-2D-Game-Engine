@@ -277,3 +277,43 @@ fn test_text_is_laid_out_in_the_camera_frame() {
     runtime.tick(FRAME);
     assert_eq!(painted_texts(&mut runtime).len(), 1);
 }
+
+#[test]
+fn test_animations_advance_only_while_playing() {
+    let (mut manager, box_id) = falling_box_scene();
+    manager
+        .get_active_scene_mut()
+        .unwrap()
+        .get_entity_mut(box_id)
+        .unwrap()
+        .set_or_create_attribute(
+            "animation",
+            rust_2d_game_engine::scene::AttributeValue::String("0-3".to_string()),
+        )
+        .unwrap();
+    let mut runtime = runtime(manager);
+    let frame = |runtime: &GameRuntime| {
+        runtime
+            .get_scene_manager()
+            .get_active_scene()
+            .unwrap()
+            .get_entity(box_id)
+            .unwrap()
+            .get_float("frame")
+    };
+
+    runtime.tick(FRAME);
+    assert_eq!(frame(&runtime), None, "stopped: nothing plays");
+
+    runtime.run().unwrap();
+    for _ in 0..15 {
+        runtime.tick(FRAME);
+    }
+    assert_eq!(frame(&runtime), Some(2.0), "0.25 s at 10 frames per second");
+
+    runtime.pause();
+    for _ in 0..30 {
+        runtime.tick(FRAME);
+    }
+    assert_eq!(frame(&runtime), Some(2.0), "frozen while paused");
+}

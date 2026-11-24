@@ -1,4 +1,6 @@
-use rust_2d_game_engine::render::{Camera, RenderEngine, camera_frame, game_view, parse_color};
+use rust_2d_game_engine::render::{
+    Camera, RenderEngine, camera_frame, game_view, parse_color, sheet_frame,
+};
 use rust_2d_game_engine::scene::{AttributeType, AttributeValue, Scene};
 use std::path::PathBuf;
 use uuid::Uuid;
@@ -263,4 +265,59 @@ fn test_flip_opacity_and_tint() {
         egui::Color32::WHITE,
         "an invalid tint is ignored"
     );
+}
+
+#[test]
+fn test_sprite_sheet_frames() {
+    let mut renderer = RenderEngine::new();
+    renderer.update_viewport_size(800.0, 600.0);
+    let mut scene = Scene::new("test_scene").unwrap();
+    // 64 x 32 pixels: a grid of 4 x 2 frames of 16 x 16
+    let id = sprite(&mut scene, "runner", temp_png(64, 32), (0.0, 0.0, 0.0));
+    let set = |scene: &mut Scene, name: &str, value: AttributeValue| {
+        scene
+            .get_entity_mut(id)
+            .unwrap()
+            .set_or_create_attribute(name, value)
+            .unwrap();
+    };
+    set(
+        &mut scene,
+        "frame_size",
+        AttributeValue::Vector2(16.0, 16.0),
+    );
+    let uv_min = |renderer: &mut RenderEngine, scene: &Scene| {
+        let entry = renderer.render(scene).remove(0);
+        assert_eq!(entry.screen_size, (16.0, 16.0), "one frame's size");
+        (entry.uv.min.x, entry.uv.min.y)
+    };
+
+    assert_eq!(
+        uv_min(&mut renderer, &scene),
+        (0.0, 0.0),
+        "frame 0 by default"
+    );
+    set(&mut scene, "frame", AttributeValue::Integer(5));
+    assert_eq!(uv_min(&mut renderer, &scene), (0.25, 0.5), "second row");
+    set(&mut scene, "frame", AttributeValue::Integer(9));
+    assert_eq!(uv_min(&mut renderer, &scene), (0.25, 0.0), "numbers wrap");
+    set(&mut scene, "frame", AttributeValue::Integer(-1));
+    assert_eq!(
+        uv_min(&mut renderer, &scene),
+        (0.75, 0.5),
+        "and wrap backwards"
+    );
+
+    // Mirroring flips within the frame
+    set(&mut scene, "flip_x", AttributeValue::Boolean(true));
+    let entry = renderer.render(&scene).remove(0);
+    assert_eq!((entry.uv.min.x, entry.uv.max.x), (1.0, 0.75));
+
+    // A frame size larger than the image is the whole image
+    let (uv, size) = sheet_frame((10, 10), (64.0, 64.0), 3);
+    assert_eq!(
+        uv,
+        egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0))
+    );
+    assert_eq!(size, (10.0, 10.0));
 }

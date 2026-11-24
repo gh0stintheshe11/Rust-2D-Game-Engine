@@ -205,6 +205,16 @@ const API_GROUPS: &[(&str, &[ApiEntry])] = &[
                 "Text over the game for this frame: call it every frame (in update)",
             ),
             (
+                "play_animation",
+                "play_animation(scene_id, entity_id, \"0-3\")",
+                "Cycle sprite sheet frames (needs frame_size); keeps running if already playing",
+            ),
+            (
+                "play_animation with options",
+                "play_animation(scene_id, entity_id, \"4-7\", {fps = 12, loop = false, restart = true})",
+                "fps (10), loop (true), restart: start over even if already playing",
+            ),
+            (
                 "draw_text with options",
                 "draw_text(\"Game over\", 240, 300, {size = 48, color = \"#ff4040\", align = \"center\"})",
                 "size: font height (24); color: \"#rrggbb\" or \"#rrggbbaa\"; align: left, center, right",

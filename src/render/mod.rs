@@ -12,9 +12,11 @@ use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use uuid::Uuid;
 
+mod animation;
 mod camera;
 mod text;
 
+pub use animation::{DEFAULT_ANIMATION_FPS, advance_animations, parse_frames};
 pub use camera::Camera;
 pub use text::{HudText, TextAlign, paint_texts, parse_color};
 
@@ -38,6 +40,56 @@ pub struct RenderQueueEntry {
 
 /// The whole texture, unmirrored.
 const FULL_UV: egui::Rect = egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0));
+
+/// An entity's `frame_size` attribute (Vector2), when it describes frames of
+/// at least one pixel: the entity's image is then a sprite sheet.
+pub fn frame_size(entity: &Entity) -> Option<(f32, f32)> {
+    entity
+        .get_vector2("frame_size")
+        .filter(|(w, h)| w.is_finite() && h.is_finite() && *w >= 1.0 && *h >= 1.0)
+}
+
+/// Frame number `frame` of a sprite sheet: the image cut into a grid of
+/// `frame_size` cells (at most the image's size), numbered left to right,
+/// then top to bottom; numbers wrap around. Returns the frame's texture
+/// rectangle and its size in pixels.
+pub fn sheet_frame(
+    image_size: (u32, u32),
+    frame_size: (f32, f32),
+    frame: i64,
+) -> (egui::Rect, (f32, f32)) {
+    let (image_w, image_h) = (image_size.0.max(1) as f32, image_size.1.max(1) as f32);
+    let (frame_w, frame_h) = (frame_size.0.min(image_w), frame_size.1.min(image_h));
+    let columns = ((image_w / frame_w).floor() as i64).max(1);
+    let rows = ((image_h / frame_h).floor() as i64).max(1);
+    let index = frame.rem_euclid(columns * rows);
+    let (column, row) = (index % columns, index / columns);
+    let uv = egui::Rect::from_min_size(
+        egui::pos2(
+            column as f32 * frame_w / image_w,
+            row as f32 * frame_h / image_h,
+        ),
+        egui::vec2(frame_w / image_w, frame_h / image_h),
+    );
+    (uv, (frame_w, frame_h))
+}
+
+/// The part of an entity's image its sprite shows (texture rectangle and
+/// size in pixels): the frame selected by its `frame` attribute when it has
+/// a `frame_size`, otherwise the whole image.
+fn sprite_frame(entity: &Entity, image_size: (u32, u32)) -> (egui::Rect, (f32, f32)) {
+    match frame_size(entity) {
+        Some(frame_size) => {
+            let frame = entity
+                .get_float("frame")
+                .filter(|frame| frame.is_finite())
+                .unwrap_or(0.0)
+                .floor() as i64;
+            sheet_frame(image_size, frame_size, frame)
+        }
+        None => (FULL_UV, (image_size.0 as f32, image_size.1 as f32)),
+    }
+}
 
 /// Paint part of a texture (`uv`, see [`RenderQueueEntry::uv`]) into `rect`,
 /// multiplied by `tint` and rotated by `rotation` radians around the rect's
@@ -294,7 +346,7 @@ impl RenderEngine {
                 .map_or(0.0, |degrees| degrees.to_radians());
             let scale = entity.get_vector2("scale").unwrap_or((1.0, 1.0));
 
-            let mut uv = FULL_UV;
+            let (mut uv, pixel_size) = sprite_frame(entity, texture_info.dimensions);
             if entity.get_bool("flip_x") == Some(true) {
                 std::mem::swap(&mut uv.min.x, &mut uv.max.x);
             }
@@ -305,8 +357,8 @@ impl RenderEngine {
             let screen_pos = self
                 .camera
                 .world_to_screen((entity.get_x(), entity.get_y()));
-            let width = texture_info.dimensions.0 as f32 * self.camera.zoom * scale.0;
-            let height = texture_info.dimensions.1 as f32 * self.camera.zoom * scale.1;
+            let width = pixel_size.0 * self.camera.zoom * scale.0;
+            let height = pixel_size.1 * self.camera.zoom * scale.1;
 
             // Viewport culling
             if screen_pos.0 <= self.viewport_size.0

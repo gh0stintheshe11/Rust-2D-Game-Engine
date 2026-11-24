@@ -622,4 +622,24 @@ mod tests {
             "circles fit inside the body"
         );
     }
+
+    #[test]
+    fn test_sprite_sheet_bodies_are_one_frame_big() {
+        let mut scene = Scene::new("test_scene").unwrap();
+        let mut physics = PhysicsEngine::new();
+        // 64 x 32 pixels: 4 x 2 frames of 16 x 16
+        let sheet = std::env::temp_dir().join(format!("rust2d_sheet_{}.png", Uuid::new_v4()));
+        image::RgbaImage::new(64, 32).save(&sheet).unwrap();
+        let id = scene
+            .create_physical_entity("runner", (0.0, 0.0, 0.0), fixed())
+            .unwrap();
+        let entity = scene.get_entity_mut(id).unwrap();
+        entity.add_image(sheet).unwrap();
+        entity
+            .set_or_create_attribute("frame_size", AttributeValue::Vector2(16.0, 16.0))
+            .unwrap();
+        physics.add_entity(scene.get_entity(id).unwrap());
+
+        assert_eq!(physics.collider_outlines()[0].size, (16.0, 16.0));
+    }
 }

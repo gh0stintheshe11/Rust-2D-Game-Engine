@@ -50,6 +50,32 @@ graph TD
 - Images larger than the GPU's maximum texture size are downscaled on upload
   (they still cover their full size on screen).
 
+## Sprite sheets and animation
+
+An entity with a `frame_size` (Vector2, in pixels) treats its image as a
+**sprite sheet**: a grid of frames of that size, numbered from 0 left to
+right, then top to bottom. Its `frame` attribute (Integer, or Float) selects
+the frame shown; numbers wrap around, and the sprite (and its physics body)
+is one frame big. `sheet_frame` computes a frame's texture rectangle.
+
+Animations play frames in order while the game runs. They are driven by
+attributes, so they can be set up in the Inspector or from scripts
+(`play_animation`, see [scripting.md](scripting.md)):
+
+| Attribute | Type | Default | Meaning |
+|---|---|---|---|
+| `animation` | String | — | Frames to play: numbers and inclusive ranges separated by commas, e.g. `"0-3"`, `"0,1,2,1"` or `"7-4"` |
+| `animation_fps` | Float | 10 | Frames per second |
+| `animation_loop` | Boolean | true | Start over at the end; otherwise stop on the last frame |
+| `animation_time` | Float | 0 | Seconds into the animation; advanced by the runtime, reset to start over |
+
+`advance_animations(scene, dt)`, called by the runtime once per frame,
+advances every entity with a non-empty `animation` and writes its `frame`
+(created as an Integer if missing; an existing Float stays a Float). A
+looping animation's time wraps at the end of each cycle. Invalid `animation`
+values are reported once per Play and leave the entity unchanged. The editor
+doesn't play animations: it shows the current `frame`.
+
 ## Game camera
 
 `camera_frame(scene)` describes the frame the scene's default camera entity
@@ -93,6 +119,8 @@ disk.
   projects can't bring their own, and text can't be measured from scripts.
 - Text is always drawn over the sprites, in camera frame space; there is no
   text placed in the world (e.g. a label following an entity).
+- Sprite sheets are uniform grids; frames of different sizes (texture atlases)
+  and spacing between frames aren't supported.
 - The same image referenced through two different path spellings is cached
   twice.
 - The editor and the runtime each own a `RenderEngine`, so images used in

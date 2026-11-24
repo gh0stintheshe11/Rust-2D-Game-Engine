@@ -22,7 +22,7 @@ attributes, read by name:
 | `has_collision` | Boolean | true | Attach a collider |
 | `can_rotate` | Boolean | false | Dynamic bodies may rotate; their angle is written to `rotation` |
 | `rotation` | Float (degrees) | 0 | Initial angle |
-| `collider_width` / `collider_height` | Float | sprite size | Body size; otherwise the first image's pixel size times `scale` |
+| `collider_width` / `collider_height` | Float | sprite size | Body size; otherwise the first image's pixel size (one frame's, for a sprite sheet with `frame_size`) times `scale` |
 | `collider_shape` | String | `"rectangle"` | `"circle"` fits a circle inside the body size |
 | `density` / `friction` / `restitution` | Float | 1.0 / 0.5 / 0.0 | Collider material |
 | `creates_gravity` | Boolean | false | Attract `has_gravity` bodies (see below) |

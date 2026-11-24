@@ -1259,4 +1259,98 @@ mod session_tests {
         assert_eq!(failures, vec![false; 5]);
         assert!(session.lua.hud_texts().is_empty());
     }
+
+    #[test]
+    fn test_play_animation_binding() {
+        use rust_2d_game_engine::scene::AttributeValue;
+
+        let session = setup("play_animation");
+        let runner = session
+            .scene_manager
+            .borrow_mut()
+            .get_scene_mut(session.scene_id)
+            .unwrap()
+            .create_entity("runner")
+            .unwrap();
+        let lua = session.lua.lua();
+        lua.globals()
+            .set("SCENE", session.scene_id.to_string())
+            .unwrap();
+        lua.globals().set("RUNNER", runner.to_string()).unwrap();
+        let value = |name: &str| {
+            let manager = session.scene_manager.borrow();
+            let entity = manager
+                .get_scene(session.scene_id)
+                .unwrap()
+                .get_entity(runner)
+                .unwrap();
+            entity
+                .get_attribute_by_name(name)
+                .ok()
+                .map(|attr| attr.value.clone())
+        };
+        let set_time = |time: f32| {
+            session
+                .scene_manager
+                .borrow_mut()
+                .get_scene_mut(session.scene_id)
+                .unwrap()
+                .get_entity_mut(runner)
+                .unwrap()
+                .set_or_create_attribute("animation_time", AttributeValue::Float(time))
+                .unwrap();
+        };
+
+        lua.load(r#"play_animation(SCENE, RUNNER, "0-3", {fps = 12})"#)
+            .exec()
+            .unwrap();
+        assert_eq!(
+            value("animation"),
+            Some(AttributeValue::String("0-3".into()))
+        );
+        assert_eq!(value("animation_fps"), Some(AttributeValue::Float(12.0)));
+        assert_eq!(value("animation_time"), Some(AttributeValue::Float(0.0)));
+        assert_eq!(value("animation_loop"), None, "only given options are set");
+
+        // Playing the current animation again keeps it running...
+        set_time(0.3);
+        lua.load(r#"play_animation(SCENE, RUNNER, "0-3")"#)
+            .exec()
+            .unwrap();
+        assert_eq!(value("animation_time"), Some(AttributeValue::Float(0.3)));
+        // ...unless asked to start over, or the frames change
+        lua.load(r#"play_animation(SCENE, RUNNER, "0-3", {restart = true})"#)
+            .exec()
+            .unwrap();
+        assert_eq!(value("animation_time"), Some(AttributeValue::Float(0.0)));
+        set_time(0.3);
+        lua.load(r#"play_animation(SCENE, RUNNER, "4-7", {loop = false})"#)
+            .exec()
+            .unwrap();
+        assert_eq!(value("animation_time"), Some(AttributeValue::Float(0.0)));
+        assert_eq!(
+            value("animation_loop"),
+            Some(AttributeValue::Boolean(false))
+        );
+
+        // Mistakes are errors
+        let failures: Vec<bool> = lua
+            .load(
+                r#"
+                return {
+                    (pcall(play_animation, SCENE, RUNNER, "run")),
+                    (pcall(play_animation, SCENE, RUNNER, "0-3", {speed = 2})),
+                    (pcall(play_animation, SCENE, RUNNER, "0-3", {fps = 0})),
+                    (pcall(play_animation, SCENE, RUNNER, "0-3", {loop = "yes"})),
+                }
+                "#,
+            )
+            .eval()
+            .unwrap();
+        assert_eq!(failures, vec![false; 4]);
+        assert_eq!(
+            value("animation"),
+            Some(AttributeValue::String("4-7".into()))
+        );
+    }
 }

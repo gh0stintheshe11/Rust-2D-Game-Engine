@@ -509,8 +509,9 @@ fn new_world(gravity: Vector, time_step: f32) -> PhysicsWorld {
 }
 
 /// Size of the entity's body: explicit `collider_width`/`collider_height`
-/// attributes, otherwise the first image's pixel size times the `scale`
-/// attribute (matching what the renderer draws).
+/// attributes, otherwise the first image's pixel size (one frame's, for a
+/// sprite sheet) times the `scale` attribute, matching what the renderer
+/// draws.
 fn body_size(entity: &Entity) -> Option<(f32, f32)> {
     let explicit_width = entity.get_attribute_by_name("collider_width").ok();
     let explicit_height = entity.get_attribute_by_name("collider_height").ok();
@@ -522,15 +523,14 @@ fn body_size(entity: &Entity) -> Option<(f32, f32)> {
 
     let image_path = entity.get_image(0).ok()?;
     // Reads only the image header
-    let (width, height) = image::image_dimensions(image_path).ok()?;
-    let (scale_x, scale_y) = match entity.get_attribute_by_name("scale").map(|a| &a.value) {
-        Ok(AttributeValue::Vector2(sx, sy)) => (*sx, *sy),
-        _ => (1.0, 1.0),
+    let image_size = image::image_dimensions(image_path).ok()?;
+    let (width, height) = match crate::render::frame_size(entity) {
+        // A sprite sheet: one frame, as the renderer shows it
+        Some(frame_size) => crate::render::sheet_frame(image_size, frame_size, 0).1,
+        None => (image_size.0 as f32, image_size.1 as f32),
     };
-    Some((
-        (width as f32 * scale_x).abs(),
-        (height as f32 * scale_y).abs(),
-    ))
+    let (scale_x, scale_y) = entity.get_vector2("scale").unwrap_or((1.0, 1.0));
+    Some(((width * scale_x).abs(), (height * scale_y).abs()))
 }
 
 /// Collider centered on the body origin. The shape comes from the

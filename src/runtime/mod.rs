@@ -11,6 +11,7 @@ use crate::{
 };
 use egui::Rect;
 use std::cell::{Ref, RefCell};
+use std::collections::HashSet;
 use std::rc::Rc;
 
 /// At most this many fixed physics steps run per rendered frame; slower
@@ -56,6 +57,8 @@ pub struct GameRuntime {
     camera_mode: CameraMode,
     // Draw physics collider outlines over the game (a debugging aid)
     show_colliders: bool,
+    // Invalid animations already reported this session
+    reported_animation_problems: HashSet<String>,
     // Fixed-timestep accumulator: real time not yet consumed by physics steps
     time_accumulator: f32,
 }
@@ -84,6 +87,7 @@ impl GameRuntime {
             lua_scripting: LuaScripting::new(),
             camera_mode: CameraMode::Game,
             show_colliders: false,
+            reported_animation_problems: HashSet::new(),
             time_accumulator: 0.0,
         }
     }
@@ -140,6 +144,7 @@ impl GameRuntime {
 
         LOGGER.info("Game starting with active scene");
         self.time_accumulator = 0.0;
+        self.reported_animation_problems.clear();
         self.state = RuntimeState::Playing;
         Ok(())
     }
@@ -244,6 +249,18 @@ impl GameRuntime {
             }
             if self.end_if_requested() {
                 return;
+            }
+        }
+
+        // Sprite sheet animations move on by the frame's time
+        {
+            let mut manager = self.scene_manager.borrow_mut();
+            if let Some(scene) = manager.get_scene_mut(scene_id) {
+                for problem in crate::render::advance_animations(scene, frame_dt) {
+                    if self.reported_animation_problems.insert(problem.clone()) {
+                        LOGGER.warning(problem);
+                    }
+                }
             }
         }
 
