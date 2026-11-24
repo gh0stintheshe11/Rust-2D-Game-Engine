@@ -2,7 +2,7 @@ use rust_2d_game_engine::audio::AudioEngine;
 use rust_2d_game_engine::input::InputHandler;
 use rust_2d_game_engine::physics::PhysicsEngine;
 use rust_2d_game_engine::render::RenderEngine;
-use rust_2d_game_engine::runtime::{GameRuntime, RuntimeState};
+use rust_2d_game_engine::runtime::{CameraMode, GameRuntime, RuntimeState};
 use rust_2d_game_engine::scene::{PhysicsProperties, SceneManager};
 use uuid::Uuid;
 
@@ -211,4 +211,69 @@ fn test_collider_outlines_are_opt_in() {
     );
     runtime.set_show_colliders(true);
     assert!(paint(&mut runtime).iter().any(is_collider_outline));
+}
+
+/// The texts painted in one frame.
+fn painted_texts(runtime: &mut GameRuntime) -> Vec<egui::epaint::TextShape> {
+    paint(runtime)
+        .into_iter()
+        .filter_map(|shape| match shape {
+            egui::Shape::Text(text) => Some(text),
+            _ => None,
+        })
+        .collect()
+}
+
+fn font_size(text: &egui::epaint::TextShape) -> f32 {
+    text.galley.job.sections[0].format.font_id.size
+}
+
+#[test]
+fn test_text_is_laid_out_in_the_camera_frame() {
+    // A 400 x 300 camera frame centered on (0, 0), painted into an
+    // 800 x 600 viewport: the game, and its text, is shown twice as big
+    let (mut manager, box_id) = falling_box_scene();
+    {
+        let scene = manager.get_active_scene_mut().unwrap();
+        let camera_id = scene.default_camera.unwrap();
+        let camera = scene.get_entity_mut(camera_id).unwrap();
+        camera.set_camera_size(400.0, 300.0).unwrap();
+    }
+    with_script(
+        &mut manager,
+        box_id,
+        r#"function update(scene_id, entity_id) draw_text("Score: 7", 10, 20) end"#,
+    );
+    let mut runtime = runtime(manager);
+    runtime.run().unwrap();
+    runtime.tick(FRAME);
+
+    let texts = painted_texts(&mut runtime);
+    assert_eq!(texts.len(), 1);
+    assert!(
+        (texts[0].pos - egui::pos2(20.0, 40.0)).length() < 0.5,
+        "{:?}",
+        texts[0].pos
+    );
+    assert_eq!(font_size(&texts[0]), 48.0);
+
+    // In the editor the game is seen through a free camera; the text stays
+    // attached to the camera frame. Here the frame's top-left (-200, -150)
+    // is at the viewport's top-left, at zoom 1.
+    runtime.set_camera_mode(CameraMode::Free {
+        position: (-200.0, -150.0),
+        zoom: 1.0,
+    });
+    let texts = painted_texts(&mut runtime);
+    assert!(
+        (texts[0].pos - egui::pos2(10.0, 20.0)).length() < 0.5,
+        "{:?}",
+        texts[0].pos
+    );
+    assert_eq!(font_size(&texts[0]), 24.0);
+
+    // Pausing keeps the last frame's text on screen
+    runtime.pause();
+    runtime.tick(FRAME);
+    assert_eq!(painted_texts(&mut runtime).len(), 1);
 }

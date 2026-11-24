@@ -2,7 +2,7 @@
 //!
 //! See `docs/scripting.md` for the script-facing API.
 
-use std::cell::{Cell, RefCell};
+use std::cell::{Cell, Ref, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -15,9 +15,11 @@ use crate::audio::AudioEngine;
 use crate::input::InputHandler;
 use crate::logger::LOGGER;
 use crate::physics::PhysicsEngine;
+use crate::render::HudText;
 use crate::scene::SceneManager;
 
 mod audio_bindings;
+mod draw_bindings;
 mod input_bindings;
 mod physics_bindings;
 mod scene_bindings;
@@ -124,6 +126,8 @@ pub struct LuaScripting {
     previous_contacts: HashMap<Uuid, HashSet<Uuid>>,
     // Set by the end_game() binding; polled by the runtime
     game_stop_requested: Rc<Cell<bool>>,
+    // Text drawn by scripts this frame (draw_text), painted by the runtime
+    hud: Rc<RefCell<Vec<HudText>>>,
     // When the running script call must be aborted (see SCRIPT_TIME_LIMIT)
     deadline: Rc<Cell<Option<Instant>>>,
 }
@@ -168,11 +172,18 @@ impl LuaScripting {
             init_states: HashMap::new(),
             previous_contacts: HashMap::new(),
             game_stop_requested: Rc::new(Cell::new(false)),
+            hud: Rc::new(RefCell::new(Vec::new())),
             deadline: Rc::new(Cell::new(None)),
         }
     }
 
     /// The session's Lua VM, e.g. to inspect globals in tests.
+    /// Text drawn with `draw_text` since the current frame's scripts
+    /// started.
+    pub fn hud_texts(&self) -> Ref<'_, Vec<HudText>> {
+        self.hud.borrow()
+    }
+
     pub fn lua(&self) -> &Lua {
         &self.lua
     }
@@ -190,6 +201,7 @@ impl LuaScripting {
         self.scripts.clear();
         self.init_states.clear();
         self.previous_contacts.clear();
+        self.hud.borrow_mut().clear();
         self.accumulated_time = 0.0;
         self.scene_manager = Some(Rc::clone(&scene_manager));
         self.physics_engine = Some(Rc::clone(&physics_engine));
@@ -219,6 +231,7 @@ impl LuaScripting {
         self.register_input_bindings(&input_handler)?;
         self.register_scene_bindings(&scene_manager, &physics_engine)?;
         self.register_audio_bindings(&audio_engine)?;
+        self.register_draw_bindings()?;
 
         LOGGER.info("Lua scripting session started");
         Ok(())
@@ -286,12 +299,16 @@ impl LuaScripting {
         Ok(())
     }
 
-    /// Run the `update` function of every scripted entity in the scene.
+    /// Run the `update` function of every scripted entity in the scene. This
+    /// starts a frame: text drawn during the previous one is cleared first.
     ///
     /// The entity list is snapshotted first, so scripts can safely add or
     /// remove entities while running. A failing script is logged and skipped
     /// instead of aborting the others.
     pub fn run_scripts_for_scene(&mut self, active_scene_id: Uuid) -> Result<(), String> {
+        // A new frame: scripts draw their text again (immediate mode)
+        self.hud.borrow_mut().clear();
+
         let scene_manager = self
             .scene_manager
             .clone()

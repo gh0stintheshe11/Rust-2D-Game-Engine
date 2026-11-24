@@ -1195,4 +1195,68 @@ mod session_tests {
         assert!(!playing);
         assert!(level(&mut output) < 1e-6);
     }
+
+    #[test]
+    fn test_draw_text_collects_one_frame_of_text() {
+        use rust_2d_game_engine::render::{HudText, TextAlign};
+
+        let mut session = setup("draw_text");
+        add_scripted_entity(
+            &session,
+            "hud",
+            r##"
+            function update(scene_id, entity_id)
+                local frame = (script_state.state.frame or 0) + 1
+                script_state.state.frame = frame
+                if frame == 1 then
+                    draw_text("Score: " .. 3, 10, 20, {size = 32, color = "#ff000080", align = "center"})
+                    draw_text(42, 0, 0)
+                end
+            end
+            "##,
+        );
+
+        session.lua.run_scripts_for_scene(session.scene_id).unwrap();
+        {
+            let texts = session.lua.hud_texts();
+            assert_eq!(texts.len(), 2);
+            assert_eq!(
+                texts[0],
+                HudText {
+                    text: "Score: 3".to_string(),
+                    position: (10.0, 20.0),
+                    size: 32.0,
+                    color: egui::Color32::from_rgba_unmultiplied(255, 0, 0, 128),
+                    align: TextAlign::Center,
+                }
+            );
+            assert_eq!(texts[1].text, "42", "numbers are converted");
+            assert_eq!(texts[1].size, 24.0);
+            assert_eq!(texts[1].color, egui::Color32::WHITE);
+        }
+
+        // Immediate mode: the next frame starts with no text
+        session.lua.run_scripts_for_scene(session.scene_id).unwrap();
+        assert!(session.lua.hud_texts().is_empty());
+
+        // Mistakes are errors, not silently ignored
+        let failures: Vec<bool> = session
+            .lua
+            .lua()
+            .load(
+                r##"
+                return {
+                    (pcall(draw_text, "x", 0, 0, {colour = "#ffffff"})),
+                    (pcall(draw_text, "x", 0, 0, {color = "red"})),
+                    (pcall(draw_text, "x", 0, 0, {size = 0})),
+                    (pcall(draw_text, "x", 0, 0, {align = "middle"})),
+                    (pcall(draw_text, "x", 0/0, 0)),
+                }
+                "##,
+            )
+            .eval()
+            .unwrap();
+        assert_eq!(failures, vec![false; 5]);
+        assert!(session.lua.hud_texts().is_empty());
+    }
 }

@@ -13,8 +13,10 @@ use std::path::Path;
 use uuid::Uuid;
 
 mod camera;
+mod text;
 
 pub use camera::Camera;
+pub use text::{HudText, TextAlign, paint_texts, parse_color};
 
 /// One sprite draw command in viewport-relative screen space.
 #[derive(Debug, Clone)]
@@ -126,31 +128,65 @@ pub struct GameView {
     pub frame: (f32, f32, f32, f32),
 }
 
-/// Fit the scene's default camera into a viewport of `viewport_size`.
-///
-/// The camera entity's `x`/`y` is the center of its frame; the frame shows
-/// `width / zoom` by `height / zoom` world units and is scaled uniformly to
-/// fit the viewport (letterboxed when the aspect ratios differ). Returns
-/// `None` when the scene has no usable camera.
-pub fn game_view(scene: &Scene, viewport_size: (f32, f32)) -> Option<GameView> {
+/// The frame a scene's default camera shows.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CameraFrame {
+    /// World-space top-left corner. The camera entity's `x`/`y` is the
+    /// frame's center.
+    pub world_min: (f32, f32),
+    /// World-space size: the camera's `width` × `height` divided by its
+    /// `zoom`.
+    pub world_size: (f32, f32),
+    /// The camera's `width` × `height`: the frame's size in its own pixels,
+    /// which is the coordinate space of [`HudText`].
+    pub size: (f32, f32),
+}
+
+/// The scene's default camera frame, or `None` when the scene has no usable
+/// camera (missing, or a size or zoom that isn't positive).
+pub fn camera_frame(scene: &Scene) -> Option<CameraFrame> {
     let camera = scene.get_entity(scene.default_camera?).ok()?;
     let zoom = camera.get_camera_zoom();
-    let frame_w = camera.get_camera_width() / zoom;
-    let frame_h = camera.get_camera_height() / zoom;
-    let (viewport_w, viewport_h) = viewport_size;
-    if !(frame_w > 0.0 && frame_h > 0.0 && viewport_w > 0.0 && viewport_h > 0.0) {
+    let size = (camera.get_camera_width(), camera.get_camera_height());
+    let world_size = (size.0 / zoom, size.1 / zoom);
+    let positive = |v: f32| v.is_finite() && v > 0.0;
+    if ![size.0, size.1, world_size.0, world_size.1]
+        .into_iter()
+        .all(positive)
+    {
         return None;
     }
+    Some(CameraFrame {
+        world_min: (
+            camera.get_x() - world_size.0 / 2.0,
+            camera.get_y() - world_size.1 / 2.0,
+        ),
+        world_size,
+        size,
+    })
+}
+
+/// Fit the scene's default camera frame (see [`camera_frame`]) into a
+/// viewport of `viewport_size`, scaled uniformly and letterboxed when the
+/// aspect ratios differ. Returns `None` when the scene has no usable camera.
+pub fn game_view(scene: &Scene, viewport_size: (f32, f32)) -> Option<GameView> {
+    let frame = camera_frame(scene)?;
+    let (viewport_w, viewport_h) = viewport_size;
+    if !(viewport_w > 0.0 && viewport_h > 0.0) {
+        return None;
+    }
+    let (frame_w, frame_h) = frame.world_size;
 
     let scale = (viewport_w / frame_w).min(viewport_h / frame_h);
     let shown = (frame_w * scale, frame_h * scale);
     let offset = ((viewport_w - shown.0) / 2.0, (viewport_h - shown.1) / 2.0);
-    let frame_left = camera.get_x() - frame_w / 2.0;
-    let frame_top = camera.get_y() - frame_h / 2.0;
 
     Some(GameView {
         camera: Camera {
-            position: (frame_left - offset.0 / scale, frame_top - offset.1 / scale),
+            position: (
+                frame.world_min.0 - offset.0 / scale,
+                frame.world_min.1 - offset.1 / scale,
+            ),
             zoom: scale,
         },
         frame: (offset.0, offset.1, shown.0, shown.1),

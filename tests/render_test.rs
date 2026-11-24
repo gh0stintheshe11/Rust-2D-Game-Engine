@@ -1,4 +1,4 @@
-use rust_2d_game_engine::render::{Camera, RenderEngine, game_view};
+use rust_2d_game_engine::render::{Camera, RenderEngine, camera_frame, game_view, parse_color};
 use rust_2d_game_engine::scene::{AttributeType, AttributeValue, Scene};
 use std::path::PathBuf;
 use uuid::Uuid;
@@ -180,4 +180,33 @@ fn test_game_view_fits_and_letterboxes_the_camera() {
 
     // Degenerate viewport
     assert!(game_view(&scene, (0.0, 600.0)).is_none());
+}
+
+#[test]
+fn test_parse_color() {
+    assert_eq!(
+        parse_color("#ff8000"),
+        Ok(egui::Color32::from_rgb(255, 128, 0))
+    );
+    assert_eq!(
+        parse_color("#FF800080"),
+        Ok(egui::Color32::from_rgba_unmultiplied(255, 128, 0, 128))
+    );
+    for invalid in ["ff8000", "#ff80", "#gg0000", "#ff8000801", "red", "", "#"] {
+        assert!(parse_color(invalid).is_err(), "{:?}", invalid);
+    }
+}
+
+#[test]
+fn test_camera_frame() {
+    let mut scene = Scene::new("test_scene").unwrap();
+    set_camera(&mut scene, (100.0, 50.0), (200.0, 100.0), 2.0);
+    let frame = camera_frame(&scene).unwrap();
+    // Zoom 2 shows half the camera size of the world, centered on x/y
+    assert_eq!(frame.world_min, (50.0, 25.0));
+    assert_eq!(frame.world_size, (100.0, 50.0));
+    assert_eq!(frame.size, (200.0, 100.0), "text coordinates ignore zoom");
+
+    set_camera(&mut scene, (0.0, 0.0), (0.0, 100.0), 1.0);
+    assert!(camera_frame(&scene).is_none(), "a zero-width camera");
 }

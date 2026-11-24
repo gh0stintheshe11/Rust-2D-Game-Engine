@@ -263,7 +263,8 @@ impl GameRuntime {
     }
 
     /// Paint the active scene into `viewport_rect`, through the current
-    /// [`CameraMode`]. Collider outlines are drawn on top when enabled with
+    /// [`CameraMode`]: sprites, then the text scripts drew this frame, then
+    /// collider outlines when enabled with
     /// [`set_show_colliders`](Self::set_show_colliders).
     pub fn paint(&mut self, ui: &mut egui::Ui, viewport_rect: Rect) {
         let manager = self.scene_manager.borrow();
@@ -294,6 +295,7 @@ impl GameRuntime {
         self.render_engine
             .update_viewport_size(viewport_rect.width(), viewport_rect.height());
         let render_queue = self.render_engine.render(scene);
+        let frame = crate::render::camera_frame(scene);
         drop(manager);
 
         // Clip all game drawing to the visible area; the GPU scissor also
@@ -312,6 +314,25 @@ impl GameRuntime {
             );
             crate::render::paint_sprite(&painter, texture.id(), rect, entry.rotation);
         }
+
+        // Script text is laid out in the camera frame's pixels and scales
+        // with the frame, wherever the frame is on screen
+        let texts = self.lua_scripting.hud_texts();
+        if !texts.is_empty()
+            && let Some(frame) = frame
+        {
+            let camera = self.render_engine.camera;
+            let min = camera.world_to_screen(frame.world_min);
+            let origin = viewport_rect.min + egui::vec2(min.0, min.1);
+            let scale = camera.zoom * frame.world_size.0 / frame.size.0;
+            let frame_rect = Rect::from_min_size(
+                origin,
+                egui::vec2(frame.size.0 * scale, frame.size.1 * scale),
+            );
+            let text_painter = ui.painter().with_clip_rect(frame_rect.intersect(clip_rect));
+            crate::render::paint_texts(&text_painter, &texts, origin, scale);
+        }
+        drop(texts);
 
         if self.show_colliders {
             let outlines = self.physics_engine.borrow().collider_outlines();
@@ -339,5 +360,10 @@ impl GameRuntime {
 
     pub fn get_scene_manager(&self) -> Ref<'_, SceneManager> {
         self.scene_manager.borrow()
+    }
+
+    /// The scripting session, e.g. to inspect script state in tests.
+    pub fn scripting(&self) -> &LuaScripting {
+        &self.lua_scripting
     }
 }

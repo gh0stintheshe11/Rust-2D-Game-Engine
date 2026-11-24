@@ -15,6 +15,9 @@ versions may contain breaking changes).
   `set_volume` and `set_master_volume`.
 - `AudioEngine::offline` mixes sounds into a sample stream instead of an audio
   device, so playback can be tested on machines without one.
+- `draw_text(text, x, y, {size, color, align})` draws text over the game
+  (scores, timers, messages). It is laid out in the camera frame's pixels, so
+  it scales with the window like the sprites.
 
 ### Fixed
 

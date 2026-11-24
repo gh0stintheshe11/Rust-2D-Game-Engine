@@ -40,18 +40,32 @@ graph TD
 
 ## Game camera
 
-`game_view(scene, viewport_size)` turns the scene's default camera entity
-into a render camera:
+`camera_frame(scene)` describes the frame the scene's default camera entity
+shows:
 
 - The camera entity's `x`/`y` is the **center** of its frame; the frame shows
   `width / zoom` × `height / zoom` world units (`width`, `height` and `zoom`
-  are attributes of the camera entity).
-- The frame is scaled uniformly to fit the viewport and centered; the
-  returned `frame` rect is the part of the viewport it covers (the rest is
-  letterboxing).
+  are attributes of the camera entity): `world_min` and `world_size`.
+- `size` is the camera's `width` × `height`: the frame's size in its own
+  pixels, whatever the zoom. Text drawn over the game is laid out in this
+  space.
 
-The runtime uses it for exported games; the editor draws the same frame as a
-red rectangle (`get_game_camera_bounds`).
+`game_view(scene, viewport_size)` fits that frame into a viewport: scaled
+uniformly and centered; the returned `frame` rect is the part of the viewport
+it covers (the rest is letterboxing). The runtime uses it for exported games;
+the editor draws the same frame as a red rectangle (`get_game_camera_bounds`).
+
+## Text
+
+`HudText` is one text drawn over the game: its string, position (the top of
+the text, in camera frame pixels), font height, color and horizontal
+alignment (`TextAlign`). `paint_texts(painter, texts, origin, scale)` draws
+them with egui's built-in fonts, given the screen position of the camera
+frame's top-left corner and the screen pixels per frame pixel, so text scales
+with the game. Texts smaller than one screen pixel are skipped.
+
+`parse_color("#rrggbb")` / `parse_color("#rrggbbaa")` reads the color strings
+scripts use.
 
 ## Caches
 
@@ -63,6 +77,10 @@ disk.
 ## Known limitations
 
 - The camera entity's `rotation` attribute is not applied.
+- Text uses egui's built-in fonts (plus system fonts for missing glyphs);
+  projects can't bring their own, and text can't be measured from scripts.
+- Text is always drawn over the sprites, in camera frame space; there is no
+  text placed in the world (e.g. a label following an entity).
 - The same image referenced through two different path spellings is cached
   twice.
 - The editor and the runtime each own a `RenderEngine`, so images used in

@@ -94,6 +94,18 @@ Input:
 | `get_mouse_position()` | `{x, y}` in window coordinates |
 | `get_scroll_delta()` | `{x, y}`; zero when not scrolling |
 
+Drawing:
+
+| Function | Notes |
+|---|---|
+| `draw_text(text, x, y [, options])` | Draw text over the game for the current frame; call it every frame, from `update`. Numbers are converted to text. `x`/`y` (the top of the text) and sizes are in the camera frame's pixels: (0, 0) is its top-left corner, the frame is the camera's `width` × `height`, and the text scales with it like the sprites. Options: `size` (font height, default 24), `color` (`"#rrggbb"` or `"#rrggbbaa"`, default white), `align` (`"left"`, `"center"` or `"right"` of `x`; default left). Text stays on screen while the game is paused or over |
+
+```lua
+function update(scene_id, entity_id)
+    draw_text("Score: " .. script_state.state.score, 10, 10, {size = 28, color = "#ffd84a"})
+end
+```
+
 Audio:
 
 | Function | Notes |

@@ -67,10 +67,14 @@ Script errors are logged to the editor console and never stop the loop.
   The editor shows play mode through its own pan/zoom camera and draws the
   game camera's frame as a red rectangle.
 
-Sprites are clipped to the visible area. Collider outlines (a debugging aid)
-are drawn on top only after `set_show_colliders(true)`: exported games never
-show them, and the editor shows them while playing unless View → Collider
-Outlines is unchecked.
+Sprites, then the text scripts drew with `draw_text` this frame (laid out in
+the camera frame, see [render.md](render.md)), are clipped to the visible
+area. Scripts' text is collected while they run and cleared when the next
+frame's scripts start, so a paused or ended game keeps showing it.
+
+Collider outlines (a debugging aid) are drawn on top only after
+`set_show_colliders(true)`: exported games never show them, and the editor
+shows them while playing unless View → Collider Outlines is unchecked.
 
 ## Known limitations
 

@@ -197,6 +197,21 @@ const API_GROUPS: &[(&str, &[ApiEntry])] = &[
         ],
     ),
     (
+        "Drawing",
+        &[
+            (
+                "draw_text",
+                "draw_text(\"Score: \" .. score, 10, 10)",
+                "Text over the game for this frame: call it every frame (in update)",
+            ),
+            (
+                "draw_text with options",
+                "draw_text(\"Game over\", 240, 300, {size = 48, color = \"#ff4040\", align = \"center\"})",
+                "size: font height (24); color: \"#rrggbb\" or \"#rrggbbaa\"; align: left, center, right",
+            ),
+        ],
+    ),
+    (
         "Audio",
         &[
             (
