@@ -1,10 +1,14 @@
+//! Lua 5.4 scripting: per-entity scripts and the engine bindings they call.
+//!
+//! See `docs/scripting.md` for the script-facing API.
+
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
-use std::time::SystemTime;
+use std::time::{Duration, Instant, SystemTime};
 
-use mlua::{Function as LuaFunction, Lua};
+use mlua::{Function as LuaFunction, HookTriggers, Lua, LuaOptions, StdLib, Table, VmState};
 use uuid::Uuid;
 
 use crate::audio::AudioEngine;
@@ -18,53 +22,110 @@ mod input_bindings;
 mod physics_bindings;
 mod scene_bindings;
 
-/// A compiled script's functions, cached for the duration of a play session.
-/// `modified` allows hot-reloading when the file changes on disk.
+/// Longest a single call into a script (a hook, or a file's top-level
+/// code) may run before it is aborted with an error. Guards the editor
+/// against infinite loops.
+const SCRIPT_TIME_LIMIT: Duration = Duration::from_secs(1);
+
+/// Upper bound on the memory a play session's scripts may allocate.
+const SCRIPT_MEMORY_LIMIT: usize = 256 * 1024 * 1024;
+
+/// How often (in VM instructions) the time limit is checked.
+const TIME_CHECK_INTERVAL: u32 = 10_000;
+
+/// Standard libraries available to scripts. Notably absent: `io`,
+/// `package`/`require` and `debug`; `os` is reduced to its clock functions
+/// by [`SANDBOX_PRELUDE`].
+fn script_libs() -> StdLib {
+    StdLib::TABLE | StdLib::STRING | StdLib::MATH | StdLib::UTF8 | StdLib::COROUTINE | StdLib::OS
+}
+
+/// Runs once in every new VM: restricts what scripts can reach.
+const SANDBOX_PRELUDE: &str = r#"
+local os_clock, os_time, os_date, os_difftime = os.clock, os.time, os.date, os.difftime
+os = { clock = os_clock, time = os_time, date = os_date, difftime = os_difftime }
+dofile = nil
+loadfile = nil
+local raw_load = load
+load = function(chunk, name, mode, env)
+    return raw_load(chunk, name, "t", env)
+end
+"#;
+
+/// A compiled script file: its environment (holding the file's top-level
+/// variables) and lifecycle hooks.
 #[derive(Clone)]
-struct CachedScript {
+struct CompiledScript {
     modified: Option<SystemTime>,
-    update_fn: LuaFunction,
+    env: Table,
+    update_fn: Option<LuaFunction>,
     init_fn: Option<LuaFunction>,
     on_collision_fn: Option<LuaFunction>,
 }
 
+/// What is known about one script file this session.
+enum ScriptSlot {
+    Ready(CompiledScript),
+    /// The file at `modified` doesn't compile or run; the last version that
+    /// did (if any) keeps running until the file is fixed.
+    Broken {
+        modified: Option<SystemTime>,
+        last_good: Option<CompiledScript>,
+    },
+}
+
+impl ScriptSlot {
+    fn usable(&self) -> Option<&CompiledScript> {
+        match self {
+            ScriptSlot::Ready(script) => Some(script),
+            ScriptSlot::Broken { last_good, .. } => last_good.as_ref(),
+        }
+    }
+
+    fn modified(&self) -> Option<SystemTime> {
+        match self {
+            ScriptSlot::Ready(script) => script.modified,
+            ScriptSlot::Broken { modified, .. } => *modified,
+        }
+    }
+}
+
+/// Whether an entity's `init` ran.
+enum InitState {
+    Done,
+    /// `init` raised an error; the entity's hooks are skipped until its
+    /// script file changes.
+    Failed(PathBuf),
+}
+
 /// Lua scripting engine.
 ///
-/// Lifecycle:
-/// - `start_session` is called once when the game starts playing: it creates a
-///   fresh VM, sets up globals (`accumulated_time`, `script_state`,
-///   `keys_pressed`) and registers all engine bindings, which capture shared
-///   `Rc<RefCell<...>>` handles to the runtime's subsystems.
-/// - Every frame the runtime calls `update_global_time`, `bind_keys_pressed`
-///   and `run_scripts_for_scene`. Scripts are compiled once (per session, or
-///   when their file changes) and their `update(scene_id, entity_id)` is
-///   called directly.
+/// - [`start_session`](Self::start_session) is called when the game starts
+///   playing: it creates a fresh, sandboxed VM, sets up globals and registers
+///   all engine bindings, which capture shared `Rc<RefCell<...>>` handles to
+///   the runtime's subsystems.
+/// - Every frame the runtime calls [`update_global_time`](Self::update_global_time),
+///   [`bind_keys_pressed`](Self::bind_keys_pressed) and
+///   [`run_scripts_for_scene`](Self::run_scripts_for_scene), and after each
+///   physics step [`dispatch_collision_events`](Self::dispatch_collision_events).
 ///
-/// Script environment:
-/// - Each script file runs in its own environment table whose `__index` falls
-///   back to the VM globals. Scripts therefore see all engine bindings and
-///   shared globals, but their own top-level definitions (like `update`)
-///   don't collide with other scripts.
-/// - `script_state` is a plain Lua table (`script_state.state`) shared by all
-///   scripts and persistent for the whole session.
-///
-/// Script lifecycle hooks (all optional except `update`):
-/// - `init(scene_id, entity_id)` - once per entity, before its first update
-/// - `update(scene_id, entity_id)` - every rendered frame
-/// - `on_collision(scene_id, entity_id, other_id)` - when a contact with
-///   another physics entity begins (fires once per new contact)
+/// Each script file runs in its own environment table whose `__index` falls
+/// back to the VM globals, so scripts see all bindings while their own
+/// top-level definitions don't collide. All entities using the same file
+/// share its environment.
 pub struct LuaScripting {
-    pub lua: Lua,
-    accumulated_time: f32,
-    script_cache: HashMap<PathBuf, CachedScript>,
+    lua: Lua,
+    accumulated_time: f64,
+    scripts: HashMap<PathBuf, ScriptSlot>,
     scene_manager: Option<Rc<RefCell<SceneManager>>>,
     physics_engine: Option<Rc<RefCell<PhysicsEngine>>>,
-    // Entities whose init() has already run this session
-    initialized_entities: HashSet<Uuid>,
-    // Contact sets from the previous frame, for edge-triggered on_collision
+    init_states: HashMap<Uuid, InitState>,
+    // Contact sets after the previous dispatch, for edge-triggered on_collision
     previous_contacts: HashMap<Uuid, HashSet<Uuid>>,
-    // Set by the end_game() binding; polled by the runtime each frame
+    // Set by the end_game() binding; polled by the runtime
     game_stop_requested: Rc<Cell<bool>>,
+    // When the running script call must be aborted (see SCRIPT_TIME_LIMIT)
+    deadline: Rc<Cell<Option<Instant>>>,
 }
 
 pub(crate) fn parse_uuid(value: &str, what: &str) -> Result<Uuid, mlua::Error> {
@@ -77,7 +138,8 @@ pub(crate) fn parse_uuid(value: &str, what: &str) -> Result<Uuid, mlua::Error> {
 /// source parses.
 pub fn check_syntax(source: &str) -> Option<String> {
     let lua = Lua::new();
-    match lua.load(source).set_name("script").into_function() {
+    let result = lua.load(source).set_name("script").into_function();
+    match result {
         Ok(_) => None,
         Err(e) => {
             let message = e.to_string();
@@ -100,17 +162,23 @@ impl LuaScripting {
         LuaScripting {
             lua: Lua::new(),
             accumulated_time: 0.0,
-            script_cache: HashMap::new(),
+            scripts: HashMap::new(),
             scene_manager: None,
             physics_engine: None,
-            initialized_entities: HashSet::new(),
+            init_states: HashMap::new(),
             previous_contacts: HashMap::new(),
             game_stop_requested: Rc::new(Cell::new(false)),
+            deadline: Rc::new(Cell::new(None)),
         }
     }
 
-    /// Start a fresh scripting session: new VM, fresh globals, all engine
-    /// bindings registered. Called once when the game starts playing.
+    /// The session's Lua VM, e.g. to inspect globals in tests.
+    pub fn lua(&self) -> &Lua {
+        &self.lua
+    }
+
+    /// Start a fresh scripting session: new sandboxed VM, fresh globals,
+    /// all engine bindings registered. Called when the game starts playing.
     pub fn start_session(
         &mut self,
         scene_manager: Rc<RefCell<SceneManager>>,
@@ -118,9 +186,9 @@ impl LuaScripting {
         input_handler: Rc<RefCell<InputHandler>>,
         audio_engine: Rc<RefCell<AudioEngine>>,
     ) -> Result<(), mlua::Error> {
-        self.lua = Lua::new();
-        self.script_cache.clear();
-        self.initialized_entities.clear();
+        self.lua = self.new_sandboxed_vm()?;
+        self.scripts.clear();
+        self.init_states.clear();
         self.previous_contacts.clear();
         self.accumulated_time = 0.0;
         self.scene_manager = Some(Rc::clone(&scene_manager));
@@ -129,6 +197,7 @@ impl LuaScripting {
 
         let globals = self.lua.globals();
         globals.set("accumulated_time", 0.0)?;
+        globals.set("delta_time", 0.0)?;
 
         // script_state.state is the persistent, shared store for script data
         let script_state = self.lua.create_table()?;
@@ -155,27 +224,64 @@ impl LuaScripting {
         Ok(())
     }
 
+    /// A VM with only the [`script_libs`], a memory limit, `print` routed to
+    /// the editor console, and the time limit hook installed.
+    fn new_sandboxed_vm(&self) -> Result<Lua, mlua::Error> {
+        let lua = Lua::new_with(script_libs(), LuaOptions::default())?;
+        lua.load(SANDBOX_PRELUDE).set_name("sandbox").exec()?;
+        lua.set_memory_limit(SCRIPT_MEMORY_LIMIT)?;
+
+        let print = lua.create_function(|_, args: mlua::Variadic<mlua::Value>| {
+            let parts: Vec<String> = args
+                .iter()
+                .map(|value| {
+                    value
+                        .to_string()
+                        .unwrap_or_else(|_| value.type_name().to_string())
+                })
+                .collect();
+            LOGGER.info(parts.join("\t"));
+            Ok(())
+        })?;
+        lua.globals().set("print", print)?;
+
+        // A global hook (unlike a per-thread one) is inherited by coroutines
+        // that scripts create, so they can't escape the time limit
+        let deadline = Rc::clone(&self.deadline);
+        lua.set_global_hook(
+            HookTriggers::new().every_nth_instruction(TIME_CHECK_INTERVAL),
+            move |_, _| match deadline.get() {
+                Some(deadline) if Instant::now() > deadline => Err(mlua::Error::runtime(format!(
+                    "script ran for more than {} s (infinite loop?)",
+                    SCRIPT_TIME_LIMIT.as_secs()
+                ))),
+                _ => Ok(VmState::Continue),
+            },
+        )?;
+        Ok(lua)
+    }
+
     /// Returns true (once) if a script requested the game to stop since the
     /// last call. Clears the flag.
     pub fn take_game_stop_request(&self) -> bool {
         self.game_stop_requested.replace(false)
     }
 
-    /// Increment the shared game clock and expose it to scripts.
+    /// Advance the game clock: `accumulated_time` grows by `delta_time`.
     pub fn update_global_time(&mut self, delta_time: f32) -> Result<(), String> {
-        self.accumulated_time += delta_time;
-        self.lua
-            .globals()
+        self.accumulated_time += f64::from(delta_time);
+        let globals = self.lua.globals();
+        globals
             .set("accumulated_time", self.accumulated_time)
+            .and_then(|_| globals.set("delta_time", f64::from(delta_time)))
             .map_err(|e| e.to_string())
     }
 
     /// Refresh the `keys_pressed` array global from the input handler.
     pub fn bind_keys_pressed(&self, input_handler: &InputHandler) -> Result<(), mlua::Error> {
-        let keys_pressed_table = self.lua.create_table()?;
-        for (index, key) in input_handler.get_all_active_inputs().iter().enumerate() {
-            keys_pressed_table.set(index + 1, key.to_string())?;
-        }
+        let keys_pressed_table = self
+            .lua
+            .create_sequence_from(input_handler.get_all_active_inputs())?;
         self.lua.globals().set("keys_pressed", keys_pressed_table)?;
         Ok(())
     }
@@ -198,6 +304,11 @@ impl LuaScripting {
             let scene = manager
                 .get_scene(active_scene_id)
                 .ok_or_else(|| "Active scene not found.".to_string())?;
+            // Forget per-entity state of entities that no longer exist
+            self.init_states
+                .retain(|id, _| scene.entities.contains_key(id));
+            self.previous_contacts
+                .retain(|id, _| scene.entities.contains_key(id));
             scene
                 .entities
                 .iter()
@@ -205,52 +316,33 @@ impl LuaScripting {
                 .collect()
         };
 
+        // Each file is checked for changes once per frame
+        let mut checked: HashSet<PathBuf> = HashSet::new();
         for (entity_id, script_path) in scripts {
             // The entity may have been removed by a script earlier this frame
-            {
-                let manager = scene_manager.borrow();
-                match manager.get_scene(active_scene_id) {
-                    Some(scene) => {
-                        if !scene.entities.contains_key(&entity_id) {
-                            continue;
-                        }
-                    }
-                    None => break,
-                }
+            if !entity_exists(&scene_manager, active_scene_id, entity_id) {
+                continue;
             }
 
-            let script = match self.get_or_load_script(&script_path) {
-                Ok(f) => f,
-                Err(e) => {
-                    LOGGER.error(format!("Script load error for entity {}: {}", entity_id, e));
-                    continue;
-                }
+            if checked.insert(script_path.clone()) {
+                self.refresh_script(&script_path);
+            }
+            let Some(script) = self.usable_script(&script_path) else {
+                continue;
             };
-
-            // init(scene_id, entity_id): once per entity, before first update
-            if self.initialized_entities.insert(entity_id)
-                && let Some(init_fn) = &script.init_fn
-                && let Err(e) =
-                    init_fn.call::<()>((active_scene_id.to_string(), entity_id.to_string()))
-            {
-                LOGGER.error(format!(
-                    "Script init() error for entity {} ({}): {}",
-                    entity_id,
-                    script_path.display(),
-                    e
-                ));
+            if !self.ensure_initialized(entity_id, &script_path, &script, active_scene_id) {
+                continue;
             }
-
-            if let Err(e) = script
-                .update_fn
-                .call::<()>((active_scene_id.to_string(), entity_id.to_string()))
-            {
-                LOGGER.error(format!(
-                    "Script update() error for entity {} ({}): {}",
-                    entity_id,
-                    script_path.display(),
-                    e
-                ));
+            if let Some(update_fn) = &script.update_fn {
+                let args = (active_scene_id.to_string(), entity_id.to_string());
+                if let Err(e) = self.with_time_limit(|| update_fn.call::<()>(args)) {
+                    LOGGER.error(format!(
+                        "Script update() error for entity {} ({}): {}",
+                        entity_id,
+                        script_path.display(),
+                        e
+                    ));
+                }
             }
         }
 
@@ -258,8 +350,8 @@ impl LuaScripting {
     }
 
     /// Fire `on_collision(scene_id, entity_id, other_id)` for every scripted
-    /// entity whose contact set gained a new entity since the last call.
-    /// Called by the runtime after the physics step.
+    /// entity whose contact set gained an entity since the last call. Called
+    /// by the runtime after each physics step.
     pub fn dispatch_collision_events(&mut self, active_scene_id: Uuid) -> Result<(), String> {
         let scene_manager = self
             .scene_manager
@@ -292,29 +384,38 @@ impl LuaScripting {
         for (entity_id, script_path, current) in contacts {
             let previous = self
                 .previous_contacts
-                .remove(&entity_id)
+                .insert(entity_id, current.clone())
                 .unwrap_or_default();
             let new_contacts: Vec<Uuid> = current.difference(&previous).copied().collect();
-            self.previous_contacts.insert(entity_id, current);
-
             if new_contacts.is_empty() {
                 continue;
             }
 
-            let script = match self.get_or_load_script(&script_path) {
-                Ok(f) => f,
-                Err(_) => continue, // load errors already reported by update path
+            // Scripts are (re)loaded by the update pass; use what's loaded
+            let Some(script) = self.usable_script(&script_path) else {
+                continue;
             };
-            let Some(on_collision) = &script.on_collision_fn else {
+            let Some(on_collision) = script.on_collision_fn.clone() else {
                 continue;
             };
 
             for other_id in new_contacts {
-                if let Err(e) = on_collision.call::<()>((
+                // An earlier handler may have removed either entity
+                if !entity_exists(&scene_manager, active_scene_id, entity_id)
+                    || !entity_exists(&scene_manager, active_scene_id, other_id)
+                {
+                    continue;
+                }
+                // Hooks always see an initialized entity
+                if !self.ensure_initialized(entity_id, &script_path, &script, active_scene_id) {
+                    break;
+                }
+                let args = (
                     active_scene_id.to_string(),
                     entity_id.to_string(),
                     other_id.to_string(),
-                )) {
+                );
+                if let Err(e) = self.with_time_limit(|| on_collision.call::<()>(args)) {
                     LOGGER.error(format!(
                         "Script on_collision() error for entity {} ({}): {}",
                         entity_id,
@@ -328,54 +429,155 @@ impl LuaScripting {
         Ok(())
     }
 
-    /// Compile a script (once per session, re-compiled if the file changed)
-    /// and return its cached functions.
-    fn get_or_load_script(&mut self, path: &Path) -> Result<CachedScript, String> {
-        let modified = std::fs::metadata(path).and_then(|m| m.modified()).ok();
+    /// Run `init` for the entity unless it already ran. Returns whether the
+    /// entity's other hooks may run.
+    fn ensure_initialized(
+        &mut self,
+        entity_id: Uuid,
+        script_path: &Path,
+        script: &CompiledScript,
+        scene_id: Uuid,
+    ) -> bool {
+        match self.init_states.get(&entity_id) {
+            Some(InitState::Done) => return true,
+            Some(InitState::Failed(_)) => return false,
+            None => {}
+        }
+        let succeeded = match &script.init_fn {
+            Some(init_fn) => {
+                let args = (scene_id.to_string(), entity_id.to_string());
+                match self.with_time_limit(|| init_fn.call::<()>(args)) {
+                    Ok(()) => true,
+                    Err(e) => {
+                        LOGGER.error(format!(
+                            "Script init() error for entity {} ({}): {}. \
+                             The entity's script is paused until the file changes.",
+                            entity_id,
+                            script_path.display(),
+                            e
+                        ));
+                        false
+                    }
+                }
+            }
+            None => true,
+        };
+        let state = if succeeded {
+            InitState::Done
+        } else {
+            InitState::Failed(script_path.to_path_buf())
+        };
+        self.init_states.insert(entity_id, state);
+        succeeded
+    }
 
-        if let Some(cached) = self.script_cache.get(path)
-            && cached.modified == modified
+    /// The version of a script that should run, if any.
+    fn usable_script(&self, path: &Path) -> Option<CompiledScript> {
+        self.scripts.get(path)?.usable().cloned()
+    }
+
+    /// Compile the script if it is new or its file changed since it was last
+    /// compiled. Errors are logged once per change of the file.
+    fn refresh_script(&mut self, path: &Path) {
+        let modified = std::fs::metadata(path).and_then(|m| m.modified()).ok();
+        let previous = self.scripts.remove(path);
+        if let Some(slot) = &previous
+            && slot.modified() == modified
         {
-            return Ok(cached.clone());
+            self.scripts.insert(path.to_path_buf(), previous.unwrap());
+            return;
         }
 
-        let source = std::fs::read_to_string(path)
-            .map_err(|e| format!("Error reading script file {}: {}", path.display(), e))?;
-
-        // Each script gets its own environment with global fallback, so
-        // top-level definitions (like `update`) don't collide across scripts.
-        let build_env = || -> Result<mlua::Table, mlua::Error> {
-            let env = self.lua.create_table()?;
-            let meta = self.lua.create_table()?;
-            meta.set("__index", self.lua.globals())?;
-            env.set_metatable(Some(meta))?;
-            Ok(env)
+        let last_good = previous.as_ref().and_then(|slot| slot.usable().cloned());
+        let slot = match self.compile_script(path, modified, last_good.as_ref()) {
+            Ok(script) => {
+                if last_good.is_some() {
+                    LOGGER.info(format!("Reloaded script {}", path.display()));
+                }
+                // Entities whose init failed get another chance
+                self.init_states
+                    .retain(|_, state| !matches!(state, InitState::Failed(p) if p == path));
+                ScriptSlot::Ready(script)
+            }
+            Err(e) => {
+                let fallback = if last_good.is_some() {
+                    " The previous version keeps running."
+                } else {
+                    ""
+                };
+                LOGGER.error(format!("{}{}", e, fallback));
+                ScriptSlot::Broken {
+                    modified,
+                    last_good,
+                }
+            }
         };
-        let env = build_env().map_err(|e| format!("Error creating script env: {}", e))?;
-
-        self.lua
-            .load(&source)
-            .set_name(path.display().to_string())
-            .set_environment(env.clone())
-            .exec()
-            .map_err(|e| format!("Error executing script {}: {}", path.display(), e))?;
-
-        let update_fn: LuaFunction = env.get("update").map_err(|_| {
-            format!(
-                "Script {} does not define an update(scene_id, entity_id) function",
-                path.display()
-            )
-        })?;
-        let init_fn: Option<LuaFunction> = env.get("init").ok();
-        let on_collision_fn: Option<LuaFunction> = env.get("on_collision").ok();
-
-        let cached = CachedScript {
-            modified,
-            update_fn,
-            init_fn,
-            on_collision_fn,
-        };
-        self.script_cache.insert(path.to_path_buf(), cached.clone());
-        Ok(cached)
+        self.scripts.insert(path.to_path_buf(), slot);
     }
+
+    /// Read and run a script file in a fresh environment. On a reload, the
+    /// previous version's variables (but not its functions) are carried
+    /// over first, so state set up in `init` survives; the file's top-level
+    /// code may still overwrite it.
+    fn compile_script(
+        &self,
+        path: &Path,
+        modified: Option<SystemTime>,
+        previous: Option<&CompiledScript>,
+    ) -> Result<CompiledScript, String> {
+        let source = std::fs::read_to_string(path)
+            .map_err(|e| format!("Can't read script {}: {}", path.display(), e))?;
+
+        let env = self
+            .new_environment(previous)
+            .map_err(|e| format!("Error creating script env: {}", e))?;
+        self.with_time_limit(|| {
+            self.lua
+                .load(&source)
+                .set_name(path.display().to_string())
+                .set_mode(mlua::chunk::ChunkMode::Text)
+                .set_environment(env.clone())
+                .exec()
+        })
+        .map_err(|e| format!("Error in script {}: {}", path.display(), e))?;
+
+        Ok(CompiledScript {
+            modified,
+            update_fn: env.get("update").ok(),
+            init_fn: env.get("init").ok(),
+            on_collision_fn: env.get("on_collision").ok(),
+            env,
+        })
+    }
+
+    fn new_environment(&self, previous: Option<&CompiledScript>) -> Result<Table, mlua::Error> {
+        let env = self.lua.create_table()?;
+        let meta = self.lua.create_table()?;
+        meta.set("__index", self.lua.globals())?;
+        env.set_metatable(Some(meta))?;
+        if let Some(previous) = previous {
+            for pair in previous.env.pairs::<mlua::Value, mlua::Value>() {
+                let (key, value) = pair?;
+                if !value.is_function() {
+                    env.raw_set(key, value)?;
+                }
+            }
+        }
+        Ok(env)
+    }
+
+    /// Run a call into Lua under [`SCRIPT_TIME_LIMIT`].
+    fn with_time_limit<T>(&self, call: impl FnOnce() -> mlua::Result<T>) -> mlua::Result<T> {
+        self.deadline.set(Some(Instant::now() + SCRIPT_TIME_LIMIT));
+        let result = call();
+        self.deadline.set(None);
+        result
+    }
+}
+
+fn entity_exists(scene_manager: &RefCell<SceneManager>, scene_id: Uuid, entity_id: Uuid) -> bool {
+    scene_manager
+        .borrow()
+        .get_scene(scene_id)
+        .is_some_and(|scene| scene.entities.contains_key(&entity_id))
 }

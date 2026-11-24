@@ -1,14 +1,15 @@
 use crate::logger::LOGGER;
-use crate::scene::{Entity, Scene};
 use lofty::file::AudioFile;
 use lofty::probe::Probe;
 use rodio::{Decoder, DeviceSinkBuilder, MixerDeviceSink, Player};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::{BufReader, Read};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
+/// Sound playback with rodio. Sound files are read once and kept in memory;
+/// each playback gets its own player, identified by a play id.
 pub struct AudioEngine {
     // None when no audio output device is available (e.g. headless/CI);
     // the engine then runs with playback disabled instead of crashing.
@@ -16,7 +17,8 @@ pub struct AudioEngine {
     active_sounds: HashMap<Uuid, Player>,
     sound_cache: HashMap<Uuid, Vec<u8>>, // Path hash -> sound data
     immediate_sink: Option<Player>,
-    duration_cache: HashMap<Uuid, f32>,
+    // Files whose playback failed and was already reported
+    reported_failures: HashSet<PathBuf>,
 }
 
 impl Default for AudioEngine {
@@ -42,7 +44,7 @@ impl AudioEngine {
             active_sounds: HashMap::new(),
             sound_cache: HashMap::new(),
             immediate_sink: None,
-            duration_cache: HashMap::new(),
+            reported_failures: HashSet::new(),
         }
     }
 
@@ -82,33 +84,28 @@ impl AudioEngine {
             .map_err(|e| format!("Failed to read sound file {:?}: {}", path, e))?;
 
         self.sound_cache.insert(sound_id, data);
-
-        if let Ok(duration) = self.get_audio_duration(path) {
-            self.duration_cache.insert(sound_id, duration);
-        }
-
         Ok(sound_id)
-    }
-
-    // Load sounds for an entity
-    pub fn load_entity_sounds(&mut self, entity: &Entity) -> Result<(), String> {
-        for path in &entity.sounds {
-            self.load_sound(path)?;
-        }
-        Ok(())
-    }
-
-    // Load sounds for a scene
-    pub fn load_scene_sounds(&mut self, scene: &Scene) -> Result<(), String> {
-        for (_, entity) in &scene.entities {
-            self.load_entity_sounds(entity)?;
-        }
-        Ok(())
     }
 
     // === Playback Operations ===
 
+    /// Start playing a sound file; returns its play id. Failures are also
+    /// reported in the console, once per file (the missing output device is
+    /// reported once at startup instead).
     pub fn play_sound(&mut self, path: &Path) -> Result<Uuid, String> {
+        if !self.has_output() {
+            return Err("No audio output device available".to_string());
+        }
+        let result = self.start_playback(path);
+        if let Err(e) = &result
+            && self.reported_failures.insert(path.to_path_buf())
+        {
+            LOGGER.warning(format!("Can't play {}: {}", path.display(), e));
+        }
+        result
+    }
+
+    fn start_playback(&mut self, path: &Path) -> Result<Uuid, String> {
         let sound_id = self.load_sound(path)?;
         let data = self
             .sound_cache
@@ -242,22 +239,23 @@ impl AudioEngine {
 
     // === Memory Management ===
 
+    /// Stop everything and forget cached sound data and reported failures.
     pub fn cleanup(&mut self) {
         self.stop_all();
         self.stop_immediate();
-        self.sound_cache.clear();
-        self.duration_cache.clear();
+        self.clear_cache();
     }
 
+    /// Forget cached sound data; files are read again on next play.
     pub fn clear_cache(&mut self) {
         self.sound_cache.clear();
-        self.duration_cache.clear();
+        self.reported_failures.clear();
     }
 
+    /// Forget one file's cached data, e.g. after it changed on disk.
     pub fn unload_sound(&mut self, path: &Path) {
-        let sound_id = Self::path_to_uuid(path);
-        self.sound_cache.remove(&sound_id);
-        self.duration_cache.remove(&sound_id);
+        self.sound_cache.remove(&Self::path_to_uuid(path));
+        self.reported_failures.remove(path);
     }
 
     pub fn get_memory_usage(&self) -> usize {

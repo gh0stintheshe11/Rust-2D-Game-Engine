@@ -1,21 +1,20 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use egui::{Key, PointerButton};
-
 use super::LuaScripting;
-use crate::input::InputHandler;
+use crate::input::{InputHandler, parse_key, parse_mouse_button};
 
-fn parse_mouse_button(name: &str) -> Result<PointerButton, mlua::Error> {
-    match name.to_lowercase().as_str() {
-        "left" => Ok(PointerButton::Primary),
-        "right" => Ok(PointerButton::Secondary),
-        "middle" => Ok(PointerButton::Middle),
-        other => Err(mlua::Error::external(format!(
+fn key(name: &str) -> Result<egui::Key, mlua::Error> {
+    parse_key(name).ok_or_else(|| mlua::Error::external(format!("Invalid key '{}'", name)))
+}
+
+fn mouse_button(name: &str) -> Result<egui::PointerButton, mlua::Error> {
+    parse_mouse_button(name).ok_or_else(|| {
+        mlua::Error::external(format!(
             "Invalid mouse button '{}' (expected \"left\", \"right\" or \"middle\")",
-            other
-        ))),
-    }
+            name
+        ))
+    })
 }
 
 impl LuaScripting {
@@ -25,29 +24,25 @@ impl LuaScripting {
     ) -> Result<(), mlua::Error> {
         let globals = self.lua.globals();
 
-        // is_key_just_pressed(key): true only on the frame the key went down
+        // is_key_just_pressed(key): true only on the frame the key went down.
+        // Key names are egui's ("Space", "A", "ArrowUp"), case-insensitive.
         let input = Rc::clone(input_handler);
-        let is_key_just_pressed = self.lua.create_function(move |_, key: String| {
-            let parsed_key = Key::from_name(&key)
-                .ok_or_else(|| mlua::Error::external(format!("Invalid key '{}'", key)))?;
-            Ok(input.borrow().is_key_just_pressed(parsed_key))
+        let is_key_just_pressed = self.lua.create_function(move |_, name: String| {
+            Ok(input.borrow().is_key_just_pressed(key(&name)?))
         })?;
         globals.set("is_key_just_pressed", is_key_just_pressed)?;
 
         // is_key_pressed(key): true while the key is held down
         let input = Rc::clone(input_handler);
-        let is_key_pressed = self.lua.create_function(move |_, key: String| {
-            let parsed_key = Key::from_name(&key)
-                .ok_or_else(|| mlua::Error::external(format!("Invalid key '{}'", key)))?;
-            Ok(input.borrow().is_key_pressed(parsed_key))
+        let is_key_pressed = self.lua.create_function(move |_, name: String| {
+            Ok(input.borrow().is_key_pressed(key(&name)?))
         })?;
         globals.set("is_key_pressed", is_key_pressed)?;
 
         // is_mouse_pressed("left" | "right" | "middle")
         let input = Rc::clone(input_handler);
-        let is_mouse_pressed = self.lua.create_function(move |_, button: String| {
-            let button = parse_mouse_button(&button)?;
-            Ok(input.borrow().is_mouse_button_pressed(button))
+        let is_mouse_pressed = self.lua.create_function(move |_, name: String| {
+            Ok(input.borrow().is_mouse_button_pressed(mouse_button(&name)?))
         })?;
         globals.set("is_mouse_pressed", is_mouse_pressed)?;
 

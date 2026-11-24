@@ -19,7 +19,7 @@ const API_GROUPS: &[(&str, &[ApiEntry])] = &[
             (
                 "is_key_just_pressed",
                 "is_key_just_pressed(\"Space\")",
-                "True only on the frame the key goes down",
+                "True only on the frame the key goes down (key names are case-insensitive)",
             ),
             (
                 "is_key_pressed",
@@ -41,6 +41,11 @@ const API_GROUPS: &[(&str, &[ApiEntry])] = &[
                 "get_scroll_delta()",
                 "Returns {x, y}; zero when not scrolling",
             ),
+            (
+                "keys_pressed",
+                "keys_pressed",
+                "Global array of held inputs: \"Ctrl\", key names, \"MouseLeft\", ...",
+            ),
         ],
     ),
     (
@@ -54,7 +59,7 @@ const API_GROUPS: &[(&str, &[ApiEntry])] = &[
             (
                 "apply_force",
                 "apply_force(entity_id, 0.0, 0.0)",
-                "Continuous force; reset after every physics step",
+                "Push for this frame; call every frame for a continuous force",
             ),
             (
                 "apply_impulse",
@@ -69,7 +74,7 @@ const API_GROUPS: &[(&str, &[ApiEntry])] = &[
             (
                 "set_gravity",
                 "set_gravity(0.0, 50.0)",
-                "Change the global gravity vector",
+                "Change the global gravity vector (reset on every Play)",
             ),
             (
                 "add_entity_to_physics_engine",
@@ -94,7 +99,7 @@ const API_GROUPS: &[(&str, &[ApiEntry])] = &[
             (
                 "remove_entity",
                 "remove_entity(scene_id, entity_id)",
-                "Delete an entity from the scene",
+                "Delete an entity (and its physics body)",
             ),
             (
                 "create_physical_entity",
@@ -109,7 +114,14 @@ const API_GROUPS: &[(&str, &[ApiEntry])] = &[
             (
                 "set_position",
                 "set_position(scene_id, entity_id, 0.0, 0.0)",
-                "Set x and y (z untouched)",
+                "Set x and y, moving the physics body too (z untouched)",
+            ),
+            ("set_x", "set_x(scene_id, entity_id, 0.0)", "Set x"),
+            ("set_y", "set_y(scene_id, entity_id, 0.0)", "Set y"),
+            (
+                "set_z",
+                "set_z(scene_id, entity_id, 0.0)",
+                "Set the draw order (higher is in front)",
             ),
             (
                 "add_image",
@@ -119,7 +131,7 @@ const API_GROUPS: &[(&str, &[ApiEntry])] = &[
             (
                 "set_script",
                 "set_script(entity_id, \"assets/scripts/logic.lua\")",
-                "Attach a script (path relative to the project)",
+                "Attach (or replace) the script (path relative to the project)",
             ),
             (
                 "list_entities_name_x_y",
@@ -161,6 +173,11 @@ const API_GROUPS: &[(&str, &[ApiEntry])] = &[
                 "create_attribute_vector2(scene_id, entity_id, \"name\", 0.0, 0.0)",
                 "Add a Vector2 attribute",
             ),
+            (
+                "update_entity_attribute_bool",
+                "update_entity_attribute_bool(scene_id, entity_id, \"name\", true)",
+                "Set a Boolean attribute (same as set_attribute)",
+            ),
         ],
     ),
     (
@@ -195,8 +212,14 @@ const API_GROUPS: &[(&str, &[ApiEntry])] = &[
             (
                 "accumulated_time",
                 "accumulated_time",
-                "Global: real seconds since play started",
+                "Global: game seconds since play started",
             ),
+            (
+                "delta_time",
+                "delta_time",
+                "Global: seconds since the previous frame",
+            ),
+            ("print", "print(\"message\")", "Write to the editor console"),
             (
                 "script_state",
                 "script_state.state.my_key",

@@ -101,35 +101,66 @@ impl InputHandler {
         }
     }
 
+    /// Names of everything held down this frame, sorted:
+    ///
+    /// - modifiers: `"Ctrl"`, `"Shift"`, `"Alt"`, and `"Cmd"` (the macOS
+    ///   Command key);
+    /// - keys, by their egui names (`"Space"`, `"A"`, `"ArrowLeft"`,
+    ///   `"ShiftLeft"`, ...), as accepted by [`parse_key`];
+    /// - mouse buttons: `"MouseLeft"`, `"MouseRight"`, `"MouseMiddle"`.
     pub fn get_all_active_inputs(&self) -> Vec<String> {
-        let mut all_inputs = Vec::new();
+        let modifiers = [
+            (self.modifiers.ctrl, "Ctrl"),
+            (self.modifiers.shift, "Shift"),
+            (self.modifiers.alt, "Alt"),
+            (self.modifiers.mac_cmd, "Cmd"),
+        ];
+        let mut inputs: Vec<String> = modifiers
+            .iter()
+            .filter(|(held, _)| *held)
+            .map(|(_, name)| name.to_string())
+            .chain(self.keys_pressed.iter().map(|key| key.name().to_string()))
+            .chain(
+                self.mouse_buttons
+                    .iter()
+                    .map(|b| mouse_button_name(*b).to_string()),
+            )
+            .collect();
+        inputs.sort();
+        inputs.dedup();
+        inputs
+    }
+}
 
-        // Add modifier keys if pressed
-        if self.modifiers.ctrl {
-            all_inputs.push("Ctrl".to_string());
-        }
-        if self.modifiers.shift {
-            all_inputs.push("Shift".to_string());
-        }
-        if self.modifiers.alt {
-            all_inputs.push("Alt".to_string());
-        }
-        if self.modifiers.command {
-            all_inputs.push("Cmd".to_string());
-        }
+/// Look up a key by its egui name (`"Space"`, `"A"`, `"ArrowUp"`, ...),
+/// ignoring case.
+pub fn parse_key(name: &str) -> Option<Key> {
+    Key::from_name(name).or_else(|| {
+        Key::ALL
+            .iter()
+            .find(|key| key.name().eq_ignore_ascii_case(name))
+            .copied()
+    })
+}
 
-        // Add all pressed keyboard keys, using the same names that
-        // egui::Key::from_name understands (so Lua scripts can compare
-        // keys_pressed entries with what is_key_just_pressed accepts)
-        for key in &self.keys_pressed {
-            all_inputs.push(key.name().to_string());
-        }
+/// Look up a mouse button: `"left"`, `"right"` or `"middle"`, with or
+/// without a `"Mouse"` prefix, ignoring case.
+pub fn parse_mouse_button(name: &str) -> Option<PointerButton> {
+    let name = name.to_ascii_lowercase();
+    match name.strip_prefix("mouse").unwrap_or(&name) {
+        "left" => Some(PointerButton::Primary),
+        "right" => Some(PointerButton::Secondary),
+        "middle" => Some(PointerButton::Middle),
+        _ => None,
+    }
+}
 
-        // Add all pressed mouse buttons
-        for button in &self.mouse_buttons {
-            all_inputs.push(format!("{:?}", button));
-        }
-
-        all_inputs
+fn mouse_button_name(button: PointerButton) -> &'static str {
+    match button {
+        PointerButton::Primary => "MouseLeft",
+        PointerButton::Secondary => "MouseRight",
+        PointerButton::Middle => "MouseMiddle",
+        PointerButton::Extra1 => "MouseExtra1",
+        PointerButton::Extra2 => "MouseExtra2",
     }
 }

@@ -21,7 +21,8 @@ A per-frame snapshot of [egui](https://crates.io/crates/egui)'s input state. Eac
 - **Lifecycle**: `new`, `handle_input(&egui::InputState)`
 - **Keyboard**: `is_key_pressed`, `is_key_just_pressed`
 - **Mouse**: `is_mouse_button_pressed`, `get_mouse_pos`, `get_mouse_delta`, `get_scroll_delta`
-- **Introspection**: `get_all_active_inputs` (string list of held modifiers, keys, and mouse buttons)
+- **Introspection**: `get_all_active_inputs` — sorted names of held modifiers (`"Ctrl"`, `"Shift"`, `"Alt"`, `"Cmd"` for the macOS Command key), keys (egui names such as `"Space"`, `"A"`, `"ShiftLeft"`) and mouse buttons (`"MouseLeft"`, `"MouseRight"`, `"MouseMiddle"`)
+- **Name lookup**: `parse_key(name)` (egui key names, case-insensitive), `parse_mouse_button(name)` (`"left"`/`"right"`/`"middle"`, optional `"Mouse"` prefix, case-insensitive)
 
 ## Known limitations / TODO
 

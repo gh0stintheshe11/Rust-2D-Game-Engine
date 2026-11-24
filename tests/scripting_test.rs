@@ -232,7 +232,7 @@ mod session_tests {
 
         let count: i64 = session
             .lua
-            .lua
+            .lua()
             .load("return script_state.state.count")
             .eval()
             .unwrap();
@@ -292,7 +292,7 @@ mod session_tests {
 
         let worked: bool = session
             .lua
-            .lua
+            .lua()
             .load("return script_state.state.worked == true")
             .eval()
             .unwrap();
@@ -330,7 +330,7 @@ mod session_tests {
 
         let (first, second): (i64, i64) = session
             .lua
-            .lua
+            .lua()
             .load("return script_state.state.first or 0, script_state.state.second or 0")
             .eval()
             .unwrap();
@@ -508,7 +508,7 @@ mod session_tests {
 
         session
             .lua
-            .lua
+            .lua()
             .load(format!("script_state.state.target = '{}'", entity_id))
             .exec()
             .unwrap();
@@ -538,7 +538,7 @@ mod session_tests {
 
         let (has_speed, has_nope, missing): (bool, bool, bool) = session
             .lua
-            .lua
+            .lua()
             .load(
                 "return script_state.state.has_speed, script_state.state.has_nope, \
                  script_state.state.missing",
@@ -581,7 +581,7 @@ mod session_tests {
 
         session
             .lua
-            .lua
+            .lua()
             .load(format!("script_state.state.target = '{}'", entity_id))
             .exec()
             .unwrap();
@@ -589,7 +589,7 @@ mod session_tests {
 
         let rejected: bool = session
             .lua
-            .lua
+            .lua()
             .load("return script_state.state.write_rejected == true")
             .eval()
             .unwrap();
@@ -636,7 +636,7 @@ mod session_tests {
 
         let (inits, updates, ordered): (i64, i64, bool) = session
             .lua
-            .lua
+            .lua()
             .load(
                 "return script_state.state.inits, script_state.state.updates, \
                  script_state.state.init_before_update == true",
@@ -731,7 +731,7 @@ mod session_tests {
 
         let (hits, other): (i64, String) = session
             .lua
-            .lua
+            .lua()
             .load("return script_state.state.hits or 0, script_state.state.last_other or ''")
             .eval()
             .unwrap();
@@ -763,7 +763,7 @@ mod session_tests {
 
         let (survived, silent): (bool, bool) = session
             .lua
-            .lua
+            .lua()
             .load(
                 "return script_state.state.survived == true, \
                  script_state.state.play_result == nil",
@@ -794,7 +794,7 @@ mod session_tests {
 
         let spawned: String = session
             .lua
-            .lua
+            .lua()
             .load("return script_state.state.spawned")
             .eval()
             .unwrap();
@@ -869,7 +869,7 @@ mod session_tests {
 
         let box_id: String = session
             .lua
-            .lua
+            .lua()
             .load("return script_state.state.box")
             .eval()
             .unwrap();
@@ -889,6 +889,245 @@ mod session_tests {
             entity.get_y() >= 40.0 && entity.get_y() < 41.0,
             "y = {}",
             entity.get_y()
+        );
+    }
+
+    fn console_contains(text: &str) -> bool {
+        rust_2d_game_engine::logger::LOGGER
+            .get_console_messages()
+            .iter()
+            .any(|message| message.text.contains(text))
+    }
+
+    /// Rewrite a script file and push its modification time forward, so the
+    /// change is detected even on coarse-grained file systems.
+    fn rewrite_script(session: &TestSession, name: &str, source: &str) {
+        let path = session.script_dir.join(format!("{}.lua", name));
+        std::fs::write(&path, source).unwrap();
+        let later = std::time::SystemTime::now() + std::time::Duration::from_secs(10);
+        std::fs::File::options()
+            .write(true)
+            .open(&path)
+            .unwrap()
+            .set_modified(later)
+            .unwrap();
+    }
+
+    fn state<T: mlua::FromLua>(session: &TestSession, key: &str) -> T {
+        session
+            .lua
+            .lua()
+            .load(format!("return script_state.state.{}", key))
+            .eval()
+            .unwrap()
+    }
+
+    #[test]
+    fn test_sandbox_hides_unsafe_libraries() {
+        let mut session = setup("sandbox");
+        add_scripted_entity(
+            &session,
+            "probe",
+            r#"
+            function update(scene_id, entity_id)
+                local s = script_state.state
+                s.io = io == nil
+                s.execute = os.execute == nil
+                s.remove = os.remove == nil
+                s.exit = os.exit == nil
+                s.require = require == nil
+                s.dofile = dofile == nil
+                s.clock = type(os.clock()) == "number"
+                s.binary = load(string.dump(function() end)) == nil
+            end
+            "#,
+        );
+        session.lua.run_scripts_for_scene(session.scene_id).unwrap();
+
+        for key in [
+            "io", "execute", "remove", "exit", "require", "dofile", "clock", "binary",
+        ] {
+            assert!(
+                state::<bool>(&session, key),
+                "sandbox check failed: {}",
+                key
+            );
+        }
+    }
+
+    #[test]
+    fn test_runaway_scripts_are_aborted() {
+        let mut session = setup("runaway");
+        add_scripted_entity(
+            &session,
+            "a_loop",
+            "function update(scene_id, entity_id) while true do end end",
+        );
+        add_scripted_entity(
+            &session,
+            "b_coroutine_loop",
+            r#"
+            function update(scene_id, entity_id)
+                coroutine.wrap(function() while true do end end)()
+            end
+            "#,
+        );
+        add_scripted_entity(
+            &session,
+            "c_survivor",
+            "function update(scene_id, entity_id) script_state.state.alive = true end",
+        );
+
+        let started = std::time::Instant::now();
+        session.lua.run_scripts_for_scene(session.scene_id).unwrap();
+        assert!(started.elapsed() < std::time::Duration::from_secs(10));
+        assert!(state::<bool>(&session, "alive"), "other scripts still run");
+        assert!(console_contains("infinite loop"));
+    }
+
+    #[test]
+    fn test_set_attribute_never_reenters_lua_while_borrowed() {
+        // A table whose __index calls back into the engine must not panic
+        // with "already borrowed": the value is read before borrowing
+        let mut session = setup("reentrant");
+        let entity_id = add_scripted_entity(
+            &session,
+            "reentrant",
+            r#"
+            function update(scene_id, entity_id)
+                local sneaky = setmetatable({}, {__index = function()
+                    return get_attribute(scene_id, entity_id, "x")
+                end})
+                script_state.state.ok = pcall(set_attribute, scene_id, entity_id, "spawn", sneaky)
+                set_attribute(scene_id, entity_id, "spawn", {x = 3, y = 4})
+            end
+            "#,
+        );
+        session
+            .scene_manager
+            .borrow_mut()
+            .get_scene_mut(session.scene_id)
+            .unwrap()
+            .get_entity_mut(entity_id)
+            .unwrap()
+            .create_attribute(
+                "spawn",
+                rust_2d_game_engine::scene::AttributeType::Vector2,
+                rust_2d_game_engine::scene::AttributeValue::Vector2(0.0, 0.0),
+            )
+            .unwrap();
+
+        session.lua.run_scripts_for_scene(session.scene_id).unwrap();
+
+        assert!(
+            !state::<bool>(&session, "ok"),
+            "a non-vector table is rejected"
+        );
+        let manager = session.scene_manager.borrow();
+        let entity = manager
+            .get_scene(session.scene_id)
+            .unwrap()
+            .get_entity(entity_id)
+            .unwrap();
+        assert_eq!(
+            entity.get_attribute_by_name("spawn").unwrap().value,
+            rust_2d_game_engine::scene::AttributeValue::Vector2(3.0, 4.0)
+        );
+    }
+
+    #[test]
+    fn test_hot_reload_keeps_script_variables() {
+        let mut session = setup("hot_reload");
+        add_scripted_entity(
+            &session,
+            "mover",
+            r#"
+            function init(scene_id, entity_id) speed = 5 end
+            function update(scene_id, entity_id) script_state.state.seen = speed end
+            "#,
+        );
+        session.lua.run_scripts_for_scene(session.scene_id).unwrap();
+        assert_eq!(state::<i64>(&session, "seen"), 5);
+
+        // Edited while playing: init doesn't run again, but `speed` survives
+        rewrite_script(
+            &session,
+            "mover",
+            r#"
+            function init(scene_id, entity_id) speed = 5 end
+            function update(scene_id, entity_id) script_state.state.seen = speed * 2 end
+            "#,
+        );
+        session.lua.run_scripts_for_scene(session.scene_id).unwrap();
+        assert_eq!(state::<i64>(&session, "seen"), 10);
+
+        // A broken edit keeps the last good version running
+        rewrite_script(&session, "mover", "function update(scene_id, entity_id");
+        session.lua.run_scripts_for_scene(session.scene_id).unwrap();
+        session.lua.run_scripts_for_scene(session.scene_id).unwrap();
+        assert_eq!(state::<i64>(&session, "seen"), 10);
+        assert!(console_contains("The previous version keeps running"));
+    }
+
+    #[test]
+    fn test_failed_init_pauses_the_entity() {
+        let mut session = setup("init_fails");
+        add_scripted_entity(
+            &session,
+            "fragile",
+            r#"
+            function init(scene_id, entity_id) error("boom") end
+            function update(scene_id, entity_id)
+                script_state.state.updates = (script_state.state.updates or 0) + 1
+            end
+            "#,
+        );
+        for _ in 0..3 {
+            session.lua.run_scripts_for_scene(session.scene_id).unwrap();
+        }
+        let updates: Option<i64> = state(&session, "updates");
+        assert_eq!(updates, None, "update must not run after a failed init");
+    }
+
+    #[test]
+    fn test_print_goes_to_the_console() {
+        let mut session = setup("print");
+        add_scripted_entity(
+            &session,
+            "talker",
+            r#"function update(scene_id, entity_id) print("hello from lua", 42, nil) end"#,
+        );
+        session.lua.run_scripts_for_scene(session.scene_id).unwrap();
+        assert!(console_contains("hello from lua\t42\tnil"));
+    }
+
+    #[test]
+    fn test_time_globals_and_lenient_input_names() {
+        let mut session = setup("time_input");
+        add_scripted_entity(
+            &session,
+            "reader",
+            r#"
+            function update(scene_id, entity_id)
+                script_state.state.dt = delta_time
+                script_state.state.t = accumulated_time
+                script_state.state.space = is_key_pressed("space")
+                script_state.state.mouse = is_mouse_pressed("MouseLeft")
+                script_state.state.stopped = stop_sound(nil) == nil and not is_sound_playing(nil)
+            end
+            "#,
+        );
+        session.lua.update_global_time(0.25).unwrap();
+        session.lua.update_global_time(0.5).unwrap();
+        session.lua.run_scripts_for_scene(session.scene_id).unwrap();
+
+        assert_eq!(state::<f64>(&session, "dt"), 0.5);
+        assert_eq!(state::<f64>(&session, "t"), 0.75);
+        assert!(!state::<bool>(&session, "space"));
+        assert!(!state::<bool>(&session, "mouse"));
+        assert!(
+            state::<bool>(&session, "stopped"),
+            "nil play ids are accepted"
         );
     }
 }

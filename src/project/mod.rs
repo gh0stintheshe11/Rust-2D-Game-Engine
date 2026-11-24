@@ -6,7 +6,7 @@ use crate::scene::SceneManager;
 use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::Write;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
 mod scene_io;
@@ -48,6 +48,18 @@ impl ProjectManager {
     pub fn get_project_path() -> Option<String> {
         let project_path_lock = PROJECT_PATH.read().unwrap();
         project_path_lock.clone()
+    }
+
+    /// Resolve a project-relative asset path (as scripts write them, e.g.
+    /// `assets/sounds/hit.ogg`) against the open project's root. Absolute
+    /// paths are returned unchanged, and so is everything when no project
+    /// is open.
+    pub fn resolve_asset_path(path: &str) -> PathBuf {
+        let path = Path::new(path);
+        match Self::get_project_path() {
+            Some(root) if path.is_relative() => Path::new(&root).join(path),
+            _ => path.to_path_buf(),
+        }
     }
 
     // Loads project metadata from project.epm.

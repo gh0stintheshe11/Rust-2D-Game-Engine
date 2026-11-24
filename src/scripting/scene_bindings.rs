@@ -1,5 +1,4 @@
 use std::cell::RefCell;
-use std::path::PathBuf;
 use std::rc::Rc;
 
 use super::{LuaScripting, parse_uuid};
@@ -185,10 +184,7 @@ impl LuaScripting {
                     let entity = scene.get_entity_mut(entity_uuid).map_err(|e| {
                         mlua::Error::external(format!("Entity '{}' not found: {}", entity_uuid, e))
                     })?;
-                    let project_path = ProjectManager::get_project_path().ok_or_else(|| {
-                        mlua::Error::external("No project is currently open".to_string())
-                    })?;
-                    let full_image_path = PathBuf::from(project_path).join(&image_path);
+                    let full_image_path = ProjectManager::resolve_asset_path(&image_path);
                     entity.add_image(full_image_path).map_err(|e| {
                         mlua::Error::external(format!(
                             "Failed to add image to entity '{}': {}",
@@ -211,10 +207,9 @@ impl LuaScripting {
                     let entity = scene.get_entity_mut(entity_uuid).map_err(|e| {
                         mlua::Error::external(format!("Entity '{}' not found: {}", entity_uuid, e))
                     })?;
-                    let project_path = ProjectManager::get_project_path().ok_or_else(|| {
-                        mlua::Error::external("No project is currently open".to_string())
-                    })?;
-                    let full_script_path = PathBuf::from(project_path).join(&script_path);
+                    let full_script_path = ProjectManager::resolve_asset_path(&script_path);
+                    // Replaces the entity's current script, if any
+                    let _ = entity.remove_script();
                     entity.set_script(full_script_path).map_err(|e| {
                         mlua::Error::external(format!(
                             "Failed to set script for entity '{}': {}",
@@ -225,6 +220,8 @@ impl LuaScripting {
                 })?;
         globals.set("set_script", set_script)?;
 
+        // update_entity_attribute_bool(scene_id, entity_id, name, value):
+        // set a Boolean attribute (older spelling of set_attribute)
         let manager = Rc::clone(scene_manager);
         let update_entity_attribute_bool = self.lua.create_function(
             move |_, (scene_id, entity_id, attr_name, value): (String, String, String, bool)| {
@@ -234,24 +231,22 @@ impl LuaScripting {
                 let scene = manager.get_scene_mut(scene_uuid).ok_or_else(|| {
                     mlua::Error::external(format!("Scene '{}' not found", scene_uuid))
                 })?;
-                let attr_id = scene
-                    .get_entity(entity_uuid)
-                    .map_err(|e| {
-                        mlua::Error::external(format!("Entity '{}' not found: {}", entity_uuid, e))
-                    })?
-                    .get_attribute_by_name(&attr_name)
-                    .map_err(|e| {
-                        mlua::Error::external(format!("Attribute '{}' not found: {}", attr_name, e))
-                    })?
-                    .id;
-                scene
-                    .update_entity_attribute(entity_uuid, attr_id, AttributeValue::Boolean(value))
-                    .map_err(|e| {
-                        mlua::Error::external(format!(
-                            "Failed to update attribute '{}': {}",
-                            attr_name, e
-                        ))
-                    })?;
+                let entity = scene.get_entity_mut(entity_uuid).map_err(|e| {
+                    mlua::Error::external(format!("Entity '{}' not found: {}", entity_uuid, e))
+                })?;
+                let attr = entity.get_attribute_by_name(&attr_name).map_err(|e| {
+                    mlua::Error::external(format!("Attribute '{}' not found: {}", attr_name, e))
+                })?;
+                if !matches!(attr.data_type, AttributeType::Boolean) {
+                    return Err(mlua::Error::external(format!(
+                        "Attribute '{}' is not a Boolean",
+                        attr_name
+                    )));
+                }
+                let attr_id = attr.id;
+                entity
+                    .modify_attribute(attr_id, None, None, Some(AttributeValue::Boolean(value)))
+                    .map_err(mlua::Error::external)?;
                 Ok(())
             },
         )?;
@@ -404,14 +399,20 @@ impl LuaScripting {
         globals.set("get_attribute", get_attribute)?;
 
         // set_attribute(scene_id, entity_id, name, value)
-        //   The Lua value is coerced to the attribute's declared type;
-        //   a mismatch or a missing attribute raises an error.
+        //   The Lua value is coerced to the attribute's declared type; a
+        //   mismatch or a missing attribute raises an error. Setting x, y or
+        //   position also moves the entity's physics body.
         let manager = Rc::clone(scene_manager);
+        let physics = Rc::clone(physics_engine);
         let set_attribute = self.lua.create_function(
             move |_, (scene_id, entity_id, name, value): (String, String, String, mlua::Value)| {
-                let mut manager = manager.borrow_mut();
                 let scene_uuid = parse_uuid(&scene_id, "scene")?;
                 let entity_uuid = parse_uuid(&entity_id, "entity")?;
+                // Read the Lua value completely before borrowing the scene:
+                // nothing may call back into Lua while the borrow is held
+                let value = ScriptValue::from_lua(&value)?;
+
+                let mut manager = manager.borrow_mut();
                 let scene = manager.get_scene_mut(scene_uuid).ok_or_else(|| {
                     mlua::Error::external(format!("Scene '{}' not found", scene_uuid))
                 })?;
@@ -422,51 +423,23 @@ impl LuaScripting {
                     mlua::Error::external(format!("Attribute '{}' not found: {}", name, e))
                 })?;
                 let attr_id = attr.id;
-                let attr_type = attr.data_type.clone();
-
-                let type_error = |expected: &str, got: &mlua::Value| {
-                    mlua::Error::external(format!(
-                        "Attribute '{}' is {}, got Lua {}",
-                        name,
-                        expected,
-                        got.type_name()
-                    ))
-                };
-
-                let new_value = match attr_type {
-                    AttributeType::Float => match &value {
-                        mlua::Value::Number(n) => AttributeValue::Float(*n as f32),
-                        mlua::Value::Integer(i) => AttributeValue::Float(*i as f32),
-                        other => return Err(type_error("a Float", other)),
-                    },
-                    AttributeType::Integer => match &value {
-                        mlua::Value::Integer(i) => AttributeValue::Integer(*i as i32),
-                        mlua::Value::Number(n) if n.fract() == 0.0 => {
-                            AttributeValue::Integer(*n as i32)
-                        }
-                        other => return Err(type_error("an Integer", other)),
-                    },
-                    AttributeType::Boolean => match &value {
-                        mlua::Value::Boolean(b) => AttributeValue::Boolean(*b),
-                        other => return Err(type_error("a Boolean", other)),
-                    },
-                    AttributeType::String => match &value {
-                        mlua::Value::String(s) => AttributeValue::String(s.to_str()?.to_string()),
-                        other => return Err(type_error("a String", other)),
-                    },
-                    AttributeType::Vector2 => match &value {
-                        mlua::Value::Table(t) => {
-                            let x: f32 = t.get("x").or_else(|_| t.get(1))?;
-                            let y: f32 = t.get("y").or_else(|_| t.get(2))?;
-                            AttributeValue::Vector2(x, y)
-                        }
-                        other => return Err(type_error("a Vector2 ({x, y} table)", other)),
-                    },
-                };
-
+                let new_value = value
+                    .coerce(&attr.data_type)
+                    .map_err(|e| mlua::Error::external(format!("Attribute '{}' {}", name, e)))?;
+                if let AttributeValue::Vector2(x, y) = new_value
+                    && name == "position"
+                {
+                    entity.set_x(x).map_err(mlua::Error::external)?;
+                    entity.set_y(y).map_err(mlua::Error::external)?;
+                }
                 entity
                     .modify_attribute(attr_id, None, None, Some(new_value))
                     .map_err(mlua::Error::external)?;
+                if matches!(name.as_str(), "x" | "y" | "position") {
+                    physics
+                        .borrow_mut()
+                        .set_position(entity_uuid, entity.get_x(), entity.get_y());
+                }
                 Ok(())
             },
         )?;
@@ -506,5 +479,84 @@ impl LuaScripting {
         globals.set("get_entity_name", get_entity_name)?;
 
         Ok(())
+    }
+}
+
+/// A Lua value converted to Rust, so engine state can be borrowed without
+/// any Lua code (e.g. a table's `__index`) running meanwhile.
+enum ScriptValue {
+    Number(f64),
+    Integer(i64),
+    Boolean(bool),
+    String(String),
+    Vector2(f32, f32),
+    Other(&'static str),
+}
+
+impl ScriptValue {
+    fn from_lua(value: &mlua::Value) -> mlua::Result<Self> {
+        Ok(match value {
+            mlua::Value::Number(n) => ScriptValue::Number(*n),
+            mlua::Value::Integer(i) => ScriptValue::Integer(*i),
+            mlua::Value::Boolean(b) => ScriptValue::Boolean(*b),
+            mlua::Value::String(s) => ScriptValue::String(s.to_str()?.to_string()),
+            mlua::Value::Table(table) => {
+                // {x = .., y = ..} or {.., ..}; raw reads skip metamethods
+                let component = |name: &str, index: i64| -> mlua::Result<Option<f32>> {
+                    let mut value: mlua::Value = table.raw_get(name)?;
+                    if value.is_nil() {
+                        value = table.raw_get(index)?;
+                    }
+                    Ok(match value {
+                        mlua::Value::Number(n) => Some(n as f32),
+                        mlua::Value::Integer(i) => Some(i as f32),
+                        _ => None,
+                    })
+                };
+                match (component("x", 1)?, component("y", 2)?) {
+                    (Some(x), Some(y)) => ScriptValue::Vector2(x, y),
+                    _ => ScriptValue::Other("table"),
+                }
+            }
+            other => ScriptValue::Other(other.type_name()),
+        })
+    }
+
+    fn type_name(&self) -> &'static str {
+        match self {
+            ScriptValue::Number(_) | ScriptValue::Integer(_) => "number",
+            ScriptValue::Boolean(_) => "boolean",
+            ScriptValue::String(_) => "string",
+            ScriptValue::Vector2(_, _) => "{x, y} table",
+            ScriptValue::Other(name) => name,
+        }
+    }
+
+    /// Convert to an attribute value of `data_type`, or explain why not.
+    fn coerce(self, data_type: &AttributeType) -> Result<AttributeValue, String> {
+        let got = self.type_name();
+        let mismatch = |expected: &str| format!("is {}, got Lua {}", expected, got);
+        match (data_type, self) {
+            (AttributeType::Float, ScriptValue::Number(n)) => Ok(AttributeValue::Float(n as f32)),
+            (AttributeType::Float, ScriptValue::Integer(i)) => Ok(AttributeValue::Float(i as f32)),
+            (AttributeType::Integer, ScriptValue::Integer(i)) => i32::try_from(i)
+                .map(AttributeValue::Integer)
+                .map_err(|_| format!("is an Integer; {} is out of range", i)),
+            (AttributeType::Integer, ScriptValue::Number(n))
+                if n.fract() == 0.0 && n >= i32::MIN as f64 && n <= i32::MAX as f64 =>
+            {
+                Ok(AttributeValue::Integer(n as i32))
+            }
+            (AttributeType::Integer, _) => Err(mismatch("an Integer")),
+            (AttributeType::Boolean, ScriptValue::Boolean(b)) => Ok(AttributeValue::Boolean(b)),
+            (AttributeType::String, ScriptValue::String(s)) => Ok(AttributeValue::String(s)),
+            (AttributeType::Vector2, ScriptValue::Vector2(x, y)) => {
+                Ok(AttributeValue::Vector2(x, y))
+            }
+            (AttributeType::Float, _) => Err(mismatch("a Float")),
+            (AttributeType::Boolean, _) => Err(mismatch("a Boolean")),
+            (AttributeType::String, _) => Err(mismatch("a String")),
+            (AttributeType::Vector2, _) => Err(mismatch("a Vector2 ({x, y} table)")),
+        }
     }
 }
