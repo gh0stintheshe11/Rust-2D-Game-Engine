@@ -8,10 +8,10 @@ use rust_2d_game_engine::logger::{ConsoleMessage, ConsoleMessageType, LOGGER};
 use rust_2d_game_engine::scripting::check_syntax;
 use rust_2d_game_engine::{
     audio::AudioEngine,
-    input::{InputContext, InputHandler},
+    input::InputHandler,
     physics::PhysicsEngine,
     render::RenderEngine,
-    runtime::{GameRuntime, RuntimeState},
+    runtime::{CameraMode, GameRuntime, RuntimeState},
     scene::SceneManager,
 };
 use std::fs;
@@ -69,15 +69,14 @@ impl EditorApp {
 
         let gui_state = GuiState::new();
         let render_engine = RenderEngine::new();
-        let mut input_handler = InputHandler::new();
-        input_handler.set_context(InputContext::EngineUI); // Make sure we start in EngineUI mode
+        let input_handler = InputHandler::new();
 
         // Create GameRuntime with all required components
         let game_runtime = GameRuntime::new(
             SceneManager::new(),
             PhysicsEngine::new(),
-            render_engine.clone(), // We'll need to implement Clone for RenderEngine
-            input_handler.clone(), // We'll need to implement Clone for InputHandler
+            RenderEngine::new(),
+            InputHandler::new(),
             AudioEngine::new(),
             60, // target fps
         );
@@ -387,10 +386,12 @@ impl EditorApp {
                                 runtime_state,
                                 RuntimeState::Playing | RuntimeState::Paused | RuntimeState::Ended
                             ) {
-                                // sync camera to runtime
-                                let position = self.render_engine.camera.position;
-                                let zoom = self.render_engine.camera.zoom;
-                                self.game_runtime.set_camera_state(position, zoom);
+                                // The game is shown through the editor's camera
+                                let camera = self.render_engine.camera;
+                                self.game_runtime.set_camera_mode(CameraMode::Free {
+                                    position: camera.position,
+                                    zoom: camera.zoom,
+                                });
 
                                 let game_view_rect = ui.available_rect_before_wrap();
                                 self.game_runtime.update(ctx, ui, game_view_rect);
@@ -452,14 +453,10 @@ impl EditorApp {
 
                                                     match self.game_runtime.run() {
                                                         Ok(_) => {
-                                                            self.game_runtime
-                                                                .set_state(RuntimeState::Playing);
                                                             LOGGER
                                                                 .info("Game started successfully");
                                                         }
                                                         Err(error) => {
-                                                            self.game_runtime
-                                                                .set_state(RuntimeState::Stopped);
                                                             LOGGER.error(format!(
                                                                 "Failed to start game: {}",
                                                                 error
@@ -470,16 +467,12 @@ impl EditorApp {
                                             }
                                             RuntimeState::Playing => {
                                                 if ui.button("⏸ Pause").clicked() {
-                                                    self.game_runtime
-                                                        .set_state(RuntimeState::Paused);
+                                                    self.game_runtime.pause();
                                                 }
                                             }
                                             RuntimeState::Paused => {
                                                 if ui.button("▶ Resume").clicked() {
-                                                    // Just unpause; the physics world and scene state
-                                                    // from before the pause are still loaded
-                                                    self.game_runtime
-                                                        .set_state(RuntimeState::Playing);
+                                                    self.game_runtime.resume();
                                                 }
                                             }
                                             RuntimeState::Ended => {
@@ -517,19 +510,11 @@ impl EditorApp {
                                 });
                             });
 
-                            // Handle input based on game state
-                            ctx.input(|input| {
-                                match self.game_runtime.get_state() {
-                                    RuntimeState::Playing => {
-                                        // When playing, route input directly to game runtime's input handler
-                                        self.game_runtime.handle_input(input);
-                                    }
-                                    _ => {
-                                        // When not playing, use engine UI input handler
-                                        self.input_handler.handle_input(input);
-                                    }
-                                }
-                            });
+                            // While playing, the runtime reads input itself (in
+                            // `update`); otherwise it drives the editor camera
+                            if self.game_runtime.get_state() != RuntimeState::Playing {
+                                ctx.input(|input| self.input_handler.handle_input(input));
+                            }
 
                             // Then handle editor viewport controls only when not playing
                             if self.game_runtime.get_state() != RuntimeState::Playing

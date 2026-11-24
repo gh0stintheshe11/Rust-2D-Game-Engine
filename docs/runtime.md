@@ -1,51 +1,79 @@
-# Game Runtime (`src/runtime/`)
+# Runtime (`src/runtime/`)
 
-Owns play-mode: the state machine (Playing / Paused / Stopped), the per-frame game loop, and the plumbing between ECS, physics, Lua, audio and rendering. Driven by egui's repaint loop — `EngineGui` calls `GameRuntime::update(ctx, ui, viewport_rect)` every frame the viewer is open.
+`GameRuntime` owns play mode: the state machine, the per-frame game loop, and
+the plumbing between scenes, scripts, physics, audio and rendering. The editor
+and the standalone player ([`src/player.rs`](../src/player.rs)) call
+`update(ctx, ui, viewport_rect)` every frame, which is:
+
+1. feed egui's input into the `InputHandler`,
+2. `tick(frame_dt)` — advance the simulation (headless, used directly by tests),
+3. `paint(ui, viewport_rect)` — draw the scene (skipped when stopped).
 
 ## Ownership
 
-`SceneManager`, `PhysicsEngine` and `InputHandler` are held as `Rc<RefCell<...>>` because Lua bindings keep handles to them (see [scripting.md](scripting.md)). `RenderEngine` and `AudioEngine` are plain fields — scripts don't touch them.
+The scene manager, physics engine, input handler and audio engine are
+`Rc<RefCell<…>>` because Lua bindings hold handles to them (see
+[scripting.md](scripting.md)). The `RenderEngine` is a plain field.
 
 ```mermaid
 graph TD
-    EG[EngineGui] -->|update per frame| GR[GameRuntime]
+    U["editor / player"] -->|"update() every frame"| GR[GameRuntime]
     GR --> SM["Rc&lt;RefCell&lt;SceneManager&gt;&gt;"]
     GR --> PE["Rc&lt;RefCell&lt;PhysicsEngine&gt;&gt;"]
     GR --> IH["Rc&lt;RefCell&lt;InputHandler&gt;&gt;"]
+    GR --> AE["Rc&lt;RefCell&lt;AudioEngine&gt;&gt;"]
     GR --> RE[RenderEngine]
-    GR --> AE[AudioEngine]
     GR --> LS[LuaScripting]
     LS -.->|bindings hold Rc handles| SM
     LS -.-> PE
     LS -.-> IH
+    LS -.-> AE
 ```
 
 ## State machine
 
-| Transition | What happens |
-|---|---|
-| ▶ Play (`run()`) | Native `Game::init` (if set) → ensure an active scene → `physics.cleanup()` + `load_scene` (fresh world, no leaked bodies) → `lua.start_session(...)` → Playing. A **dev snapshot** of the scene manager is taken on the first Play |
-| ⏸ Pause | Stops simulation; the scene keeps rendering (velocities and physics world are preserved) |
-| ▶ Resume | Just unpauses — nothing is reloaded |
-| Script `end_game()` | Game over: transitions to `Ended` after that frame's scripts finish. The final frame stays visible, input returns to the editor, and only Reset exits the state (the editor grays out the play controls) |
-| ⏹ Stop / Reset | Physics/render/audio cleanup, scene manager restored from the dev snapshot, snapshot dropped (next Play snapshots current editor state), input context back to `EngineUI` |
+| Call | From → to | What happens |
+|---|---|---|
+| `run()` | Stopped → Playing | Activates the first scene if none is active, remembers the scenes' initial state, loads a fresh physics world (default gravity), starts a fresh Lua session. Running from another state resets first |
+| `pause()` / `resume()` | Playing ⇄ Paused | Simulation and audio freeze; the scene keeps rendering |
+| script calls `end_game()` | Playing → Ended | Detected after the scripts or after a physics step; sounds stop and the last frame stays visible |
+| `reset()` | any → Stopped | Physics, render caches and audio cleared; scenes restored to their initial state |
+| `restart()` | any → Playing | `reset()` then `run()` (the player's "play again") |
 
-## Frame order (while Playing)
+## One tick (while Playing)
 
-1. Update render viewport + feed egui input into `InputHandler`
-2. Native `Game::update` (optional Rust game hook) with real frame dt
-3. Lua: advance `accumulated_time` by real dt, refresh `keys_pressed`, run entity scripts (once per rendered frame)
-4. Physics: **fixed-timestep accumulator** — real time is consumed in fixed steps of `1/target_fps` (max 5 catch-up steps per frame), so simulation speed is identical on 60Hz and 144Hz displays. Each step: `step(scene)` → NaN-filter → write position updates back into entity attributes
-5. Collision hooks: `on_collision` fires for contacts that began this frame (edge-triggered against the previous frame's contact sets)
-6. Audio: reap finished sinks
-7. Paint: build render queue, draw sprites (cached GPU textures, viewport-clipped UVs), then collider debug wireframes
+1. The frame time is capped at 5 physics steps (1/12 s at 60 Hz). Slower
+   frames run the whole game in slow motion, so scripts and physics always
+   see the same time.
+2. `physics.begin_frame(frame_dt)` — forces scripts apply this frame act for
+   this frame's duration.
+3. Lua: `accumulated_time += frame_dt`, `keys_pressed` refreshed, every
+   scripted entity's `update` runs (once per rendered frame).
+4. Physics runs as many fixed steps (`1/target_fps`) as the accumulated time
+   allows. After **each step**, `on_collision` fires for contacts that step
+   started, so short contacts aren't missed between frames.
+5. Finished sounds are reaped.
 
-Script errors and physics write-back failures are logged to the editor console (`LOGGER`) — they never panic the editor.
+Script errors are logged to the editor console and never stop the loop.
 
-## Known limitations / TODO
+## Painting and cameras
 
-- Rendering runs at the display refresh rate; scripts run once per rendered frame (so per-frame script counters are refresh-dependent — use `accumulated_time` for real-time logic). Physics is fixed-step and refresh-independent.
-- Collider debug wireframes are always drawn — no toggle.
-- Shared entities (`SceneManager::shared_entities`) never reach physics or scripting; only `scene.entities` do.
-- The `Game` trait (native Rust game hook) is unused by the editor flow and untested.
-- `target_fps` only affects dt, not actual pacing.
+`set_camera_mode` picks the view:
+
+- `CameraMode::Game` (default, used by exported games): the scene's default
+  camera entity, scaled to fit the viewport and letterboxed with black bars
+  (see `render::game_view`).
+- `CameraMode::Free { position, zoom }`: a camera controlled by the caller.
+  The editor shows play mode through its own pan/zoom camera and draws the
+  game camera's frame as a red rectangle.
+
+Sprites, then collider debug outlines, are clipped to the visible area.
+
+## Known limitations
+
+- Scripts run once per rendered frame, so per-frame counters depend on the
+  refresh rate; use `accumulated_time` for timing.
+- Collider debug outlines are always drawn while playing.
+- Shared entities (`SceneManager::shared_entities`) never reach physics or
+  scripts.
+- In the editor, the game only advances while the Viewer tab is shown.

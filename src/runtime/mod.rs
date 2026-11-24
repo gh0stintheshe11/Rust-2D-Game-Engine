@@ -1,337 +1,300 @@
+//! Play mode: the state machine and the per-frame game loop tying scenes,
+//! scripts, physics, audio and rendering together.
+//!
+//! [`GameRuntime::update`] is what the editor and the standalone player call
+//! every frame. It is [`tick`](GameRuntime::tick) (simulation, headless and
+//! testable) followed by [`paint`](GameRuntime::paint).
+
 use crate::{
-    audio::AudioEngine,
-    input::{InputContext, InputHandler},
-    logger::LOGGER,
-    physics::PhysicsEngine,
-    render::RenderEngine,
-    scene::SceneManager,
-    scripting::LuaScripting,
+    audio::AudioEngine, input::InputHandler, logger::LOGGER, physics::PhysicsEngine,
+    render::RenderEngine, scene::SceneManager, scripting::LuaScripting,
 };
 use egui::Rect;
-use std::any::Any;
 use std::cell::{Ref, RefCell};
 use std::rc::Rc;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+/// At most this many fixed physics steps run per rendered frame; slower
+/// frames make the whole game (scripts included) run in slow motion instead
+/// of spiraling into ever longer catch-up work.
+const MAX_STEPS_PER_FRAME: u32 = 5;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RuntimeState {
     Playing,
     Paused,
     /// A script ended the game (e.g. player death). The final frame stays
-    /// on screen; the only way out is Reset.
+    /// on screen; the only way out is a reset.
     Ended,
     Stopped,
 }
 
-pub trait Game: Any {
-    fn init(&mut self, scene_manager: &mut SceneManager);
-    fn update(&mut self, scene_manager: &mut SceneManager, input: &InputHandler, delta_time: f32);
-    fn reset(&mut self, scene_manager: &mut SceneManager);
+/// Which view of the world [`GameRuntime::paint`] draws.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum CameraMode {
+    /// The scene's default camera entity, scaled to fit the viewport and
+    /// letterboxed. Used by exported games.
+    Game,
+    /// A camera controlled by the caller (the editor's pan and zoom).
+    Free { position: (f32, f32), zoom: f32 },
 }
 
 /// Owns the play-mode state of the engine.
 ///
-/// The scene manager, physics engine and input handler are shared via
-/// `Rc<RefCell<...>>` because Lua script bindings hold handles to them;
-/// see `LuaScripting::start_session`.
+/// The scene manager, physics engine, input handler and audio engine are
+/// shared via `Rc<RefCell<...>>` because Lua script bindings hold handles to
+/// them; see `LuaScripting::start_session`.
 pub struct GameRuntime {
     scene_manager: Rc<RefCell<SceneManager>>,
-    dev_state_snapshot: Option<SceneManager>, // Store entire dev state
+    /// The scenes as they were when `run` started, restored by `reset`
+    initial_state: Option<SceneManager>,
     physics_engine: Rc<RefCell<PhysicsEngine>>,
     render_engine: RenderEngine,
     input_handler: Rc<RefCell<InputHandler>>,
     audio_engine: Rc<RefCell<AudioEngine>>,
-    running: bool,
     state: RuntimeState,
-    game: Option<Box<dyn Game>>,
     lua_scripting: LuaScripting,
+    camera_mode: CameraMode,
     // Fixed-timestep accumulator: real time not yet consumed by physics steps
     time_accumulator: f32,
 }
 
 impl GameRuntime {
+    /// `target_fps` is the fixed simulation rate; rendering runs at the
+    /// display refresh rate and physics catches up in fixed steps.
     pub fn new(
         scene_manager: SceneManager,
         mut physics_engine: PhysicsEngine,
         render_engine: RenderEngine,
-        mut input_handler: InputHandler,
+        input_handler: InputHandler,
         audio_engine: AudioEngine,
         target_fps: u32,
     ) -> Self {
-        // Make sure we start in EngineUI mode
-        input_handler.set_context(InputContext::EngineUI);
-
-        // target_fps is the fixed simulation rate; rendering runs at the
-        // display refresh rate and physics catches up in fixed steps
-        physics_engine.set_time_step(1.0 / target_fps as f32);
+        physics_engine.set_time_step(1.0 / target_fps.max(1) as f32);
 
         Self {
             scene_manager: Rc::new(RefCell::new(scene_manager)),
-            dev_state_snapshot: None,
+            initial_state: None,
             physics_engine: Rc::new(RefCell::new(physics_engine)),
             render_engine,
             input_handler: Rc::new(RefCell::new(input_handler)),
             audio_engine: Rc::new(RefCell::new(audio_engine)),
-            running: false,
             state: RuntimeState::Stopped,
-            game: None,
             lua_scripting: LuaScripting::new(),
+            camera_mode: CameraMode::Game,
             time_accumulator: 0.0,
         }
-    }
-
-    pub fn is_playing(&self) -> bool {
-        matches!(self.state, RuntimeState::Playing)
-    }
-
-    pub fn is_paused(&self) -> bool {
-        matches!(self.state, RuntimeState::Paused)
     }
 
     pub fn get_state(&self) -> RuntimeState {
         self.state
     }
 
-    pub fn set_state(&mut self, state: RuntimeState) {
-        match state {
-            RuntimeState::Playing => {
-                // Take dev snapshot before playing
-                if self.dev_state_snapshot.is_none() {
-                    self.dev_state_snapshot = Some(self.scene_manager.borrow().clone());
-                }
-
-                // Switch to game mode only when playing
-                self.input_handler
-                    .borrow_mut()
-                    .set_context(InputContext::Game);
-                self.running = true;
-            }
-            RuntimeState::Paused => {
-                // Stay in game mode but paused
-                self.running = false;
-            }
-            RuntimeState::Ended => {
-                // Game over: freeze the frame, hand input back to the editor.
-                // The world stays loaded so the final state remains visible.
-                self.input_handler
-                    .borrow_mut()
-                    .set_context(InputContext::EngineUI);
-                self.running = false;
-            }
-            RuntimeState::Stopped => {
-                // Switch back to editor mode
-                self.input_handler
-                    .borrow_mut()
-                    .set_context(InputContext::EngineUI);
-                self.physics_engine.borrow_mut().cleanup();
-                self.running = false;
-            }
-        }
-        self.state = state;
+    pub fn is_playing(&self) -> bool {
+        self.state == RuntimeState::Playing
     }
 
-    pub fn reset(&mut self) {
-        // First stop everything
-        self.set_state(RuntimeState::Stopped);
-
-        // Clear all engines
-        self.physics_engine.borrow_mut().cleanup();
-        self.render_engine.cleanup();
-        self.audio_engine.borrow_mut().cleanup();
-
-        // Restore the pre-play editor state, then drop the snapshot so the
-        // next Play captures the current editor state instead of this stale one
-        if let Some(snapshot) = self.dev_state_snapshot.take() {
-            *self.scene_manager.borrow_mut() = snapshot;
-        }
-
-        // Stay in Stopped state, waiting for user to hit play
+    pub fn is_paused(&self) -> bool {
+        self.state == RuntimeState::Paused
     }
 
+    /// Start playing the active scene (the first scene if none is active):
+    /// fresh physics world, fresh Lua session. Starting while not
+    /// [`Stopped`](RuntimeState::Stopped) resets first.
     pub fn run(&mut self) -> Result<(), String> {
-        // Initialize game if we have one
-        if let Some(game) = &mut self.game {
-            game.init(&mut self.scene_manager.borrow_mut());
+        if self.state != RuntimeState::Stopped {
+            self.reset();
         }
 
         {
             let mut manager = self.scene_manager.borrow_mut();
-            let scene_ids: Vec<uuid::Uuid> =
-                manager.list_scene().iter().map(|(id, _)| *id).collect();
-
-            if scene_ids.is_empty() {
+            let Some(first_scene) = manager.list_scene().first().map(|(id, _)| *id) else {
                 return Err("Cannot run: No scenes in project. Create a scene first.".to_string());
-            }
-
-            // If no active scene but we have scenes, set the first one as active
+            };
             if manager.get_active_scene().is_none() {
-                manager.set_active_scene(scene_ids[0])?;
+                manager.set_active_scene(first_scene)?;
             }
+            self.initial_state = Some(manager.clone());
         }
 
-        // Load the scene into physics engine, replacing any previously
-        // loaded physics world so repeated runs don't leak duplicate bodies
+        // Load the scene into a fresh physics world
         {
             let mut physics = self.physics_engine.borrow_mut();
             physics.cleanup();
-            let manager = self.scene_manager.borrow();
-            if let Some(scene) = manager.get_active_scene() {
+            if let Some(scene) = self.scene_manager.borrow().get_active_scene() {
                 physics.load_scene(scene);
             }
         }
 
-        // Start a fresh Lua session (new VM + engine bindings)
-        self.lua_scripting
-            .start_session(
-                Rc::clone(&self.scene_manager),
-                Rc::clone(&self.physics_engine),
-                Rc::clone(&self.input_handler),
-                Rc::clone(&self.audio_engine),
-            )
-            .map_err(|e| format!("Failed to start Lua session: {}", e))?;
+        if let Err(e) = self.lua_scripting.start_session(
+            Rc::clone(&self.scene_manager),
+            Rc::clone(&self.physics_engine),
+            Rc::clone(&self.input_handler),
+            Rc::clone(&self.audio_engine),
+        ) {
+            self.reset();
+            return Err(format!("Failed to start Lua session: {}", e));
+        }
 
         LOGGER.info("Game starting with active scene");
         self.time_accumulator = 0.0;
-        self.running = true;
         self.state = RuntimeState::Playing;
         Ok(())
     }
 
-    // This will be called from the eframe update loop
-    pub fn update(&mut self, ctx: &egui::Context, ui: &mut egui::Ui, viewport_rect: Rect) {
-        // Update viewport of the render engine
-        self.render_engine
-            .update_viewport_size(viewport_rect.width(), viewport_rect.height());
-
-        // Update input state first - IMPORTANT!
-        ctx.input(|input| {
-            self.input_handler.borrow_mut().handle_input(input);
-        });
-
-        // Only update game logic if we're running and in Playing state
-        if self.running && self.state == RuntimeState::Playing {
-            // Real elapsed time since the last frame (clamped so a stall -
-            // window drag, breakpoint - doesn't cause a huge catch-up burst)
-            let frame_dt = ctx.input(|i| i.stable_dt).min(0.25);
-
-            // Forces scripts apply this frame act for this frame's duration
-            self.physics_engine.borrow_mut().begin_frame(frame_dt);
-
-            // Update game logic with the input handler
-            if let Some(game) = &mut self.game {
-                game.update(
-                    &mut self.scene_manager.borrow_mut(),
-                    &self.input_handler.borrow(),
-                    frame_dt,
-                );
-            }
-
-            // Run scripts once per rendered frame with real delta time
-            if let Err(e) = self.lua_scripting.update_global_time(frame_dt) {
-                LOGGER.error(format!("Failed to update Lua time: {}", e));
-            }
-            if let Err(e) = self
-                .lua_scripting
-                .bind_keys_pressed(&self.input_handler.borrow())
-            {
-                LOGGER.error(format!("Failed to update Lua keys_pressed: {}", e));
-            }
-
-            let active_scene_id = self.scene_manager.borrow().active_scene;
-            if let Some(active_scene_id) = active_scene_id
-                && let Err(err) = self.lua_scripting.run_scripts_for_scene(active_scene_id)
-            {
-                LOGGER.error(format!(
-                    "Error running scripts for scene {}: {}",
-                    active_scene_id, err
-                ));
-            }
-
-            // A script may have requested the game to stop (e.g. player died)
-            if self.lua_scripting.take_game_stop_request() {
-                LOGGER.info("Game over: a script called end_game()");
-                self.set_state(RuntimeState::Ended);
-                self.paint_scene(ui, viewport_rect);
-                ctx.request_repaint();
-                return;
-            }
-
-            // Run physics on a fixed timestep, decoupled from the display
-            // refresh rate: accumulate real time and consume it in fixed
-            // steps so simulation speed is identical on 60Hz and 144Hz
-            // monitors.
-            let step_dt = self.physics_engine.borrow().get_time_step();
-            self.time_accumulator += frame_dt;
-            // Never run more than a handful of catch-up steps per frame
-            self.time_accumulator = self.time_accumulator.min(step_dt * 5.0);
-
-            let mut scene_lost = false;
-            while self.time_accumulator >= step_dt {
-                self.time_accumulator -= step_dt;
-
-                let mut manager = self.scene_manager.borrow_mut();
-                match manager.get_active_scene_mut() {
-                    Some(scene) => self.physics_engine.borrow_mut().step(scene),
-                    None => {
-                        scene_lost = true;
-                        break;
-                    }
-                }
-            }
-
-            if scene_lost {
-                // If we lost the active scene, stop the game
-                self.cleanup_and_reset();
-                ctx.request_repaint();
-                return;
-            }
-
-            // Fire on_collision hooks for contacts that began this frame
-            if let Some(active_scene_id) = active_scene_id {
-                if let Err(e) = self
-                    .lua_scripting
-                    .dispatch_collision_events(active_scene_id)
-                {
-                    LOGGER.error(format!("Error dispatching collision events: {}", e));
-                }
-                // A collision handler may have ended the game
-                if self.lua_scripting.take_game_stop_request() {
-                    LOGGER.info("Game over: a script called end_game()");
-                    self.set_state(RuntimeState::Ended);
-                    self.paint_scene(ui, viewport_rect);
-                    ctx.request_repaint();
-                    return;
-                }
-            }
-
-            // Run audio
-            self.audio_engine.borrow_mut().update();
-
-            // Render
-            self.paint_scene(ui, viewport_rect);
-        } else if matches!(self.state, RuntimeState::Paused | RuntimeState::Ended) {
-            // Keep drawing the current state while paused or after game over
-            self.paint_scene(ui, viewport_rect);
+    /// Freeze the simulation (and audio); the scene keeps rendering.
+    pub fn pause(&mut self) {
+        if self.state == RuntimeState::Playing {
+            self.audio_engine.borrow_mut().pause_all();
+            self.state = RuntimeState::Paused;
         }
+    }
 
+    /// Continue a paused game where it left off.
+    pub fn resume(&mut self) {
+        if self.state == RuntimeState::Paused {
+            self.audio_engine.borrow_mut().resume_all();
+            self.state = RuntimeState::Playing;
+        }
+    }
+
+    /// Stop the game and restore the scenes to how they were when it
+    /// started.
+    pub fn reset(&mut self) {
+        self.state = RuntimeState::Stopped;
+        self.time_accumulator = 0.0;
+        self.physics_engine.borrow_mut().cleanup();
+        self.render_engine.clear_cache();
+        self.audio_engine.borrow_mut().cleanup();
+        if let Some(initial) = self.initial_state.take() {
+            *self.scene_manager.borrow_mut() = initial;
+        }
+    }
+
+    /// Reset and start again, e.g. after game over.
+    pub fn restart(&mut self) -> Result<(), String> {
+        self.reset();
+        self.run()
+    }
+
+    /// One rendered frame: feed input, advance the game by the frame's real
+    /// duration, and paint it (unless stopped).
+    pub fn update(&mut self, ctx: &egui::Context, ui: &mut egui::Ui, viewport_rect: Rect) {
+        ctx.input(|input| self.input_handler.borrow_mut().handle_input(input));
+        let frame_dt = ctx.input(|i| i.stable_dt);
+        self.tick(frame_dt);
+        if self.state != RuntimeState::Stopped {
+            self.paint(ui, viewport_rect);
+        }
         ctx.request_repaint();
     }
 
-    /// Paint the active scene (sprites + collider debug shapes) into the
-    /// viewport. Used by both the playing and paused states.
-    fn paint_scene(&mut self, ui: &mut egui::Ui, viewport_rect: Rect) {
-        let render_queue = {
-            let manager = self.scene_manager.borrow();
-            match manager.get_active_scene() {
-                Some(scene) => self.render_engine.render(scene),
-                None => return,
-            }
+    /// Advance the game by one rendered frame of `frame_dt` seconds: scripts
+    /// run once, then physics catches up in fixed steps, each followed by
+    /// the `on_collision` hooks of contacts it started. Does nothing unless
+    /// playing.
+    pub fn tick(&mut self, frame_dt: f32) {
+        if self.state != RuntimeState::Playing {
+            return;
+        }
+        let Some(scene_id) = self.scene_manager.borrow().active_scene else {
+            LOGGER.error("The active scene is gone; stopping the game");
+            self.reset();
+            return;
         };
 
-        // Clip all game drawing to the viewport; the GPU scissor handles
-        // partial visibility (also correct for rotated sprites, unlike
-        // manual UV clipping)
-        let painter = ui.painter().with_clip_rect(viewport_rect);
+        let step_dt = self.physics_engine.borrow().get_time_step();
+        // Scripts and physics see the same (clamped) time
+        let frame_dt = frame_dt.clamp(0.0, step_dt * MAX_STEPS_PER_FRAME as f32);
+        self.physics_engine.borrow_mut().begin_frame(frame_dt);
 
+        if let Err(e) = self.lua_scripting.update_global_time(frame_dt) {
+            LOGGER.error(format!("Failed to update Lua time: {}", e));
+        }
+        if let Err(e) = self
+            .lua_scripting
+            .bind_keys_pressed(&self.input_handler.borrow())
+        {
+            LOGGER.error(format!("Failed to update Lua keys_pressed: {}", e));
+        }
+        if let Err(e) = self.lua_scripting.run_scripts_for_scene(scene_id) {
+            LOGGER.error(format!(
+                "Error running scripts for scene {}: {}",
+                scene_id, e
+            ));
+        }
+        if self.end_if_requested() {
+            return;
+        }
+
+        self.time_accumulator += frame_dt;
+        while self.time_accumulator >= step_dt {
+            self.time_accumulator -= step_dt;
+            {
+                let mut manager = self.scene_manager.borrow_mut();
+                let Some(scene) = manager.get_scene_mut(scene_id) else {
+                    break;
+                };
+                self.physics_engine.borrow_mut().step(scene);
+            }
+            if let Err(e) = self.lua_scripting.dispatch_collision_events(scene_id) {
+                LOGGER.error(format!("Error dispatching collision events: {}", e));
+            }
+            if self.end_if_requested() {
+                return;
+            }
+        }
+
+        self.audio_engine.borrow_mut().update();
+    }
+
+    /// Switch to [`Ended`](RuntimeState::Ended) if a script called
+    /// `end_game()`.
+    fn end_if_requested(&mut self) -> bool {
+        if !self.lua_scripting.take_game_stop_request() {
+            return false;
+        }
+        LOGGER.info("Game over: a script called end_game()");
+        self.audio_engine.borrow_mut().stop_all();
+        self.state = RuntimeState::Ended;
+        true
+    }
+
+    /// Paint the active scene (sprites and collider outlines) into
+    /// `viewport_rect`, through the current [`CameraMode`].
+    pub fn paint(&mut self, ui: &mut egui::Ui, viewport_rect: Rect) {
+        let manager = self.scene_manager.borrow();
+        let Some(scene) = manager.get_active_scene() else {
+            return;
+        };
+
+        let mut clip_rect = viewport_rect;
+        match self.camera_mode {
+            CameraMode::Free { position, zoom } => {
+                self.render_engine.camera.position = position;
+                self.render_engine.camera.zoom = zoom;
+            }
+            CameraMode::Game => {
+                let viewport_size = (viewport_rect.width(), viewport_rect.height());
+                if let Some(view) = crate::render::game_view(scene, viewport_size) {
+                    self.render_engine.camera = view.camera;
+                    let (x, y, w, h) = view.frame;
+                    clip_rect =
+                        Rect::from_min_size(viewport_rect.min + egui::vec2(x, y), egui::vec2(w, h));
+                    // Letterbox bars around the camera frame
+                    ui.painter()
+                        .rect_filled(viewport_rect, 0.0, egui::Color32::BLACK);
+                }
+            }
+        }
+
+        self.render_engine
+            .update_viewport_size(viewport_rect.width(), viewport_rect.height());
+        let render_queue = self.render_engine.render(scene);
+        drop(manager);
+
+        // Clip all game drawing to the visible area; the GPU scissor also
+        // handles rotated sprites correctly
+        let painter = ui.painter().with_clip_rect(clip_rect);
         for entry in render_queue {
             let Some(texture) = self
                 .render_engine
@@ -339,73 +302,30 @@ impl GameRuntime {
             else {
                 continue;
             };
-
-            let texture_rect = egui::Rect::from_min_size(
-                egui::pos2(
-                    viewport_rect.min.x + entry.screen_pos.0,
-                    viewport_rect.min.y + entry.screen_pos.1,
-                ),
+            let rect = Rect::from_min_size(
+                viewport_rect.min + egui::vec2(entry.screen_pos.0, entry.screen_pos.1),
                 egui::vec2(entry.screen_size.0, entry.screen_size.1),
             );
-
-            crate::render::paint_sprite(&painter, texture.id(), texture_rect, entry.rotation);
+            crate::render::paint_sprite(&painter, texture.id(), rect, entry.rotation);
         }
 
-        // Collider debug outlines
         let outlines = self.physics_engine.borrow().collider_outlines();
         for outline in self.render_engine.render_colliders(&outlines) {
             crate::render::paint_collider_outline(&painter, &outline, viewport_rect.min);
         }
     }
 
-    pub fn stop(&mut self) {
-        self.cleanup_and_reset();
+    pub fn set_camera_mode(&mut self, mode: CameraMode) {
+        self.camera_mode = mode;
     }
 
-    fn cleanup_and_reset(&mut self) {
-        // Stop all running systems
-        self.running = false;
-        self.state = RuntimeState::Stopped;
-
-        // Cleanup engines
-        self.physics_engine.borrow_mut().cleanup();
-        self.render_engine.cleanup();
-        self.audio_engine.borrow_mut().cleanup();
-
-        // Restore dev state if needed
-        if let Some(snapshot) = self.dev_state_snapshot.take() {
-            *self.scene_manager.borrow_mut() = snapshot;
-        }
-
-        // Reset input context
-        self.input_handler
-            .borrow_mut()
-            .set_context(InputContext::EngineUI);
-    }
-
+    /// Replace the scenes, e.g. with the editor's current state before
+    /// playing. Takes effect at the next [`run`](Self::run).
     pub fn set_scene_manager(&mut self, scene_manager: SceneManager) {
         *self.scene_manager.borrow_mut() = scene_manager;
     }
 
     pub fn get_scene_manager(&self) -> Ref<'_, SceneManager> {
         self.scene_manager.borrow()
-    }
-
-    /// Feed the runtime's input handler with the latest egui input state.
-    pub fn handle_input(&self, input: &egui::InputState) {
-        self.input_handler.borrow_mut().handle_input(input);
-    }
-
-    pub fn get_input_context(&self) -> InputContext {
-        self.input_handler.borrow().get_context().clone()
-    }
-
-    pub fn set_game(&mut self, game: Box<dyn Game>) {
-        self.game = Some(game);
-    }
-
-    pub fn set_camera_state(&mut self, position: (f32, f32), zoom: f32) {
-        self.render_engine.camera.position = position;
-        self.render_engine.camera.zoom = zoom;
     }
 }

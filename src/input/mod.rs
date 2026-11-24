@@ -1,15 +1,9 @@
 use egui::{Key, PointerButton};
 use std::collections::HashSet;
 
-#[derive(Clone, Debug, PartialEq)]
-pub enum InputContext {
-    EngineUI,
-    Game,
-}
-
+/// Keyboard and mouse state, refreshed once per frame from egui's input.
 #[derive(Clone)]
 pub struct InputHandler {
-    context: InputContext,
     keys_pressed: HashSet<Key>,
     keys_just_pressed: HashSet<Key>,
     mouse_buttons: Vec<PointerButton>,
@@ -28,7 +22,6 @@ impl Default for InputHandler {
 impl InputHandler {
     pub fn new() -> Self {
         InputHandler {
-            context: InputContext::EngineUI,
             keys_pressed: HashSet::new(),
             keys_just_pressed: HashSet::new(),
             mouse_buttons: Vec::new(),
@@ -37,15 +30,6 @@ impl InputHandler {
             scroll_delta: egui::vec2(0.0, 0.0),
             modifiers: egui::Modifiers::default(),
         }
-    }
-
-    pub fn get_context(&self) -> &InputContext {
-        &self.context
-    }
-
-    pub fn set_context(&mut self, context: InputContext) {
-        println!("Input context changed to: {:?}", context);
-        self.context = context;
     }
 
     pub fn handle_input(&mut self, input: &egui::InputState) {

@@ -1,17 +1,22 @@
+//! Sprite rendering with egui: camera, texture caches and the render queue.
+//!
+//! Rendering is split in two: [`RenderEngine::render`] turns a scene into a
+//! z-sorted queue of draw commands in viewport-relative screen space, and the
+//! caller paints them with [`paint_sprite`] using GPU textures from
+//! [`RenderEngine::get_egui_texture`].
+
+use crate::logger::LOGGER;
 use crate::physics::{ColliderOutline, ColliderShape};
 use crate::scene::{AttributeValue, Scene};
-use image::GenericImageView;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use uuid::Uuid;
 
 mod camera;
-mod transform;
 
 pub use camera::Camera;
-pub use transform::Transform;
 
-/// One sprite draw command in screen space.
+/// One sprite draw command in viewport-relative screen space.
 #[derive(Debug, Clone)]
 pub struct RenderQueueEntry {
     pub entity_id: Uuid,
@@ -103,20 +108,66 @@ pub fn paint_collider_outline(
     }
 }
 
+/// Decoded RGBA pixels of one image file.
 #[derive(Debug, Clone)]
 pub struct TextureInfo {
     pub data: Vec<u8>,
-    pub dimensions: (u32, u32), // Original width and height in pixels
-    pub aspect_ratio: f32,
+    /// Width and height in pixels.
+    pub dimensions: (u32, u32),
 }
 
+/// How a scene's default camera maps onto a viewport.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct GameView {
+    /// Render camera showing the camera entity's frame, scaled to fit.
+    pub camera: Camera,
+    /// Viewport-relative rect `(x, y, width, height)` covered by the camera
+    /// frame; the rest of the viewport is letterboxing.
+    pub frame: (f32, f32, f32, f32),
+}
+
+/// Fit the scene's default camera into a viewport of `viewport_size`.
+///
+/// The camera entity's `x`/`y` is the center of its frame; the frame shows
+/// `width / zoom` by `height / zoom` world units and is scaled uniformly to
+/// fit the viewport (letterboxed when the aspect ratios differ). Returns
+/// `None` when the scene has no usable camera.
+pub fn game_view(scene: &Scene, viewport_size: (f32, f32)) -> Option<GameView> {
+    let camera = scene.get_entity(scene.default_camera?).ok()?;
+    let zoom = camera.get_camera_zoom();
+    let frame_w = camera.get_camera_width() / zoom;
+    let frame_h = camera.get_camera_height() / zoom;
+    let (viewport_w, viewport_h) = viewport_size;
+    if !(frame_w > 0.0 && frame_h > 0.0 && viewport_w > 0.0 && viewport_h > 0.0) {
+        return None;
+    }
+
+    let scale = (viewport_w / frame_w).min(viewport_h / frame_h);
+    let shown = (frame_w * scale, frame_h * scale);
+    let offset = ((viewport_w - shown.0) / 2.0, (viewport_h - shown.1) / 2.0);
+    let frame_left = camera.get_x() - frame_w / 2.0;
+    let frame_top = camera.get_y() - frame_h / 2.0;
+
+    Some(GameView {
+        camera: Camera {
+            position: (frame_left - offset.0 / scale, frame_top - offset.1 / scale),
+            zoom: scale,
+        },
+        frame: (offset.0, offset.1, shown.0, shown.1),
+    })
+}
+
+/// Turns scenes into draw commands and keeps decoded images and GPU textures
+/// cached by file path.
 #[derive(Clone)]
 pub struct RenderEngine {
     viewport_size: (f32, f32),
-    pub texture_cache: HashMap<Uuid, TextureInfo>,
+    texture_cache: HashMap<Uuid, TextureInfo>,
     // GPU-side textures, uploaded once per texture and reused every frame.
     // TextureHandle is an Arc internally, so cloning the engine shares them.
     egui_textures: HashMap<Uuid, egui::TextureHandle>,
+    // Images that failed to load; not retried until the cache is cleared
+    failed_textures: HashSet<Uuid>,
     pub camera: Camera,
 }
 
@@ -127,117 +178,109 @@ impl Default for RenderEngine {
 }
 
 impl RenderEngine {
+    pub fn new() -> Self {
+        Self {
+            viewport_size: (0.0, 0.0),
+            texture_cache: HashMap::new(),
+            egui_textures: HashMap::new(),
+            failed_textures: HashSet::new(),
+            camera: Camera::new(),
+        }
+    }
+
     /// Deterministic cache key for an image path.
     pub fn path_to_uuid(path: &Path) -> Uuid {
         Uuid::new_v5(&Uuid::NAMESPACE_URL, path.to_string_lossy().as_bytes())
     }
 
-    // Load texture and return its ID
-    fn load_texture(&mut self, path: &Path) -> Result<Uuid, String> {
+    /// Decode (once) the image at `path` and return its cache key, or `None`
+    /// if it can't be loaded. Failures are logged once per path.
+    fn load_texture(&mut self, path: &Path) -> Option<Uuid> {
         let texture_id = Self::path_to_uuid(path);
-
         if self.texture_cache.contains_key(&texture_id) {
-            return Ok(texture_id);
+            return Some(texture_id);
         }
-
-        let texture = self.load_texture_from_path(path)?;
-        self.texture_cache.insert(texture_id, texture);
-
-        Ok(texture_id)
+        if self.failed_textures.contains(&texture_id) {
+            return None;
+        }
+        match image::open(path) {
+            Ok(image) => {
+                let rgba = image.to_rgba8();
+                self.texture_cache.insert(
+                    texture_id,
+                    TextureInfo {
+                        dimensions: rgba.dimensions(),
+                        data: rgba.into_raw(),
+                    },
+                );
+                Some(texture_id)
+            }
+            Err(e) => {
+                LOGGER.warning(format!("Can't load image {}: {}", path.display(), e));
+                self.failed_textures.insert(texture_id);
+                None
+            }
+        }
     }
 
-    // Get texture data using path
+    /// Decoded pixels of an image that has been rendered at least once.
     pub fn get_texture(&self, path: &Path) -> Option<(&Vec<u8>, (u32, u32))> {
-        let texture_id = Self::path_to_uuid(path);
         self.texture_cache
-            .get(&texture_id)
+            .get(&Self::path_to_uuid(path))
             .map(|info| (&info.data, info.dimensions))
     }
 
-    // Core loading functionality
-    fn load_texture_from_path(&self, path: &Path) -> Result<TextureInfo, String> {
-        let img =
-            image::open(path).map_err(|e| format!("Failed to load image {:?}: {}", path, e))?;
-
-        let dimensions = img.dimensions();
-        let aspect_ratio = dimensions.0 as f32 / dimensions.1 as f32;
-        let rgba = img.to_rgba8();
-
-        Ok(TextureInfo {
-            data: rgba.to_vec(),
-            dimensions,
-            aspect_ratio,
-        })
-    }
-
-    // Modified render method to use z coordinate for ordering
+    /// Build the z-sorted (ascending) draw queue for the scene's entities
+    /// that have an image and are inside the viewport.
     pub fn render(&mut self, scene: &Scene) -> Vec<RenderQueueEntry> {
         let mut render_queue = Vec::new();
 
         for (entity_id, entity) in &scene.entities {
-            if let Ok(image_path) = entity.get_image(0) {
-                let texture_id = Self::path_to_uuid(Path::new(image_path));
+            let Ok(image_path) = entity.get_image(0) else {
+                continue;
+            };
+            let Some(texture_id) = self.load_texture(image_path) else {
+                continue;
+            };
+            let Some(texture_info) = self.texture_cache.get(&texture_id) else {
+                continue;
+            };
 
-                if !self.texture_cache.contains_key(&texture_id)
-                    && self.load_texture(Path::new(image_path)).is_ok()
-                {
-                    crate::logger::LOGGER
-                        .debug(format!("Loaded texture: {}", image_path.to_string_lossy()));
-                }
+            let rotation = match entity.get_attribute_by_name("rotation").map(|a| &a.value) {
+                Ok(AttributeValue::Float(degrees)) => degrees.to_radians(),
+                _ => 0.0,
+            };
+            let scale = match entity.get_attribute_by_name("scale").map(|a| &a.value) {
+                Ok(AttributeValue::Vector2(sx, sy)) => (*sx, *sy),
+                _ => (1.0, 1.0),
+            };
 
-                // Get position including z coordinate
-                let x = entity.get_x();
-                let y = entity.get_y();
-                let z = entity.get_z();
+            let screen_pos = self
+                .camera
+                .world_to_screen((entity.get_x(), entity.get_y()));
+            let width = texture_info.dimensions.0 as f32 * self.camera.zoom * scale.0;
+            let height = texture_info.dimensions.1 as f32 * self.camera.zoom * scale.1;
 
-                let transform = Transform {
-                    position: (x, y),
-                    rotation: entity
-                        .get_attribute_by_name("rotation")
-                        .and_then(|attr| match attr.value {
-                            AttributeValue::Float(r) => Ok(r),
-                            _ => Err("Invalid rotation attribute type".to_string()),
-                        })
-                        .unwrap_or(0.0)
-                        .to_radians(),
-
-                    scale: entity
-                        .get_attribute_by_name("scale")
-                        .and_then(|attr| match attr.value {
-                            AttributeValue::Vector2(sx, sy) => Ok((sx, sy)),
-                            _ => Err("Invalid scale attribute type".to_string()),
-                        })
-                        .unwrap_or((1.0, 1.0)),
-                };
-
-                if let Some(texture_info) = self.texture_cache.get(&texture_id) {
-                    let screen_pos = self.camera.world_to_screen(transform.position);
-                    let width =
-                        texture_info.dimensions.0 as f32 * self.camera.zoom * transform.scale.0;
-                    let height =
-                        texture_info.dimensions.1 as f32 * self.camera.zoom * transform.scale.1;
-
-                    // Viewport culling
-                    if screen_pos.0 <= self.viewport_size.0
-                        && screen_pos.0 + width >= 0.0
-                        && screen_pos.1 <= self.viewport_size.1
-                        && screen_pos.1 + height >= 0.0
-                    {
-                        render_queue.push(RenderQueueEntry {
-                            entity_id: *entity_id,
-                            texture_id,
-                            screen_pos,
-                            screen_size: (width, height),
-                            rotation: transform.rotation,
-                            z, // Use z coordinate directly for ordering
-                        });
-                    }
-                }
+            // Viewport culling
+            if screen_pos.0 <= self.viewport_size.0
+                && screen_pos.0 + width >= 0.0
+                && screen_pos.1 <= self.viewport_size.1
+                && screen_pos.1 + height >= 0.0
+            {
+                render_queue.push(RenderQueueEntry {
+                    entity_id: *entity_id,
+                    texture_id,
+                    screen_pos,
+                    screen_size: (width, height),
+                    rotation,
+                    z: entity.get_z(),
+                });
             }
         }
 
-        // Sort by z coordinate (lower z values are rendered first)
-        render_queue.sort_by(|a, b| a.z.partial_cmp(&b.z).unwrap_or(std::cmp::Ordering::Equal));
+        // Lower z values are drawn first; total_cmp keeps the order total
+        // (and the sort panic-free) even if a z is NaN
+        render_queue.sort_by(|a, b| a.z.total_cmp(&b.z));
         render_queue
     }
 
@@ -266,17 +309,9 @@ impl RenderEngine {
             .collect()
     }
 
-    pub fn new() -> Self {
-        Self {
-            viewport_size: (0.0, 0.0),
-            texture_cache: HashMap::new(),
-            egui_textures: HashMap::new(),
-            camera: Camera::new(),
-        }
-    }
-
     /// Get (or lazily upload) the GPU texture for a cached texture ID.
     /// The upload happens only once; subsequent calls reuse the handle.
+    /// Images larger than the GPU's maximum texture size are downscaled.
     pub fn get_egui_texture(
         &mut self,
         ctx: &egui::Context,
@@ -287,22 +322,13 @@ impl RenderEngine {
         }
 
         let info = self.texture_cache.get(&texture_id)?;
-        let image = egui::ColorImage::from_rgba_unmultiplied(
-            [info.dimensions.0 as usize, info.dimensions.1 as usize],
-            &info.data,
-        );
+        let max_side = ctx.input(|i| i.max_texture_side) as u32;
+        let image = color_image_within(info, max_side)?;
         let handle = ctx.load_texture(format!("texture_{}", texture_id), image, Default::default());
         self.egui_textures.insert(texture_id, handle.clone());
         Some(handle)
     }
 
-    // Memory management
-    pub fn cleanup_direct_textures(&mut self) {
-        self.texture_cache.clear();
-        self.egui_textures.clear();
-    }
-
-    // Keep existing methods unchanged
     pub fn update_viewport_size(&mut self, width: f32, height: f32) {
         self.viewport_size = (width, height);
     }
@@ -311,37 +337,37 @@ impl RenderEngine {
         self.viewport_size
     }
 
-    // Full cleanup including camera reset
+    /// Clear all caches and reset the camera.
     pub fn cleanup(&mut self) {
-        self.texture_cache.clear();
-        self.egui_textures.clear();
+        self.clear_cache();
         self.camera.reset();
     }
 
-    // Remove specific texture
+    /// Forget one image, e.g. after its file changed on disk.
     pub fn unload_texture(&mut self, path: &Path) {
         let texture_id = Self::path_to_uuid(path);
         self.texture_cache.remove(&texture_id);
         self.egui_textures.remove(&texture_id);
+        self.failed_textures.remove(&texture_id);
     }
 
-    // Just clear caches
+    /// Forget all decoded images and GPU textures; they are reloaded from
+    /// disk on the next render.
     pub fn clear_cache(&mut self) {
         self.texture_cache.clear();
         self.egui_textures.clear();
+        self.failed_textures.clear();
     }
 
-    // Monitor memory usage
+    /// Bytes of decoded image data held in the cache.
     pub fn get_memory_usage(&self) -> usize {
         self.texture_cache.values().map(|tex| tex.data.len()).sum()
     }
 
-    // Add this public method
     pub fn get_texture_info(&self, texture_id: &Uuid) -> Option<&TextureInfo> {
         self.texture_cache.get(texture_id)
     }
 
-    // Add this new method to draw grid
     /// Grid lines in screen space, aligned to world coordinates so the grid
     /// sticks to the world at any camera position and zoom. Spacing adapts
     /// (powers of two) so lines never get denser than ~24px on screen.
@@ -376,39 +402,53 @@ impl RenderEngine {
         lines
     }
 
-    // Add this method to get game camera bounds
+    /// The four edges, in screen space, of the frame the scene's default
+    /// camera shows (see [`game_view`]).
     pub fn get_game_camera_bounds(&self, scene: &Scene) -> Vec<((f32, f32), (f32, f32))> {
-        let mut lines = Vec::new();
-
-        if let Some(camera_id) = scene.default_camera
-            && let Ok(camera_entity) = scene.get_entity(camera_id)
-        {
-            let x = camera_entity.get_x();
-            let y = camera_entity.get_y();
-            let width = camera_entity.get_camera_width();
-            let height = camera_entity.get_camera_height();
-
-            // Convert game camera bounds to screen space using editor camera
-            let top_left = self
-                .camera
-                .world_to_screen((x - width / 2.0, y - height / 2.0));
-            let top_right = self
-                .camera
-                .world_to_screen((x + width / 2.0, y - height / 2.0));
-            let bottom_left = self
-                .camera
-                .world_to_screen((x - width / 2.0, y + height / 2.0));
-            let bottom_right = self
-                .camera
-                .world_to_screen((x + width / 2.0, y + height / 2.0));
-
-            // Add the lines for the rectangle
-            lines.push((top_left, top_right));
-            lines.push((bottom_left, bottom_right));
-            lines.push((top_left, bottom_left));
-            lines.push((top_right, bottom_right));
+        let Some(camera) = scene
+            .default_camera
+            .and_then(|id| scene.get_entity(id).ok())
+        else {
+            return Vec::new();
+        };
+        let zoom = camera.get_camera_zoom();
+        if zoom <= 0.0 {
+            return Vec::new();
         }
+        let (x, y) = (camera.get_x(), camera.get_y());
+        let half_w = camera.get_camera_width() / zoom / 2.0;
+        let half_h = camera.get_camera_height() / zoom / 2.0;
 
-        lines
+        let top_left = self.camera.world_to_screen((x - half_w, y - half_h));
+        let top_right = self.camera.world_to_screen((x + half_w, y - half_h));
+        let bottom_left = self.camera.world_to_screen((x - half_w, y + half_h));
+        let bottom_right = self.camera.world_to_screen((x + half_w, y + half_h));
+
+        vec![
+            (top_left, top_right),
+            (bottom_left, bottom_right),
+            (top_left, bottom_left),
+            (top_right, bottom_right),
+        ]
     }
+}
+
+/// The texture as an egui image no larger than `max_side` on either side.
+fn color_image_within(info: &TextureInfo, max_side: u32) -> Option<egui::ColorImage> {
+    let (width, height) = info.dimensions;
+    if width <= max_side && height <= max_side {
+        return Some(egui::ColorImage::from_rgba_unmultiplied(
+            [width as usize, height as usize],
+            &info.data,
+        ));
+    }
+    let image = image::RgbaImage::from_raw(width, height, info.data.clone())?;
+    let resized = image::DynamicImage::ImageRgba8(image)
+        .resize(max_side, max_side, image::imageops::FilterType::Triangle)
+        .to_rgba8();
+    let size = [resized.width() as usize, resized.height() as usize];
+    Some(egui::ColorImage::from_rgba_unmultiplied(
+        size,
+        resized.as_raw(),
+    ))
 }

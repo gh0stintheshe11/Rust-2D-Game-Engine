@@ -226,6 +226,20 @@ impl AudioEngine {
         }
     }
 
+    /// Pause every playing sound (e.g. while the game is paused).
+    pub fn pause_all(&mut self) {
+        for sink in self.active_sounds.values() {
+            sink.pause();
+        }
+    }
+
+    /// Resume every sound paused by [`pause_all`](Self::pause_all).
+    pub fn resume_all(&mut self) {
+        for sink in self.active_sounds.values() {
+            sink.play();
+        }
+    }
+
     // === Memory Management ===
 
     pub fn cleanup(&mut self) {

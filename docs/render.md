@@ -1,38 +1,69 @@
-# Render Engine (`src/render/`)
+# Rendering (`src/render/`)
 
-CPU-side scene renderer built on the **egui painter** — there is no wgpu/GPU pipeline. `render(scene)` produces a z-sorted queue of `(texture_id, screen_pos, screen_size, z)` entries; the actual drawing is done by callers (`GameRuntime::paint_scene` for play mode, `EngineGui::render_scene` for the editor viewport) via `ui.painter().image(...)`.
+Sprite rendering on top of the **egui painter**. `RenderEngine::render(scene)`
+turns a scene into a z-sorted queue of draw commands in viewport-relative
+screen space; callers paint them with `paint_sprite`, using GPU textures from
+`get_egui_texture`. Both the editor viewport and the runtime work this way.
 
 ## Key pieces
 
-| Type | Responsibility |
+| Item | Responsibility |
 |---|---|
-| `Camera` | Pan/zoom; `world_to_screen` maps world coords into the viewport |
-| `TextureInfo` | Decoded RGBA bytes + dimensions, cached in `texture_cache: HashMap<Uuid, TextureInfo>` keyed by a SHA-256-of-path pseudo-UUID (`path_to_uuid`) |
-| `egui_textures` | GPU-side `egui::TextureHandle` cache — each texture is uploaded **once** via `get_egui_texture(ctx, id)` and the handle is reused every frame |
-| `Transform` | position/rotation/scale holder (rotation attribute is in degrees, converted to radians for drawing) |
-| `Animation` | Frame-sequence struct — currently dead code, never instantiated |
+| `Camera` | `position` = world point at the viewport's top-left, `zoom` = screen pixels per world unit; `world_to_screen` |
+| `RenderEngine` | Owns a `Camera`, the viewport size, and caches of decoded images and GPU textures keyed by file path (`path_to_uuid`) |
+| `RenderQueueEntry` | One sprite: entity, texture, screen position and size, rotation (radians), z |
+| `paint_sprite` | Draws a textured rect, rotated around its center if needed |
+| `game_view(scene, viewport_size)` | Fits the scene's default camera into a viewport (see below) |
+| `render_colliders` / `paint_collider_outline` | Debug outlines of physics colliders, rotated with their bodies |
 
-## Frame flow
+## Sprites
 
 ```mermaid
 graph TD
-    S[Scene entities] -->|"first image + x/y/z"| R["render()"]
-    R -->|lazy-load images from disk| TC[texture_cache RGBA]
-    R -->|cull to viewport, sort by z| Q["render queue (id, pos, size, z)"]
-    Q --> P[caller paints via egui]
-    P -->|"get_egui_texture()"| GT["egui_textures (GPU, uploaded once)"]
+    S[Scene entities] -->|"first image, x/y/z, rotation, scale"| R["render()"]
+    R -->|"decode once per path"| TC["decoded RGBA cache"]
+    R -->|"cull to viewport, sort by z"| Q[render queue]
+    Q --> P["caller: paint_sprite()"]
+    P -->|"get_egui_texture(): upload once"| GT["GPU textures"]
 ```
 
-- Entity sprite = its **first** image (`entity.get_image(0)`); size = image pixel dimensions scaled by camera zoom (times an optional `scale` Vector2 attribute). An optional `rotation` Float attribute (in **degrees**) rotates the sprite around its center, rendered as a rotated mesh.
-- Culling is a simple AABB test against the viewport.
-- Helpers: `get_grid_lines()` (editor grid), `get_game_camera_bounds(scene)` (red camera rect), `render_colliders(&collider_data)` (debug wireframe queue).
+- An entity's sprite is its **first** image; `x`/`y` is the sprite's top-left
+  corner. Its size is the image's pixel size times the optional `scale`
+  Vector2 attribute times the camera zoom.
+- The optional `rotation` Float attribute (degrees) rotates the sprite around
+  its center (the physics engine writes it for rotating bodies).
+- Lower `z` is drawn first. The sort is total, so a NaN `z` can't break it.
+- Images that fail to load are skipped and reported once in the console; they
+  are retried only after the cache is cleared.
+- Images larger than the GPU's maximum texture size are downscaled on upload
+  (they still cover their full size on screen).
 
-## Cache invalidation
+## Game camera
 
-`cleanup()` / `clear_cache()` / `unload_texture(path)` clear both the CPU and GPU caches. If an image file changes on disk while the engine runs, it is **not** re-uploaded automatically (the pseudo-UUID only hashes the path).
+`game_view(scene, viewport_size)` turns the scene's default camera entity
+into a render camera:
 
-## Known limitations / TODO
+- The camera entity's `x`/`y` is the **center** of its frame; the frame shows
+  `width / zoom` × `height / zoom` world units (`width`, `height` and `zoom`
+  are attributes of the camera entity).
+- The frame is scaled uniformly to fit the viewport and centered; the
+  returned `frame` rect is the part of the viewport it covers (the rest is
+  letterboxing).
 
-- `Transform.scale` comes from an optional `scale` Vector2 attribute; there's no editor UI for it yet.
-- Same image referenced by relative *and* absolute path = two cache entries (path-string hashing).
-- The editor and the game runtime each own a cloned `RenderEngine` (duplicate caches; the runtime's camera is re-synced from the editor camera every frame).
+The runtime uses it for exported games; the editor draws the same frame as a
+red rectangle (`get_game_camera_bounds`).
+
+## Caches
+
+`clear_cache()` drops decoded images, GPU textures and remembered load
+failures; `unload_texture(path)` does so for one file; `cleanup()` also resets
+the camera. Images are not reloaded automatically when their file changes on
+disk.
+
+## Known limitations
+
+- The camera entity's `rotation` attribute is not applied.
+- The same image referenced through two different path spellings is cached
+  twice.
+- The editor and the runtime each own a `RenderEngine`, so images used in
+  both are decoded and uploaded twice.

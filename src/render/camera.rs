@@ -1,4 +1,6 @@
-#[derive(Clone)]
+/// 2D view: `position` is the world point at the viewport's top-left corner,
+/// `zoom` the number of screen pixels per world unit.
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Camera {
     pub position: (f32, f32),
     pub zoom: f32,
