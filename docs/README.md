@@ -8,10 +8,10 @@ known limitations). Any change to a module's behavior updates its document.
 | Document | Covers |
 |---|---|
 | [scene.md](scene.md) | Data model: scenes, entities, typed attributes, templates (`src/scene/`) |
-| [physics.md](physics.md) | rapier2d bodies and colliders from attributes, forces, gravity fields (`src/physics/`) |
+| [physics.md](physics.md) | rapier2d bodies and colliders from attributes, forces, trigger zones, collision layers, raycasts, gravity fields (`src/physics/`) |
 | [render.md](render.md) | Sprites (sheets and animation, mirroring, tint), text, camera framing, texture caches (`src/render/`) |
-| [scripting.md](scripting.md) | Lua sessions, hooks, hot reload, sandbox, the complete script API (`src/scripting/`) |
-| [runtime.md](runtime.md) | Play-mode state machine and the per-frame loop (`src/runtime/`, `src/player.rs`) |
+| [scripting.md](scripting.md) | Lua sessions, hooks, hot reload, sandbox, scenes and prefabs, the complete script API (`src/scripting/`) |
+| [runtime.md](runtime.md) | Play-mode state machine, the per-frame loop, switching scenes (`src/runtime/`, `src/player.rs`) |
 | [audio.md](audio.md) | Sound playback (`src/audio/`) |
 | [input.md](input.md) | Keyboard and mouse state, key names (`src/input/`) |
 | [project.md](project.md) | Project files and folders (`src/project/`); creating, importing, building (`editor/src/project/`) |
