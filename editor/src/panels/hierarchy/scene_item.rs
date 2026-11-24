@@ -1,8 +1,9 @@
+use crate::panels::hierarchy::popup::RenameTarget;
 use crate::panels::hierarchy::{
     SceneHierarchy,
     entity_item::{EntityDisplay, EntityItem},
 };
-use crate::state::{GuiState, ScenePanelSelectedItem, SelectedItem};
+use crate::state::{GuiState, ScenePanelSelectedItem};
 use egui::{Context, Ui};
 use uuid::Uuid;
 
@@ -110,17 +111,25 @@ impl SceneItem {
                 ScenePanelSelectedItem::Scene(s_id) if s_id == *scene_id
             );
 
-            let response = ui.selectable_label(selected, scene_name);
+            let is_active = gui_state
+                .scene_manager
+                .as_ref()
+                .is_some_and(|manager| manager.active_scene == Some(*scene_id));
+            let label = if is_active {
+                format!("{} (active)", scene_name)
+            } else {
+                scene_name.to_string()
+            };
+            let response = ui.selectable_label(selected, label);
             if response.clicked() {
-                gui_state.selected_item = SelectedItem::Scene(*scene_id);
-                gui_state.scene_panel_selected_item = ScenePanelSelectedItem::Scene(*scene_id);
+                gui_state.select_scene(*scene_id);
             }
 
             response.context_menu(|ui| {
                 if ui.button("Rename").clicked() {
                     hierarchy
                         .popup_manager
-                        .start_rename_scene(*scene_id, scene_name.to_string());
+                        .start_rename(RenameTarget::Scene(*scene_id), scene_name.to_string());
                     ui.close();
                 }
                 if ui.button("Delete").clicked() {
@@ -131,10 +140,19 @@ impl SceneItem {
                         ));
                     ui.close();
                 }
-                if ui.button("Set Active").clicked()
-                    && let Some(scene_manager) = &mut gui_state.scene_manager
+                if ui
+                    .add_enabled(!is_active, egui::Button::new("Set Active"))
+                    .on_hover_text("The scene that plays and that exported games start in")
+                    .clicked()
                 {
-                    let _ = scene_manager.set_active_scene(*scene_id);
+                    let activated = gui_state
+                        .scene_manager
+                        .as_mut()
+                        .is_some_and(|manager| manager.set_active_scene(*scene_id).is_ok());
+                    if activated {
+                        gui_state.commit_change();
+                    }
+                    ui.close();
                 }
             });
         });

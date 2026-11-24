@@ -1,75 +1,109 @@
-# Editor GUI (`editor/src/`)
+# Editor (`editor/`)
 
-The eframe application shell: one window containing the menu bar, the scene
-hierarchy + file browser (left), the inspector (right), the console (bottom),
-and a center area that is either the **game viewport** (Viewer tab) or the
-**script editor** (Editor tab).
+The `rust-2d-game-editor` binary: an eframe application with the menu bar,
+the scene hierarchy and file browser (left), the inspector (right), the
+console (bottom), and a center area that is either the **viewport** (Viewer
+tab) or the **script editor** (Editor tab).
 
-## Layout & modules
+## Modules
 
 | Piece | Module | Role |
 |---|---|---|
-| App shell | `app/mod.rs` | Panel layout, tab switching, exit flow, undo/redo shortcuts, viewport interaction |
-| Script editor | `app/script_editor.rs` | Code editing (see below) |
+| App shell | `app/mod.rs` | Layout, shortcuts, cross-panel requests, project switching |
+| Viewport | `app/viewport.rs` | Scene view, picking and dragging, editor camera, play controls |
+| Script editor | `app/script_editor.rs` | Lua editing, script buffer open/save |
+| Console | `app/console.rs` | Log view with level filter, Debug tab (build output), Clear |
+| Exit | `app/exit.rs` | Close interception and the unsaved-changes prompt |
 | Scene hierarchy | `panels/hierarchy/` | Scene/entity tree, create/rename/delete popups, asset attach/detach |
-| File browser | `panels/files.rs` | Cached project tree (2s refresh + manual ⟳), file selection/deletion |
-| Inspector | `panels/inspector.rs` | Entity attributes (edit/add/delete), file previews, script snippet insertion |
-| Menus | `menu_bar.rs`, `menus/` | File (new/open/save/exit), Edit (undo/redo), View (panels/theme), Import, Project (build) |
-| Shared state | `state.rs` | Selection, project state, undo stack, cross-panel request channels |
+| File browser | `panels/files.rs` | Project tree (rescanned every 2 s, ⟳ to refresh), file selection/deletion |
+| Inspector | `panels/inspector.rs` | Attributes (edit/add/delete), file previews, snippet insertion |
+| Menus | `menu_bar.rs`, `menus/` | File, Edit (undo/redo), View, Import, Project (build) |
+| State | `state.rs` | Shared state: open project, selection, undo history, requests |
+| Project operations | `project/` | Scaffolding, asset import, builds (see [project.md](project.md)) |
 
-## Cross-panel collaboration
+## How the panels cooperate
 
-Panels talk through request channels on `GuiState`, consumed by the shell
-each frame:
+Panels never call each other. They change `GuiState` or leave a request in it,
+and the app shell handles requests after drawing the frame:
 
-- `open_script_request: Option<PathBuf>` — set by the file browser, the
-  hierarchy's script row, or the inspector's Edit Script button; the shell
-  loads the file into the editor and switches to the Editor tab.
-- `script_insert_request: Option<String>` — set by the inspector when an
-  **attribute name is clicked**: `get_attribute(scene_id, entity_id, "…")`
-  is inserted at the editor cursor.
+- `open_script_request` — open a script in the editor (files panel,
+  hierarchy, inspector's Edit Script button). Opening the file that's already
+  open just switches to the Editor tab; switching files saves the current one
+  first, and if that fails the current file stays open.
+- `script_insert_request` — insert a snippet at the editor cursor (clicking an
+  attribute name inserts `get_attribute(scene_id, entity_id, "…")`).
+- `save_requested` / `build_requested` — File > Save Project and Project >
+  Build save the script buffer before saving or building.
+- `deleted_file` — closes the script buffer if its file was deleted.
+- `project_generation` — opening or creating a project increments it; the
+  shell then saves and closes the script buffer, resets the running game,
+  clears caches, selection, popups and the inspector.
 
-## Viewport (Viewer tab, not playing)
+## Editing, saving and undo
 
-- **Left-click**: select the topmost entity under the cursor (gold outline;
-  hierarchy/inspector follow). Click empty space to deselect.
-- **Left-drag**: move the grabbed entity in world space (zoom-corrected);
-  the move persists on release and is one undo step.
-- **Right-drag / Alt+drag**: pan the camera (world-unit speed at any zoom).
-- **Scroll**: zoom towards the cursor.
-- Grid lines are world-locked with power-of-two adaptive spacing.
+Every completed change (create/rename/delete of scenes and entities, attribute
+edits, asset attach/detach, viewport drags, Set Active) goes through
+`GuiState::commit_change`: the project is **saved** and an **undo step** is
+recorded, unless nothing actually changed. Save failures are reported in the
+console.
 
-While playing, the same area renders the game (`GameRuntime::update`);
-Paused/Ended keep the freeze frame visible.
+- Undo: Ctrl+Z (Cmd+Z on macOS). Redo: Ctrl+Y or Ctrl+Shift+Z. They apply
+  when no text field has focus, or through the Edit menu. The history keeps 50
+  states and starts over when a project is opened.
+- Inspector fields always show the current value. Text typed into a field is
+  applied when the field loses focus (or Enter), when another item is
+  selected, and only if it parses as the attribute's type and differs from the
+  current value. Infinite and NaN numbers are rejected.
+- New attributes need a name made of ASCII letters, digits and underscores
+  that doesn't start with a digit, so it can be used from scripts as is.
+- Deleting a scene, entity or file asks for confirmation; deleting a file that
+  entities still use lists them.
+
+Edits made while the game is playing change the editor's scenes, not the
+running game (Play gives the game its own copy). Undo works while playing.
+
+## Viewport (Viewer tab)
+
+- **Left-click**: select the topmost entity under the cursor (gold outline);
+  click empty space to deselect.
+- **Left-drag**: move the entity under the press point; one undo step.
+- **Right-drag / Alt+drag**: pan. **Scroll**: zoom towards the cursor.
+- Camera input only applies while the pointer is over the viewport itself,
+  not over a window floating above it.
+- The grid is world-locked with power-of-two spacing; the red rectangle is the
+  frame of the scene's default camera.
+
+While playing, the viewport shows the game through the editor's camera (the
+red rectangle shows what the exported game will frame). Paused and Ended keep
+the last frame. The game only advances while the Viewer tab is shown.
 
 ## Script editor (Editor tab)
 
-- Lua syntax highlighting (syntect), **line numbers**, Ln/Col indicator.
-- **Live syntax checking**: the buffer is parsed by Lua on every change;
-  the first error is shown with its line number above the code.
-- **Engine API palette** (📖 API toggle): every scripting binding, grouped,
-  hover for signature + doc, click to insert at the cursor.
-- **Attribute insertion**: click an attribute name in the inspector to
-  insert a `get_attribute(...)` call at the cursor.
-- Empty files offer a one-click `init`/`update`/`on_collision` template.
-- Saving: **Ctrl+S**, focus loss, switching files/tabs, or pressing Play
-  (scripts hot-reload from disk). Unsaved changes show a ● marker.
+- Lua syntax highlighting, line numbers, Ln/Col, live syntax checking.
+- Engine API palette (📖 API): every binding with its signature and doc; click
+  to insert at the cursor.
+- Empty files offer a template with `init`, `update` and `on_collision`.
+- Saving: Ctrl+S (Cmd+S), focus loss, switching files or tabs, Play, Save
+  Project, Build. Unsaved changes show a ● marker.
 
-## Persistence & undo
+## Exit
 
-Every completed mutation (create/rename/delete of scenes and entities,
-attribute edits, asset attach/detach, viewport drags) saves the project
-**and commits an undo snapshot**. `Ctrl+Z` / `Ctrl+Y` (when no text field is
-focused) or Edit menu. History: 50 states, reset on project open.
+Scene edits are saved as they happen, so exiting only asks for confirmation
+when the script editor has unsaved changes (Save & Exit / Discard & Exit /
+Cancel). If saving fails, the editor stays open. The prompt also appears when
+the window is closed while minimized.
 
-Destructive operations (scene/entity/file delete, exit with a project open)
-ask for confirmation first.
+## Testing
 
-## Known limitations / TODO
+`app/mod.rs` has headless tests that run the whole editor UI through
+`egui::Context::run_ui` with a real project, catching panics in panels without
+a window.
 
-- No multi-select, no entity duplication, no drag-drop of assets onto
-  entities, no gizmos (rotation/scale handles).
-- Console lacks clear/copy buttons.
-- `rfd` file dialogs block the UI thread while open (native modality).
-- The editor and the game runtime still hold separate `RenderEngine` clones
-  (duplicate texture caches, camera synced per frame).
+## Known limitations
+
+- No multi-select, entity duplication, drag-and-drop of assets, or gizmos
+  (rotation/scale handles).
+- `rfd` file dialogs block the UI while open.
+- The editor and the runtime each own a `RenderEngine`, so images are decoded
+  and uploaded twice.
+- The file tree is rescanned on the UI thread every 2 seconds.

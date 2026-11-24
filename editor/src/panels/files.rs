@@ -25,8 +25,6 @@ pub struct FileSystem {
     cached_tree: Option<FileNode>,
     cached_root: PathBuf,
     last_scan: Option<Instant>,
-    // Set when the user selects a code file; consumed by show()'s return
-    pending_open: Option<PathBuf>,
     // File deletion awaiting confirmation
     pending_delete: Option<PathBuf>,
 }
@@ -46,7 +44,6 @@ impl FileSystem {
             cached_tree: None,
             cached_root: PathBuf::new(),
             last_scan: None,
-            pending_open: None,
             pending_delete: None,
         }
     }
@@ -57,12 +54,12 @@ impl FileSystem {
         self.last_scan = None;
     }
 
-    pub fn show(
-        &mut self,
-        _ctx: &egui::Context,
-        ui: &mut egui::Ui,
-        gui_state: &mut GuiState,
-    ) -> Option<(PathBuf, String)> {
+    /// Forget everything tied to the open project.
+    pub fn reset(&mut self) {
+        *self = Self::new();
+    }
+
+    pub fn show(&mut self, ctx: &egui::Context, ui: &mut egui::Ui, gui_state: &mut GuiState) {
         // Always show header with integrated search
         egui::Frame {
             inner_margin: egui::Margin::ZERO,
@@ -118,7 +115,7 @@ impl FileSystem {
             stroke: egui::Stroke::NONE,
         }
         .show(ui, |ui| {
-            if !gui_state.load_project {
+            if !gui_state.project_open {
                 ui.label("No project opened.");
                 return;
             }
@@ -143,17 +140,7 @@ impl FileSystem {
         });
 
         // Modal confirmation for deletions
-        self.show_delete_confirmation(_ctx, gui_state);
-
-        // Return file content once when the selection changed to a code file
-        let path = self.pending_open.take()?;
-        match fs::read_to_string(&path) {
-            Ok(content) => Some((path, content)),
-            Err(e) => {
-                LOGGER.error(format!("Failed to open {}: {}", path.display(), e));
-                None
-            }
-        }
+        self.show_delete_confirmation(ctx, gui_state);
     }
 
     /// (Re)build the cached tree when the project changed, the cache was
@@ -179,12 +166,17 @@ impl FileSystem {
         for entry in entries.filter_map(|e| e.ok()) {
             let entry_path = entry.path();
 
-            // Skip build output under the project path
-            if entry_path == project_root.join("target") {
+            // Skip build output and version control data
+            if path == project_root
+                && (entry.file_name() == "target" || entry.file_name() == ".git")
+            {
                 continue;
             }
 
-            if entry_path.is_dir() {
+            // `file_type` doesn't follow symlinks: a linked folder shows up
+            // as a file, so the tree can't loop or reach outside the project
+            let is_dir = entry.file_type().is_ok_and(|t| t.is_dir());
+            if is_dir {
                 if let Some(dir_node) = Self::scan_dir(&entry_path, project_root) {
                     children.push(dir_node);
                 }
@@ -256,16 +248,12 @@ impl FileSystem {
             let selected = self.selected_file.as_ref() == Some(&file.path);
             let response = ui.selectable_label(selected, file.name.clone());
 
-            if response.clicked() && !selected {
+            if response.clicked() {
                 self.selected_file = Some(file.path.clone());
                 gui_state.selected_item = SelectedItem::File(file.path.clone());
-
-                // Open code files in the editor (once, on selection change)
-                if matches!(
-                    file.path.extension().and_then(|e| e.to_str()),
-                    Some("rs") | Some("lua")
-                ) {
-                    self.pending_open = Some(file.path.clone());
+                // Scripts open in the script editor
+                if file.path.extension().is_some_and(|e| e == "lua") {
+                    gui_state.open_script_request = Some(file.path.clone());
                 }
             }
 
@@ -289,6 +277,7 @@ impl FileSystem {
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_default();
 
+        let users = entities_using(gui_state, &path);
         let mut close = false;
         egui::Window::new("Confirm Delete File")
             .collapsible(false)
@@ -300,6 +289,12 @@ impl FileSystem {
                     "Delete file '{}' from disk? This cannot be undone.",
                     name
                 ));
+                if !users.is_empty() {
+                    ui.colored_label(
+                        egui::Color32::YELLOW,
+                        format!("Still used by: {}", users.join(", ")),
+                    );
+                }
                 ui.add_space(8.0);
                 ui.horizontal(|ui| {
                     if ui.button("Delete").clicked() {
@@ -307,6 +302,7 @@ impl FileSystem {
                             LOGGER.error(format!("Failed to delete file: {}", err));
                         } else {
                             LOGGER.info(format!("Deleted file: {}", name));
+                            gui_state.deleted_file = Some(path.clone());
                             self.refresh();
                             if matches!(&gui_state.selected_item,
                                 SelectedItem::File(selected_path)
@@ -330,4 +326,23 @@ impl FileSystem {
             self.pending_delete = None;
         }
     }
+}
+
+/// Names of the entities (in any scene) that reference `path` as an image,
+/// sound or script.
+fn entities_using(gui_state: &GuiState, path: &Path) -> Vec<String> {
+    let Some(scene_manager) = &gui_state.scene_manager else {
+        return Vec::new();
+    };
+    scene_manager
+        .scenes
+        .values()
+        .flat_map(|scene| scene.entities.values())
+        .filter(|entity| {
+            entity.images.iter().any(|p| p == path)
+                || entity.sounds.iter().any(|p| p == path)
+                || entity.script.as_deref() == Some(path)
+        })
+        .map(|entity| entity.name.clone())
+        .collect()
 }

@@ -1,4 +1,4 @@
-use crate::state::GuiState;
+use crate::state::{ExitRequest, GuiState};
 use eframe::egui;
 use rust_2d_game_engine::project::ProjectManager;
 use std::path::PathBuf;
@@ -17,12 +17,13 @@ impl FileMenu {
     }
 
     /// Show the File menu options.
-    pub fn show(&mut self, ctx: &egui::Context, ui: &mut egui::Ui, gui_state: &mut GuiState) {
+    pub fn show(&mut self, _ctx: &egui::Context, ui: &mut egui::Ui, gui_state: &mut GuiState) {
         if ui.button("New Project").clicked() {
             gui_state.show_new_project_popup = true;
             gui_state.show_open_project_popup = false;
             self.temp_project_path.clear();
             self.error_message.clear();
+            ui.close();
         }
 
         if ui.button("Open Project").clicked() {
@@ -30,22 +31,24 @@ impl FileMenu {
             gui_state.show_new_project_popup = false;
             self.temp_project_path.clear();
             self.error_message.clear();
+            ui.close();
         }
 
-        if ui.button("Save Project").clicked() {
-            self.save_project(gui_state);
+        if ui
+            .add_enabled(gui_state.project_open, egui::Button::new("Save Project"))
+            .on_hover_text("Edits are saved automatically; this also saves the open script")
+            .clicked()
+        {
+            gui_state.save_requested = true;
+            ui.close();
         }
 
         ui.separator();
 
         if ui.button("Exit").clicked() {
-            // Ask for confirmation (and offer to save) instead of killing
-            // the process outright
-            gui_state.exit_request = crate::state::ExitRequest::PromptOpen;
+            gui_state.exit_request = ExitRequest::PromptOpen;
             ui.close();
         }
-
-        self.show_active_popup(ctx, gui_state);
     }
 
     /// Show the active popup window.
@@ -64,7 +67,7 @@ impl FileMenu {
             .resizable(false)
             .order(egui::Order::Foreground)
             .show(ctx, |ui| {
-                ui.label("Project Path (a new folder that will be created):");
+                ui.label("Project folder (created if it doesn't exist, must be empty if it does):");
                 ui.horizontal(|ui| {
                     let mut path_str = self.temp_project_path.to_string_lossy().into_owned();
                     if ui.text_edit_singleline(&mut path_str).changed() {
@@ -82,43 +85,14 @@ impl FileMenu {
 
                 ui.horizontal(|ui| {
                     if ui.button("Create").clicked() {
-                        if self.temp_project_path.exists() {
-                            self.error_message = "Error: Project path already exists.".to_string();
-                        } else {
-                            match crate::project::create_project(&self.temp_project_path) {
-                                Ok(_) => {
-                                    // Load the created project
-                                    match ProjectManager::load_project_full(&self.temp_project_path)
-                                    {
-                                        Ok(loaded_project) => {
-                                            let metadata = loaded_project.metadata;
-                                            let scene_manager = loaded_project.scene_manager;
-
-                                            gui_state.project_name = metadata.project_name.clone();
-                                            gui_state.project_path =
-                                                metadata.project_path.clone().into();
-                                            gui_state.load_project = true;
-
-                                            gui_state.project_metadata = Some(metadata);
-                                            gui_state.undo_stack.reset(&scene_manager);
-                                            gui_state.scene_manager = Some(scene_manager);
-
-                                            gui_state.show_new_project_popup = false;
-                                            self.error_message.clear();
-                                            println!(
-                                                "Project '{}' created and loaded successfully!",
-                                                gui_state.project_name
-                                            );
-                                        }
-                                        Err(err) => {
-                                            self.error_message =
-                                                format!("Error loading project: {}", err);
-                                        }
-                                    }
-                                }
-                                Err(err) => {
-                                    self.error_message = format!("Error creating project: {}", err);
-                                }
+                        match crate::project::create_project(&self.temp_project_path) {
+                            Ok(loaded) => {
+                                gui_state.open_project(loaded);
+                                gui_state.show_new_project_popup = false;
+                                self.error_message.clear();
+                            }
+                            Err(err) => {
+                                self.error_message = format!("Error creating project: {}", err);
                             }
                         }
                     }
@@ -143,7 +117,7 @@ impl FileMenu {
             .resizable(false)
             .order(egui::Order::Foreground)
             .show(ctx, |ui| {
-                ui.label("Project Path:");
+                ui.label("Project folder (the one containing project.epm):");
                 ui.horizontal(|ui| {
                     let mut path_str = self.temp_project_path.to_string_lossy().into_owned();
                     if ui.text_edit_singleline(&mut path_str).changed() {
@@ -161,32 +135,20 @@ impl FileMenu {
                 });
 
                 ui.horizontal(|ui| {
-                    if ui.button("Open").clicked() && !self.temp_project_path.as_os_str().is_empty()
+                    let has_path = !self.temp_project_path.as_os_str().is_empty();
+                    if ui
+                        .add_enabled(has_path, egui::Button::new("Open"))
+                        .clicked()
                     {
-                        if !self.temp_project_path.exists() {
-                            self.error_message = "Error: Path does not exist.".to_string();
-                        } else {
-                            match ProjectManager::load_project_full(&self.temp_project_path) {
-                                Ok(loaded_project) => {
-                                    let metadata = loaded_project.metadata;
-                                    let scene_manager = loaded_project.scene_manager;
-
-                                    gui_state.project_name = metadata.project_name.clone();
-                                    gui_state.project_path = metadata.project_path.clone().into();
-                                    gui_state.load_project = true;
-
-                                    gui_state.project_metadata = Some(metadata);
-                                    gui_state.undo_stack.reset(&scene_manager);
-                                    gui_state.scene_manager = Some(scene_manager);
-
-                                    gui_state.show_open_project_popup = false;
-                                    self.temp_project_path.clear();
-                                    self.error_message.clear();
-                                    println!("Project '{}' loaded!", gui_state.project_name);
-                                }
-                                Err(err) => {
-                                    self.error_message = format!("Error loading project: {}", err);
-                                }
+                        match ProjectManager::load_project_full(&self.temp_project_path) {
+                            Ok(loaded) => {
+                                gui_state.open_project(loaded);
+                                gui_state.show_open_project_popup = false;
+                                self.temp_project_path.clear();
+                                self.error_message.clear();
+                            }
+                            Err(err) => {
+                                self.error_message = format!("Error loading project: {}", err);
                             }
                         }
                     }
@@ -198,38 +160,9 @@ impl FileMenu {
                     }
                 });
 
-                if !self.error_message.is_empty() && !self.temp_project_path.as_os_str().is_empty()
-                {
+                if !self.error_message.is_empty() {
                     ui.colored_label(egui::Color32::RED, &self.error_message);
                 }
             });
-    }
-
-    // Save project
-    fn save_project(&self, gui_state: &mut GuiState) {
-        if !gui_state.load_project {
-            println!("No project loaded to save.");
-            return;
-        }
-
-        match ProjectManager::load_project(&gui_state.project_path) {
-            Ok(metadata) => {
-                if let Some(scene_manager) = &gui_state.scene_manager {
-                    match ProjectManager::save_project_full(
-                        &gui_state.project_path,
-                        &metadata,
-                        scene_manager,
-                    ) {
-                        Ok(_) => println!("Project saved successfully."),
-                        Err(err) => println!("Error saving project: {}", err),
-                    }
-                } else {
-                    println!("No scene manager available to save.");
-                }
-            }
-            Err(_) => {
-                println!("No valid project loaded to save. Please load a project first.");
-            }
-        }
     }
 }

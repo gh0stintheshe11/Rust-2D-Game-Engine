@@ -3,7 +3,7 @@ use std::fmt;
 use uuid::Uuid;
 
 /// A named, typed value on an entity.
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Attribute {
     pub id: Uuid,
     pub name: String,

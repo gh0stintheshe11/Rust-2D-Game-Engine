@@ -7,6 +7,7 @@ use super::EditorApp;
 use eframe::egui;
 use rust_2d_game_engine::logger::LOGGER;
 use rust_2d_game_engine::scripting::check_syntax;
+use std::path::PathBuf;
 
 /// One palette entry: (label, snippet, doc).
 type ApiEntry = (&'static str, &'static str, &'static str);
@@ -245,21 +246,65 @@ function on_collision(scene_id, entity_id, other_id)
 end
 "#;
 
+/// Id of the script editor's text field.
+fn editor_id() -> egui::Id {
+    egui::Id::unique("script_editor_text")
+}
+
 impl EditorApp {
     /// Write the editor buffer to its file if it has unsaved changes.
-    pub(super) fn save_editor_if_dirty(&mut self) {
+    /// Returns false if there were changes and they couldn't be written
+    /// (the buffer stays dirty).
+    pub(super) fn save_editor_if_dirty(&mut self) -> bool {
         if !self.editor_dirty {
-            return;
+            return true;
         }
-        if let Some(path) = &self.current_edited_file {
-            match std::fs::write(path, &self.editor_content) {
-                Ok(_) => {
-                    self.editor_dirty = false;
-                    LOGGER.info(format!("Saved {}", path.display()));
-                }
-                Err(err) => LOGGER.error(format!("Failed to save file: {}", err)),
+        let Some(path) = &self.current_edited_file else {
+            return true;
+        };
+        match std::fs::write(path, &self.editor_content) {
+            Ok(()) => {
+                self.editor_dirty = false;
+                LOGGER.info(format!("Saved {}", path.display()));
+                true
+            }
+            Err(err) => {
+                LOGGER.error(format!("Failed to save {}: {}", path.display(), err));
+                false
             }
         }
+    }
+
+    /// Show `path` in the script editor. The current file is saved first;
+    /// if that fails, it stays open so no edits are lost.
+    pub(super) fn open_script(&mut self, path: PathBuf) {
+        self.show_editor = true;
+        if self.current_edited_file.as_ref() == Some(&path) {
+            return;
+        }
+        if !self.save_editor_if_dirty() {
+            return;
+        }
+        match std::fs::read_to_string(&path) {
+            Ok(content) => {
+                self.syntax_error = check_syntax(&content);
+                self.editor_content = content;
+                self.current_edited_file = Some(path);
+                self.editor_dirty = false;
+                self.reset_editor_cursor = true;
+            }
+            Err(e) => LOGGER.error(format!("Failed to open {}: {}", path.display(), e)),
+        }
+    }
+
+    /// Drop the buffer without saving (its file is gone, or the project
+    /// changed after saving).
+    pub(super) fn close_script(&mut self) {
+        self.current_edited_file = None;
+        self.editor_content.clear();
+        self.editor_dirty = false;
+        self.syntax_error = None;
+        self.reset_editor_cursor = true;
     }
 
     /// Insert `text` at the current cursor position of the script editor
@@ -270,7 +315,7 @@ impl EditorApp {
             return;
         }
 
-        let id = egui::Id::unique("script_editor_text");
+        let id = editor_id();
         let mut state = egui::text_edit::TextEditState::load(ctx, id).unwrap_or_default();
 
         let char_index = state
@@ -308,10 +353,15 @@ impl EditorApp {
         ui.painter()
             .rect_filled(content_rect, 0.0, egui::Color32::from_gray(40));
 
-        // Ctrl+S saves the current file
+        // A newly opened file starts with the cursor at the top
+        if std::mem::take(&mut self.reset_editor_cursor) {
+            egui::text_edit::TextEditState::default().store(ui.ctx(), editor_id());
+        }
+
+        // Ctrl+S (Cmd+S on macOS) saves the current file
         let save_requested = ui.input_mut(|i| {
             i.consume_shortcut(&egui::KeyboardShortcut::new(
-                egui::Modifiers::CTRL,
+                egui::Modifiers::COMMAND,
                 egui::Key::S,
             ))
         });
@@ -335,7 +385,7 @@ impl EditorApp {
             };
             ui.label(label);
             if self.editor_dirty {
-                ui.weak("(Ctrl+S to save)");
+                ui.weak("(Ctrl+S / Cmd+S to save)");
             }
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -343,10 +393,8 @@ impl EditorApp {
                     .on_hover_text("Engine functions reference; click to insert at the cursor");
 
                 // Ln/Col of the primary cursor
-                if let Some(state) = egui::text_edit::TextEditState::load(
-                    ui.ctx(),
-                    egui::Id::unique("script_editor_text"),
-                ) && let Some(range) = state.cursor.char_range()
+                if let Some(state) = egui::text_edit::TextEditState::load(ui.ctx(), editor_id())
+                    && let Some(range) = state.cursor.char_range()
                 {
                     let index = range.primary.index.0;
                     let mut line = 1usize;
@@ -445,7 +493,7 @@ impl EditorApp {
                             (row_height * line_count as f32).max(ui.available_height()),
                         ),
                         egui::TextEdit::multiline(&mut self.editor_content)
-                            .id(egui::Id::unique("script_editor_text"))
+                            .id(editor_id())
                             .code_editor()
                             .lock_focus(true)
                             .desired_width(f32::INFINITY)

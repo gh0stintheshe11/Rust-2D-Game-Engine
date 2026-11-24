@@ -68,7 +68,7 @@ impl EditorApp {
                         ui.add_space((ui.available_width() - 170.0) * 0.5);
 
                         // Check if a project is loaded
-                        if !self.gui_state.load_project {
+                        if !self.gui_state.project_open {
                             // No project loaded - show disabled buttons or message
                             ui.add_enabled(false, egui::Button::new("▶ Play"));
                             ui.add_enabled(false, egui::Button::new("⏸ Pause"));
@@ -81,7 +81,10 @@ impl EditorApp {
                             RuntimeState::Stopped => {
                                 if ui.button("▶ Play").clicked() {
                                     // Scripts are (re)loaded from disk on play
-                                    self.save_editor_if_dirty();
+                                    if !self.save_editor_if_dirty() {
+                                        LOGGER
+                                            .warning("Playing without the unsaved script changes");
+                                    }
                                     // Sync scene manager before starting
                                     self.sync_scene_manager_to_runtime();
 
@@ -147,10 +150,12 @@ impl EditorApp {
                 ctx.input(|input| self.input_handler.handle_input(input));
             }
 
-            // Then handle editor viewport controls only when not playing
+            // Then handle editor viewport controls only when not playing, and
+            // only when the pointer is over the viewport itself (not over a
+            // window or popup floating above it)
             if self.game_runtime.get_state() != RuntimeState::Playing
+                && ui.rect_contains_pointer(viewport_rect)
                 && let Some(cursor_pos) = ui.ctx().input(|i| i.pointer.hover_pos())
-                && viewport_rect.contains(cursor_pos)
             {
                 // Editor camera controls
                 if self
@@ -171,9 +176,13 @@ impl EditorApp {
                     });
                 }
 
-                // Editor zoom control: zoom towards the cursor
-                if let Some(scroll_delta) = self.input_handler.get_scroll_delta() {
-                    let zoom_factor = if scroll_delta.y > 0.0 { 1.1 } else { 0.9 };
+                // Editor zoom control: zoom towards the cursor, proportionally
+                // to the scroll amount (so speed doesn't depend on the frame
+                // rate); horizontal scrolling doesn't zoom
+                if let Some(scroll_delta) = self.input_handler.get_scroll_delta()
+                    && scroll_delta.y != 0.0
+                {
+                    let zoom_factor = (scroll_delta.y * 0.002).exp();
 
                     let camera = &mut self.render_engine.camera;
                     let old_zoom = camera.zoom.max(0.0001);
@@ -258,10 +267,12 @@ impl EditorApp {
         let Some(scene_manager) = &self.gui_state.scene_manager else {
             return;
         };
-        let Some(active_scene) = scene_manager.get_active_scene() else {
+        let Some(active_scene_id) = scene_manager.active_scene else {
             return;
         };
-        let active_scene_id = active_scene.id;
+        let Some(active_scene) = scene_manager.get_scene(active_scene_id) else {
+            return;
+        };
         let render_queue = self.render_engine.render(active_scene);
 
         let selected_entity = match self.gui_state.scene_panel_selected_item {
@@ -358,24 +369,16 @@ impl EditorApp {
             && let Some(pointer) = response.interact_pointer_pos()
         {
             match hit_test(pointer) {
-                Some(entity_id) => {
-                    self.gui_state.selected_item =
-                        crate::state::SelectedItem::Entity(active_scene_id, entity_id);
-                    self.gui_state.scene_panel_selected_item =
-                        crate::state::ScenePanelSelectedItem::Entity(active_scene_id, entity_id);
-                }
-                None => {
-                    self.gui_state.selected_item = crate::state::SelectedItem::None;
-                    self.gui_state.scene_panel_selected_item =
-                        crate::state::ScenePanelSelectedItem::None;
-                }
+                Some(entity_id) => self.gui_state.select_entity(active_scene_id, entity_id),
+                None => self.gui_state.clear_selection(),
             }
         }
 
-        // Drag start: grab the entity under the cursor (Alt+drag pans instead)
+        // Drag start: grab the entity under the point where the press began
+        // (Alt+drag pans instead)
         if response.drag_started_by(egui::PointerButton::Primary)
             && !alt_held
-            && let Some(pointer) = response.interact_pointer_pos()
+            && let Some(pointer) = ui.input(|i| i.pointer.press_origin())
             && let Some(entity_id) = hit_test(pointer)
         {
             // World position of the cursor and the entity's grab offset
@@ -390,10 +393,7 @@ impl EditorApp {
                 let offset = (world_x - entity.get_x(), world_y - entity.get_y());
                 self.viewport_drag = Some((entity_id, offset));
                 // Select what we grab
-                self.gui_state.selected_item =
-                    crate::state::SelectedItem::Entity(active_scene_id, entity_id);
-                self.gui_state.scene_panel_selected_item =
-                    crate::state::ScenePanelSelectedItem::Entity(active_scene_id, entity_id);
+                self.gui_state.select_entity(active_scene_id, entity_id);
             }
         }
 
@@ -434,20 +434,14 @@ impl EditorApp {
         if response.drag_stopped_by(egui::PointerButton::Primary)
             && self.viewport_drag.take().is_some()
         {
-            crate::panels::hierarchy::utils::save_project(&mut self.gui_state);
+            self.gui_state.commit_change();
         }
     }
 
-    fn sync_scene_manager_to_runtime(&mut self) {
-        // Get the scene manager from GUI state
-        if let Some(gui_scene_manager) = &self.gui_state.scene_manager {
-            // Update the game runtime's scene manager
-            self.game_runtime
-                .set_scene_manager(gui_scene_manager.clone());
-            println!(
-                "Synced scene manager to runtime with {} scenes",
-                self.game_runtime.get_scene_manager().list_scene().len()
-            );
+    /// Give the runtime a copy of the editor's scenes to play.
+    pub(super) fn sync_scene_manager_to_runtime(&mut self) {
+        if let Some(scene_manager) = &self.gui_state.scene_manager {
+            self.game_runtime.set_scene_manager(scene_manager.clone());
         }
     }
 }

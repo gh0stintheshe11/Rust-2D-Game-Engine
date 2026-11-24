@@ -1,4 +1,3 @@
-use crate::panels::hierarchy::utils;
 use crate::state::GuiState;
 use eframe::egui;
 
@@ -15,18 +14,18 @@ impl EditMenu {
 
         if ui
             .add_enabled(can_undo, egui::Button::new("Undo"))
-            .on_hover_text("Ctrl+Z")
+            .on_hover_text("Ctrl+Z (Cmd+Z on macOS)")
             .clicked()
         {
-            utils::perform_undo(gui_state);
+            gui_state.undo();
             ui.close();
         }
         if ui
             .add_enabled(can_redo, egui::Button::new("Redo"))
-            .on_hover_text("Ctrl+Y")
+            .on_hover_text("Ctrl+Y or Ctrl+Shift+Z (Cmd+Shift+Z on macOS)")
             .clicked()
         {
-            utils::perform_redo(gui_state);
+            gui_state.redo();
             ui.close();
         }
     }

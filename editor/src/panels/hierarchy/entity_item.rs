@@ -1,5 +1,6 @@
 use crate::panels::hierarchy::SceneHierarchy;
-use crate::state::{GuiState, ScenePanelSelectedItem, SelectedItem};
+use crate::panels::hierarchy::popup::RenameTarget;
+use crate::state::{GuiState, ScenePanelSelectedItem};
 use egui::{Context, Ui};
 use uuid::Uuid;
 
@@ -117,9 +118,7 @@ impl EntityItem {
 
         let response = ui.selectable_label(selected, format!("🖼 {}", display_name));
         if response.clicked() {
-            gui_state.selected_item = SelectedItem::Entity(*scene_id, *entity_id);
-            gui_state.scene_panel_selected_item =
-                ScenePanelSelectedItem::Entity(*scene_id, *entity_id);
+            gui_state.select_entity(*scene_id, *entity_id);
         }
 
         response.context_menu(|ui| {
@@ -134,9 +133,8 @@ impl EntityItem {
                 ui.close();
             }
             if ui.button("Rename").clicked() {
-                hierarchy.popup_manager.start_rename_entity(
-                    *scene_id,
-                    *entity_id,
+                hierarchy.popup_manager.start_rename(
+                    RenameTarget::Entity(*scene_id, *entity_id),
                     entity_name.to_string(),
                 );
                 ui.close();

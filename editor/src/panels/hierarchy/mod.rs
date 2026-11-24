@@ -1,7 +1,6 @@
 pub mod entity_item;
 pub mod popup;
 pub mod scene_item;
-pub mod utils;
 
 use crate::state::GuiState;
 use egui::{Context, Ui};

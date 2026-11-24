@@ -27,7 +27,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 // =============== Scene (Manages Entities and Resources) ===============
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Scene {
     pub id: Uuid,
     pub name: String,

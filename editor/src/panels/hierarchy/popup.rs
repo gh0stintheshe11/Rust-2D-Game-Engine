@@ -1,9 +1,15 @@
-use crate::panels::hierarchy::utils;
-use crate::state::{GuiState, ScenePanelSelectedItem, SelectedItem};
+use crate::state::GuiState;
 use rust_2d_game_engine::logger::LOGGER;
 use rust_2d_game_engine::scene::SceneManager;
 use std::path::Path;
 use uuid::Uuid;
+
+/// What the rename popup renames.
+#[derive(Clone, Copy)]
+pub enum RenameTarget {
+    Scene(Uuid),
+    Entity(Uuid, Uuid), // scene id, entity id
+}
 
 /// A destructive action awaiting user confirmation.
 pub enum PendingDelete {
@@ -15,8 +21,7 @@ pub struct PopupManager {
     pub create_item_name: String,
     pub error_message: String,
     pub rename_input: String,
-    pub scene_rename_scene: Option<Uuid>,
-    pub entity_rename_entity: Option<(Uuid, Uuid)>,
+    pub rename_target: Option<RenameTarget>,
     pub create_popup_active: bool,
     pub create_item_type: String,
     pub manage_assets_entity: Option<(Uuid, Uuid)>,
@@ -45,8 +50,7 @@ impl PopupManager {
             create_item_name: String::new(),
             error_message: String::new(),
             rename_input: String::new(),
-            scene_rename_scene: None,
-            entity_rename_entity: None,
+            rename_target: None,
             create_popup_active: false,
             create_item_type: "Scene".to_string(),
             manage_assets_entity: None,
@@ -61,80 +65,95 @@ impl PopupManager {
         }
     }
 
-    pub fn start_rename_scene(&mut self, scene_id: Uuid, current_name: String) {
-        self.scene_rename_scene = Some(scene_id);
+    pub fn start_rename(&mut self, target: RenameTarget, current_name: String) {
+        self.rename_target = Some(target);
         self.rename_input = current_name;
-    }
-
-    pub fn start_rename_entity(&mut self, scene_id: Uuid, entity_id: Uuid, current_name: String) {
-        self.entity_rename_entity = Some((scene_id, entity_id));
-        self.rename_input = current_name;
+        self.error_message.clear();
     }
 
     pub fn reset_rename(&mut self) {
-        self.scene_rename_scene = None;
-        self.entity_rename_entity = None;
+        self.rename_target = None;
         self.rename_input.clear();
         self.error_message.clear();
     }
 
-    /// Rename popup, for both scene and entity
+    /// Close every popup (e.g. when another project is opened).
+    pub fn close_all(&mut self) {
+        *self = Self::new();
+    }
+
+    /// Rename popup, for both scenes and entities
     pub fn render_rename_popup(
         &mut self,
         ctx: &egui::Context,
         _ui: &mut egui::Ui,
         gui_state: &mut GuiState,
     ) {
-        let (title, scene_id, entity_id) = match self.scene_rename_scene {
-            Some(scene_id) => ("Rename Scene", scene_id, None),
-            None => match self.entity_rename_entity {
-                Some((scene_id, entity_id)) => ("Rename Entity", scene_id, Some(entity_id)),
-                None => return,
-            },
+        let Some(target) = self.rename_target else {
+            return;
+        };
+        let title = match target {
+            RenameTarget::Scene(_) => "Rename Scene",
+            RenameTarget::Entity(_, _) => "Rename Entity",
         };
 
-        // Render rename popup
         egui::Window::new(title)
             .collapsible(false)
             .resizable(false)
             .order(egui::Order::Foreground)
             .show(ctx, |ui| {
                 ui.label("Enter new name:");
-                ui.text_edit_singleline(&mut self.rename_input);
+                let response = ui.text_edit_singleline(&mut self.rename_input);
+                let submitted =
+                    response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
 
                 ui.horizontal(|ui| {
-                    if ui.button("Rename").clicked() {
-                        self.rename_item(scene_id, entity_id, gui_state);
+                    if ui.button("Rename").clicked() || submitted {
+                        self.rename_item(target, gui_state);
                     }
                     if ui.button("Cancel").clicked() {
                         self.reset_rename();
                     }
                 });
+                if !self.error_message.is_empty() {
+                    ui.colored_label(egui::Color32::RED, &self.error_message);
+                }
             });
     }
 
-    /// Handle renaming
-    fn rename_item(&mut self, scene_id: Uuid, entity_id: Option<Uuid>, gui_state: &mut GuiState) {
-        if let Some(scene_manager) = gui_state.scene_manager.as_mut() {
-            let new_name = self.rename_input.trim().to_string();
-            if let Some(entity_id) = entity_id {
-                // Rename entity
-                if let Some(scene) = scene_manager.get_scene_mut(scene_id)
-                    && let Ok(entity) = scene.get_entity_mut(entity_id)
-                {
-                    entity.name = new_name;
-                    println!("Renamed entity to: {}", entity.name);
+    /// Apply the rename; an empty name keeps the popup open with an error.
+    fn rename_item(&mut self, target: RenameTarget, gui_state: &mut GuiState) {
+        let new_name = self.rename_input.trim().to_string();
+        let Some(scene_manager) = gui_state.scene_manager.as_mut() else {
+            self.reset_rename();
+            return;
+        };
+        let result = match target {
+            RenameTarget::Scene(scene_id) => scene_manager
+                .get_scene_mut(scene_id)
+                .ok_or_else(|| "The scene no longer exists".to_string())
+                .and_then(|scene| {
+                    let changed = scene.name != new_name;
+                    scene.modify_scene(&new_name).map(|()| changed)
+                }),
+            RenameTarget::Entity(scene_id, entity_id) => scene_manager
+                .get_scene_mut(scene_id)
+                .ok_or_else(|| "The scene no longer exists".to_string())
+                .and_then(|scene| scene.get_entity_mut(entity_id))
+                .and_then(|entity| {
+                    let changed = entity.name != new_name;
+                    entity.change_entity_name(&new_name).map(|()| changed)
+                }),
+        };
+        match result {
+            Ok(changed) => {
+                if changed {
+                    gui_state.commit_change();
                 }
-            } else {
-                // Rename scene
-                if let Some(scene) = scene_manager.get_scene_mut(scene_id) {
-                    scene.name = new_name;
-                    println!("Renamed scene to: {}", scene.name);
-                }
+                self.reset_rename();
             }
-            utils::save_project(gui_state);
+            Err(e) => self.error_message = e,
         }
-        self.reset_rename();
     }
 
     /// Render create popup in panel
@@ -213,9 +232,9 @@ impl PopupManager {
         let item_type = self.create_item_type.clone();
         match item_type.as_str() {
             "Scene" => self.create_new_scene(gui_state),
-            "Entity" => self.create_new_entity("Entity".to_string(), gui_state, "Empty"),
-            "Camera" => self.create_new_entity("Camera".to_string(), gui_state, "Camera"),
-            "Physics" => self.create_new_entity("Physics".to_string(), gui_state, "Physics"),
+            "Entity" => self.create_new_entity(gui_state, "Empty"),
+            "Camera" => self.create_new_entity(gui_state, "Camera"),
+            "Physics" => self.create_new_entity(gui_state, "Physics"),
             _ => {}
         }
 
@@ -251,14 +270,9 @@ impl PopupManager {
         // Create the new scene
         match scene_manager.create_scene(name) {
             Ok(new_scene_id) => {
-                // Update selection state
-                gui_state.scene_panel_selected_item = ScenePanelSelectedItem::Scene(new_scene_id);
-                gui_state.selected_item = SelectedItem::Scene(new_scene_id);
-
-                println!("Created new scene '{}' with ID: {:?}", name, new_scene_id);
-
+                gui_state.select_scene(new_scene_id);
                 // Save the project
-                utils::save_project(gui_state);
+                gui_state.commit_change();
                 self.reset_create_popup();
             }
             Err(e) => {
@@ -268,75 +282,39 @@ impl PopupManager {
     }
 
     /// Create a new entity under the selected scene
-    fn create_new_entity(
-        &mut self,
-        entity_type: String,
-        gui_state: &mut GuiState,
-        predefined_type: &str,
-    ) {
-        // Ensure scene manager exists
-        let scene_manager = match &mut gui_state.scene_manager {
-            Some(manager) => manager,
-            None => {
-                self.error_message = "Scene manager is not available.".to_string();
-                return;
-            }
-        };
-
-        // Ensure entity name is not empty
-        let name = self.create_item_name.trim();
+    fn create_new_entity(&mut self, gui_state: &mut GuiState, predefined_type: &str) {
+        let name = self.create_item_name.trim().to_string();
         if name.is_empty() {
             self.error_message = "Entity name cannot be empty.".to_string();
             return;
         }
-
-        let scene_id = match &gui_state.scene_panel_selected_item {
-            ScenePanelSelectedItem::Scene(scene_id) => *scene_id,
-            _ => {
-                self.error_message = "Please select a scene first to add the entity.".to_string();
-                return;
-            }
+        let Some(scene_id) = gui_state.selected_scene() else {
+            self.error_message = "Select a scene (or one of its entities) first.".to_string();
+            return;
+        };
+        let Some(scene) = gui_state
+            .scene_manager
+            .as_mut()
+            .and_then(|manager| manager.get_scene_mut(scene_id))
+        else {
+            self.error_message = "The selected scene could not be found.".to_string();
+            return;
         };
 
-        // Get the selected scene
-        let scene = match scene_manager.get_scene_mut(scene_id) {
-            Some(scene) => scene,
-            None => {
-                self.error_message = "The selected scene could not be found.".to_string();
-                return;
-            }
-        };
-
-        // Create the new entity
         let new_entity_id = match predefined_type {
-            "Empty" => scene.create_entity(name),
-            "Camera" => scene.create_camera(name),
-            "Physics" => match scene.create_entity(name) {
-                Ok(entity_id) => {
-                    if let Ok(entity) = scene.get_entity_mut(entity_id) {
-                        entity.add_physics_attributes();
-                    }
-                    Ok(entity_id)
+            "Camera" => scene.create_camera(&name),
+            "Physics" => scene.create_entity(&name).inspect(|entity_id| {
+                if let Ok(entity) = scene.get_entity_mut(*entity_id) {
+                    entity.add_physics_attributes();
                 }
-                Err(e) => Err(e),
-            },
-            _ => scene.create_entity(name),
+            }),
+            _ => scene.create_entity(&name),
         };
 
         match new_entity_id {
             Ok(entity_id) => {
-                // Update selection
-                gui_state.scene_panel_selected_item =
-                    ScenePanelSelectedItem::Entity(scene_id, entity_id);
-                gui_state.selected_item = SelectedItem::Entity(scene_id, entity_id);
-
-                println!(
-                    "Created new entity '{}' with type '{}' and ID: {:?}",
-                    name, entity_type, entity_id
-                );
-
-                // Save the project
-                utils::save_project(gui_state);
+                gui_state.select_entity(scene_id, entity_id);
+                gui_state.commit_change();
                 self.reset_create_popup();
             }
             Err(e) => {
@@ -376,7 +354,7 @@ impl PopupManager {
         // Persist attach/detach changes made by the popups above
         if self.assets_changed {
             self.assets_changed = false;
-            utils::save_project(gui_state);
+            gui_state.commit_change();
         }
 
         // Render delete confirmation
@@ -400,10 +378,8 @@ impl PopupManager {
             .order(egui::Order::Foreground)
             .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
             .show(ctx, |ui| {
-                ui.label(format!(
-                    "Delete {} '{}'? This cannot be undone.",
-                    kind, name
-                ));
+                ui.label(format!("Delete {} '{}'?", kind, name));
+                ui.weak("Edit > Undo (Ctrl+Z) brings it back.");
                 ui.add_space(8.0);
                 ui.horizontal(|ui| {
                     if ui.button("Delete").clicked() {
@@ -412,10 +388,8 @@ impl PopupManager {
                                 if let Some(scene_manager) = &mut gui_state.scene_manager {
                                     match scene_manager.delete_scene(scene_id) {
                                         Ok(_) => {
-                                            gui_state.selected_item = SelectedItem::None;
-                                            gui_state.scene_panel_selected_item =
-                                                ScenePanelSelectedItem::None;
-                                            utils::save_project(gui_state);
+                                            gui_state.clear_selection();
+                                            gui_state.commit_change();
                                         }
                                         Err(e) => {
                                             LOGGER.error(format!("Failed to delete scene: {}", e))
@@ -430,12 +404,11 @@ impl PopupManager {
                                     .and_then(|manager| manager.get_scene_mut(scene_id))
                                     .map(|scene| scene.delete_entity(entity_id));
                                 match deleted {
-                                    Some(Ok(_)) => {
-                                        gui_state.selected_item = SelectedItem::None;
-                                        gui_state.scene_panel_selected_item =
-                                            ScenePanelSelectedItem::None;
-                                        utils::save_project(gui_state);
+                                    Some(Ok(true)) => {
+                                        gui_state.clear_selection();
+                                        gui_state.commit_change();
                                     }
+                                    Some(Ok(false)) => {}
                                     Some(Err(e)) => {
                                         LOGGER.error(format!("Failed to delete entity: {}", e))
                                     }

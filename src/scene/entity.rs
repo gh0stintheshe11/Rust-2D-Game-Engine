@@ -32,7 +32,7 @@ impl Default for PhysicsProperties {
 }
 
 // =============== Entity (Manages Attributes) ===============
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Entity {
     pub id: Uuid,
     pub name: String,

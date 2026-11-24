@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 // =============== Scene Manager (Top Level) ===============
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct SceneManager {
     pub scenes: IndexMap<Uuid, Scene>,
     pub shared_entities: IndexMap<Uuid, Entity>,

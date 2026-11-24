@@ -21,6 +21,6 @@ fn main() -> eframe::Result<()> {
     eframe::run_native(
         "Rust 2D Game Engine",
         options,
-        Box::new(|cc| Ok(Box::new(EditorApp::new(cc)))),
+        Box::new(|cc| Ok(Box::new(EditorApp::new(&cc.egui_ctx)))),
     )
 }
