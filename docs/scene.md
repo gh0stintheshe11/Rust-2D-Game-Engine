@@ -39,6 +39,12 @@ Entities are specialized only by attributes:
   `is_camera` can't be modified.
 - Physical entities add the physics attributes described in
   [physics.md](physics.md).
+- Sprites read optional attributes such as `scale`, `flip_x` or `opacity`
+  (see [render.md](render.md)).
+
+Typed getters (`get_bool`, `get_float`, `get_string`, `get_vector2`) read such
+optional attributes, returning `None` when one is missing or has another type;
+`set_or_create_attribute` sets one, creating it if needed.
 
 ## Invariants
 

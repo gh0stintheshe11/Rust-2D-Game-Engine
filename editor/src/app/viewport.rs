@@ -299,6 +299,8 @@ impl EditorApp {
                     ui.painter(),
                     texture.id(),
                     rect,
+                    entry.uv,
+                    entry.tint,
                     entry.rotation,
                 );
 

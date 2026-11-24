@@ -15,6 +15,10 @@ versions may contain breaking changes).
   `set_volume` and `set_master_volume`.
 - `AudioEngine::offline` mixes sounds into a sample stream instead of an audio
   device, so playback can be tested on machines without one.
+- Sprites can be mirrored (`flip_x`, `flip_y`), faded (`opacity`) and tinted
+  (`tint = "#rrggbb"`) through attributes, in the editor and in games.
+- `Entity::get_bool`, `get_float`, `get_string`, `get_vector2` and
+  `set_or_create_attribute` read and write optional attributes by name.
 - `draw_text(text, x, y, {size, color, align})` draws text over the game
   (scores, timers, messages). It is laid out in the camera frame's pixels, so
   it scales with the window like the sprites.

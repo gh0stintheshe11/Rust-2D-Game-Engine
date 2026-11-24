@@ -7,7 +7,7 @@
 
 use crate::logger::LOGGER;
 use crate::physics::{ColliderOutline, ColliderShape};
-use crate::scene::{AttributeValue, Scene};
+use crate::scene::{Entity, Scene};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use uuid::Uuid;
@@ -25,28 +25,31 @@ pub struct RenderQueueEntry {
     pub texture_id: Uuid,
     pub screen_pos: (f32, f32),
     pub screen_size: (f32, f32),
+    /// Part of the texture to show, in texture coordinates (0..1). A min
+    /// above the max mirrors the sprite along that axis.
+    pub uv: egui::Rect,
+    /// Color the texture is multiplied by (premultiplied alpha); white
+    /// shows the image as is.
+    pub tint: egui::Color32,
     /// Rotation around the sprite center, in radians (entity attribute is in degrees).
     pub rotation: f32,
     pub z: f32,
 }
 
-/// Paint a textured rect, optionally rotated around its center.
+/// The whole texture, unmirrored.
+const FULL_UV: egui::Rect = egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0));
+
+/// Paint part of a texture (`uv`, see [`RenderQueueEntry::uv`]) into `rect`,
+/// multiplied by `tint` and rotated by `rotation` radians around the rect's
+/// center.
 pub fn paint_sprite(
     painter: &egui::Painter,
     texture_id: egui::TextureId,
     rect: egui::Rect,
+    uv: egui::Rect,
+    tint: egui::Color32,
     rotation: f32,
 ) {
-    if rotation == 0.0 {
-        painter.image(
-            texture_id,
-            rect,
-            egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
-            egui::Color32::WHITE,
-        );
-        return;
-    }
-
     let center = rect.center();
     let (sin, cos) = rotation.sin_cos();
     let corners = [
@@ -55,11 +58,12 @@ pub fn paint_sprite(
         rect.right_bottom(),
         rect.left_bottom(),
     ];
+    // Corner by corner, so a mirrored uv rect mirrors the image
     let uvs = [
-        egui::pos2(0.0, 0.0),
-        egui::pos2(1.0, 0.0),
-        egui::pos2(1.0, 1.0),
-        egui::pos2(0.0, 1.0),
+        egui::pos2(uv.min.x, uv.min.y),
+        egui::pos2(uv.max.x, uv.min.y),
+        egui::pos2(uv.max.x, uv.max.y),
+        egui::pos2(uv.min.x, uv.max.y),
     ];
 
     let mut mesh = egui::Mesh::with_texture(texture_id);
@@ -69,7 +73,7 @@ pub fn paint_sprite(
         mesh.vertices.push(egui::epaint::Vertex {
             pos: center + rotated,
             uv,
-            color: egui::Color32::WHITE,
+            color: tint,
         });
     }
     mesh.indices.extend([0, 1, 2, 0, 2, 3]);
@@ -204,6 +208,8 @@ pub struct RenderEngine {
     egui_textures: HashMap<Uuid, egui::TextureHandle>,
     // Images that failed to load; not retried until the cache is cleared
     failed_textures: HashSet<Uuid>,
+    // Invalid `tint` values already reported
+    reported_tints: HashSet<String>,
     pub camera: Camera,
 }
 
@@ -220,6 +226,7 @@ impl RenderEngine {
             texture_cache: HashMap::new(),
             egui_textures: HashMap::new(),
             failed_textures: HashSet::new(),
+            reported_tints: HashSet::new(),
             camera: Camera::new(),
         }
     }
@@ -282,14 +289,18 @@ impl RenderEngine {
                 continue;
             };
 
-            let rotation = match entity.get_attribute_by_name("rotation").map(|a| &a.value) {
-                Ok(AttributeValue::Float(degrees)) => degrees.to_radians(),
-                _ => 0.0,
-            };
-            let scale = match entity.get_attribute_by_name("scale").map(|a| &a.value) {
-                Ok(AttributeValue::Vector2(sx, sy)) => (*sx, *sy),
-                _ => (1.0, 1.0),
-            };
+            let rotation = entity
+                .get_float("rotation")
+                .map_or(0.0, |degrees| degrees.to_radians());
+            let scale = entity.get_vector2("scale").unwrap_or((1.0, 1.0));
+
+            let mut uv = FULL_UV;
+            if entity.get_bool("flip_x") == Some(true) {
+                std::mem::swap(&mut uv.min.x, &mut uv.max.x);
+            }
+            if entity.get_bool("flip_y") == Some(true) {
+                std::mem::swap(&mut uv.min.y, &mut uv.max.y);
+            }
 
             let screen_pos = self
                 .camera
@@ -303,11 +314,14 @@ impl RenderEngine {
                 && screen_pos.1 <= self.viewport_size.1
                 && screen_pos.1 + height >= 0.0
             {
+                let tint = self.sprite_tint(entity);
                 render_queue.push(RenderQueueEntry {
                     entity_id: *entity_id,
                     texture_id,
                     screen_pos,
                     screen_size: (width, height),
+                    uv,
+                    tint,
                     rotation,
                     z: entity.get_z(),
                 });
@@ -318,6 +332,25 @@ impl RenderEngine {
         // (and the sort panic-free) even if a z is NaN
         render_queue.sort_by(|a, b| a.z.total_cmp(&b.z));
         render_queue
+    }
+
+    /// The color an entity's sprite is multiplied by: its `tint` attribute
+    /// (`#rrggbb` or `#rrggbbaa`, default white) faded by its `opacity`
+    /// (0 to 1, default 1). An invalid tint is reported once and ignored.
+    fn sprite_tint(&mut self, entity: &Entity) -> egui::Color32 {
+        let tint = match entity.get_string("tint") {
+            Some(text) => parse_color(text).unwrap_or_else(|e| {
+                if self.reported_tints.insert(text.to_string()) {
+                    LOGGER.warning(format!("Entity '{}': {}", entity.name, e));
+                }
+                egui::Color32::WHITE
+            }),
+            None => egui::Color32::WHITE,
+        };
+        match entity.get_float("opacity") {
+            Some(opacity) if opacity.is_finite() => tint.gamma_multiply(opacity.clamp(0.0, 1.0)),
+            _ => tint,
+        }
     }
 
     /// Project world-space collider outlines into viewport space, dropping

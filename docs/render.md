@@ -20,7 +20,7 @@ screen space; callers paint them with `paint_sprite`, using GPU textures from
 
 ```mermaid
 graph TD
-    S[Scene entities] -->|"first image, x/y/z, rotation, scale"| R["render()"]
+    S[Scene entities] -->|"first image, x/y/z, sprite attributes"| R["render()"]
     R -->|"decode once per path"| TC["decoded RGBA cache"]
     R -->|"cull to viewport, sort by z"| Q[render queue]
     Q --> P["caller: paint_sprite()"]
@@ -30,8 +30,20 @@ graph TD
 - An entity's sprite is its **first** image; `x`/`y` is the sprite's top-left
   corner. Its size is the image's pixel size times the optional `scale`
   Vector2 attribute times the camera zoom.
-- The optional `rotation` Float attribute (degrees) rotates the sprite around
-  its center (the physics engine writes it for rotating bodies).
+- Optional attributes change how the sprite is drawn, in the editor and in
+  games:
+
+  | Attribute | Type | Effect |
+  |---|---|---|
+  | `rotation` | Float (degrees) | Rotates around the sprite's center (the physics engine writes it for rotating bodies) |
+  | `scale` | Vector2 | Multiplies the size |
+  | `flip_x` / `flip_y` | Boolean | Mirrors the image horizontally / vertically (e.g. a character facing left) |
+  | `opacity` | Float | 1 is opaque, 0 invisible; values outside 0–1 are clamped |
+  | `tint` | String | `"#rrggbb"` or `"#rrggbbaa"`: multiplies the image's colors (white leaves it unchanged); an invalid value is reported once and ignored |
+
+  A value of another type is ignored. Scripts change them with
+  `set_attribute` once the entity has them (added in the Inspector, or with
+  `create_attribute_*`).
 - Lower `z` is drawn first. The sort is total, so a NaN `z` can't break it.
 - Images that fail to load are skipped and reported once in the console; they
   are retried only after the cache is cleared.

@@ -281,6 +281,56 @@ impl Entity {
             .ok_or_else(|| format!("Attribute '{}' not found", name))
     }
 
+    // Typed access to optional attributes, as engine systems read them:
+    // None when the attribute is missing or holds another type.
+
+    pub fn get_bool(&self, name: &str) -> Option<bool> {
+        match self.get_attribute_by_name(name).ok()?.value {
+            AttributeValue::Boolean(value) => Some(value),
+            _ => None,
+        }
+    }
+
+    /// A Float attribute, or an Integer one converted.
+    pub fn get_float(&self, name: &str) -> Option<f32> {
+        match self.get_attribute_by_name(name).ok()?.value {
+            AttributeValue::Float(value) => Some(value),
+            AttributeValue::Integer(value) => Some(value as f32),
+            _ => None,
+        }
+    }
+
+    pub fn get_string(&self, name: &str) -> Option<&str> {
+        match &self.get_attribute_by_name(name).ok()?.value {
+            AttributeValue::String(value) => Some(value),
+            _ => None,
+        }
+    }
+
+    pub fn get_vector2(&self, name: &str) -> Option<(f32, f32)> {
+        match self.get_attribute_by_name(name).ok()?.value {
+            AttributeValue::Vector2(x, y) => Some((x, y)),
+            _ => None,
+        }
+    }
+
+    /// Set an attribute's value, creating the attribute (with the value's
+    /// type) if the entity doesn't have it. Fails like
+    /// [`modify_attribute`](Self::modify_attribute) when the existing
+    /// attribute has another type.
+    pub fn set_or_create_attribute(
+        &mut self,
+        name: &str,
+        value: AttributeValue,
+    ) -> Result<(), String> {
+        match self.get_attribute_by_name(name).map(|attr| attr.id) {
+            Ok(id) => self.modify_attribute(id, None, None, Some(value)),
+            Err(_) => self
+                .create_attribute(name, value.data_type(), value)
+                .map(|_| ()),
+        }
+    }
+
     // Predefined: Camera Entity
     pub fn new_camera(id: Uuid, name: &str) -> Result<Self, String> {
         let mut entity = Self::new(id, name)?; // Get base attributes first

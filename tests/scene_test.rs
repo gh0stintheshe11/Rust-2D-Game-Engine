@@ -200,4 +200,38 @@ mod tests {
         assert!(result.is_err(), "the missing entity is reported");
         assert_eq!(scene.get_entity(entity_id).unwrap().get_x(), 42.0);
     }
+
+    #[test]
+    fn test_typed_attribute_access() {
+        let mut entity = Entity::new(uuid::Uuid::new_v4(), "e").unwrap();
+        for (name, value) in [
+            ("visible", AttributeValue::Boolean(true)),
+            ("lives", AttributeValue::Integer(3)),
+            ("label", AttributeValue::String("hi".to_string())),
+            ("size", AttributeValue::Vector2(1.0, 2.0)),
+        ] {
+            entity.set_or_create_attribute(name, value).unwrap();
+        }
+        assert_eq!(entity.get_bool("visible"), Some(true));
+        assert_eq!(
+            entity.get_float("lives"),
+            Some(3.0),
+            "integers read as floats"
+        );
+        assert_eq!(entity.get_string("label"), Some("hi"));
+        assert_eq!(entity.get_vector2("size"), Some((1.0, 2.0)));
+        assert_eq!(entity.get_bool("lives"), None, "another type");
+        assert_eq!(entity.get_float("missing"), None);
+
+        // Existing attributes are updated in place, and keep their type
+        entity
+            .set_or_create_attribute("lives", AttributeValue::Integer(2))
+            .unwrap();
+        assert_eq!(entity.get_float("lives"), Some(2.0));
+        assert!(
+            entity
+                .set_or_create_attribute("lives", AttributeValue::Boolean(false))
+                .is_err()
+        );
+    }
 }

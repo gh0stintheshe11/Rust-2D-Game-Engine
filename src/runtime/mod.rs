@@ -312,7 +312,14 @@ impl GameRuntime {
                 viewport_rect.min + egui::vec2(entry.screen_pos.0, entry.screen_pos.1),
                 egui::vec2(entry.screen_size.0, entry.screen_size.1),
             );
-            crate::render::paint_sprite(&painter, texture.id(), rect, entry.rotation);
+            crate::render::paint_sprite(
+                &painter,
+                texture.id(),
+                rect,
+                entry.uv,
+                entry.tint,
+                entry.rotation,
+            );
         }
 
         // Script text is laid out in the camera frame's pixels and scales

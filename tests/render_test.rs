@@ -210,3 +210,57 @@ fn test_camera_frame() {
     set_camera(&mut scene, (0.0, 0.0), (0.0, 100.0), 1.0);
     assert!(camera_frame(&scene).is_none(), "a zero-width camera");
 }
+
+#[test]
+fn test_flip_opacity_and_tint() {
+    let mut renderer = RenderEngine::new();
+    renderer.update_viewport_size(800.0, 600.0);
+    let mut scene = Scene::new("test_scene").unwrap();
+    let image = temp_png(4, 4);
+    let attributes = |scene: &mut Scene, id: Uuid, values: Vec<(&str, AttributeValue)>| {
+        let entity = scene.get_entity_mut(id).unwrap();
+        for (name, value) in values {
+            entity.set_or_create_attribute(name, value).unwrap();
+        }
+    };
+
+    let plain = sprite(&mut scene, "plain", image.clone(), (0.0, 0.0, 0.0));
+    let styled = sprite(&mut scene, "styled", image.clone(), (10.0, 0.0, 1.0));
+    attributes(
+        &mut scene,
+        styled,
+        vec![
+            ("flip_x", AttributeValue::Boolean(true)),
+            ("opacity", AttributeValue::Float(0.5)),
+            ("tint", AttributeValue::String("#ff0000".to_string())),
+        ],
+    );
+    let upside_down = sprite(&mut scene, "upside_down", image.clone(), (20.0, 0.0, 2.0));
+    attributes(
+        &mut scene,
+        upside_down,
+        vec![("flip_y", AttributeValue::Boolean(true))],
+    );
+    let broken = sprite(&mut scene, "broken", image, (30.0, 0.0, 3.0));
+    attributes(
+        &mut scene,
+        broken,
+        vec![("tint", AttributeValue::String("red".to_string()))],
+    );
+
+    let queue = renderer.render(&scene);
+    let entry = |id: Uuid| queue.iter().find(|entry| entry.entity_id == id).unwrap();
+    let uv = |min: (f32, f32), max: (f32, f32)| {
+        egui::Rect::from_min_max(egui::pos2(min.0, min.1), egui::pos2(max.0, max.1))
+    };
+    assert_eq!(entry(plain).uv, uv((0.0, 0.0), (1.0, 1.0)));
+    assert_eq!(entry(plain).tint, egui::Color32::WHITE);
+    assert_eq!(entry(styled).uv, uv((1.0, 0.0), (0.0, 1.0)), "mirrored");
+    assert_eq!(entry(styled).tint, egui::Color32::RED.gamma_multiply(0.5));
+    assert_eq!(entry(upside_down).uv, uv((0.0, 1.0), (1.0, 0.0)));
+    assert_eq!(
+        entry(broken).tint,
+        egui::Color32::WHITE,
+        "an invalid tint is ignored"
+    );
+}
