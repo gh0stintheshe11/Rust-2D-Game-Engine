@@ -5,7 +5,9 @@ on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows [Semantic Versioning](https://semver.org/) (while on 0.x, minor
 versions may contain breaking changes).
 
-## [0.3.0] - Unreleased
+## [Unreleased]
+
+## [0.3.0] - 2026-11-24
 
 The first release as an open-source project, after a full audit of the code.
 
@@ -95,5 +97,6 @@ Renovation of the 2024 course project: rewritten Lua scripting core, physics
 and runtime fixes, GPU texture caching, undo/redo, viewport picking and
 dragging, script editor improvements, CI and multi-platform releases.
 
-[0.3.0]: https://github.com/gh0stintheshe11/Rust-2D-Game-Engine/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/gh0stintheshe11/Rust-2D-Game-Engine/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/gh0stintheshe11/Rust-2D-Game-Engine/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/gh0stintheshe11/Rust-2D-Game-Engine/releases/tag/v0.2.0

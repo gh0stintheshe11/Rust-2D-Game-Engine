@@ -43,8 +43,7 @@ code can be tested headlessly through `EditorApp::frame` (see the tests in
 3. The module's doc in `docs/` describes the code as it now is, including its
    "Known limitations" section. Docs describe current behavior only — no
    history, no plans presented as facts.
-4. User-visible changes are listed under the newest version in
-   `CHANGELOG.md`.
+4. User-visible changes are listed under "Unreleased" in `CHANGELOG.md`.
 
 ## Code conventions
 
