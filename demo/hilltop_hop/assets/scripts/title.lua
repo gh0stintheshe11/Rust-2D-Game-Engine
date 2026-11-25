@@ -14,9 +14,10 @@ function update(scene_id, entity_id)
         draw_text(best, CENTER, 186, { size = 22, color = "#c8f0ff", align = "center" })
     end
 
-    -- The default button: Enter and gamepad A press it right away
+    -- The default button: Enter and gamepad A press it right away; so do
+    -- the jump and menu actions
     if button("Play", CENTER - 90, 228, 180, 58, { size = 30, default = true })
-        or is_key_just_pressed("Space") or is_gamepad_just_pressed("start") then
+        or is_action_just_pressed("jump") or is_action_just_pressed("menu") then
         change_scene("level")
     end
     draw_text("Run: arrow keys, A / D, stick or d-pad", CENTER, 300, { size = 18, color = "#dde6f5", align = "center" })

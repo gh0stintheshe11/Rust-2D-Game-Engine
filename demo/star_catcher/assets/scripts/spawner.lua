@@ -34,12 +34,12 @@ end
 
 local function game_over_screen(scene_id)
     draw_text("Game over", 240, 250, {size = 56, color = "#ff6060", align = "center"})
-    draw_text("Space: play again", 240, 330, {size = 26, align = "center"})
-    draw_text("Esc: title screen", 240, 366, {size = 26, align = "center"})
-    if is_key_just_pressed("Space") then
+    draw_text("Space or (A): play again", 240, 330, {size = 26, align = "center"})
+    draw_text("Esc or (B): title screen", 240, 366, {size = 26, align = "center"})
+    if is_action_just_pressed("start") then
         -- Changing to the current scene starts it over
         change_scene(scene_id)
-    elseif is_key_just_pressed("Escape") then
+    elseif is_action_just_pressed("back") then
         change_scene("title")
     end
 end

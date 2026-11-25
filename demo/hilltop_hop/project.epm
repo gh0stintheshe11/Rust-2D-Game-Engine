@@ -1,4 +1,41 @@
 {
   "project_name": "Hilltop Hop",
-  "version": "1.0.0"
+  "version": "1.0.0",
+  "input_actions": {
+    "left": [
+      "key:ArrowLeft",
+      "key:A",
+      "pad:left",
+      "pad:left_x-"
+    ],
+    "right": [
+      "key:ArrowRight",
+      "key:D",
+      "pad:right",
+      "pad:left_x+"
+    ],
+    "jump": [
+      "key:Space",
+      "key:W",
+      "key:ArrowUp",
+      "pad:a"
+    ],
+    "down": {
+      "bindings": [
+        "key:ArrowDown",
+        "key:S",
+        "pad:down",
+        "pad:left_y+"
+      ],
+      "threshold": 0.7
+    },
+    "menu": [
+      "key:Escape",
+      "pad:start"
+    ],
+    "back": [
+      "key:Escape",
+      "pad:b"
+    ]
+  }
 }

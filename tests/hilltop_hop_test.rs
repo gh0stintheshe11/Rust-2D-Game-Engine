@@ -3,7 +3,7 @@
 //! UI), headless.
 
 use rust_2d_game_engine::audio::AudioEngine;
-use rust_2d_game_engine::input::{GamepadButton, GamepadEvent, InputHandler};
+use rust_2d_game_engine::input::{GamepadAxis, GamepadButton, GamepadEvent, InputHandler};
 use rust_2d_game_engine::logger::{ConsoleMessageType, LOGGER};
 use rust_2d_game_engine::physics::PhysicsEngine;
 use rust_2d_game_engine::project::ProjectManager;
@@ -42,6 +42,7 @@ impl Game {
             60,
         );
         runtime.set_save_data(SaveData::in_memory());
+        runtime.set_input_actions(project.metadata.input_actions);
         runtime.run().expect("the demo starts");
         let mut game = Self {
             runtime,
@@ -412,5 +413,38 @@ fn test_gamepads_play_too() {
         .queue_gamepad_events(press(GamepadButton::DPadRight, false));
     game.frames(1);
     assert!(game.player().0 > START.0 + 80.0, "x = {}", game.player().0);
+
+    // On a plank, the stick pushed diagonally runs on it; pushed down, it
+    // drops through (the down action needs the stick pushed further)
+    let stick = |x, y| {
+        [(GamepadAxis::LeftStickX, x), (GamepadAxis::LeftStickY, y)]
+            .map(|(axis, value)| GamepadEvent::AxisMoved {
+                gamepad: 0,
+                axis,
+                value,
+            })
+            .to_vec()
+    };
+    game.teleport(23.0 * TILE, 10.0 * TILE - 43.0);
+    game.frames(30);
+    game.runtime.queue_gamepad_events(stick(-0.8, 0.6));
+    game.frames(3);
+    game.runtime.queue_gamepad_events(stick(0.0, 0.0));
+    game.frames(30);
+    let (_, on_plank) = game.player();
+    assert!(
+        close(on_plank, 10.0 * TILE - 42.0, 2.0),
+        "still on a plank: y = {}",
+        on_plank
+    );
+    game.runtime.queue_gamepad_events(stick(0.0, 1.0));
+    game.frames(3);
+    game.runtime.queue_gamepad_events(stick(0.0, 0.0));
+    game.frames(60);
+    assert!(
+        game.player().1 > on_plank + 50.0,
+        "dropped: y = {}",
+        game.player().1
+    );
     assert!(script_errors().is_empty(), "{:?}", script_errors());
 }

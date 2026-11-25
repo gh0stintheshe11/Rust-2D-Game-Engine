@@ -27,6 +27,8 @@ versions may contain breaking changes).
 
 ### Changed
 
+- Both demos read their controls through input actions, and Star Catcher
+  plays with a gamepad too.
 - `ProjectMetadata` has an `input_actions` field (breaking for Rust code
   that constructs it).
 

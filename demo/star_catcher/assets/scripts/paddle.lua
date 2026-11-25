@@ -13,13 +13,9 @@ function update(scene_id, entity_id)
     end
 
     local speed = get_attribute(scene_id, entity_id, "speed") or 320
-    local direction = 0
-    if is_key_pressed("ArrowLeft") or is_key_pressed("A") then
-        direction = direction - 1
-    end
-    if is_key_pressed("ArrowRight") or is_key_pressed("D") then
-        direction = direction + 1
-    end
+    -- The left and right input actions: keys, the d-pad or the stick, which
+    -- moves slower when pushed part way
+    local direction = get_action_axis("left", "right")
 
     -- Stay on the field
     local x = get_attribute(scene_id, entity_id, "x")

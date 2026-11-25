@@ -12,7 +12,9 @@ higher jump), ↓ or S to drop through a wooden plank. A gamepad works too:
 the left stick or d-pad runs and drops, (A) jumps.
 Esc (or Start) returns to the title screen. In the menus, the arrow keys or
 the d-pad choose a button and Enter or (A) presses it, or click it; on the
-end screens, Esc or (B) also goes to the title screen.
+end screens, Esc or (B) also goes to the title screen. These keys and
+buttons are the project's input actions: change them with Project → Input
+Actions in the editor.
 
 ## Running it
 
@@ -32,7 +34,7 @@ end screens, Esc or (B) also goes to the title screen.
 | Sprite sheet animation and mirroring | `player` entity (`frame_size`), `play_animation` and `flip_x` in `player.lua` |
 | Particles: pollen in the air, and bursts of dust, brick debris, sparkles and confetti | the `pollen`, `dust`, `debris`, `sparkle` and `confetti` emitters, `emit_particles` in the scripts |
 | Game UI: hearts and gem count, end screens with buttons, the title menu; buttons chosen with the keyboard or a gamepad, with a default button | `level.lua`, `title.lua` (`draw_rect`, `draw_image`, `draw_text`, `button` and its `default` option) |
-| Keyboard and gamepad input side by side | `read_input` in `player.lua`, `level.lua`, `title.lua` |
+| Input actions: keyboard and gamepad controls behind names (`left`, `right`, `jump`, `down`, `menu`, `back`); the stick runs as far as it's pushed, and has to be pushed well down to drop through a plank | `project.epm` (Project → Input Actions), `read_input` in `player.lua` (`get_action_axis`, `is_action_just_pressed`), `level.lua`, `title.lua` |
 | A camera following the player, with the sky and slower hills behind it (parallax) | `follow_player` in `level.lua` |
 | Trigger zones with collision hooks: gems, checkpoints, the goal | `gem.lua`, `checkpoint.lua`, `goal.lua` |
 | State shared by scripts and kept between runs: hearts, gems, the best time | `script_state`, `save_data` / `load_data` in `goal.lua` and `title.lua` |

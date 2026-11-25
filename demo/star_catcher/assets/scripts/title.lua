@@ -16,10 +16,10 @@ function update(scene_id, entity_id)
     if best then
         draw_text("Best: " .. best, 240, 410, {size = 28, align = "center"})
     end
-    draw_text("Press Space to play", 240, 480, {size = 30, color = "#80ff80", align = "center"})
-    draw_text("Arrow keys or A / D to move", 240, 560, {size = 20, color = "#c8c8d8", align = "center"})
+    draw_text("Press Space or (A) to play", 240, 480, {size = 30, color = "#80ff80", align = "center"})
+    draw_text("Arrow keys, A / D or a gamepad to move", 240, 560, {size = 20, color = "#c8c8d8", align = "center"})
 
-    if is_key_just_pressed("Space") or is_key_just_pressed("Enter") then
+    if is_action_just_pressed("start") then
         change_scene("main")
     end
 end

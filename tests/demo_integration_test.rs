@@ -43,7 +43,8 @@ fn runtime(seed: i32, rock_chance: f32) -> GameRuntime {
 }
 
 fn runtime_with_save(seed: i32, rock_chance: f32, save_data: SaveData) -> GameRuntime {
-    let mut manager = load_demo();
+    let project = ProjectManager::load_project_full(&demo_dir()).expect("the demo project loads");
+    let mut manager = project.scene_manager;
     let main = scene(&manager, "main").id;
     let spawner = manager
         .get_scene_mut(main)
@@ -64,6 +65,7 @@ fn runtime_with_save(seed: i32, rock_chance: f32, save_data: SaveData) -> GameRu
         60,
     );
     runtime.set_save_data(save_data);
+    runtime.set_input_actions(project.metadata.input_actions);
     runtime.run().expect("the demo starts");
     runtime
 }
@@ -202,12 +204,70 @@ fn test_demo_assets_resolve() {
 }
 
 #[test]
+fn test_the_demo_plays_with_a_gamepad() {
+    use rust_2d_game_engine::input::{GamepadAxis, GamepadButton, GamepadEvent};
+
+    let ctx = egui::Context::default();
+    let mut runtime = runtime(42, 0.0);
+    let viewport = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(480.0, 640.0));
+    // A frame through the whole update path, with these gamepad events
+    let frame = |runtime: &mut GameRuntime, events: Vec<GamepadEvent>| {
+        runtime.queue_gamepad_events(events);
+        let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
+            let ctx = ui.ctx().clone();
+            runtime.update(&ctx, ui, viewport);
+        });
+        output.textures_delta.clear();
+    };
+    play(&mut runtime, 0.5);
+    let a = GamepadButton::South;
+    frame(
+        &mut runtime,
+        vec![
+            GamepadEvent::Connected { gamepad: 0 },
+            GamepadEvent::ButtonPressed {
+                gamepad: 0,
+                button: a,
+            },
+        ],
+    );
+    frame(
+        &mut runtime,
+        vec![GamepadEvent::ButtonReleased {
+            gamepad: 0,
+            button: a,
+        }],
+    );
+    assert_eq!(active_scene_name(&runtime), "main", "(A) plays");
+
+    let start = position(&runtime.get_scene_manager(), "paddle");
+    frame(
+        &mut runtime,
+        vec![GamepadEvent::AxisMoved {
+            gamepad: 0,
+            axis: GamepadAxis::LeftStickX,
+            value: -1.0,
+        }],
+    );
+    for _ in 0..20 {
+        frame(&mut runtime, Vec::new());
+    }
+    let moved = position(&runtime.get_scene_manager(), "paddle");
+    assert!(
+        moved.0 < start.0 - 50.0,
+        "the stick moves the paddle: {:?} -> {:?}",
+        start,
+        moved
+    );
+}
+
+#[test]
 fn test_demo_drops_and_catches_stars() {
     let ctx = egui::Context::default();
     let mut runtime = runtime(42, 0.0);
     play(&mut runtime, 0.5);
     assert_eq!(active_scene_name(&runtime), "title");
-    assert!(texts(&runtime).contains(&"Press Space to play".to_string()));
+    assert!(texts(&runtime).contains(&"Press Space or (A) to play".to_string()));
     play(&mut runtime, 3.0);
     assert_eq!(active_scene_name(&runtime), "title", "waits for the player");
 

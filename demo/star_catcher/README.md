@@ -8,7 +8,10 @@ between runs.
 ![Star Catcher](../../docs/images/star_catcher.png)
 
 **Controls:** ← / → or A / D to move. Space starts a game; after a game
-over, Space plays again and Esc returns to the title screen.
+over, Space plays again and Esc returns to the title screen. A gamepad
+works too: the d-pad or the left stick moves, (A) plays and (B) returns to
+the title screen. The keys and buttons are the project's input actions
+(Project → Input Actions in the editor).
 
 ## Running it
 

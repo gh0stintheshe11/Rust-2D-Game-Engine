@@ -56,14 +56,13 @@ local function end_screen(title, color, lines)
 end
 
 -- The end screens' two buttons: again, focused by default, or the title
--- screen (also Escape or gamepad B). The arrow keys or the d-pad move the
--- focus, and Enter or gamepad A press the focused button.
+-- screen (also the "back" action: Escape or gamepad B). The arrow keys or
+-- the d-pad move the focus, and Enter or gamepad A press the focused button.
 local function end_buttons(state, again_label)
     local ready = accumulated_time - state.ended_at >= END_SCREEN_DELAY
     if button(again_label, 320, 340, 150, 54, { default = ready }) then
         change_scene("level")
-    elseif button("Title", 490, 340, 150, 54)
-        or (ready and (is_key_just_pressed("Escape") or is_gamepad_just_pressed("b"))) then
+    elseif button("Title", 490, 340, 150, 54) or (ready and is_action_just_pressed("back")) then
         change_scene("title")
     end
 end
@@ -86,7 +85,7 @@ function update(scene_id, entity_id)
     elseif state.game_over then
         end_screen("Out of hearts", "#ff8080", { "Gems: " .. state.gems .. " / " .. GEMS_TOTAL })
         end_buttons(state, "Try again")
-    elseif is_key_just_pressed("Escape") or is_gamepad_just_pressed("start") then
+    elseif is_action_just_pressed("menu") then
         change_scene("title")
     end
 end

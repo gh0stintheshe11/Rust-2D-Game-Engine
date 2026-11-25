@@ -18,7 +18,6 @@ local BRICK = 3 -- the tileset's brick tile
 local start = { x = 0, y = 0 }
 local ground, spikes, dust, debris
 local since_ground, since_jump_pressed, was_grounded, last_vy, invulnerable
-local stick_was_down = false
 
 function init(scene_id, entity_id)
     start.x = get_attribute(scene_id, entity_id, "x")
@@ -31,35 +30,12 @@ function init(scene_id, entity_id)
     was_grounded, last_vy, invulnerable = false, 0, 0
 end
 
--- Down, just pressed: a key, the d-pad, or the stick pushed down
-local function down_pressed()
-    local stick_down = get_gamepad_axis("left_y") > 0.7
-    local pushed = stick_down and not stick_was_down
-    stick_was_down = stick_down
-    return pushed or is_key_just_pressed("ArrowDown") or is_key_just_pressed("S")
-        or is_gamepad_just_pressed("down")
-end
-
--- Keyboard and gamepad together: the direction to run (-1 to 1), whether
--- jump was just pressed, and whether it's held
+-- The project's input actions (Project > Input Actions) say which keys
+-- and gamepad controls these are. The direction to run goes from -1 to 1:
+-- the stick runs slower when pushed part way.
 local function read_input()
-    local move = 0
-    if is_key_pressed("ArrowLeft") or is_key_pressed("A") or is_gamepad_pressed("left") then
-        move = move - 1
-    end
-    if is_key_pressed("ArrowRight") or is_key_pressed("D") or is_gamepad_pressed("right") then
-        move = move + 1
-    end
-    -- The stick runs slower when pushed halfway
-    local stick = get_gamepad_axis("left_x")
-    if stick ~= 0 then
-        move = stick
-    end
-    local jump = is_key_just_pressed("Space") or is_key_just_pressed("W")
-        or is_key_just_pressed("ArrowUp") or is_gamepad_just_pressed("a")
-    local held = is_key_pressed("Space") or is_key_pressed("W")
-        or is_key_pressed("ArrowUp") or is_gamepad_pressed("a")
-    return move, jump, held
+    local move = get_action_axis("left", "right")
+    return move, is_action_just_pressed("jump"), is_action_pressed("jump")
 end
 
 -- Standing on something: two short rays down from the feet (rays skip
@@ -149,8 +125,10 @@ function update(scene_id, entity_id)
 
     local move, jump, held = read_input()
     local grounded = vy > -1 and on_ground(entity_id, x, y)
-    -- On a plank, down drops through it (on solid ground, nothing happens)
-    if down_pressed() and grounded then
+    -- On a plank, down drops through it (on solid ground, nothing happens).
+    -- The stick has to be pushed well down: running down a slope, it's
+    -- pushed diagonally (the action's threshold).
+    if is_action_just_pressed("down") and grounded then
         drop_through_platforms(entity_id)
     end
     since_ground = grounded and 0 or since_ground + delta_time
