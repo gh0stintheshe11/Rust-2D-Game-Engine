@@ -7,6 +7,15 @@ versions may contain breaking changes).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-24
+
+Platformer building blocks: tilemaps with one-way platforms and animated
+tiles, particles, game UI, gamepads and save data, shown in a second demo
+game, Hilltop Hop; faster frames; and in the editor, copy and paste, grid
+snapping and an Add Feature menu. When upgrading, note that
+`get_mouse_position()` now returns world coordinates, and that building on
+Linux needs `libudev-dev`.
+
 ### Added
 
 - Tilemaps: an entity can carry a grid of tiles drawn from a tileset image
@@ -45,8 +54,9 @@ versions may contain breaking changes).
   d-pad or the left stick move the focus among them, Enter or gamepad A
   press the focused one, and a `default` button has the focus when the
   buttons appear. Like `draw_text` they're laid out in camera frame
-  pixels, and later drawings cover earlier ones. `InputHandler::get_mouse_press_screen_pos`
-  tells where the left button went down.
+  pixels, and later drawings cover earlier ones.
+  `InputHandler::get_mouse_press_screen_pos` tells where the left button
+  went down.
 - Gamepads: scripts read buttons (`is_gamepad_pressed`,
   `is_gamepad_just_pressed`, `is_gamepad_just_released`, with Xbox names
   like `"a"`, `"lb"` or `"up"`, and PlayStation ones) and axes
@@ -105,12 +115,18 @@ versions may contain breaking changes).
   above the selected one.
 - `get_mouse_position()` returns the pointer in world coordinates, through
   the camera, instead of window coordinates, which differed between the
-  editor and exported games. In an exported game whose camera frame starts
-  at (0, 0) and fills the window at its own size, the values are unchanged.
+  editor and exported games (breaking for scripts that relied on window
+  coordinates; `get_mouse_screen_position()` gives camera frame pixels). In
+  an exported game whose camera frame starts at (0, 0) and fills the window
+  at its own size, the values are unchanged.
 - The Star Catcher demo saves its best score between runs.
 - `LuaScripting::hud()` returns everything scripts drew over the game this
   frame (`HudItem`s); `hud_texts()` returns copies of the texts among them,
-  instead of a borrow of a list of texts.
+  instead of a borrow of a list of texts (breaking for Rust code that used
+  the borrow).
+- `Entity` has a `tilemap` field, `RenderQueueEntry` a `quads` field and
+  `ColliderOutline` a `one_way` field (breaking for Rust code that
+  constructs them).
 
 ### Fixed
 
@@ -293,7 +309,8 @@ Renovation of the 2024 course project: rewritten Lua scripting core, physics
 and runtime fixes, GPU texture caching, undo/redo, viewport picking and
 dragging, script editor improvements, CI and multi-platform releases.
 
-[Unreleased]: https://github.com/gh0stintheshe11/Rust-2D-Game-Engine/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/gh0stintheshe11/Rust-2D-Game-Engine/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/gh0stintheshe11/Rust-2D-Game-Engine/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/gh0stintheshe11/Rust-2D-Game-Engine/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/gh0stintheshe11/Rust-2D-Game-Engine/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/gh0stintheshe11/Rust-2D-Game-Engine/compare/v0.2.0...v0.3.0
