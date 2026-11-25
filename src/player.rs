@@ -50,6 +50,7 @@ pub fn run(title: &str) -> eframe::Result<()> {
         TARGET_FPS,
     );
     runtime.set_camera_mode(CameraMode::Game);
+    runtime.set_gamepads(true);
     // Kept in the user's data folder, under the game's name
     runtime.set_save_data(SaveData::for_game(title));
 

@@ -7,7 +7,7 @@
 
 use crate::{
     audio::AudioEngine,
-    input::{GamepadEvent, InputAccess, InputHandler},
+    input::{GamepadBackend, GamepadEvent, InputAccess, InputHandler},
     logger::LOGGER,
     physics::PhysicsEngine,
     render::{Camera, GameView, RenderEngine},
@@ -72,6 +72,11 @@ pub struct GameRuntime {
     time_accumulator: f32,
     // Gamepad events for the next frame (see queue_gamepad_events)
     queued_gamepad_events: Vec<GamepadEvent>,
+    // Read the system's gamepads (see set_gamepads)...
+    use_gamepads: bool,
+    // ...through this, once opened (None until then, or if that failed)
+    gamepads: Option<GamepadBackend>,
+    gamepads_opened: bool,
 }
 
 impl GameRuntime {
@@ -105,6 +110,9 @@ impl GameRuntime {
             reported_animation_problems: HashSet::new(),
             time_accumulator: 0.0,
             queued_gamepad_events: Vec::new(),
+            use_gamepads: false,
+            gamepads: None,
+            gamepads_opened: false,
         }
     }
 
@@ -207,8 +215,9 @@ impl GameRuntime {
     /// The game gets the keyboard unless another egui widget has keyboard
     /// focus (an editor text field, say), and mouse buttons and scrolling
     /// only while the pointer is over the game itself, not over widgets
-    /// drawn on top of it. Scripts see the pointer in game coordinates,
-    /// through the camera that paints this frame.
+    /// drawn on top of it; then gamepads (see
+    /// [`set_gamepads`](Self::set_gamepads)). Scripts see the pointer in
+    /// game coordinates, through the camera that paints this frame.
     pub fn update(&mut self, ctx: &egui::Context, ui: &mut egui::Ui, viewport_rect: Rect) {
         // Click-only, so it can't take keyboard focus; widgets added later
         // in the frame (like the editor's play buttons) are on top of it
@@ -226,7 +235,14 @@ impl GameRuntime {
                 .borrow_mut()
                 .handle_input_with(input, access)
         });
-        let gamepad_events = std::mem::take(&mut self.queued_gamepad_events);
+        let mut gamepad_events = std::mem::take(&mut self.queued_gamepad_events);
+        if self.use_gamepads && !self.gamepads_opened {
+            self.gamepads_opened = true;
+            self.gamepads = GamepadBackend::open();
+        }
+        if let Some(gamepads) = &mut self.gamepads {
+            gamepad_events.extend(gamepads.poll());
+        }
         self.input_handler
             .borrow_mut()
             .handle_gamepad_events(gamepad_events);
@@ -509,6 +525,18 @@ impl GameRuntime {
 
     pub fn get_scene_manager(&self) -> Ref<'_, SceneManager> {
         self.scene_manager.borrow()
+    }
+
+    /// Read the system's gamepads (off by default, so tests don't touch the
+    /// system's devices): they're opened at the next
+    /// [`update`](Self::update), and read every frame after. Exported games
+    /// and the editor turn this on.
+    pub fn set_gamepads(&mut self, enabled: bool) {
+        self.use_gamepads = enabled;
+        if !enabled {
+            self.gamepads = None;
+            self.gamepads_opened = false;
+        }
     }
 
     /// Gamepad events for the game to take in at the next

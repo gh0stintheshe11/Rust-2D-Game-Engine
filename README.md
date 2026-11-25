@@ -19,6 +19,7 @@ standalone executable.
 | Physics | rapier2d bodies and colliders built from entity attributes: dynamic, kinematic and fixed bodies, rotation, gravity scale, gravity fields, trigger zones, collision layers, raycasts, collision events; tilemaps collide as one smooth surface, with one-way platforms |
 | Scripting | Lua 5.4 scripts per entity with `init` / `update` / `on_collision` / `on_collision_end` hooks, save data kept between runs, hot reload while playing, and a sandbox |
 | Rendering | Sprites with rotation, scale, z-order, mirroring, opacity and tint; sprite sheet animation; tilemaps, drawing only the tiles on screen; particles; text, panels, images and buttons over the game; camera framing with letterboxing |
+| Input | Keyboard, mouse (in world or camera frame coordinates) and gamepads, with just-pressed and just-released states |
 | Audio | Sound effects and looping music with per-sound and master volume (wav, ogg, mp3, flac); runs fine without an audio device |
 | Export | One click builds a standalone game for your platform |
 
@@ -26,7 +27,7 @@ standalone executable.
 
 ```bash
 # Linux (Debian/Ubuntu) build dependencies; macOS and Windows need none
-sudo apt-get install -y build-essential pkg-config libasound2-dev \
+sudo apt-get install -y build-essential pkg-config libasound2-dev libudev-dev \
   libx11-dev libxi-dev libxcursor-dev libxrandr-dev \
   libxkbcommon-dev libgl1-mesa-dev libwayland-dev
 

@@ -43,8 +43,10 @@ versions may contain breaking changes).
   like `"a"`, `"lb"` or `"up"`, and PlayStation ones) and axes
   (`get_gamepad_axis`: sticks with a round dead zone and +y down like the
   world, triggers from 0 to 1), on any pad or on pad n, and count pads with
-  `get_gamepad_count`. `GameRuntime::queue_gamepad_events` feeds gamepad
-  events, e.g. from tests.
+  `get_gamepad_count`. Exported games and playtests in the editor read
+  the system's gamepads through gilrs (`GameRuntime::set_gamepads`), and
+  `GameRuntime::queue_gamepad_events` feeds gamepad events, e.g. from
+  tests. Building on Linux now needs `libudev-dev`.
 - Hilltop Hop, a second demo game: a platformer on a tilemap level with
   one-way platforms, breakable bricks, spikes, gems, checkpoints, particles,
   a title menu and HUD made with the game UI functions, and gamepad support

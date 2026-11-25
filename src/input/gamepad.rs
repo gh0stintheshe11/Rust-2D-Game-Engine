@@ -1,4 +1,6 @@
-//! Gamepads: buttons and axes as games see them, fed by gamepad events.
+//! Gamepads: buttons and axes as games see them, fed by gamepad events
+//! from the system (see [`GamepadBackend`](super::GamepadBackend)) or from
+//! tests.
 
 use std::collections::HashSet;
 

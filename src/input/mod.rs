@@ -4,12 +4,14 @@ use egui::{Key, PointerButton};
 use std::collections::HashSet;
 
 mod gamepad;
+mod gamepad_backend;
 
 use gamepad::Gamepad;
 pub use gamepad::{
     GAMEPAD_AXES, GAMEPAD_BUTTONS, GamepadAxis, GamepadButton, GamepadEvent, STICK_DEADZONE,
     TRIGGER_DEADZONE, parse_gamepad_axis, parse_gamepad_button,
 };
+pub use gamepad_backend::GamepadBackend;
 
 /// Which parts of a frame's input belong to the game (see
 /// [`InputHandler::handle_input_with`]). An embedder such as the editor

@@ -22,7 +22,9 @@ gives the game:
   keep their clicks.
 
 Then come the frame's gamepad events (see [input.md](input.md#gamepads)):
-those queued with `queue_gamepad_events`, e.g. by tests.
+the system's gamepads, once `set_gamepads(true)` was called (exported games
+and the editor do it; the gamepads open at the next `update`), and those
+queued with `queue_gamepad_events`, e.g. by tests.
 
 It then maps the pointer's window position through the camera that paints
 this frame (the free camera, or the game camera fitted into the viewport) and

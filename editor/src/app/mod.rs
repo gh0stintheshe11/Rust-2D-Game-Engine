@@ -79,7 +79,7 @@ impl EditorApp {
             ctx.set_visuals_of(theme, visuals);
         }
 
-        let game_runtime = GameRuntime::new(
+        let mut game_runtime = GameRuntime::new(
             SceneManager::new(),
             PhysicsEngine::new(),
             RenderEngine::new(),
@@ -87,6 +87,8 @@ impl EditorApp {
             AudioEngine::new(),
             60, // target fps
         );
+        // Playtests read gamepads too (opened when the game first plays)
+        game_runtime.set_gamepads(true);
 
         Self {
             show_editor: false,
