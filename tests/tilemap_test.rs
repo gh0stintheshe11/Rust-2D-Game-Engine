@@ -1,6 +1,8 @@
 //! Tilemaps: the grid of tiles, and how scene files store it.
 
-use rust_2d_game_engine::scene::{Entity, MAX_TILEMAP_SIDE, TileAnimation, TileCollision, Tilemap};
+use rust_2d_game_engine::scene::{
+    Entity, MAX_TILEMAP_COORDINATE, MAX_TILEMAP_SIDE, TileAnimation, TileCollision, Tilemap,
+};
 use std::path::PathBuf;
 
 fn tilemap() -> Tilemap {
@@ -68,6 +70,45 @@ fn test_maps_have_a_size_limit() {
         map.set(0, 0, Some(u32::MAX)).is_err(),
         "tile number overflow"
     );
+}
+
+#[test]
+fn test_cells_stay_within_the_coordinate_range() {
+    // Farther out, physics' voxel coordinates overflowed (a panic in debug
+    // builds) when a script set a tile at i32::MAX
+    let max = MAX_TILEMAP_COORDINATE;
+    let mut map = tilemap();
+    for (column, row) in [
+        (max + 1, 0),
+        (0, -max - 1),
+        (i32::MAX, i32::MAX),
+        (i32::MIN, 0),
+    ] {
+        assert!(
+            map.set(column, row, Some(1)).is_err(),
+            "{}, {}",
+            column,
+            row
+        );
+    }
+    assert_eq!(map.tile_count(), 0);
+    assert_eq!(map.set(max, -max, Some(1)), Ok(true));
+    assert_eq!(map.set(max + 1, -max, None), Ok(false), "emptying is fine");
+
+    // Scene files too: the first and the last cell must be in range
+    let stored = |origin: (i32, i32)| {
+        serde_json::from_value::<Tilemap>(serde_json::json!({
+            "tileset": "tiles.png",
+            "tile_size": [16, 16],
+            "origin": [origin.0, origin.1],
+            "rows": ["1 2", "3 4"]
+        }))
+    };
+    assert!(stored((max - 1, -max)).is_ok());
+    assert!(stored((max, 0)).is_err(), "the last column is out of range");
+    assert!(stored((0, max)).is_err(), "the last row is out of range");
+    assert!(stored((-max - 1, 0)).is_err());
+    assert!(stored((i32::MAX, i32::MIN)).is_err());
 }
 
 #[test]

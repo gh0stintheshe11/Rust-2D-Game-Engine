@@ -8,6 +8,16 @@ use std::path::PathBuf;
 /// Most columns, or rows, a tilemap can span.
 pub const MAX_TILEMAP_SIDE: u32 = 1024;
 
+/// Cells' columns and rows go from -`MAX_TILEMAP_COORDINATE` to
+/// `MAX_TILEMAP_COORDINATE` (about a million): farther out, world positions
+/// lose precision, and physics' voxel coordinates would overflow.
+pub const MAX_TILEMAP_COORDINATE: i32 = 1 << 20;
+
+/// Whether a column or row is one a cell can have.
+fn in_range(coordinate: i64) -> bool {
+    coordinate.abs() <= i64::from(MAX_TILEMAP_COORDINATE)
+}
+
 /// Most frames a tile animation has.
 pub const MAX_TILE_ANIMATION_FRAMES: usize = 4096;
 
@@ -72,7 +82,8 @@ pub enum TileCollision {
 
 /// A grid of tiles drawn from one tileset image. Cell (0, 0) has its
 /// top-left corner at the entity's `x`/`y`; columns grow to the right and
-/// rows downwards, and cells can have negative coordinates.
+/// rows downwards, and cells can have negative coordinates (within
+/// ±[`MAX_TILEMAP_COORDINATE`]).
 ///
 /// The grid grows to include every cell that gets a tile (up to
 /// [`MAX_TILEMAP_SIDE`] columns and rows); scene files store only the area
@@ -165,7 +176,8 @@ impl Tilemap {
 
     /// Put `tile` in a cell, or with `None` empty it; returns whether the
     /// cell changed. The grid grows as needed; a tilemap can't span more
-    /// than [`MAX_TILEMAP_SIDE`] columns or rows.
+    /// than [`MAX_TILEMAP_SIDE`] columns or rows, and cells' columns and
+    /// rows are within ±[`MAX_TILEMAP_COORDINATE`].
     pub fn set(&mut self, column: i32, row: i32, tile: Option<u32>) -> Result<bool, String> {
         let stored = match tile {
             Some(tile) => tile
@@ -299,6 +311,12 @@ impl Tilemap {
 
     /// Grow the grid to include a cell, keeping the tiles where they are.
     fn include(&mut self, column: i32, row: i32) -> Result<(), String> {
+        if !(in_range(column.into()) && in_range(row.into())) {
+            return Err(format!(
+                "cell {}, {} is out of range: columns and rows go from -{} to {}",
+                column, row, MAX_TILEMAP_COORDINATE, MAX_TILEMAP_COORDINATE
+            ));
+        }
         let (min, max) = if self.cells.is_empty() {
             ((column as i64, row as i64), (column as i64, row as i64))
         } else {
@@ -411,10 +429,14 @@ impl<'de> Deserialize<'de> for Tilemap {
                 MAX_TILEMAP_SIDE
             )));
         }
-        // The last cell must have valid coordinates too
-        for (offset, origin) in [(columns, stored.origin.0), (rows.len(), stored.origin.1)] {
-            if offset > 0 && origin.checked_add(offset as i32 - 1).is_none() {
-                return Err(D::Error::custom("tilemap cells out of range"));
+        // The first and the last cell must be in range
+        for (count, first) in [(columns, stored.origin.0), (rows.len(), stored.origin.1)] {
+            let last = i64::from(first) + count as i64 - 1;
+            if count > 0 && !(in_range(first.into()) && in_range(last)) {
+                return Err(D::Error::custom(format!(
+                    "tilemap cells out of range: columns and rows go from -{} to {}",
+                    MAX_TILEMAP_COORDINATE, MAX_TILEMAP_COORDINATE
+                )));
             }
         }
 

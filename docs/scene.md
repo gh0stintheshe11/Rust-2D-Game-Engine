@@ -69,7 +69,11 @@ downwards, and cells can have negative coordinates.
 
 - `get(column, row)` and `set(column, row, Some(tile) | None)`; the grid grows
   to include every cell that gets a tile, up to `MAX_TILEMAP_SIDE` (1024)
-  columns and rows. `set` reports whether the cell changed.
+  columns and rows. Columns and rows go from `-MAX_TILEMAP_COORDINATE` to
+  `MAX_TILEMAP_COORDINATE` (1,048,576): farther out, world positions lose
+  precision and physics' voxel coordinates would overflow. `set` reports
+  whether the cell changed, and refuses cells it can't add; scene files with
+  cells out of range fail to load.
 - `tiles()` iterates the cells with tiles, `tiles_in(columns, rows)` those of a
   range of cells (what's visible), `tile_count()` counts them,
   `tile_count_bound()` is an upper bound that costs nothing to compute (the

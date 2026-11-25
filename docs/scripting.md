@@ -219,7 +219,7 @@ integers, and the entity must have a tilemap):
 | Function | Notes |
 |---|---|
 | `get_tile(scene_id, entity_id, column, row)` | The tile number in the cell, or nil when it's empty |
-| `set_tile(scene_id, entity_id, column, row, tile)` | Put a tile in the cell, or empty it with nil; returns whether the cell changed. The map grows as needed (up to 1024 columns and rows). A tilemap in the playing scene gets its collider rebuilt |
+| `set_tile(scene_id, entity_id, column, row, tile)` | Put a tile in the cell, or empty it with nil; returns whether the cell changed. The map grows as needed (up to 1024 columns and rows, with columns and rows from -1,048,576 to 1,048,576); a cell it can't add raises an error. A tilemap in the playing scene gets its collider rebuilt |
 | `get_tile_cell(scene_id, entity_id, x, y)` | `column, row` of the cell containing the world position |
 
 ```lua

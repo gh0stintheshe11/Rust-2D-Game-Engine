@@ -23,7 +23,8 @@ pub use attribute::{Attribute, AttributeType, AttributeValue};
 pub use entity::{Entity, PhysicsProperties};
 pub use manager::SceneManager;
 pub use tilemap::{
-    MAX_TILE_ANIMATION_FRAMES, MAX_TILEMAP_SIDE, TileAnimation, TileCollision, Tilemap,
+    MAX_TILE_ANIMATION_FRAMES, MAX_TILEMAP_COORDINATE, MAX_TILEMAP_SIDE, TileAnimation,
+    TileCollision, Tilemap,
 };
 
 use indexmap::IndexMap;

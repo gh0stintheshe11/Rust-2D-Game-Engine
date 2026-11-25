@@ -834,6 +834,27 @@ mod tests {
     }
 
     #[test]
+    fn test_tilemaps_at_the_coordinate_limits_collide() {
+        use rust_2d_game_engine::scene::MAX_TILEMAP_COORDINATE as MAX;
+
+        // Voxel coordinates don't overflow at the limits
+        let mut scene = Scene::new("test_scene").unwrap();
+        let mut physics = PhysicsEngine::new();
+        let far = tilemap(&mut scene, (0.0, 0.0), &[(MAX, MAX), (MAX - 1, MAX)], true);
+        let near = tilemap(
+            &mut scene,
+            (0.0, 0.0),
+            &[(-MAX, -MAX), (1 - MAX, -MAX)],
+            true,
+        );
+        physics.load_scene(&scene);
+        for _ in 0..3 {
+            physics.step(&mut scene);
+        }
+        assert!(physics.has_collider(far) && physics.has_collider(near));
+    }
+
+    #[test]
     fn test_bodies_land_on_tilemaps() {
         let mut scene = Scene::new("test_scene").unwrap();
         let mut physics = PhysicsEngine::new();
