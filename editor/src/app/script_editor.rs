@@ -433,6 +433,31 @@ const API_GROUPS: &[(&str, &[ApiEntry])] = &[
         ],
     ),
     (
+        "Timers and tweens",
+        &[
+            (
+                "after",
+                "after(1.5, function() change_scene(\"level 2\") end)",
+                "Call a function once, after this many seconds of game time; returns an id for cancel",
+            ),
+            (
+                "every",
+                "every(0.5, function() spawn(scene_id, \"enemy\", 0, 0) end)",
+                "Call a function every so many seconds (at most once a frame) until it returns false",
+            ),
+            (
+                "tween",
+                "tween(entity_id, {x = 300, opacity = 0}, 0.8, {ease = \"quad_out\"})",
+                "Move numeric attributes to these values over the seconds; options ease, delay, loop (restart, ping_pong), on_done",
+            ),
+            (
+                "cancel",
+                "cancel(id)",
+                "Stop a timer or tween; they also stop when their entity is removed or the scene changes",
+            ),
+        ],
+    ),
+    (
         "Game flow",
         &[
             (
@@ -482,6 +507,11 @@ end
 
 -- Runs when that contact ends (other_id may have been removed meanwhile)
 function on_collision_end(scene_id, entity_id, other_id)
+
+end
+
+-- Runs when a script removes this entity (remove_entity), before it goes
+function on_destroy(scene_id, entity_id)
 
 end
 "#;

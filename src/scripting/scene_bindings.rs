@@ -1,9 +1,11 @@
 use std::cell::RefCell;
+use std::collections::HashSet;
 use std::rc::Rc;
 
 use uuid::Uuid;
 
 use super::{LuaScripting, parse_uuid};
+use crate::logger::LOGGER;
 use crate::physics::PhysicsEngine;
 use crate::project::ProjectManager;
 use crate::scene::{AttributeType, AttributeValue, Entity, Scene, SceneManager};
@@ -71,15 +73,45 @@ impl LuaScripting {
                 })?;
         globals.set("add_entity", add_entity)?;
 
-        // remove_entity also removes the entity's physics body, so it doesn't
-        // linger as an invisible obstacle
+        // remove_entity(scene_id, entity_id) -> whether it was there. Its
+        // script's on_destroy(scene_id, entity_id) runs first, while the
+        // entity is still there to read (where it was, say); its physics body
+        // goes with it, so it doesn't linger as an invisible obstacle
         let manager = Rc::clone(scene_manager);
         let physics = Rc::clone(physics_engine);
+        let destroy_hooks = Rc::clone(&self.destroy_hooks);
+        let current = Rc::clone(&self.current_entity);
+        // Entities whose on_destroy is running: removing one again from it
+        // doesn't run it again
+        let destroying: Rc<RefCell<HashSet<Uuid>>> = Rc::default();
         let remove_entity =
             self.lua
                 .create_function(move |_, (scene_id, entity_id): (String, String)| {
                     let scene_uuid = parse_uuid(&scene_id, "scene")?;
                     let entity_uuid = parse_uuid(&entity_id, "entity")?;
+                    let script = manager
+                        .borrow()
+                        .get_scene(scene_uuid)
+                        .and_then(|scene| scene.get_entity(entity_uuid).ok())
+                        .and_then(|entity| entity.script.clone());
+                    let hook = script.and_then(|path| destroy_hooks.borrow().get(&path).cloned());
+                    if let Some(hook) = hook {
+                        let first = destroying.borrow_mut().insert(entity_uuid);
+                        if first {
+                            // No borrow is held while the hook runs: it may
+                            // use any binding, this one too
+                            let previous = current.replace(Some(entity_uuid));
+                            let result = hook.call::<()>((scene_id.as_str(), entity_id.as_str()));
+                            current.set(previous);
+                            destroying.borrow_mut().remove(&entity_uuid);
+                            if let Err(e) = result {
+                                LOGGER.error(format!(
+                                    "Script on_destroy() error for entity {}: {}",
+                                    entity_uuid, e
+                                ));
+                            }
+                        }
+                    }
                     let removed = {
                         let mut manager = manager.borrow_mut();
                         let scene = manager.get_scene_mut(scene_uuid).ok_or_else(|| {

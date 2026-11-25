@@ -26,6 +26,7 @@ every physics step it calls `dispatch_collision_events(scene_id)`.
 | `update(scene_id, entity_id)` | Every rendered frame |
 | `on_collision(scene_id, entity_id, other_id)` | When a contact with another physics entity **begins**, or an overlap with a sensor (checked after every physics step; skipped if either entity was removed meanwhile) |
 | `on_collision_end(scene_id, entity_id, other_id)` | When such a contact **ends**: the entities separated, or the other one was removed (`get_entity_name` then returns nil). An entity's ended contacts are reported before its new ones |
+| `on_destroy(scene_id, entity_id)` | When a script removes the entity with `remove_entity`, **before** it goes, so the hook still reads it (where it was, for an explosion). It runs inside the `remove_entity` call; removing the entity again from it doesn't run it again, and an error in it is logged without stopping the removal. Not called when the scene changes or the game stops |
 
 All hooks are optional. If `init` raises an error, the entity's other hooks are
 skipped until its script file changes.
@@ -304,6 +305,40 @@ Attributes:
 Game flow: `end_game()` ends the game; the runtime freezes on the current frame
 in the `Ended` state.
 
+## Timers and tweens
+
+Timers call a function later, and tweens move numeric attributes over time.
+Both run on game time (they wait while the game is paused), at the start of
+each frame before the `update` hooks, so updates see where tweens are. They
+belong to the entity whose script made them (`init`, `update` or another
+hook, or a timer's or tween's callback): they stop when it's removed, when
+the scene changes and when the game stops. Calling them from a script's top
+level, outside its hooks, is an error.
+
+| Function | Notes |
+|---|---|
+| `after(seconds, fn)` | Call `fn` once, `seconds` of game time from now (at least 0: `after(0, fn)` runs it next frame). Returns an id for `cancel` |
+| `every(seconds, fn)` | Call `fn` every `seconds` (above 0) until it returns `false` or is cancelled, at most once a frame: a shorter interval runs it once a frame. An error in `fn` stops the timer. Returns an id |
+| `tween(entity_id, values, seconds [, options])` | Move attributes of an entity of the playing scene from where they are when the tween starts to `values` (e.g. `{x = 300, opacity = 0}`) over `seconds`. They must be Float or Integer attributes (Integers are rounded). Moving `x` or `y` moves the entity's physics body too. Options: `ease` (`linear`, the default, `quad_in`, `quad_out`, `quad_in_out`, `cubic_…`, `sine_…`, `back_in`, `back_out`, `elastic_out`, `bounce_out`), `delay` (seconds before it starts), `loop` (`"restart"` or `"ping_pong"`: it never ends), `on_done` (a function called when it ends). Returns an id |
+| `cancel(id)` | Stop a timer or tween; returns whether it was still there |
+
+At most 10,000 timers and tweens wait at once (`MAX_TIMERS`); making more is
+an error, which catches a script that makes them every frame.
+
+```lua
+function init(scene_id, entity_id)
+    -- A coin that bobs forever, and fades out after 5 seconds (it has an
+    -- opacity attribute: Add Feature > Sprite > Opacity in the inspector)
+    local y = get_attribute(scene_id, entity_id, "y")
+    tween(entity_id, {y = y - 8}, 0.6, {ease = "sine_in_out", loop = "ping_pong"})
+    after(5, function()
+        tween(entity_id, {opacity = 0}, 0.5, {on_done = function()
+            remove_entity(scene_id, entity_id)
+        end})
+    end)
+end
+```
+
 ## Scenes and prefabs
 
 `change_scene("level 2")` (a scene's name or id) switches the game to another
@@ -367,7 +402,12 @@ for live error reporting.
   screen, and the keys and gamepad buttons that move and press it are also
   seen by the game's scripts (`is_key_just_pressed` and friends), like a
   click on a button.
-- No `on_destroy` hook.
+- Tweening `x` or `y` of a physics body moves it to each new place (like
+  `set_attribute`), without a velocity: bodies resting on a tweened platform
+  aren't carried along. Two tweens of one attribute both write it, and the
+  later one wins.
+- Timers fire at most once a frame, and on the frame's time: `after(0.01,
+  ...)` waits for the next frame.
 - Prefabs are single entities: there are no groups of entities or nested
   prefabs.
 - `script_state` is shared by all scripts; key collisions are the script

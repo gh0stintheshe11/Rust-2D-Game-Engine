@@ -24,6 +24,15 @@ versions may contain breaking changes).
   `right`, `up`, `down`, `jump` and `pause`. In the editor, Project →
   Input Actions edits them: press a key to bind it, or pick a mouse button
   or gamepad control from a menu.
+- Timers and tweens for scripts: `after(seconds, fn)` and `every(seconds,
+  fn)` call back on game time, `tween(entity_id, {x = 300, opacity = 0},
+  seconds, options)` moves numeric attributes with an ease (quad, cubic,
+  sine, back, elastic, bounce), a delay, a loop (restart or ping-pong) and
+  an `on_done` callback, and `cancel(id)` stops either. They belong to the
+  entity whose script made them, and stop when it's removed or the scene
+  changes. `LuaScripting::timer_count` says how many are waiting.
+- An `on_destroy(scene_id, entity_id)` hook: `remove_entity` runs it before
+  the entity goes, so it can still read where the entity was.
 
 ### Changed
 

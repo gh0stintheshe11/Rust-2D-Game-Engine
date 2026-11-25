@@ -1059,3 +1059,329 @@ fn test_scripts_read_input_actions() {
     window.frame(&mut runtime, vec![key(egui::Key::Space, true)], no_widgets);
     assert_eq!(state(&runtime, "jumped"), 1.0);
 }
+
+/// A playing game whose scene has one scripted entity, "actor", without a
+/// body (a sprite moved by its attributes), plus the falling box; returns
+/// the runtime, the actor's id and its script's file.
+fn actor_game(source: &str) -> (GameRuntime, Uuid, TempPath) {
+    let (mut manager, _) = falling_box_scene();
+    let actor = {
+        let scene = manager.get_active_scene_mut().unwrap();
+        let id = scene.create_entity("actor").unwrap();
+        let entity = scene.get_entity_mut(id).unwrap();
+        entity.set_position(0.0, 0.0, 0.0).unwrap();
+        entity
+            .set_or_create_attribute(
+                "lives",
+                rust_2d_game_engine::scene::AttributeValue::Integer(0),
+            )
+            .unwrap();
+        id
+    };
+    let script = with_script(&mut manager, actor, source);
+    let mut runtime = runtime(manager);
+    runtime.run().unwrap();
+    (runtime, actor, script)
+}
+
+fn ticks(runtime: &mut GameRuntime, seconds: f32) {
+    for _ in 0..(seconds * 60.0).round() as usize {
+        runtime.tick(1.0 / 60.0);
+    }
+}
+
+#[test]
+fn test_timers_call_back_on_game_time() {
+    let (mut runtime, _, _script) = actor_game(
+        r#"
+        function init(scene_id, entity_id)
+            local state = script_state.state
+            state.ticks = 0
+            after(0.5, function() state.after_at = accumulated_time end)
+            every(0.2, function()
+                state.ticks = state.ticks + 1
+                if state.ticks == 3 then return false end
+            end)
+            cancel(after(0.1, function() state.cancelled_ran = true end))
+            state.failing = every(0.1, function()
+                state.failures = (state.failures or 0) + 1
+                error("boom")
+            end)
+        end
+        "#,
+    );
+    ticks(&mut runtime, 0.45);
+    assert_eq!(
+        lua_string(&runtime, "tostring(script_state.state.after_at)"),
+        "nil"
+    );
+    ticks(&mut runtime, 0.1);
+    let after_at = lua_number(&runtime, "script_state.state.after_at");
+    assert!(
+        (0.5..0.52).contains(&after_at),
+        "after fired at {}",
+        after_at
+    );
+    ticks(&mut runtime, 1.0);
+    assert_eq!(
+        lua_number(&runtime, "script_state.state.ticks"),
+        3.0,
+        "every stops on false"
+    );
+    assert_eq!(
+        lua_string(&runtime, "tostring(script_state.state.cancelled_ran)"),
+        "nil"
+    );
+    assert_eq!(
+        lua_number(&runtime, "script_state.state.failures"),
+        1.0,
+        "stopped by its error"
+    );
+    assert_eq!(runtime.scripting().timer_count(), 0);
+
+    // Only scripts' hooks make timers
+    let error = lua_string(
+        &runtime,
+        "tostring(select(2, pcall(after, 1, function() end)))",
+    );
+    assert!(error.contains("from a script's hooks"), "{}", error);
+}
+
+#[test]
+fn test_timers_are_bounded_and_checked() {
+    let (mut runtime, _, _script) = actor_game(
+        r#"
+        function init(scene_id, entity_id)
+            local state = script_state.state
+            state.negative = tostring(select(2, pcall(after, -1, function() end)))
+            state.zero = tostring(select(2, pcall(every, 0, function() end)))
+            local ok, error = pcall(function()
+                for i = 1, 20000 do after(5, function() end) end
+            end)
+            state.flood = tostring(error)
+        end
+        "#,
+    );
+    ticks(&mut runtime, 0.05);
+    let text = |name: &str| lua_string(&runtime, &format!("script_state.state.{}", name));
+    assert!(
+        text("negative").contains("at least 0"),
+        "{}",
+        text("negative")
+    );
+    assert!(text("zero").contains("above 0"), "{}", text("zero"));
+    assert!(
+        text("flood").contains("more than 10000"),
+        "{}",
+        text("flood")
+    );
+    assert_eq!(
+        runtime.scripting().timer_count(),
+        rust_2d_game_engine::scripting::MAX_TIMERS
+    );
+}
+
+#[test]
+fn test_timers_stop_with_their_entity_and_scene() {
+    let (mut runtime, actor, _script) = actor_game(
+        r#"
+        function init(scene_id, entity_id)
+            every(0.1, function()
+                script_state.state.beats = (script_state.state.beats or 0) + 1
+            end)
+            tween(entity_id, {x = 500}, 10)
+        end
+        "#,
+    );
+    ticks(&mut runtime, 0.35);
+    assert_eq!(lua_number(&runtime, "script_state.state.beats"), 3.0);
+    assert_eq!(runtime.scripting().timer_count(), 2);
+    let scene = runtime.get_scene_manager().active_scene.unwrap();
+    lua_exec(
+        &runtime,
+        &format!(r#"remove_entity("{}", "{}")"#, scene, actor),
+    );
+    ticks(&mut runtime, 0.5);
+    assert_eq!(
+        lua_number(&runtime, "script_state.state.beats"),
+        3.0,
+        "stopped"
+    );
+    assert_eq!(runtime.scripting().timer_count(), 0);
+
+    // A scene change ends the scene's timers too
+    runtime.reset();
+    runtime.run().unwrap();
+    ticks(&mut runtime, 0.05);
+    assert_eq!(runtime.scripting().timer_count(), 2);
+    runtime.switch_scene(scene).unwrap();
+    assert_eq!(runtime.scripting().timer_count(), 0);
+}
+
+#[test]
+fn test_tweens_move_attributes_over_time() {
+    let (mut runtime, actor, _script) = actor_game(
+        r#"
+        function init(scene_id, entity_id)
+            local state = script_state.state
+            tween(entity_id, {x = 100}, 1, {on_done = function()
+                state.done = (state.done or 0) + 1
+            end})
+            tween(entity_id, {y = 100}, 1, {ease = "quad_in", delay = 0.5})
+            tween(entity_id, {lives = 3}, 1)
+            tween(entity_id, {z = 10}, 1, {loop = "ping_pong"})
+            for _, call in ipairs({
+                function() tween(entity_id, {color = 1}, 1) end,
+                function() tween(entity_id, {x = "far"}, 1) end,
+                function() tween(entity_id, {x = 1}, 1, {ease = "wobble"}) end,
+                function() tween(entity_id, {x = 1}, 1, {loop = "forever"}) end,
+                function() tween(entity_id, {x = 1}, 1, {speed = 2}) end,
+                function() tween(entity_id, {x = 1}, -1) end,
+                function() tween(entity_id, {}, 1) end,
+                function() tween("00000000-0000-0000-0000-000000000000", {x = 1}, 1) end,
+            }) do
+                local ok, error = pcall(call)
+                state.errors = (state.errors or "") .. tostring(error) .. "\n"
+            end
+        end
+        "#,
+    );
+    let attribute = |runtime: &GameRuntime, name: &str| {
+        let manager = runtime.get_scene_manager();
+        let entity = manager
+            .get_active_scene()
+            .unwrap()
+            .get_entity(actor)
+            .unwrap();
+        match &entity.attribute(name).unwrap().value {
+            rust_2d_game_engine::scene::AttributeValue::Float(v) => *v,
+            rust_2d_game_engine::scene::AttributeValue::Integer(v) => *v as f32,
+            other => panic!("{:?}", other),
+        }
+    };
+    ticks(&mut runtime, 0.5);
+    let x = attribute(&runtime, "x");
+    assert!((x - 50.0).abs() < 2.5, "halfway, linear: x = {}", x);
+    assert_eq!(attribute(&runtime, "y"), 0.0, "still waiting");
+    assert!((attribute(&runtime, "z") - 5.0).abs() < 0.5);
+    // (They started in the first frame, when init ran)
+    ticks(&mut runtime, 0.55);
+    assert_eq!(attribute(&runtime, "x"), 100.0, "the end, exactly");
+    assert_eq!(attribute(&runtime, "lives"), 3.0, "integers are rounded");
+    let y = attribute(&runtime, "y");
+    assert!((y - 25.0).abs() < 4.0, "quad_in halfway: y = {}", y);
+    ticks(&mut runtime, 1.0);
+    assert_eq!(lua_number(&runtime, "script_state.state.done"), 1.0, "once");
+    assert!(attribute(&runtime, "z").abs() < 0.5, "ping-pong came back");
+    assert_eq!(
+        runtime.scripting().timer_count(),
+        1,
+        "only the loop is left"
+    );
+
+    let errors = lua_string(&runtime, "script_state.state.errors");
+    for expected in [
+        "has no attribute 'color'",
+        "'x' isn't given a number",
+        "unknown ease 'wobble'",
+        "unknown loop 'forever'",
+        "option 'speed'",
+        "at least 0",
+        "no attributes to move",
+        "isn't in the playing scene",
+    ] {
+        assert!(errors.contains(expected), "{} in\n{}", expected, errors);
+    }
+}
+
+#[test]
+fn test_tweening_a_body_moves_it() {
+    let (mut manager, box_id) = falling_box_scene();
+    let _script = with_script(
+        &mut manager,
+        box_id,
+        r#"
+        function init(scene_id, entity_id)
+            set_gravity(0, 0)
+            tween(entity_id, {x = 120}, 0.5)
+        end
+        "#,
+    );
+    let mut runtime = runtime(manager);
+    runtime.run().unwrap();
+    ticks(&mut runtime, 1.0);
+    let x = runtime
+        .get_scene_manager()
+        .get_active_scene()
+        .unwrap()
+        .get_entity(box_id)
+        .unwrap()
+        .get_x();
+    assert!((x - 120.0).abs() < 0.5, "the body went along: x = {}", x);
+}
+
+#[test]
+fn test_on_destroy_runs_before_the_entity_goes() {
+    let (mut manager, box_id) = falling_box_scene();
+    let scene_id = manager.active_scene.unwrap();
+    let doomed = {
+        let scene = manager.get_active_scene_mut().unwrap();
+        let id = scene.create_entity("doomed").unwrap();
+        scene
+            .get_entity_mut(id)
+            .unwrap()
+            .set_position(42.0, 7.0, 0.0)
+            .unwrap();
+        id
+    };
+    let _doomed_script = with_script(
+        &mut manager,
+        doomed,
+        r#"
+        function on_destroy(scene_id, entity_id)
+            local state = script_state.state
+            state.calls = (state.calls or 0) + 1
+            state.last_x = get_attribute(scene_id, entity_id, "x")
+            -- Removing itself again doesn't run this again
+            state.again = remove_entity(scene_id, entity_id)
+            error("on_destroy failed, but the entity goes anyway")
+        end
+        "#,
+    );
+    let _box_script = with_script(
+        &mut manager,
+        box_id,
+        &format!(
+            r#"
+            function update(scene_id, entity_id)
+                if not script_state.state.removed then
+                    script_state.state.removed = remove_entity(scene_id, "{}")
+                end
+            end
+            "#,
+            doomed
+        ),
+    );
+    let mut runtime = runtime(manager);
+    runtime.run().unwrap();
+    ticks(&mut runtime, 0.1);
+    assert_eq!(lua_number(&runtime, "script_state.state.calls"), 1.0);
+    assert_eq!(lua_number(&runtime, "script_state.state.last_x"), 42.0);
+    assert_eq!(
+        lua_string(&runtime, "tostring(script_state.state.again)"),
+        "true"
+    );
+    assert_eq!(
+        lua_string(&runtime, "tostring(script_state.state.removed)"),
+        "false",
+        "the inner call removed it"
+    );
+    assert!(
+        runtime
+            .get_scene_manager()
+            .get_scene(scene_id)
+            .unwrap()
+            .get_entity(doomed)
+            .is_err()
+    );
+}

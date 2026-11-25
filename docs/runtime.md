@@ -77,8 +77,9 @@ graph TD
    this frame's duration.
 3. Input actions are worked out from the frame's input
    (`InputHandler::update_actions`), then Lua: `accumulated_time +=
-   frame_dt`, `keys_pressed` refreshed, every scripted entity's `update`
-   runs (once per rendered frame).
+   frame_dt`, `keys_pressed` refreshed, timers that came due fire and tweens
+   move on (see [scripting.md](scripting.md#timers-and-tweens)), and every
+   scripted entity's `update` runs (once per rendered frame).
 4. Physics runs as many fixed steps (`1/target_fps`) as the accumulated time
    allows. After **each step**, `on_collision_end` and `on_collision` fire for
    the contacts that step ended and started, so short contacts aren't missed

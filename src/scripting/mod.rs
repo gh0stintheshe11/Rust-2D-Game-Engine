@@ -27,7 +27,10 @@ mod render_bindings;
 mod save_bindings;
 mod scene_bindings;
 mod tilemap_bindings;
+mod timers;
 mod ui_bindings;
+
+pub use timers::{EASES, Ease, MAX_TIMERS};
 
 /// Longest a single call into a script (a hook, or a file's top-level
 /// code) may run before it is aborted with an error. Guards the editor
@@ -69,6 +72,7 @@ struct CompiledScript {
     init_fn: Option<LuaFunction>,
     on_collision_fn: Option<LuaFunction>,
     on_collision_end_fn: Option<LuaFunction>,
+    on_destroy_fn: Option<LuaFunction>,
 }
 
 /// What is known about one script file this session.
@@ -174,6 +178,15 @@ pub struct LuaScripting {
     id_strings: HashMap<Uuid, mlua::LuaString>,
     // When the running script call must be aborted (see SCRIPT_TIME_LIMIT)
     deadline: Rc<Cell<Option<Instant>>>,
+    // accumulated_time, for bindings (timers are due at a time)
+    clock: Rc<Cell<f64>>,
+    // The entity whose script is running: timers and tweens it makes are
+    // its own
+    current_entity: Rc<Cell<Option<Uuid>>>,
+    // Timers and tweens (see timers.rs)
+    scheduler: Rc<RefCell<timers::Scheduler>>,
+    // Scripts' on_destroy hooks by file, for remove_entity to call
+    destroy_hooks: Rc<RefCell<HashMap<PathBuf, LuaFunction>>>,
 }
 
 pub(crate) fn parse_uuid(value: &str, what: &str) -> Result<Uuid, mlua::Error> {
@@ -223,6 +236,10 @@ impl LuaScripting {
             save_data: Rc::new(RefCell::new(SaveData::in_memory())),
             id_strings: HashMap::new(),
             deadline: Rc::new(Cell::new(None)),
+            clock: Rc::new(Cell::new(0.0)),
+            current_entity: Rc::new(Cell::new(None)),
+            scheduler: Rc::new(RefCell::new(timers::Scheduler::default())),
+            destroy_hooks: Rc::new(RefCell::new(HashMap::new())),
         }
     }
 
@@ -281,7 +298,11 @@ impl LuaScripting {
         self.hud.borrow_mut().clear();
         self.particle_bursts.borrow_mut().clear();
         *self.button_focus.borrow_mut() = button_focus::ButtonFocus::default();
+        *self.scheduler.borrow_mut() = timers::Scheduler::default();
+        self.destroy_hooks.borrow_mut().clear();
+        self.current_entity.set(None);
         self.accumulated_time = 0.0;
+        self.clock.set(0.0);
         self.scene_manager = Some(Rc::clone(&scene_manager));
         self.physics_engine = Some(Rc::clone(&physics_engine));
         self.game_stop_requested.set(false);
@@ -316,6 +337,7 @@ impl LuaScripting {
         self.register_ui_bindings(&input_handler)?;
         let save_data = Rc::clone(&self.save_data);
         self.register_save_bindings(&save_data)?;
+        self.register_timer_bindings()?;
 
         LOGGER.info("Lua scripting session started");
         Ok(())
@@ -382,11 +404,20 @@ impl LuaScripting {
         self.hud.borrow_mut().clear();
         self.particle_bursts.borrow_mut().clear();
         *self.button_focus.borrow_mut() = button_focus::ButtonFocus::default();
+        // Timers and tweens belong to the previous scene's entities
+        *self.scheduler.borrow_mut() = timers::Scheduler::default();
+    }
+
+    /// How many timers and tweens scripts made are waiting (`after`,
+    /// `every`, `tween`).
+    pub fn timer_count(&self) -> usize {
+        self.scheduler.borrow().len()
     }
 
     /// Advance the game clock: `accumulated_time` grows by `delta_time`.
     pub fn update_global_time(&mut self, delta_time: f32) -> Result<(), String> {
         self.accumulated_time += f64::from(delta_time);
+        self.clock.set(self.accumulated_time);
         let globals = self.lua.globals();
         globals
             .set("accumulated_time", self.accumulated_time)
@@ -451,6 +482,9 @@ impl LuaScripting {
             .collect();
         let scene_arg = self.lua_id(active_scene_id).map_err(|e| e.to_string())?;
 
+        // Timers and tweens come first: updates see where tweens are
+        self.run_timers(active_scene_id);
+
         for (entity_id, file) in entities {
             let Some(script) = &scripts[file] else {
                 continue;
@@ -464,8 +498,9 @@ impl LuaScripting {
             }
             if let Some(update_fn) = &script.update_fn {
                 let entity_arg = self.lua_id(entity_id).map_err(|e| e.to_string())?;
-                let result =
-                    self.with_time_limit(|| update_fn.call::<()>((&scene_arg, &entity_arg)));
+                let result = self.call_as(entity_id, || {
+                    update_fn.call::<()>((&scene_arg, &entity_arg))
+                });
                 if let Err(e) = result {
                     LOGGER.error(format!(
                         "Script update() error for entity {} ({}): {}",
@@ -582,7 +617,7 @@ impl LuaScripting {
                         Ok((scene, entity, self.lua_id(other_id)?))
                     });
                     let result = args.and_then(|(scene, entity, other)| {
-                        self.with_time_limit(|| hook.call::<()>((&scene, &entity, &other)))
+                        self.call_as(entity_id, || hook.call::<()>((&scene, &entity, &other)))
                     });
                     if let Err(e) = result {
                         LOGGER.error(format!(
@@ -620,7 +655,7 @@ impl LuaScripting {
                     .lua_id(scene_id)
                     .and_then(|scene| self.lua_id(entity_id).map(|entity| (scene, entity)));
                 let result = args.and_then(|(scene, entity)| {
-                    self.with_time_limit(|| init_fn.call::<()>((&scene, &entity)))
+                    self.call_as(entity_id, || init_fn.call::<()>((&scene, &entity)))
                 });
                 match result {
                     Ok(()) => true,
@@ -670,6 +705,12 @@ impl LuaScripting {
                 if last_good.is_some() {
                     LOGGER.info(format!("Reloaded script {}", path.display()));
                 }
+                let mut destroy_hooks = self.destroy_hooks.borrow_mut();
+                match &script.on_destroy_fn {
+                    Some(hook) => destroy_hooks.insert(path.to_path_buf(), hook.clone()),
+                    None => destroy_hooks.remove(path),
+                };
+                drop(destroy_hooks);
                 // Entities whose init failed get another chance
                 self.init_states
                     .retain(|_, state| !matches!(state, InitState::Failed(p) if p == path));
@@ -723,6 +764,7 @@ impl LuaScripting {
             init_fn: env.get("init").ok(),
             on_collision_fn: env.get("on_collision").ok(),
             on_collision_end_fn: env.get("on_collision_end").ok(),
+            on_destroy_fn: env.get("on_destroy").ok(),
             env,
         })
     }
