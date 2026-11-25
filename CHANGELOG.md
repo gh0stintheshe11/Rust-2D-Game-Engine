@@ -7,6 +7,17 @@ versions may contain breaking changes).
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-25
+
+Game feel and polish: a camera that follows and shakes, transitions
+between scenes, audio that fades, music that crossfades and volume groups
+for settings menus, and tilemaps that fill rectangles and regions and
+update their colliders a cell at a time (a changed tile costs 0.3 µs on a
+map of any size). Hilltop Hop uses them all, and now has music. When
+upgrading, note that `audio::PlayOptions` has new fields and is no longer
+`Copy`, and that `LuaScripting::take_scene_change_request` returns a
+`SceneChange`.
+
 ### Added
 
 - The camera follows an entity: `camera_follow(entity_id, options)` keeps
@@ -409,7 +420,8 @@ Renovation of the 2024 course project: rewritten Lua scripting core, physics
 and runtime fixes, GPU texture caching, undo/redo, viewport picking and
 dragging, script editor improvements, CI and multi-platform releases.
 
-[Unreleased]: https://github.com/gh0stintheshe11/Rust-2D-Game-Engine/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/gh0stintheshe11/Rust-2D-Game-Engine/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/gh0stintheshe11/Rust-2D-Game-Engine/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/gh0stintheshe11/Rust-2D-Game-Engine/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/gh0stintheshe11/Rust-2D-Game-Engine/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/gh0stintheshe11/Rust-2D-Game-Engine/compare/v0.4.0...v0.5.0
