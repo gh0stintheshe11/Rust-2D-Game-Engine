@@ -579,29 +579,37 @@ impl LuaScripting {
                 })?;
         globals.set("find_entity", find_entity)?;
 
-        // change_scene(scene): switch to another scene, given by name or id,
-        // when the current hook pass finishes (the runtime polls the request)
+        // change_scene(scene [, {transition = "fade", seconds = 0.5, color =
+        // "#000000"}]): switch to another scene, given by name or id, when
+        // the current hook pass finishes (the runtime polls the request), or
+        // with a transition, once the screen is covered
         let manager = Rc::clone(scene_manager);
         let request = Rc::clone(&self.scene_change_request);
-        let change_scene = self.lua.create_function(move |_, scene: String| {
-            let manager = manager.borrow();
-            let by_id = Uuid::parse_str(&scene)
-                .ok()
-                .filter(|id| manager.get_scene(*id).is_some());
-            let scene_id = by_id
-                .or_else(|| {
-                    manager
-                        .scenes
-                        .iter()
-                        .find(|(_, candidate)| candidate.name == scene)
-                        .map(|(id, _)| *id)
-                })
-                .ok_or_else(|| {
-                    mlua::Error::external(format!("change_scene: no scene named '{}'", scene))
-                })?;
-            request.set(Some(scene_id));
-            Ok(())
-        })?;
+        let change_scene = self.lua.create_function(
+            move |_, (scene, options): (String, Option<mlua::Table>)| {
+                let transition = super::camera_bindings::transition_options(options)?;
+                let manager = manager.borrow();
+                let by_id = Uuid::parse_str(&scene)
+                    .ok()
+                    .filter(|id| manager.get_scene(*id).is_some());
+                let scene_id = by_id
+                    .or_else(|| {
+                        manager
+                            .scenes
+                            .iter()
+                            .find(|(_, candidate)| candidate.name == scene)
+                            .map(|(id, _)| *id)
+                    })
+                    .ok_or_else(|| {
+                        mlua::Error::external(format!("change_scene: no scene named '{}'", scene))
+                    })?;
+                request.set(Some(super::SceneChange {
+                    scene: scene_id,
+                    transition,
+                }));
+                Ok(())
+            },
+        )?;
         globals.set("change_scene", change_scene)?;
 
         // spawn(scene_id, template, x, y) -> id of a copy of the template

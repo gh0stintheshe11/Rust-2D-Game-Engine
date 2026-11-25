@@ -15,6 +15,8 @@ screen space; callers paint them with `paint_sprites`, using GPU textures from
 | `paint_sprites` | Paints queue entries in order as few meshes as possible: consecutive entries with the same texture share one mesh, which egui draws in one call |
 | `paint_sprite` | Paints a single textured rect, rotated around its center if needed |
 | `game_view(scene, viewport_size)` | Fits the scene's default camera into a viewport (see below) |
+| `CameraRig` | Moves a camera every frame: following an entity, shaking (see [below](#following-shaking-and-transitions)) |
+| `Transition` | A scene transition: a color covering the camera frame (fade or wipe), and how much it covers when |
 | `render_colliders` / `paint_collider_outline` | Debug outlines of physics colliders, rotated with their bodies: circles red, rectangles blue, sensors (trigger zones) green, one-way platforms the top edge in cyan |
 
 ## Sprites
@@ -151,6 +153,50 @@ uniformly and centered; the returned `frame` rect is the part of the viewport
 it covers (the rest is letterboxing). The runtime uses it for exported games;
 the editor draws the same frame as a red rectangle (`get_game_camera_bounds`).
 
+## Following, shaking and transitions
+
+`CameraRig` works out where a camera goes each frame. `step(dt, camera,
+target, frame_size)` takes where the camera's center is, where the entity
+it follows is, and the frame's size in world units, and returns the new
+center:
+
+- **Following** (`follow(target, CameraFollow, snap)`): the center heads for
+  the target plus `offset`. A `deadzone` (width and height) lets the target
+  move about the middle of the frame without the camera moving; only once
+  it leaves the box does the camera move, just enough to keep it at the
+  edge. `smoothing` is a time constant in seconds: each step covers
+  `1 - e^(-dt / smoothing)` of the way, so the camera lags the same at any
+  frame rate (0 locks it on). `bounds` (`x, y, width, height`) keep the whole
+  frame inside an area, such as the level; a frame larger than the area on
+  one axis is centered on it there. `snap` jumps to the target at the next
+  step. When the target is gone (`step` gets `None`), the rig stops
+  following and the camera stays.
+- **Shaking** (`shake(strength, seconds)`): the center is offset by up to
+  `strength` world units on each axis, fading linearly to nothing over
+  `seconds`. The motion mixes waves of unrelated frequencies (17 to 27 Hz),
+  so it looks irregular yet stays within the strength. Shakes at once don't
+  add up: the strongest counts; at most `MAX_CAMERA_SHAKES` (16) are kept,
+  a new one replacing the weakest.
+
+The shake is applied to the camera itself, and taken off again at the next
+step: the rig remembers where it put the camera and where it was without
+the shake. If something else moved the camera in between (a script), the
+rig starts from there instead. Being exact, it never drifts.
+
+The runtime runs the rig scripts set up with `camera_follow` and
+`camera_shake` (see [scripting.md](scripting.md#camera)) on the scene's
+default camera.
+
+`Transition` (`kind`, `seconds`, `color`) covers the camera frame while the
+game goes from one scene to another (see
+[runtime.md](runtime.md#switching-scenes)): `coverage(elapsed)` rises from
+0 to 1 over the first half of its time and falls back over the second, and
+`paint(painter, frame, elapsed)` draws it. A `TransitionKind::Fade` paints
+the whole frame with the color's alpha scaled by the coverage; a wipe
+(`WipeLeft`, `WipeRight`, `WipeUp`, `WipeDown`) paints a solid band that
+comes in from one edge and, after the change, leaves past the opposite one,
+so it sweeps across in one direction. `TRANSITIONS` names them for scripts.
+
 ## Text and game UI
 
 What scripts draw over the game for a frame is a list of `HudItem`s, in the
@@ -187,6 +233,14 @@ disk.
 ## Known limitations
 
 - The camera entity's `rotation` attribute is not applied.
+- The camera rig follows an entity's physics body by its middle, but an
+  entity without a body by its `x`/`y` (top-left corner): give the offset
+  then. Bounds and dead zones are rectangles.
+- A shake moves the camera, so a background as large as the frame shows
+  its edges unless it's moved along with the camera (Hilltop Hop places its
+  sky by the camera every frame).
+- Transitions only cover the frame with a color (a fade or a wipe): no
+  other shapes, and no blending of one scene's picture into the other.
 - Text uses egui's built-in fonts (plus system fonts for missing glyphs);
   projects can't bring their own, and text can't be measured from scripts.
 - Text and game UI are always drawn over the sprites, in camera frame

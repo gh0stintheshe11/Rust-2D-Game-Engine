@@ -15,12 +15,13 @@ use crate::audio::AudioEngine;
 use crate::input::InputHandler;
 use crate::logger::LOGGER;
 use crate::physics::PhysicsEngine;
-use crate::render::{HudItem, HudText, ParticleBurst};
+use crate::render::{CameraRig, HudItem, HudText, ParticleBurst, Transition};
 use crate::save::SaveData;
 use crate::scene::{Scene, SceneManager};
 
 mod audio_bindings;
 mod button_focus;
+mod camera_bindings;
 mod input_bindings;
 mod physics_bindings;
 mod render_bindings;
@@ -164,7 +165,7 @@ pub struct LuaScripting {
     // Set by the end_game() binding; polled by the runtime
     game_stop_requested: Rc<Cell<bool>>,
     // Set by the change_scene() binding; polled by the runtime
-    scene_change_request: Rc<Cell<Option<Uuid>>>,
+    scene_change_request: Rc<Cell<Option<SceneChange>>>,
     // Text drawn by scripts this frame (draw_text), painted by the runtime
     hud: Rc<RefCell<Vec<HudItem>>>,
     // Bursts scripts asked for with emit_particles, for the runtime to take
@@ -187,6 +188,18 @@ pub struct LuaScripting {
     scheduler: Rc<RefCell<timers::Scheduler>>,
     // Scripts' on_destroy hooks by file, for remove_entity to call
     destroy_hooks: Rc<RefCell<HashMap<PathBuf, LuaFunction>>>,
+    // Moves the active scene's camera (camera_follow, camera_shake)
+    camera_rig: Rc<RefCell<CameraRig>>,
+    // The frame's time step, as given to update_global_time
+    frame_dt: f32,
+}
+
+/// A scene change a script asked for with `change_scene`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SceneChange {
+    pub scene: Uuid,
+    /// How the screen goes from one scene to the other; `None` cuts
+    pub transition: Option<Transition>,
 }
 
 pub(crate) fn parse_uuid(value: &str, what: &str) -> Result<Uuid, mlua::Error> {
@@ -230,6 +243,8 @@ impl LuaScripting {
             previous_contacts: HashMap::new(),
             game_stop_requested: Rc::new(Cell::new(false)),
             scene_change_request: Rc::new(Cell::new(None)),
+            camera_rig: Rc::new(RefCell::new(CameraRig::new())),
+            frame_dt: 0.0,
             hud: Rc::new(RefCell::new(Vec::new())),
             particle_bursts: Rc::new(RefCell::new(Vec::new())),
             button_focus: Rc::new(RefCell::new(button_focus::ButtonFocus::default())),
@@ -299,6 +314,7 @@ impl LuaScripting {
         self.particle_bursts.borrow_mut().clear();
         *self.button_focus.borrow_mut() = button_focus::ButtonFocus::default();
         *self.scheduler.borrow_mut() = timers::Scheduler::default();
+        self.camera_rig.borrow_mut().reset();
         self.destroy_hooks.borrow_mut().clear();
         self.current_entity.set(None);
         self.accumulated_time = 0.0;
@@ -338,6 +354,7 @@ impl LuaScripting {
         let save_data = Rc::clone(&self.save_data);
         self.register_save_bindings(&save_data)?;
         self.register_timer_bindings()?;
+        self.register_camera_bindings(&scene_manager)?;
 
         LOGGER.info("Lua scripting session started");
         Ok(())
@@ -386,9 +403,9 @@ impl LuaScripting {
         self.game_stop_requested.replace(false)
     }
 
-    /// The scene a script asked to switch to with `change_scene` since the
+    /// The scene change a script asked for with `change_scene` since the
     /// last call (the last request wins), if any. Clears the request.
-    pub fn take_scene_change_request(&self) -> Option<Uuid> {
+    pub fn take_scene_change_request(&self) -> Option<SceneChange> {
         self.scene_change_request.take()
     }
 
@@ -404,8 +421,10 @@ impl LuaScripting {
         self.hud.borrow_mut().clear();
         self.particle_bursts.borrow_mut().clear();
         *self.button_focus.borrow_mut() = button_focus::ButtonFocus::default();
-        // Timers and tweens belong to the previous scene's entities
+        // Timers and tweens belong to the previous scene's entities, and
+        // so does what the camera followed
         *self.scheduler.borrow_mut() = timers::Scheduler::default();
+        self.camera_rig.borrow_mut().reset();
     }
 
     /// How many timers and tweens scripts made are waiting (`after`,
@@ -418,6 +437,7 @@ impl LuaScripting {
     pub fn update_global_time(&mut self, delta_time: f32) -> Result<(), String> {
         self.accumulated_time += f64::from(delta_time);
         self.clock.set(self.accumulated_time);
+        self.frame_dt = delta_time;
         let globals = self.lua.globals();
         globals
             .set("accumulated_time", self.accumulated_time)
@@ -482,8 +502,10 @@ impl LuaScripting {
             .collect();
         let scene_arg = self.lua_id(active_scene_id).map_err(|e| e.to_string())?;
 
-        // Timers and tweens come first: updates see where tweens are
+        // Timers and tweens come first, then the camera: updates see where
+        // tweens and the camera are (to place a background by the camera)
         self.run_timers(active_scene_id);
+        self.move_camera(active_scene_id);
 
         for (entity_id, file) in entities {
             let Some(script) = &scripts[file] else {

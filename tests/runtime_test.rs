@@ -1385,3 +1385,270 @@ fn test_on_destroy_runs_before_the_entity_goes() {
             .is_err()
     );
 }
+
+/// Where the active scene's camera is.
+fn camera_position(runtime: &GameRuntime) -> (f32, f32) {
+    let manager = runtime.get_scene_manager();
+    let scene = manager.get_active_scene().unwrap();
+    let camera = scene.get_entity(scene.default_camera.unwrap()).unwrap();
+    (camera.get_x(), camera.get_y())
+}
+
+fn active_scene_name(runtime: &GameRuntime) -> String {
+    runtime
+        .get_scene_manager()
+        .get_active_scene()
+        .unwrap()
+        .name
+        .clone()
+}
+
+/// The falling box, 20 x 10 (its middle is 10 right of and 5 below its x /
+/// y), seen through a 400 x 300 camera frame, with a script.
+fn camera_scene(source: &str) -> (GameRuntime, Uuid, TempPath) {
+    let (mut manager, box_id) = falling_box_scene();
+    {
+        let scene = manager.get_active_scene_mut().unwrap();
+        let camera_id = scene.default_camera.unwrap();
+        let camera = scene.get_entity_mut(camera_id).unwrap();
+        camera.set_camera_size(400.0, 300.0).unwrap();
+        camera.set_position(0.0, 0.0, 0.0).unwrap();
+        let entity = scene.get_entity_mut(box_id).unwrap();
+        for name in ["collider_width", "collider_height"] {
+            let size = if name == "collider_width" { 20.0 } else { 10.0 };
+            entity
+                .set_or_create_attribute(
+                    name,
+                    rust_2d_game_engine::scene::AttributeValue::Float(size),
+                )
+                .unwrap();
+        }
+    }
+    let script = with_script(&mut manager, box_id, source);
+    let mut runtime = runtime(manager);
+    runtime.run().unwrap();
+    (runtime, box_id, script)
+}
+
+#[test]
+fn test_the_camera_follows_an_entity() {
+    let (mut runtime, box_id, _script) = camera_scene(
+        r#"
+        function init(scene_id, entity_id)
+            set_gravity(0, 980)
+            camera_follow(entity_id)
+        end
+        function update(scene_id, entity_id)
+            local camera = get_camera(scene_id)
+            script_state.state.seen_x = get_attribute(scene_id, camera, "x")
+            script_state.state.seen_y = get_attribute(scene_id, camera, "y")
+        end
+        "#,
+    );
+    let middle = |runtime: &GameRuntime| {
+        let manager = runtime.get_scene_manager();
+        let entity = manager
+            .get_active_scene()
+            .unwrap()
+            .get_entity(box_id)
+            .unwrap();
+        (entity.get_x() + 10.0, entity.get_y() + 5.0)
+    };
+    ticks(&mut runtime, 0.5);
+    // Every frame, before scripts run, the camera goes to where the box's
+    // middle got to in the last one; scripts see it there
+    let falling = middle(&runtime);
+    assert!(falling.1 > 50.0, "the box falls: {:?}", falling);
+    runtime.tick(1.0 / 60.0);
+    let camera = camera_position(&runtime);
+    assert!(
+        (camera.0 - falling.0).abs() < 1e-3 && (camera.1 - falling.1).abs() < 1e-3,
+        "{:?} vs {:?}",
+        camera,
+        falling
+    );
+    let seen = (
+        lua_number(&runtime, "script_state.state.seen_x") as f32,
+        lua_number(&runtime, "script_state.state.seen_y") as f32,
+    );
+    assert_eq!(seen, camera);
+
+    // Inside bounds: a 400 x 300 frame whose bottom is at y = 150
+    let id = box_id.to_string();
+    lua_exec(
+        &runtime,
+        &format!(
+            r#"camera_follow("{}", {{bounds = {{x = -1000, y = -1000, width = 2000, height = 1150}}}})"#,
+            id
+        ),
+    );
+    ticks(&mut runtime, 1.0);
+    let camera = camera_position(&runtime);
+    assert!(middle(&runtime).1 > 300.0);
+    assert_eq!(camera.1, 0.0, "held at the bounds' bottom");
+    assert!((camera.0 - 10.0).abs() < 1e-3);
+
+    // Smoothly: behind the box, catching up
+    lua_exec(
+        &runtime,
+        &format!(r#"camera_follow("{}", {{smoothing = 0.3}})"#, id),
+    );
+    ticks(&mut runtime, 0.2);
+    let (camera, box_middle) = (camera_position(&runtime), middle(&runtime));
+    assert!(
+        camera.1 > 0.0 && camera.1 < box_middle.1 - 100.0,
+        "{:?} {:?}",
+        camera,
+        box_middle
+    );
+
+    // Stopped: the camera stays
+    lua_exec(&runtime, "camera_follow(nil)");
+    ticks(&mut runtime, 0.2);
+    let stopped = camera_position(&runtime);
+    ticks(&mut runtime, 0.2);
+    assert_eq!(camera_position(&runtime), stopped);
+
+    // Mistakes are errors
+    let error = |code: &str| {
+        lua_string(
+            &runtime,
+            &format!("tostring(select(2, pcall(function() {} end)))", code),
+        )
+    };
+    for (code, expected) in [
+        (
+            r#"camera_follow("00000000-0000-0000-0000-000000000000")"#.to_string(),
+            "isn't in the playing scene",
+        ),
+        (
+            format!(r#"camera_follow("{}", {{zoom = 2}})"#, id),
+            "unknown option 'zoom'",
+        ),
+        (
+            format!(r#"camera_follow("{}", {{bounds = {{x = 0, y = 0}}}})"#, id),
+            "bounds need x, y, width and height",
+        ),
+        (
+            format!(r#"camera_follow("{}", {{smoothing = -1}})"#, id),
+            "at least 0",
+        ),
+        ("camera_shake(-1, 1)".to_string(), "at least 0"),
+        ("camera_shake(1, 0)".to_string(), "above 0"),
+    ] {
+        let message = error(&code);
+        assert!(message.contains(expected), "{}: {}", code, message);
+    }
+}
+
+#[test]
+fn test_the_camera_shakes_and_settles() {
+    let (mut runtime, _, _script) = camera_scene("function update(scene_id, entity_id) end");
+    runtime.tick(1.0 / 60.0);
+    let rest = camera_position(&runtime);
+    lua_exec(&runtime, "camera_shake(8, 0.5)");
+    let mut largest: f32 = 0.0;
+    for _ in 0..30 {
+        runtime.tick(1.0 / 60.0);
+        let at = camera_position(&runtime);
+        let offset = (at.0 - rest.0).abs().max((at.1 - rest.1).abs());
+        assert!(offset <= 8.0, "{}", offset);
+        largest = largest.max(offset);
+    }
+    assert!(largest > 2.0, "it shook: {}", largest);
+    ticks(&mut runtime, 0.1);
+    assert_eq!(camera_position(&runtime), rest, "back exactly where it was");
+}
+
+#[test]
+fn test_scenes_change_through_transitions() {
+    let (mut manager, box_id) = falling_box_scene();
+    let title = manager.create_scene("title").unwrap();
+    let _script = with_script(
+        &mut manager,
+        box_id,
+        r#"
+        function update(scene_id, entity_id)
+            local state = script_state.state
+            state.frames = (state.frames or 0) + 1
+            if state.frames == 1 then
+                change_scene("title", {seconds = 1})
+            elseif state.frames == 10 then
+                -- While the frame is being covered, other changes are ignored
+                change_scene("main", {seconds = 1})
+            end
+        end
+        "#,
+    );
+    let mut runtime = runtime(manager);
+    runtime.run().unwrap();
+    let frame = 1.0 / 60.0;
+    runtime.tick(frame);
+    assert_eq!(runtime.transition_coverage(), 0.0, "starts uncovered");
+    // Covering, while the first scene still plays
+    let mut covering = Vec::new();
+    while active_scene_name(&runtime) == "main" {
+        runtime.tick(frame);
+        covering.push(runtime.transition_coverage());
+        assert!(covering.len() < 40, "the scene changes halfway");
+    }
+    assert_eq!(covering.len(), 30, "after half a second");
+    assert!(
+        covering.windows(2).all(|pair| pair[0] < pair[1]),
+        "{:?}",
+        covering
+    );
+    assert!((covering[14] - 0.5).abs() < 0.02, "{}", covering[14]);
+    assert!(covering[29] > 0.999, "covered when the scene changes");
+    assert_eq!(
+        runtime.get_scene_manager().active_scene,
+        Some(title),
+        "to the first scene asked for"
+    );
+
+    // Halfway out, a fade through black is half opaque over the frame
+    ticks(&mut runtime, 0.25);
+    let coverage = runtime.transition_coverage();
+    assert!((coverage - 0.5).abs() < 0.02, "{}", coverage);
+    let fill = paint(&mut runtime)
+        .into_iter()
+        .filter_map(|shape| match shape {
+            egui::Shape::Rect(rect) if rect.fill.r() == 0 && rect.fill.a() > 0 => Some(rect),
+            _ => None,
+        })
+        .next_back()
+        .expect("the transition is painted");
+    assert!(
+        (i32::from(fill.fill.a()) - 128).abs() <= 3,
+        "{:?}",
+        fill.fill
+    );
+    ticks(&mut runtime, 0.3);
+    assert_eq!(runtime.transition_coverage(), 0.0, "over");
+    assert_eq!(active_scene_name(&runtime), "title");
+
+    // From Rust; a cut calls a transition off
+    let main = runtime
+        .get_scene_manager()
+        .scenes
+        .iter()
+        .find(|(_, scene)| scene.name == "main")
+        .map(|(id, _)| *id)
+        .unwrap();
+    let wipe = rust_2d_game_engine::render::Transition {
+        kind: rust_2d_game_engine::render::TransitionKind::WipeLeft,
+        seconds: 0.4,
+        color: egui::Color32::WHITE,
+    };
+    runtime.change_scene_with(main, wipe).unwrap();
+    ticks(&mut runtime, 0.1);
+    assert!(runtime.transition_coverage() > 0.4);
+    runtime.switch_scene(title).unwrap();
+    assert_eq!(runtime.transition_coverage(), 0.0);
+    assert!(runtime.change_scene_with(Uuid::new_v4(), wipe).is_err());
+    runtime.reset();
+    assert!(
+        runtime.change_scene_with(main, wipe).is_err(),
+        "not running"
+    );
+}

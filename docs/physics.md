@@ -142,7 +142,8 @@ Distances below 10 px count as 10 px.
   `begin_frame`, `step`, `cleanup`, `update_tilemap`
 - **World**: `set_gravity` / `get_gravity`, `set_time_step` / `get_time_step`
 - **Bodies**: `get_velocity` / `set_velocity`, `apply_force`, `apply_impulse`,
-  `set_position` (teleport, keeps velocity), `get_angular_velocity` /
+  `set_position` (teleport, keeps velocity), `body_center` (the body's
+  position: its collider's middle, which the camera follows), `get_angular_velocity` /
   `set_angular_velocity`, `apply_torque`, `drop_through_platforms`
 - **Queries**: `get_colliding_entities` (entities currently touching, or
   overlapping when either is a sensor), `raycast`, `collider_outlines` (debug

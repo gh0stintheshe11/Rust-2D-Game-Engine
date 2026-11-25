@@ -1545,11 +1545,9 @@ mod session_tests {
 
         assert_eq!(session.lua.take_scene_change_request(), None);
         lua.load(r#"change_scene("level 2")"#).exec().unwrap();
-        assert_eq!(
-            session.lua.take_scene_change_request(),
-            Some(level),
-            "by name"
-        );
+        let change = session.lua.take_scene_change_request().unwrap();
+        assert_eq!(change.scene, level, "by name");
+        assert_eq!(change.transition, None, "a cut");
         assert_eq!(session.lua.take_scene_change_request(), None, "taken once");
 
         // By id, and the last request wins
@@ -1557,9 +1555,51 @@ mod session_tests {
             .exec()
             .unwrap();
         assert_eq!(
-            session.lua.take_scene_change_request(),
+            session
+                .lua
+                .take_scene_change_request()
+                .map(|change| change.scene),
             Some(session.scene_id)
         );
+
+        // With a transition: a fade by default, or as the options say
+        use rust_2d_game_engine::render::{Transition, TransitionKind};
+        lua.load(r#"change_scene("level 2", {})"#).exec().unwrap();
+        let change = session.lua.take_scene_change_request().unwrap();
+        assert_eq!(change.transition, Some(Transition::fade(0.5)));
+        lua.load(r##"change_scene("level 2", {transition = "wipe_up", seconds = 2, color = "#ff000080"})"##)
+            .exec()
+            .unwrap();
+        let change = session.lua.take_scene_change_request().unwrap();
+        assert_eq!(
+            change.transition,
+            Some(Transition {
+                kind: TransitionKind::WipeUp,
+                seconds: 2.0,
+                color: egui::Color32::from_rgba_unmultiplied(255, 0, 0, 128),
+            })
+        );
+        lua.load(r#"change_scene("level 2", {seconds = 0})"#)
+            .exec()
+            .unwrap();
+        let change = session.lua.take_scene_change_request().unwrap();
+        assert_eq!(change.transition, None, "no time: a cut");
+        for (options, expected) in [
+            (r#"{transition = "spin"}"#, "unknown transition 'spin'"),
+            (r#"{seconds = -1}"#, "at least 0"),
+            (r#"{color = "red"}"#, "change_scene"),
+            (r#"{speed = 2}"#, "unknown or invalid option 'speed'"),
+        ] {
+            let error: String = lua
+                .load(format!(
+                    r#"return tostring(select(2, pcall(change_scene, "level 2", {})))"#,
+                    options
+                ))
+                .eval()
+                .unwrap();
+            assert!(error.contains(expected), "{}: {}", options, error);
+        }
+        assert_eq!(session.lua.take_scene_change_request(), None);
 
         let unknown: bool = lua
             .load(r#"return (pcall(change_scene, "level 3"))"#)

@@ -289,7 +289,7 @@ Scenes and entities:
 | `get_entity_name(scene_id, entity_id)` | Name, or nil if the entity no longer exists |
 | `find_entity(scene_id, name)` | Id of the scene's first entity with that name, or nil |
 | `spawn(scene_id, template, x, y)` | Copy a template entity to (x, y) and return the copy's id; see [Scenes and prefabs](#scenes-and-prefabs) |
-| `change_scene(scene)` | Switch to another scene, given by name or id, once the current hooks finish; an unknown scene raises an error |
+| `change_scene(scene [, options])` | Switch to another scene, given by name or id, once the current hooks finish, or with options through a transition; an unknown scene raises an error. See [Scenes and prefabs](#scenes-and-prefabs) |
 
 Attributes:
 
@@ -339,6 +339,38 @@ function init(scene_id, entity_id)
 end
 ```
 
+## Camera
+
+The scene's camera (its default camera entity) can follow an entity and
+shake. Both are done before the frame's `update` hooks, so an update that
+places a background by the camera (`get_attribute(scene_id,
+get_camera(scene_id), "x")`) puts it where the camera is painted.
+
+| Function | Notes |
+|---|---|
+| `camera_follow(entity_id [, options])` | Keep the camera on an entity of the playing scene, from this frame on, until the scene changes, the entity is removed, or `camera_follow(nil)`. An entity with a physics body is followed by its middle, one without by its `x`/`y`. Options (world units): `offset_x`, `offset_y` (aim ahead of or above it), `smoothing` (how far behind the camera lags, in seconds: the time to get about two thirds of the way; 0, the default, locks it on), `deadzone_width`, `deadzone_height` (a box in the middle of the frame the entity moves in without the camera moving), `bounds = {x = ..., y = ..., width = ..., height = ...}` (an area the frame stays inside: the level), `snap = true` (jump there at once, whatever the smoothing) |
+| `camera_shake(strength, seconds)` | Shake the camera by up to `strength` world units on each axis, fading out over `seconds` (above 0). Shakes at once don't add up: the strongest counts |
+| `get_camera(scene_id)` | The scene's camera entity id, or nil |
+
+```lua
+function init(scene_id, entity_id)
+    -- Follow the player a moment behind, without showing past the level
+    camera_follow(entity_id, {
+        smoothing = 0.12,
+        bounds = {x = 0, y = 0, width = 3520, height = 540},
+    })
+end
+
+function on_collision(scene_id, entity_id, other_id)
+    if get_entity_name(scene_id, other_id) == "spikes" then
+        camera_shake(6, 0.3)
+    end
+end
+```
+
+The shake moves the camera itself, so a background exactly as large as the
+frame should move with the camera to keep its edges out of sight.
+
 ## Scenes and prefabs
 
 `change_scene("level 2")` (a scene's name or id) switches the game to another
@@ -348,6 +380,23 @@ the game started (switching to the current scene restarts it), and its
 entities run `init` again. `script_state`, the scripts' variables and the
 sounds that are playing carry over. Stop returns to the scene that was active
 when Play started.
+
+With options, the screen goes to the other scene through a transition:
+
+```lua
+change_scene("level 2", {transition = "fade", seconds = 0.6, color = "#000000"})
+```
+
+A color covers the camera frame over the first half of `seconds` (0.5 when
+not given), the scene changes then, and the new one shows over the second
+half. `transition` is `fade` (the default), or a wipe: `wipe_left`,
+`wipe_right`, `wipe_up` or `wipe_down`, a band of the color sweeping across
+in that direction; `color` is `"#rrggbb"` or `"#rrggbbaa"` (black when not
+given), and `seconds = 0` cuts. Both scenes play during it: the one being
+left until it's covered. Changes asked for while the frame is being covered
+are ignored (pressing Play twice doesn't start the level twice); after the
+change, another transition covers the new scene again from where it is. Text
+drawn by scripts is covered too.
 
 `spawn(scene_id, template, x, y)` copies an entity, with its attributes,
 images and script, puts the copy's top-left corner at (x, y) and returns its

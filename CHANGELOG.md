@@ -7,6 +7,30 @@ versions may contain breaking changes).
 
 ## [Unreleased]
 
+### Added
+
+- The camera follows an entity: `camera_follow(entity_id, options)` keeps
+  the scene's camera on it (on its physics body's middle), with `smoothing`
+  (how far behind it lags, the same at any frame rate), a dead zone, an
+  offset and `bounds` the frame stays inside, until the scene changes or
+  `camera_follow(nil)`. `camera_shake(strength, seconds)` shakes it, fading
+  out; the shake is added to the camera and taken off again, so it never
+  builds up or fights a script moving the camera. The camera moves before
+  the frame's updates, so backgrounds placed by it don't lag. `get_camera`
+  returns a scene's camera. In Rust: `render::CameraRig`, and
+  `PhysicsEngine::body_center`.
+- Scene transitions: `change_scene(scene, {transition = "fade", seconds =
+  0.5, color = "#000000"})` covers the camera frame with a color, changes
+  the scene once it's covered, and uncovers the new one: a fade, or a wipe
+  in one of four directions. Changes asked for while the frame is being
+  covered are ignored. In Rust: `GameRuntime::change_scene_with`,
+  `transition_coverage` and `render::Transition`.
+
+### Changed
+
+- `LuaScripting::take_scene_change_request` returns a `SceneChange` (the
+  scene and its transition) instead of the scene's id.
+
 ## [0.7.0] - 2026-11-25
 
 Less code for everyday game logic: input actions, named controls bound to

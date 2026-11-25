@@ -17,15 +17,17 @@ mod camera;
 mod hud;
 mod particles;
 mod text;
+mod transition;
 
 pub use animation::{DEFAULT_ANIMATION_FPS, advance_animations, parse_frames};
-pub use camera::Camera;
+pub use camera::{Camera, CameraFollow, CameraRig, MAX_CAMERA_SHAKES};
 pub use hud::{HudButton, HudImage, HudItem, HudRect, paint_hud};
 pub use particles::{
     EMITTER_MARKER_SIZE, MAX_BURST, MAX_PARTICLES, PARTICLE_TEXTURE_ID, ParticleBurst,
     ParticleSettings, ParticleSystem, is_particle_emitter,
 };
 pub use text::{HudText, TextAlign, paint_texts, parse_color, parse_rgba};
+pub use transition::{TRANSITIONS, Transition, TransitionKind};
 
 /// One sprite draw command in viewport-relative screen space.
 #[derive(Debug, Clone)]

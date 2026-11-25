@@ -491,6 +491,14 @@ impl PhysicsEngine {
         }
     }
 
+    /// Where the entity's body is: the middle of its collider (a tilemap's
+    /// top-left corner); `None` without a body.
+    pub fn body_center(&self, entity_id: Uuid) -> Option<(f32, f32)> {
+        let info = self.bodies.get(&entity_id)?;
+        let translation = self.world.bodies.get(info.body)?.translation();
+        Some((translation.x, translation.y))
+    }
+
     pub fn get_angular_velocity(&self, entity_id: Uuid) -> Option<f32> {
         self.body(entity_id).map(|rb| rb.angvel())
     }

@@ -10,7 +10,7 @@ use crate::{
     input::{GamepadBackend, GamepadEvent, InputAccess, InputActions, InputHandler},
     logger::LOGGER,
     physics::PhysicsEngine,
-    render::{Camera, GameView, RenderEngine},
+    render::{Camera, GameView, RenderEngine, Transition},
     save::SaveData,
     scene::{Scene, SceneManager},
     scripting::LuaScripting,
@@ -46,6 +46,18 @@ pub enum CameraMode {
     Free { position: (f32, f32), zoom: f32 },
 }
 
+/// A scene transition under way (see [`GameRuntime::change_scene_with`]).
+#[derive(Clone, Copy, Debug)]
+struct ActiveTransition {
+    transition: Transition,
+    /// The scene it goes to
+    target: Uuid,
+    /// Seconds since it started
+    elapsed: f32,
+    /// The scene changed already: the new one is showing
+    switched: bool,
+}
+
 /// Owns the play-mode state of the engine.
 ///
 /// The scene manager, physics engine, input handler and audio engine are
@@ -77,6 +89,8 @@ pub struct GameRuntime {
     // ...through this, once opened (None until then, or if that failed)
     gamepads: Option<GamepadBackend>,
     gamepads_opened: bool,
+    // The scene transition under way, if any (see change_scene_with)
+    transition: Option<ActiveTransition>,
     // The project's input actions (see set_input_actions), which every run
     // starts from
     input_actions: InputActions,
@@ -117,6 +131,7 @@ impl GameRuntime {
             gamepads: None,
             gamepads_opened: false,
             input_actions: InputActions::new(),
+            transition: None,
         }
     }
 
@@ -202,6 +217,7 @@ impl GameRuntime {
     pub fn reset(&mut self) {
         self.state = RuntimeState::Stopped;
         self.time_accumulator = 0.0;
+        self.transition = None;
         self.physics_engine.borrow_mut().cleanup();
         self.render_engine.clear_cache();
         self.render_engine.clear_particles();
@@ -278,15 +294,16 @@ impl GameRuntime {
         if self.state != RuntimeState::Playing {
             return;
         }
+        let step_dt = self.physics_engine.borrow().get_time_step();
+        // Scripts and physics see the same (clamped) time
+        let frame_dt = frame_dt.clamp(0.0, step_dt * MAX_STEPS_PER_FRAME as f32);
+        // A transition may change the scene before this frame plays
+        self.advance_transition(frame_dt);
         let Some(scene_id) = self.scene_manager.borrow().active_scene else {
             LOGGER.error("The active scene is gone; stopping the game");
             self.reset();
             return;
         };
-
-        let step_dt = self.physics_engine.borrow().get_time_step();
-        // Scripts and physics see the same (clamped) time
-        let frame_dt = frame_dt.clamp(0.0, step_dt * MAX_STEPS_PER_FRAME as f32);
         self.physics_engine.borrow_mut().begin_frame(frame_dt);
 
         if let Err(e) = self.lua_scripting.update_global_time(frame_dt) {
@@ -361,18 +378,88 @@ impl GameRuntime {
         true
     }
 
-    /// Switch scenes if a script called `change_scene()`.
+    /// Switch scenes if a script called `change_scene()`, or start the
+    /// transition it asked for. Returns whether the scene changed.
     fn switch_if_requested(&mut self) -> bool {
-        let Some(scene_id) = self.lua_scripting.take_scene_change_request() else {
+        let Some(change) = self.lua_scripting.take_scene_change_request() else {
             return false;
         };
-        match self.switch_scene(scene_id) {
+        if let Some(transition) = change.transition {
+            self.start_transition(change.scene, transition);
+            return false;
+        }
+        match self.switch_scene(change.scene) {
             Ok(()) => true,
             Err(e) => {
                 LOGGER.error(format!("change_scene failed: {}", e));
                 false
             }
         }
+    }
+
+    /// Go to another scene through a transition (what `change_scene` does
+    /// with options): the transition's color covers the frame over the
+    /// first half of its time, the scene changes as
+    /// [`switch_scene`](Self::switch_scene) does, and the new scene shows
+    /// over the second half. Both scenes play meanwhile. While the frame is
+    /// still being covered, other changes are ignored; once the new scene
+    /// shows, another one covers it again from where it is.
+    ///
+    /// Fails when no game is running or the scene doesn't exist.
+    pub fn change_scene_with(
+        &mut self,
+        scene_id: Uuid,
+        transition: Transition,
+    ) -> Result<(), String> {
+        if self.state == RuntimeState::Stopped {
+            return Err("no game is running".to_string());
+        }
+        if self.scene_manager.borrow().get_scene(scene_id).is_none() {
+            return Err(format!("scene {} not found", scene_id));
+        }
+        self.start_transition(scene_id, transition);
+        Ok(())
+    }
+
+    fn start_transition(&mut self, target: Uuid, transition: Transition) {
+        let elapsed = match self.transition {
+            // Covering: the first change stands
+            Some(active) if !active.switched => return,
+            // Uncovering: cover again from where it is
+            Some(active) => transition.elapsed_at(active.transition.coverage(active.elapsed)),
+            None => 0.0,
+        };
+        self.transition = Some(ActiveTransition {
+            transition,
+            target,
+            elapsed,
+            switched: false,
+        });
+    }
+
+    /// How much of the frame a scene transition covers now, from 0 (none
+    /// under way) to 1.
+    pub fn transition_coverage(&self) -> f32 {
+        self.transition
+            .map_or(0.0, |active| active.transition.coverage(active.elapsed))
+    }
+
+    /// Move the transition under way on by `frame_dt`, changing the scene
+    /// at its midpoint.
+    fn advance_transition(&mut self, frame_dt: f32) {
+        let Some(mut active) = self.transition else {
+            return;
+        };
+        active.elapsed += frame_dt;
+        if !active.switched && active.elapsed >= active.transition.midpoint() {
+            active.switched = true;
+            if let Err(e) = self.load_scene(active.target) {
+                LOGGER.error(format!("change_scene failed: {}", e));
+                self.transition = None;
+                return;
+            }
+        }
+        self.transition = (active.elapsed < active.transition.seconds).then_some(active);
     }
 
     /// Make another scene the active one while the game runs (what the
@@ -382,8 +469,18 @@ impl GameRuntime {
     /// it, and its scripted entities run `init` again. The scripting session
     /// (`script_state`, loaded scripts) and playing sounds carry over.
     ///
+    /// A scene transition under way is called off.
+    ///
     /// Fails when no game is running or the scene doesn't exist.
     pub fn switch_scene(&mut self, scene_id: Uuid) -> Result<(), String> {
+        self.load_scene(scene_id)?;
+        self.transition = None;
+        Ok(())
+    }
+
+    /// Make a scene the active one, starting over (see
+    /// [`switch_scene`](Self::switch_scene)).
+    fn load_scene(&mut self, scene_id: Uuid) -> Result<(), String> {
         if self.state == RuntimeState::Stopped {
             return Err("no game is running".to_string());
         }
@@ -491,27 +588,37 @@ impl GameRuntime {
                 .map(|texture| texture.id())
         });
 
-        // What scripts drew is laid out in the camera frame's pixels and
-        // scales with the frame, wherever the frame is on screen
-        let hud = self.lua_scripting.hud();
-        if !hud.is_empty()
-            && let Some(frame) = frame
-        {
-            let camera = self.render_engine.camera;
+        // The camera frame on screen, wherever it is: what scripts drew is
+        // laid out in its pixels and scales with it, and transitions cover it
+        let camera = self.render_engine.camera;
+        let frame_on_screen = frame.map(|frame| {
             let min = camera.world_to_screen(frame.world_min);
             let origin = viewport_rect.min + egui::vec2(min.0, min.1);
             let scale = camera.zoom * frame.world_size.0 / frame.size.0;
-            let frame_rect = Rect::from_min_size(
+            let rect = Rect::from_min_size(
                 origin,
                 egui::vec2(frame.size.0 * scale, frame.size.1 * scale),
             );
+            (rect, scale)
+        });
+        let hud = self.lua_scripting.hud();
+        if !hud.is_empty()
+            && let Some((frame_rect, scale)) = frame_on_screen
+        {
             let hud_painter = ui.painter().with_clip_rect(frame_rect.intersect(clip_rect));
             let render_engine = &mut self.render_engine;
-            crate::render::paint_hud(&hud_painter, &hud, origin, scale, |path| {
+            crate::render::paint_hud(&hud_painter, &hud, frame_rect.min, scale, |path| {
                 render_engine.image_texture(&ctx, path)
             });
         }
         drop(hud);
+
+        if let (Some(active), Some((frame_rect, _))) = (self.transition, frame_on_screen) {
+            let painter = ui.painter().with_clip_rect(frame_rect.intersect(clip_rect));
+            active
+                .transition
+                .paint(&painter, frame_rect, active.elapsed);
+        }
 
         if self.show_colliders {
             let outlines = self.physics_engine.borrow().collider_outlines();

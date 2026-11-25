@@ -327,6 +327,26 @@ const API_GROUPS: &[(&str, &[ApiEntry])] = &[
         ],
     ),
     (
+        "Camera",
+        &[
+            (
+                "camera_follow",
+                "camera_follow(entity_id, {smoothing = 0.15, bounds = {x = 0, y = 0, width = 3200, height = 540}})",
+                "Keep the scene's camera on an entity; options offset_x, offset_y, smoothing (seconds behind), deadzone_width, deadzone_height, bounds, snap. camera_follow(nil) stops",
+            ),
+            (
+                "camera_shake",
+                "camera_shake(6, 0.3)",
+                "Shake the camera by up to this many world units, fading out over the seconds",
+            ),
+            (
+                "get_camera",
+                "get_camera(scene_id)",
+                "The scene's camera entity id: read its x / y to place backgrounds",
+            ),
+        ],
+    ),
+    (
         "Drawing",
         &[
             (
@@ -469,6 +489,11 @@ const API_GROUPS: &[(&str, &[ApiEntry])] = &[
                 "change_scene",
                 "change_scene(\"level 2\")",
                 "Switch scenes (name or id): it starts over; script_state carries over",
+            ),
+            (
+                "change_scene with a transition",
+                "change_scene(\"level 2\", {transition = \"fade\", seconds = 0.6, color = \"#000000\"})",
+                "Cover the screen, switch halfway, uncover: fade, wipe_left, wipe_right, wipe_up, wipe_down",
             ),
             (
                 "accumulated_time",
