@@ -628,13 +628,18 @@ mod tests {
         let mut scene = Scene::new("test_scene").unwrap();
         let mut physics = PhysicsEngine::new();
         // 64 x 32 pixels: 4 x 2 frames of 16 x 16
-        let sheet = std::env::temp_dir().join(format!("rust2d_sheet_{}.png", Uuid::new_v4()));
+        let sheet = tempfile::Builder::new()
+            .prefix("rust2d_sheet_")
+            .suffix(".png")
+            .tempfile()
+            .unwrap()
+            .into_temp_path();
         image::RgbaImage::new(64, 32).save(&sheet).unwrap();
         let id = scene
             .create_physical_entity("runner", (0.0, 0.0, 0.0), fixed())
             .unwrap();
         let entity = scene.get_entity_mut(id).unwrap();
-        entity.add_image(sheet).unwrap();
+        entity.add_image(sheet.to_path_buf()).unwrap();
         entity
             .set_or_create_attribute("frame_size", AttributeValue::Vector2(16.0, 16.0))
             .unwrap();

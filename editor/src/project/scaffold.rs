@@ -178,15 +178,20 @@ fn package_name(project_name: &str) -> String {
 mod tests {
     use super::*;
 
-    fn temp_dir(name: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("rust2d_scaffold_{}", uuid::Uuid::new_v4()));
-        fs::create_dir_all(&dir).unwrap();
-        dir.join(name)
+    /// A path named `name` in a temp folder removed when the returned guard
+    /// is dropped.
+    fn temp_dir(name: &str) -> (tempfile::TempDir, PathBuf) {
+        let guard = tempfile::Builder::new()
+            .prefix("rust2d_scaffold_")
+            .tempdir()
+            .unwrap();
+        let path = guard.path().join(name);
+        (guard, path)
     }
 
     #[test]
     fn test_created_project_is_buildable_and_playable() {
-        let project = temp_dir("My Cool Game!");
+        let (_guard, project) = temp_dir("My Cool Game!");
         let loaded = create_project(&project).expect("create_project");
 
         let cargo = fs::read_to_string(project.join("Cargo.toml")).unwrap();
@@ -212,7 +217,7 @@ mod tests {
 
     #[test]
     fn test_existing_folders_are_not_overwritten() {
-        let project = temp_dir("taken");
+        let (_guard, project) = temp_dir("taken");
         fs::create_dir_all(&project).unwrap();
         fs::write(project.join("notes.txt"), "keep me").unwrap();
 
@@ -233,7 +238,7 @@ mod tests {
 
         // Titles are embedded as escaped literals: braces and quotes are fine
         assert!(main_rs("a{b}\"c").contains(r#"run("a{b}\"c")"#));
-        let project = temp_dir("a{b}");
+        let (_guard, project) = temp_dir("a{b}");
         create_project(&project).expect("create_project");
     }
 

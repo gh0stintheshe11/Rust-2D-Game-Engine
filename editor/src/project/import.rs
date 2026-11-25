@@ -89,7 +89,11 @@ mod tests {
 
     #[test]
     fn test_sounds_import_in_every_playable_format() {
-        let dir = std::env::temp_dir().join(format!("rust2d_import_{}", uuid::Uuid::new_v4()));
+        let guard = tempfile::Builder::new()
+            .prefix("rust2d_import_")
+            .tempdir()
+            .unwrap();
+        let dir = guard.path();
         let project = dir.join("project");
         fs::create_dir_all(&project).unwrap();
         // Distinct base names: Windows and macOS file names are

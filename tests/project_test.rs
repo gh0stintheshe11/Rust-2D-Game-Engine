@@ -5,18 +5,23 @@ mod tests {
     use std::fs;
     use std::path::PathBuf;
 
-    fn temp_project(name: &str) -> PathBuf {
-        let dir =
-            std::env::temp_dir().join(format!("rust2d_pm_test_{}_{}", name, uuid::Uuid::new_v4()));
+    /// A project folder with the usual subfolders, removed when the returned
+    /// guard is dropped.
+    fn temp_project(name: &str) -> (tempfile::TempDir, PathBuf) {
+        let guard = tempfile::Builder::new()
+            .prefix(&format!("rust2d_pm_test_{}_", name))
+            .tempdir()
+            .unwrap();
+        let dir = guard.path().to_path_buf();
         fs::create_dir_all(dir.join("scenes")).unwrap();
         fs::create_dir_all(dir.join("assets/images")).unwrap();
         fs::create_dir_all(dir.join("assets/scripts")).unwrap();
-        dir
+        (guard, dir)
     }
 
     #[test]
     fn test_scene_paths_saved_relative_loaded_absolute() {
-        let project = temp_project("roundtrip");
+        let (_guard, project) = temp_project("roundtrip");
 
         // Build a scene whose entity holds absolute paths (in-memory format)
         let mut manager = SceneManager::new();
@@ -63,7 +68,7 @@ mod tests {
 
     #[test]
     fn test_legacy_absolute_paths_are_remapped_on_load() {
-        let project = temp_project("legacy");
+        let (_guard, project) = temp_project("legacy");
 
         // Simulate a scene file saved on another machine with absolute paths
         let mut manager = SceneManager::new();
@@ -96,7 +101,7 @@ mod tests {
 
     #[test]
     fn test_foreign_absolute_paths_are_remapped_on_any_os() {
-        let project = temp_project("foreign");
+        let (_guard, project) = temp_project("foreign");
         let mut manager = SceneManager::new();
         let scene_id = manager.create_scene("main").unwrap();
         let scene = manager.get_scene_mut(scene_id).unwrap();
@@ -131,7 +136,7 @@ mod tests {
     fn test_invalid_numbers_in_old_files_load_as_zero() {
         // Older versions saved NaN/infinity as null, which made the whole
         // scene file unreadable
-        let project = temp_project("nulls");
+        let (_guard, project) = temp_project("nulls");
         let mut manager = SceneManager::new();
         let scene_id = manager.create_scene("main").unwrap();
         let entity_id = manager
@@ -156,7 +161,7 @@ mod tests {
 
     #[test]
     fn test_saves_are_atomic_and_portable() {
-        let project = temp_project("atomic");
+        let (_guard, project) = temp_project("atomic");
         let mut manager = SceneManager::new();
         manager.create_scene("main").unwrap();
         let metadata = ProjectMetadata {
@@ -188,8 +193,11 @@ mod tests {
     #[test]
     fn test_projects_without_asset_folders_open() {
         // git doesn't keep empty folders, so a cloned project may lack them
-        let project = std::env::temp_dir().join(format!("rust2d_pm_bare_{}", uuid::Uuid::new_v4()));
-        fs::create_dir_all(&project).unwrap();
+        let guard = tempfile::Builder::new()
+            .prefix("rust2d_pm_bare_")
+            .tempdir()
+            .unwrap();
+        let project = guard.path().to_path_buf();
         fs::write(project.join("project.epm"), r#"{"project_name": "bare"}"#).unwrap();
 
         let loaded = ProjectManager::load_project_full(&project).expect("opens");
@@ -201,8 +209,8 @@ mod tests {
     fn test_entity_paths_move_between_projects() {
         use rust_2d_game_engine::scene::Entity;
 
-        let first = temp_project("entity_from");
-        let second = temp_project("entity_to");
+        let (_first_guard, first) = temp_project("entity_from");
+        let (_second_guard, second) = temp_project("entity_to");
         let elsewhere = std::env::temp_dir().join("shared").join("theme.ogg");
         let mut entity = Entity::new(uuid::Uuid::new_v4(), "coin").unwrap();
         entity

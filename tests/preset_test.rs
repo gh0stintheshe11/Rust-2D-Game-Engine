@@ -132,7 +132,12 @@ fn test_physics_presets_do_what_they_say() {
 
 #[test]
 fn test_sprite_and_animation_presets_are_read() {
-    let image = std::env::temp_dir().join(format!("rust2d_preset_{}.png", Uuid::new_v4()));
+    let image = tempfile::Builder::new()
+        .prefix("rust2d_preset_")
+        .suffix(".png")
+        .tempfile()
+        .unwrap()
+        .into_temp_path();
     // A 64 x 32 sheet: two 32 x 32 frames
     image::RgbaImage::new(64, 32).save(&image).unwrap();
     let mut scene = Scene::new("test_scene").unwrap();
@@ -148,7 +153,11 @@ fn test_sprite_and_animation_presets_are_read() {
             "Animation",
         ],
     );
-    scene.get_entity_mut(id).unwrap().add_image(image).unwrap();
+    scene
+        .get_entity_mut(id)
+        .unwrap()
+        .add_image(image.to_path_buf())
+        .unwrap();
 
     assert!(
         advance_animations(&mut scene, 0.15).is_empty(),

@@ -5,7 +5,6 @@ use rust_2d_game_engine::render::{
     is_particle_emitter,
 };
 use rust_2d_game_engine::scene::{AttributeValue, Scene};
-use std::path::PathBuf;
 use uuid::Uuid;
 
 const FRAME: f32 = 1.0 / 60.0;
@@ -38,8 +37,14 @@ fn set(scene: &mut Scene, id: Uuid, name: &str, value: AttributeValue) {
     entity.set_or_create_attribute(name, value).unwrap();
 }
 
-fn temp_png() -> PathBuf {
-    let path = std::env::temp_dir().join(format!("rust2d_particles_{}.png", Uuid::new_v4()));
+/// An 8 x 8 PNG in a temp file, removed when the returned path is dropped.
+fn temp_png() -> tempfile::TempPath {
+    let path = tempfile::Builder::new()
+        .prefix("rust2d_particles_")
+        .suffix(".png")
+        .tempfile()
+        .unwrap()
+        .into_temp_path();
     image::RgbaImage::new(8, 8).save(&path).unwrap();
     path
 }
@@ -181,7 +186,7 @@ fn test_emitters_draw_a_marker_and_their_particles_not_a_sprite() {
     scene
         .get_entity_mut(id)
         .unwrap()
-        .add_image(image.clone())
+        .add_image(image.to_path_buf())
         .unwrap();
     let mut renderer = renderer();
 

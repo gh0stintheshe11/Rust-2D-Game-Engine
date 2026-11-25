@@ -310,9 +310,11 @@ fn test_a_rock_on_the_paddle_ends_the_round() {
 
 #[test]
 fn test_the_best_score_is_saved_between_runs() {
-    let save_file = std::env::temp_dir()
-        .join(format!("rust2d_demo_save_{}", uuid::Uuid::new_v4()))
-        .join("save.json");
+    let save_dir = tempfile::Builder::new()
+        .prefix("rust2d_demo_save_")
+        .tempdir()
+        .unwrap();
+    let save_file = save_dir.path().join("star_catcher").join("save.json");
     let ctx = egui::Context::default();
 
     // A first run of the game: no best score yet

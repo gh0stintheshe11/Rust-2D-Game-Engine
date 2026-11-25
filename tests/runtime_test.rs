@@ -1,9 +1,12 @@
+mod common;
+
 use rust_2d_game_engine::audio::AudioEngine;
 use rust_2d_game_engine::input::InputHandler;
 use rust_2d_game_engine::physics::PhysicsEngine;
 use rust_2d_game_engine::render::RenderEngine;
 use rust_2d_game_engine::runtime::{CameraMode, GameRuntime, RuntimeState};
 use rust_2d_game_engine::scene::{PhysicsProperties, SceneManager};
+use tempfile::TempPath;
 use uuid::Uuid;
 
 const FRAME: f32 = 1.0 / 60.0;
@@ -47,16 +50,20 @@ fn box_y(runtime: &GameRuntime, box_id: Uuid) -> f32 {
         .get_y()
 }
 
-fn with_script(manager: &mut SceneManager, entity: Uuid, source: &str) {
-    let path = std::env::temp_dir().join(format!("rust2d_runtime_{}.lua", Uuid::new_v4()));
+/// Give `entity` a script with this source, in a temp file removed when the
+/// returned path is dropped: keep it until the test ends.
+#[must_use]
+fn with_script(manager: &mut SceneManager, entity: Uuid, source: &str) -> TempPath {
+    let path = common::temp_file("rust2d_runtime_", ".lua");
     std::fs::write(&path, source).unwrap();
     manager
         .get_active_scene_mut()
         .unwrap()
         .get_entity_mut(entity)
         .unwrap()
-        .set_script(path)
+        .set_script(path.to_path_buf())
         .unwrap();
+    path
 }
 
 #[test]
@@ -107,7 +114,7 @@ fn test_slow_frames_are_capped() {
     // A 1-second stall runs at most 5 physics steps (and the scripts see the
     // same capped time), instead of a burst of catch-up work
     let (mut manager, box_id) = falling_box_scene();
-    with_script(
+    let _script = with_script(
         &mut manager,
         box_id,
         "function update(scene_id, entity_id) script_state.state.t = accumulated_time end",
@@ -145,7 +152,7 @@ fn test_slow_frames_are_capped() {
 #[test]
 fn test_end_game_and_restart() {
     let (mut manager, box_id) = falling_box_scene();
-    with_script(
+    let _script = with_script(
         &mut manager,
         box_id,
         r#"
@@ -239,7 +246,7 @@ fn test_text_is_laid_out_in_the_camera_frame() {
         let camera = scene.get_entity_mut(camera_id).unwrap();
         camera.set_camera_size(400.0, 300.0).unwrap();
     }
-    with_script(
+    let _script = with_script(
         &mut manager,
         box_id,
         r#"function update(scene_id, entity_id) draw_text("Score: 7", 10, 20) end"#,
@@ -337,7 +344,7 @@ fn test_scripts_switch_scenes() {
     // "title", where the game starts, switches to main on its first frame
     let (mut manager, box_id) = falling_box_scene();
     let main = manager.active_scene.unwrap();
-    with_script(
+    let _script = with_script(
         &mut manager,
         box_id,
         r#"
@@ -360,7 +367,7 @@ fn test_scripts_switch_scenes() {
         .unwrap()
         .create_entity("logo")
         .unwrap();
-    with_script(
+    let _script = with_script(
         &mut manager,
         logo,
         r#"
@@ -627,7 +634,7 @@ fn test_particles_play_with_the_game() {
             entity.set_or_create_attribute(name, value).unwrap();
         }
     }
-    with_script(
+    let _script = with_script(
         &mut manager,
         box_id,
         r#"
@@ -683,7 +690,8 @@ fn test_particles_play_with_the_game() {
 
 /// A scene seen through a 400 x 300 camera frame filling the 800 x 600
 /// game view of [`Window`]: frame pixel (x, y) is at window point (2x, 2y).
-fn ui_scene(script: &str) -> GameRuntime {
+/// The script's file lasts as long as the returned path.
+fn ui_scene(script: &str) -> (GameRuntime, TempPath) {
     let (mut manager, box_id) = falling_box_scene();
     {
         let scene = manager.get_active_scene_mut().unwrap();
@@ -693,10 +701,10 @@ fn ui_scene(script: &str) -> GameRuntime {
         camera.set_camera_size(400.0, 300.0).unwrap();
         camera.set_camera_zoom(2.0).unwrap();
     }
-    with_script(&mut manager, box_id, script);
+    let script = with_script(&mut manager, box_id, script);
     let mut runtime = runtime(manager);
     runtime.run().unwrap();
-    runtime
+    (runtime, script)
 }
 
 #[test]
@@ -705,7 +713,7 @@ fn test_buttons_click_when_pressed_and_released_on_them() {
 
     // A panel, and a button at frame pixels (100, 100) to (200, 140): window
     // points (200, 200) to (400, 280)
-    let mut runtime = ui_scene(
+    let (mut runtime, _script) = ui_scene(
         r##"
         function update(scene_id, entity_id)
             draw_rect(0, 0, 400, 30, {color = "#00000080", radius = 4})
@@ -772,7 +780,7 @@ fn test_buttons_click_when_pressed_and_released_on_them() {
 
 #[test]
 fn test_ui_drawing_errors_are_reported_to_scripts() {
-    let runtime = ui_scene("function update(scene_id, entity_id) end");
+    let (runtime, _script) = ui_scene("function update(scene_id, entity_id) end");
     let results: Vec<bool> = runtime
         .scripting()
         .lua()
@@ -802,7 +810,7 @@ fn test_ui_drawing_errors_are_reported_to_scripts() {
 fn test_scripts_read_gamepads() {
     use rust_2d_game_engine::input::{GamepadAxis, GamepadButton, GamepadEvent};
 
-    let mut runtime = ui_scene(
+    let (mut runtime, _script) = ui_scene(
         r#"
         function update(scene_id, entity_id)
             local state = script_state.state
@@ -848,7 +856,7 @@ fn test_buttons_take_keyboard_and_gamepad_focus() {
 
     // Three buttons, the second the default, at frame pixels (100, 50i) to
     // (200, 50i + 40), and one out of the focus
-    let mut runtime = ui_scene(
+    let (mut runtime, _script) = ui_scene(
         r##"
         function update(scene_id, entity_id)
             local state = script_state.state

@@ -17,6 +17,7 @@ egui = "0.37"
 eframe = "0.37"
 image = "0.25.10"
 uuid = { version = "1.29", features = ["v4", "v5", "serde"] }
+tempfile = "3.27"
 
 [package]
 name = "rust-2d-game-engine"
@@ -49,6 +50,10 @@ chrono = "0.4.45"
 indexmap = { version = "2.14", features = ["serde"] }
 lofty = "0.25.0"
 gilrs = "0.11"
+
+[dev-dependencies]
+# Tests' files and folders, removed when the test ends (even when it fails)
+tempfile.workspace = true
 
 # Frame-time benchmark: cargo bench --bench frame
 [[bench]]

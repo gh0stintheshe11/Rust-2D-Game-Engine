@@ -146,8 +146,12 @@ mod tests {
 
     #[test]
     fn test_engine_licenses_are_written() {
-        let dir = std::env::temp_dir().join(format!("rust2d_licenses_{}", uuid::Uuid::new_v4()));
-        write_engine_licenses(&dir).unwrap();
+        let guard = tempfile::Builder::new()
+            .prefix("rust2d_licenses_")
+            .tempdir()
+            .unwrap();
+        let dir = guard.path();
+        write_engine_licenses(dir).unwrap();
         let notice = fs::read_to_string(dir.join("licenses/rust-2d-game-engine/NOTICE")).unwrap();
         assert!(notice.contains("Rust 2D Game Engine"));
         let license = fs::read_to_string(dir.join("licenses/rust-2d-game-engine/LICENSE")).unwrap();

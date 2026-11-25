@@ -4175,6 +4175,7 @@ dependencies = [
  "rust-2d-game-engine",
  "serde_json",
  "strip-ansi-escapes",
+ "tempfile",
  "uuid",
 ]
 
@@ -4194,6 +4195,7 @@ dependencies = [
  "rodio",
  "serde",
  "serde_json",
+ "tempfile",
  "uuid",
 ]
 

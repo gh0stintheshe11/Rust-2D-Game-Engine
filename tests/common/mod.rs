@@ -5,7 +5,7 @@
 
 use rust_2d_game_engine::audio::{AudioEngine, OfflineOutput};
 use std::num::NonZero;
-use std::path::PathBuf;
+use tempfile::TempPath;
 
 /// Sample rate of the tones written by [`write_tone`].
 pub const TONE_RATE: u32 = 22_050;
@@ -14,8 +14,9 @@ pub const TONE_RATE: u32 = 22_050;
 pub const TONE_PEAK: f32 = 8000.0 / 32768.0;
 
 /// Write a 440 Hz sine tone lasting `seconds` (16-bit mono WAV at
-/// [`TONE_RATE`], peaking at [`TONE_PEAK`]) to a new temp file.
-pub fn write_tone(seconds: f32) -> PathBuf {
+/// [`TONE_RATE`], peaking at [`TONE_PEAK`]) to a new temp file, removed when
+/// the returned path is dropped.
+pub fn write_tone(seconds: f32) -> TempPath {
     let samples: Vec<i16> = (0..(seconds * TONE_RATE as f32) as u32)
         .map(|i| {
             let t = i as f32 / TONE_RATE as f32;
@@ -39,9 +40,26 @@ pub fn write_tone(seconds: f32) -> PathBuf {
     for sample in samples {
         wav.extend_from_slice(&sample.to_le_bytes());
     }
-    let path = std::env::temp_dir().join(format!("rust2d_tone_{}.wav", uuid::Uuid::new_v4()));
+    let path = temp_file("rust2d_tone_", ".wav");
     std::fs::write(&path, wav).unwrap();
     path
+}
+
+/// A new empty temp file named `prefix…suffix`, removed when the returned
+/// path is dropped.
+pub fn temp_file(prefix: &str, suffix: &str) -> TempPath {
+    tempfile::Builder::new()
+        .prefix(prefix)
+        .suffix(suffix)
+        .tempfile()
+        .unwrap()
+        .into_temp_path()
+}
+
+/// A new temp folder named `prefix…`, removed with what it holds when the
+/// returned guard is dropped.
+pub fn temp_folder(prefix: &str) -> tempfile::TempDir {
+    tempfile::Builder::new().prefix(prefix).tempdir().unwrap()
 }
 
 /// An audio engine without a device, mixing into a mono stream at the tones'

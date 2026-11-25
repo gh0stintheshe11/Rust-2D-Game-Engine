@@ -471,23 +471,28 @@ mod tests {
         }
     }
 
-    fn app_with_project() -> (egui::Context, EditorApp, PathBuf) {
+    /// An editor with a new project open. The project is in a temp folder
+    /// removed when the returned guard is dropped; it comes first, so a test
+    /// binding everything with one `let` drops it last.
+    fn app_with_project() -> (tempfile::TempDir, egui::Context, EditorApp, PathBuf) {
         let ctx = egui::Context::default();
         let mut app = EditorApp::new(&ctx);
         run_frames(&mut app, &ctx, 1280.0, 2);
 
-        let project = std::env::temp_dir()
-            .join(format!("rust2d_editor_{}", uuid::Uuid::new_v4()))
-            .join("smoke");
+        let guard = tempfile::Builder::new()
+            .prefix("rust2d_editor_")
+            .tempdir()
+            .unwrap();
+        let project = guard.path().join("smoke");
         let loaded = crate::project::create_project(&project).expect("create project");
         app.gui_state.open_project(loaded);
         run_frames(&mut app, &ctx, 1280.0, 2);
-        (ctx, app, project)
+        (guard, ctx, app, project)
     }
 
     #[test]
     fn test_editor_panels_survive_awkward_content() {
-        let (ctx, mut app, project) = app_with_project();
+        let (_guard, ctx, mut app, project) = app_with_project();
 
         // A selected entity with a long non-ASCII attribute name, shown in a
         // narrow inspector (truncation used to slice inside a character)
@@ -538,7 +543,7 @@ mod tests {
 
     #[test]
     fn test_reopening_the_open_script_keeps_unsaved_edits() {
-        let (ctx, mut app, project) = app_with_project();
+        let (_guard, ctx, mut app, project) = app_with_project();
         let scripts = project.join("assets").join("scripts");
         let first = scripts.join("first.lua");
         let second = scripts.join("second.lua");
@@ -563,7 +568,7 @@ mod tests {
 
     #[test]
     fn test_opening_another_project_resets_the_session() {
-        let (ctx, mut app, project) = app_with_project();
+        let (_guard, ctx, mut app, project) = app_with_project();
         let script = project.join("assets").join("scripts").join("a.lua");
         std::fs::write(&script, "-- a").unwrap();
         app.open_script(script.clone());
@@ -616,7 +621,7 @@ mod tests {
 
     #[test]
     fn test_play_mode_frames_the_camera_where_the_game_moved_it() {
-        let (ctx, mut app, project) = app_with_project();
+        let (_guard, ctx, mut app, project) = app_with_project();
         let script = project.join("assets").join("scripts").join("pan.lua");
         std::fs::write(
             &script,
@@ -717,7 +722,7 @@ mod tests {
     fn test_duplicate_copy_paste_and_delete_shortcuts() {
         use rust_2d_game_engine::scene::AttributeValue;
 
-        let (ctx, mut app, _project) = app_with_project();
+        let (_guard, ctx, mut app, _project) = app_with_project();
         let (scene_id, coin, level) = {
             let manager = app.gui_state.scene_manager.as_mut().unwrap();
             let level = manager.create_scene("level 2").unwrap();
@@ -881,7 +886,7 @@ mod tests {
 
     #[test]
     fn test_dragging_snaps_to_the_grid_unless_shift_is_held() {
-        let (ctx, mut app, project) = app_with_project();
+        let (_guard, ctx, mut app, project) = app_with_project();
         let image = project.join("assets").join("images").join("box.png");
         image::RgbaImage::new(40, 40).save(&image).unwrap();
         let (scene_id, id) = {
@@ -1037,7 +1042,7 @@ mod tests {
 
     #[test]
     fn test_presets_context_and_grid_menus() {
-        let (ctx, mut app, _project) = app_with_project();
+        let (_guard, ctx, mut app, _project) = app_with_project();
         let left = egui::PointerButton::Primary;
         let (scene_id, zone) = {
             let manager = app.gui_state.scene_manager.as_mut().unwrap();
@@ -1093,7 +1098,7 @@ mod tests {
 
     #[test]
     fn test_playtests_save_into_the_project_until_cleared() {
-        let (ctx, mut app, project) = app_with_project();
+        let (_guard, ctx, mut app, project) = app_with_project();
         let script = project.join("assets").join("scripts").join("saver.lua");
         std::fs::write(
             &script,
@@ -1131,7 +1136,7 @@ mod tests {
     fn test_tilemaps_are_created_and_painted() {
         use crate::state::{SelectedItem, TileBrush};
 
-        let (ctx, mut app, project) = app_with_project();
+        let (_guard, ctx, mut app, project) = app_with_project();
         // A tileset of two 32 x 32 tiles
         let tileset = project.join("assets").join("images").join("tiles.png");
         image::RgbaImage::new(64, 32).save(&tileset).unwrap();
@@ -1340,7 +1345,7 @@ mod tests {
         use crate::state::SelectedItem;
         use rust_2d_game_engine::scene::attribute_presets;
 
-        let (ctx, mut app, _project) = app_with_project();
+        let (_guard, ctx, mut app, _project) = app_with_project();
         let emitter = {
             let manager = app.gui_state.scene_manager.as_mut().unwrap();
             let scene_id = manager.active_scene.unwrap();

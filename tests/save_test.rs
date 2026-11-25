@@ -5,16 +5,20 @@ use serde_json::json;
 use std::fs;
 use std::path::PathBuf;
 
-/// A save file path in a fresh folder that doesn't exist yet.
-fn save_file(test: &str) -> PathBuf {
-    std::env::temp_dir()
-        .join(format!("rust2d_save_{}_{}", test, uuid::Uuid::new_v4()))
-        .join("save.json")
+/// A save file path in a fresh folder that doesn't exist yet, inside a temp
+/// folder removed when the returned guard is dropped.
+fn save_file(test: &str) -> (tempfile::TempDir, PathBuf) {
+    let dir = tempfile::Builder::new()
+        .prefix(&format!("rust2d_save_{}_", test))
+        .tempdir()
+        .unwrap();
+    let path = dir.path().join("game").join("save.json");
+    (dir, path)
 }
 
 #[test]
 fn test_values_are_kept_between_runs() {
-    let path = save_file("between_runs");
+    let (_dir, path) = save_file("between_runs");
     let mut save = SaveData::open(path.clone());
     assert_eq!(save.get("best"), None, "no file yet");
     save.set("best", Some(json!(12))).unwrap();
@@ -41,7 +45,7 @@ fn test_values_are_kept_between_runs() {
 
 #[test]
 fn test_a_corrupt_file_is_set_aside_not_overwritten() {
-    let path = save_file("corrupt");
+    let (_dir, path) = save_file("corrupt");
     fs::create_dir_all(path.parent().unwrap()).unwrap();
     fs::write(&path, "{ not json").unwrap();
 
@@ -55,7 +59,7 @@ fn test_a_corrupt_file_is_set_aside_not_overwritten() {
 
 #[test]
 fn test_save_data_has_a_size_limit() {
-    let path = save_file("limit");
+    let (_dir, path) = save_file("limit");
     let mut save = SaveData::open(path.clone());
     save.set("small", Some(json!("x"))).unwrap();
     let huge = "x".repeat(MAX_SAVE_SIZE);

@@ -3,11 +3,18 @@ use rust_2d_game_engine::render::{
 };
 use rust_2d_game_engine::scene::{AttributeType, AttributeValue, Scene};
 use std::path::PathBuf;
+use tempfile::TempPath;
 use uuid::Uuid;
 
-/// Write a `width` x `height` PNG to a fresh temp file.
-fn temp_png(width: u32, height: u32) -> PathBuf {
-    let path = std::env::temp_dir().join(format!("rust2d_render_{}.png", Uuid::new_v4()));
+/// Write a `width` x `height` PNG to a fresh temp file, removed when the
+/// returned path is dropped.
+fn temp_png(width: u32, height: u32) -> TempPath {
+    let path = tempfile::Builder::new()
+        .prefix("rust2d_render_")
+        .suffix(".png")
+        .tempfile()
+        .unwrap()
+        .into_temp_path();
     image::RgbaImage::new(width, height).save(&path).unwrap();
     path
 }
@@ -66,8 +73,19 @@ fn test_render_queue_and_texture_cache() {
     renderer.camera.zoom = 2.0;
 
     let mut scene = Scene::new("test_scene").unwrap();
-    let front = sprite(&mut scene, "front", temp_png(4, 2), (10.0, 20.0, 1.0));
-    let back = sprite(&mut scene, "back", temp_png(8, 8), (0.0, 0.0, -1.0));
+    let (front_image, back_image) = (temp_png(4, 2), temp_png(8, 8));
+    let front = sprite(
+        &mut scene,
+        "front",
+        front_image.to_path_buf(),
+        (10.0, 20.0, 1.0),
+    );
+    let back = sprite(
+        &mut scene,
+        "back",
+        back_image.to_path_buf(),
+        (0.0, 0.0, -1.0),
+    );
 
     let queue = renderer.render(&scene);
     assert_eq!(queue.len(), 2);
@@ -99,7 +117,7 @@ fn test_missing_images_and_nan_depth_are_harmless() {
         let id = sprite(
             &mut scene,
             &format!("s{}", i),
-            image.clone(),
+            image.to_path_buf(),
             (i as f32, 0.0, i as f32),
         );
         if i % 3 == 0 {
@@ -120,7 +138,8 @@ fn test_rotation_and_scale_attributes() {
     let mut renderer = RenderEngine::new();
     renderer.update_viewport_size(800.0, 600.0);
     let mut scene = Scene::new("test_scene").unwrap();
-    let id = sprite(&mut scene, "s", temp_png(10, 10), (0.0, 0.0, 0.0));
+    let image_file = temp_png(10, 10);
+    let id = sprite(&mut scene, "s", image_file.to_path_buf(), (0.0, 0.0, 0.0));
     let entity = scene.get_entity_mut(id).unwrap();
     entity
         .create_attribute(
@@ -226,8 +245,8 @@ fn test_flip_opacity_and_tint() {
         }
     };
 
-    let plain = sprite(&mut scene, "plain", image.clone(), (0.0, 0.0, 0.0));
-    let styled = sprite(&mut scene, "styled", image.clone(), (10.0, 0.0, 1.0));
+    let plain = sprite(&mut scene, "plain", image.to_path_buf(), (0.0, 0.0, 0.0));
+    let styled = sprite(&mut scene, "styled", image.to_path_buf(), (10.0, 0.0, 1.0));
     attributes(
         &mut scene,
         styled,
@@ -237,13 +256,18 @@ fn test_flip_opacity_and_tint() {
             ("tint", AttributeValue::String("#ff0000".to_string())),
         ],
     );
-    let upside_down = sprite(&mut scene, "upside_down", image.clone(), (20.0, 0.0, 2.0));
+    let upside_down = sprite(
+        &mut scene,
+        "upside_down",
+        image.to_path_buf(),
+        (20.0, 0.0, 2.0),
+    );
     attributes(
         &mut scene,
         upside_down,
         vec![("flip_y", AttributeValue::Boolean(true))],
     );
-    let broken = sprite(&mut scene, "broken", image, (30.0, 0.0, 3.0));
+    let broken = sprite(&mut scene, "broken", image.to_path_buf(), (30.0, 0.0, 3.0));
     attributes(
         &mut scene,
         broken,
@@ -273,7 +297,13 @@ fn test_sprite_sheet_frames() {
     renderer.update_viewport_size(800.0, 600.0);
     let mut scene = Scene::new("test_scene").unwrap();
     // 64 x 32 pixels: a grid of 4 x 2 frames of 16 x 16
-    let id = sprite(&mut scene, "runner", temp_png(64, 32), (0.0, 0.0, 0.0));
+    let image_file = temp_png(64, 32);
+    let id = sprite(
+        &mut scene,
+        "runner",
+        image_file.to_path_buf(),
+        (0.0, 0.0, 0.0),
+    );
     let set = |scene: &mut Scene, name: &str, value: AttributeValue| {
         scene
             .get_entity_mut(id)
@@ -382,7 +412,8 @@ fn test_tilemaps_draw_their_visible_tiles_as_one_mesh() {
     renderer.update_viewport_size(800.0, 600.0);
     let mut scene = Scene::new("test_scene").unwrap();
     // A tileset of two 16 x 16 tiles side by side
-    let mut map = Tilemap::new(temp_png(32, 16), (16, 16));
+    let tileset = temp_png(32, 16);
+    let mut map = Tilemap::new(tileset.to_path_buf(), (16, 16));
     map.set(0, 0, Some(0)).unwrap();
     map.set(1, 0, Some(1)).unwrap();
     map.set(5, 3, Some(0)).unwrap();
@@ -515,7 +546,8 @@ fn test_animated_tiles_change_with_the_clock() {
     renderer.update_viewport_size(800.0, 600.0);
     let mut scene = Scene::new("test_scene").unwrap();
     // Four 16 x 16 tiles side by side; tile 0 cycles 0, 2, 3 at 4 fps
-    let mut map = Tilemap::new(temp_png(64, 16), (16, 16));
+    let tileset = temp_png(64, 16);
+    let mut map = Tilemap::new(tileset.to_path_buf(), (16, 16));
     map.set(0, 0, Some(0)).unwrap();
     map.set(1, 0, Some(1)).unwrap();
     map.set_tile_animation(0, Some(TileAnimation::new(vec![0, 2, 3], 4.0).unwrap()));

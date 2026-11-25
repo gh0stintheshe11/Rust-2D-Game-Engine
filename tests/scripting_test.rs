@@ -162,6 +162,8 @@ mod session_tests {
         audio: Rc<RefCell<AudioEngine>>,
         scene_id: uuid::Uuid,
         script_dir: PathBuf,
+        // Removes script_dir when the session ends
+        _script_dir_guard: tempfile::TempDir,
     }
 
     fn setup(test_name: &str) -> TestSession {
@@ -180,12 +182,9 @@ mod session_tests {
         audio_engine: AudioEngine,
         build: impl FnOnce(&mut SceneManager, uuid::Uuid),
     ) -> TestSession {
-        let script_dir = std::env::temp_dir().join(format!(
-            "rust2d_engine_test_{}_{}",
-            test_name,
-            uuid::Uuid::new_v4()
-        ));
-        std::fs::create_dir_all(&script_dir).unwrap();
+        let script_dir_guard =
+            super::common::temp_folder(&format!("rust2d_engine_test_{}_", test_name));
+        let script_dir = script_dir_guard.path().to_path_buf();
 
         let mut manager = SceneManager::new();
         let scene_id = manager.create_scene("test_scene").unwrap();
@@ -214,6 +213,7 @@ mod session_tests {
             audio: audio_engine,
             scene_id,
             script_dir,
+            _script_dir_guard: script_dir_guard,
         }
     }
 
@@ -1160,7 +1160,8 @@ mod session_tests {
         let (engine, mut output) = offline_audio();
         let session = setup_with_audio("sound_options", engine);
         let lua = session.lua.lua();
-        let tone = write_tone(0.1).to_string_lossy().into_owned();
+        let tone_file = write_tone(0.1);
+        let tone = tone_file.to_string_lossy().into_owned();
         lua.globals().set("TONE", tone).unwrap();
 
         lua.load("MUSIC = play_sound(TONE, {loop = true, volume = 0.5})")
@@ -1587,9 +1588,8 @@ mod session_tests {
     fn test_spawn_copies_templates_as_they_were_at_the_start() {
         use rust_2d_game_engine::scene::{AttributeValue, PhysicsProperties};
 
-        let script_dir =
-            std::env::temp_dir().join(format!("rust2d_spawn_{}", uuid::Uuid::new_v4()));
-        std::fs::create_dir_all(&script_dir).unwrap();
+        let script_dir_guard = super::common::temp_folder("rust2d_spawn_");
+        let script_dir = script_dir_guard.path();
         let bullet_script = script_dir.join("bullet.lua");
         std::fs::write(
             &bullet_script,
