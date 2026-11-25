@@ -6,7 +6,8 @@
 //! rotate around the sprite's center like the renderer does.
 
 use crate::logger::LOGGER;
-use crate::scene::{AttributeType, AttributeValue, Entity, Scene};
+use crate::scene::{AttributeType, AttributeValue, Entity, Scene, Tilemap};
+use rapier2d::math::IVector;
 use rapier2d::prelude::*;
 use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
@@ -144,6 +145,10 @@ impl PhysicsEngine {
         if self.bodies.contains_key(&entity.id) {
             self.remove_entity(entity.id);
         }
+        if let Some(tilemap) = &entity.tilemap {
+            self.add_tilemap(entity, tilemap);
+            return;
+        }
 
         let is_movable = attr_bool(entity, "is_movable", false);
         let has_gravity = attr_bool(entity, "has_gravity", false);
@@ -194,28 +199,8 @@ impl PhysicsEngine {
                 .build(),
         );
 
-        let is_sensor = attr_bool(entity, "is_sensor", false);
-        let (groups, problems) = collision_groups(entity);
-        for problem in problems {
-            if self.reported_problems.insert(problem.clone()) {
-                LOGGER.warning(problem);
-            }
-        }
-        let collider = has_collision.then(|| {
-            let mut collider = collider_builder(entity, size)
-                .density(attr_float(entity, "density", 1.0))
-                .friction(attr_float(entity, "friction", 0.5))
-                .restitution(attr_float(entity, "restitution", 0.0))
-                .sensor(is_sensor)
-                .collision_groups(groups)
-                .user_data(entity.id.as_u128());
-            if is_sensor {
-                // Trigger zones notice every kind of body, including
-                // kinematic ones entering fixed zones
-                collider = collider.active_collision_types(ActiveCollisionTypes::all());
-            }
-            self.world.insert_collider(collider.build(), Some(body))
-        });
+        let collider = has_collision
+            .then(|| self.insert_collider(entity, collider_builder(entity, size), body));
 
         self.bodies.insert(
             entity.id,
@@ -393,6 +378,103 @@ impl PhysicsEngine {
         }
     }
 
+    /// A tilemap's body: fixed with its origin at the entity's `x`/`y` (the
+    /// top-left corner of cell (0, 0)), and with `has_collision` solid
+    /// wherever the map has a tile. The cells form one voxel collider, which
+    /// keeps bodies sliding along a row of tiles from catching on the edges
+    /// between them.
+    fn add_tilemap(&mut self, entity: &Entity, tilemap: &Tilemap) {
+        let origin = Vector::new(entity.get_x(), entity.get_y());
+        let body = self.world.insert_body(
+            RigidBodyBuilder::fixed()
+                .translation(origin)
+                .user_data(entity.id.as_u128())
+                .build(),
+        );
+        let cells: Vec<IVector> = tilemap
+            .tiles()
+            .map(|((column, row), _)| IVector::new(column, row))
+            .collect();
+        let collider = (attr_bool(entity, "has_collision", true) && !cells.is_empty()).then(|| {
+            let tile = Vector::new(tilemap.tile_size.0 as f32, tilemap.tile_size.1 as f32);
+            self.insert_collider(entity, ColliderBuilder::voxels(tile, &cells), body)
+        });
+        self.bodies.insert(
+            entity.id,
+            BodyInfo {
+                body,
+                collider,
+                half_extents: (0.0, 0.0),
+                is_fixed: true,
+                writes_rotation: false,
+                affected_by_gravity: false,
+                position_attr: None,
+            },
+        );
+    }
+
+    /// Attach a collider shaped by `builder` to `body`, with the entity's
+    /// material (`density`, `friction`, `restitution`), `is_sensor` and
+    /// collision layers.
+    fn insert_collider(
+        &mut self,
+        entity: &Entity,
+        builder: ColliderBuilder,
+        body: RigidBodyHandle,
+    ) -> ColliderHandle {
+        let is_sensor = attr_bool(entity, "is_sensor", false);
+        let (groups, problems) = collision_groups(entity);
+        for problem in problems {
+            if self.reported_problems.insert(problem.clone()) {
+                LOGGER.warning(problem);
+            }
+        }
+        let mut builder = builder
+            .density(attr_float(entity, "density", 1.0))
+            .friction(attr_float(entity, "friction", 0.5))
+            .restitution(attr_float(entity, "restitution", 0.0))
+            .sensor(is_sensor)
+            .collision_groups(groups)
+            .user_data(entity.id.as_u128());
+        if is_sensor {
+            // Trigger zones notice every kind of body, including kinematic
+            // ones entering fixed zones
+            builder = builder.active_collision_types(ActiveCollisionTypes::all());
+        }
+        self.world.insert_collider(builder.build(), Some(body))
+    }
+
+    /// Rebuild a tilemap's collider after its tiles changed, e.g. when a
+    /// script broke a block. Bodies that touched it wake up, so none stays
+    /// floating where a tile was removed. Does nothing for an entity without
+    /// a body (one in a scene that isn't playing, say).
+    pub fn update_tilemap(&mut self, entity: &Entity) {
+        let Some(info) = self.bodies.get(&entity.id) else {
+            return;
+        };
+        let collider = info.collider;
+        let touching: Vec<RigidBodyHandle> = match collider {
+            Some(collider) => self
+                .world
+                .narrow_phase
+                .contact_pairs_with(collider)
+                .filter_map(|pair| {
+                    let other = if pair.collider1 == collider {
+                        pair.collider2
+                    } else {
+                        pair.collider1
+                    };
+                    self.world.colliders.get(other)?.parent()
+                })
+                .collect(),
+            None => Vec::new(),
+        };
+        self.add_entity(entity);
+        for body in touching {
+            self.world.wake_up(body, true);
+        }
+    }
+
     /// Entities whose colliders currently touch this entity's collider, or
     /// overlap it when either is a sensor.
     pub fn get_colliding_entities(&self, entity_id: Uuid) -> Vec<Uuid> {
@@ -465,30 +547,51 @@ impl PhysicsEngine {
 
     /// World-space outlines of all colliders, for debug drawing.
     pub fn collider_outlines(&self) -> Vec<ColliderOutline> {
-        self.bodies
+        let mut outlines = Vec::new();
+        let colliders = self
+            .bodies
             .values()
-            .filter_map(|info| self.world.colliders.get(info.collider?))
-            .filter_map(|collider| {
-                let center = collider.translation();
-                let rotation = collider.rotation().angle();
-                let shape = collider.shape();
-                let (size, shape) = if let Some(ball) = shape.as_ball() {
-                    let diameter = ball.radius * 2.0;
-                    ((diameter, diameter), ColliderShape::Circle)
-                } else {
-                    let cuboid = shape.as_cuboid()?;
-                    let extents = cuboid.half_extents * 2.0;
-                    ((extents.x, extents.y), ColliderShape::Rectangle)
-                };
-                Some(ColliderOutline {
-                    center: (center.x, center.y),
-                    size,
-                    rotation,
-                    shape,
-                    is_sensor: collider.is_sensor(),
-                })
-            })
-            .collect()
+            .filter_map(|info| self.world.colliders.get(info.collider?));
+        for collider in colliders {
+            let center = collider.translation();
+            let rotation = collider.rotation().angle();
+            let outline = |center: (f32, f32), size: (f32, f32), shape| ColliderOutline {
+                center,
+                size,
+                rotation,
+                shape,
+                is_sensor: collider.is_sensor(),
+            };
+            let shape = collider.shape();
+            if let Some(ball) = shape.as_ball() {
+                let diameter = ball.radius * 2.0;
+                outlines.push(outline(
+                    (center.x, center.y),
+                    (diameter, diameter),
+                    ColliderShape::Circle,
+                ));
+            } else if let Some(cuboid) = shape.as_cuboid() {
+                let extents = cuboid.half_extents * 2.0;
+                outlines.push(outline(
+                    (center.x, center.y),
+                    (extents.x, extents.y),
+                    ColliderShape::Rectangle,
+                ));
+            } else if let Some(voxels) = shape.as_voxels() {
+                // A tilemap: one square per solid tile
+                let size = voxels.voxel_size();
+                let (sin, cos) = rotation.sin_cos();
+                for voxel in voxels.voxels() {
+                    let local = voxel.center;
+                    let world = (
+                        center.x + local.x * cos - local.y * sin,
+                        center.y + local.x * sin + local.y * cos,
+                    );
+                    outlines.push(outline(world, (size.x, size.y), ColliderShape::Rectangle));
+                }
+            }
+        }
+        outlines
     }
 
     pub fn is_empty(&self) -> bool {

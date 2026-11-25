@@ -7,7 +7,7 @@
 
 use crate::logger::LOGGER;
 use crate::physics::{ColliderOutline, ColliderShape};
-use crate::scene::{Entity, Scene};
+use crate::scene::{Entity, Scene, Tilemap};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
@@ -36,6 +36,19 @@ pub struct RenderQueueEntry {
     /// Rotation around the sprite center, in radians (entity attribute is in degrees).
     pub rotation: f32,
     pub z: f32,
+    /// A tilemap's visible tiles, drawn instead of the sprite; empty for a
+    /// sprite. The entry's `screen_pos` and `screen_size` then cover the
+    /// whole map.
+    pub tiles: Vec<TileQuad>,
+}
+
+/// One tile of a tilemap on screen.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct TileQuad {
+    /// Viewport-relative screen rect.
+    pub rect: egui::Rect,
+    /// Part of the tileset texture (0..1).
+    pub uv: egui::Rect,
 }
 
 /// The whole texture, unmirrored.
@@ -127,13 +140,19 @@ pub fn paint_sprites(
             painter.add(current);
         }
         let mesh = mesh.get_or_insert_with(|| egui::Mesh::with_texture(texture_id));
-        add_quad(
-            mesh,
-            entry.screen_rect(origin),
-            entry.uv,
-            entry.tint,
-            entry.rotation,
-        );
+        if entry.tiles.is_empty() {
+            add_quad(
+                mesh,
+                entry.screen_rect(origin),
+                entry.uv,
+                entry.tint,
+                entry.rotation,
+            );
+        }
+        for tile in &entry.tiles {
+            let rect = tile.rect.translate(origin.to_vec2());
+            add_quad(mesh, rect, tile.uv, entry.tint, 0.0);
+        }
     }
     if let Some(mesh) = mesh {
         painter.add(mesh);
@@ -444,6 +463,12 @@ impl RenderEngine {
         let mut render_queue = Vec::new();
 
         for (entity_id, entity) in &scene.entities {
+            if let Some(tilemap) = &entity.tilemap {
+                if let Some(entry) = self.tilemap_entry(*entity_id, entity, tilemap) {
+                    render_queue.push(entry);
+                }
+                continue;
+            }
             let Ok(image_path) = entity.get_image(0) else {
                 continue;
             };
@@ -489,6 +514,7 @@ impl RenderEngine {
                     tint,
                     rotation,
                     z: entity.get_z(),
+                    tiles: Vec::new(),
                 });
             }
         }
@@ -497,6 +523,77 @@ impl RenderEngine {
         // (and the sort panic-free) even if a z is NaN
         render_queue.sort_by(|a, b| a.z.total_cmp(&b.z));
         render_queue
+    }
+
+    /// The render queue entry of a tilemap: its tiles inside the viewport,
+    /// or `None` when none are (or the tileset can't be loaded).
+    fn tilemap_entry(
+        &mut self,
+        entity_id: Uuid,
+        entity: &Entity,
+        tilemap: &Tilemap,
+    ) -> Option<RenderQueueEntry> {
+        if tilemap.tileset.as_os_str().is_empty() {
+            return None;
+        }
+        let texture_id = self.load_texture(&tilemap.tileset)?;
+        let image_size = self.texture_cache.get(&texture_id)?.dimensions;
+        let tile = (tilemap.tile_size.0 as f32, tilemap.tile_size.1 as f32);
+        let origin = (entity.get_x(), entity.get_y());
+        let zoom = self.camera.zoom.max(f32::MIN_POSITIVE);
+
+        // The cells the viewport shows
+        let world_min = self.camera.position;
+        let world_max = (
+            world_min.0 + self.viewport_size.0 / zoom,
+            world_min.1 + self.viewport_size.1 / zoom,
+        );
+        let first = tilemap.cell_at(origin, world_min);
+        let last = tilemap.cell_at(origin, world_max);
+        // Half a texel in, so linear filtering doesn't blend in the
+        // neighbouring tiles of the tileset (seams between tiles)
+        let inset = egui::vec2(
+            0.5 / image_size.0.max(1) as f32,
+            0.5 / image_size.1.max(1) as f32,
+        );
+        let tiles: Vec<TileQuad> = tilemap
+            .tiles_in((first.0, last.0), (first.1, last.1))
+            .map(|((column, row), number)| {
+                let world = (
+                    origin.0 + column as f32 * tile.0,
+                    origin.1 + row as f32 * tile.1,
+                );
+                let screen = self.camera.world_to_screen(world);
+                let (uv, _) = sheet_frame(image_size, tile, number as i64);
+                TileQuad {
+                    rect: egui::Rect::from_min_size(
+                        egui::pos2(screen.0, screen.1),
+                        egui::vec2(tile.0 * zoom, tile.1 * zoom),
+                    ),
+                    uv: uv.shrink2(inset),
+                }
+            })
+            .collect();
+        if tiles.is_empty() {
+            return None;
+        }
+
+        let (first_cell, (columns, rows)) = tilemap.grid_bounds()?;
+        let screen_pos = self.camera.world_to_screen((
+            origin.0 + first_cell.0 as f32 * tile.0,
+            origin.1 + first_cell.1 as f32 * tile.1,
+        ));
+        Some(RenderQueueEntry {
+            entity_id,
+            texture_id,
+            screen_pos,
+            screen_size: (columns as f32 * tile.0 * zoom, rows as f32 * tile.1 * zoom),
+            uv: FULL_UV,
+            tint: self.sprite_tint(entity),
+            rotation: 0.0,
+            z: entity.get_z(),
+            tiles,
+        })
     }
 
     /// The color an entity's sprite is multiplied by: its `tint` attribute

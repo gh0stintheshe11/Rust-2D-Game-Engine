@@ -86,6 +86,23 @@ For example, with the player on layer 2 and bullets on layer 3 with
 `collides_with = "1"`, bullets hit walls and enemies (layer 1) but pass
 through the player and each other.
 
+## Tilemaps
+
+An entity with a tilemap (see [scene.md](scene.md#tilemaps)) gets a fixed
+body with its origin at the entity's `x`/`y`, the top-left corner of cell
+(0, 0); `is_movable`, `is_kinematic`, `rotation` and the collider size
+attributes don't apply. With `has_collision`, every cell that has a tile is
+solid: the cells form one **voxel collider**, which keeps bodies sliding
+along a row of tiles from catching on the edges between them (with a box per
+tile they would). The entity's material, `is_sensor` and collision layers
+apply as for any collider; contacts report the tilemap entity, and raycasts
+hit it. Put decoration in a second tilemap without collision.
+
+`update_tilemap(entity)` rebuilds a tilemap's collider after its tiles
+changed (scripts' `set_tile` calls it) and wakes the bodies that touched it,
+so none stays floating where a tile was removed. Debug outlines draw a square
+per solid tile.
+
 ## Raycasts
 
 `raycast(from, to, exclude)` returns the first collider the segment from
@@ -105,7 +122,7 @@ Distances below 10 px count as 10 px.
 ## Public API
 
 - **Lifecycle**: `new`, `add_entity`, `remove_entity`, `load_scene`,
-  `begin_frame`, `step`, `cleanup`
+  `begin_frame`, `step`, `cleanup`, `update_tilemap`
 - **World**: `set_gravity` / `get_gravity`, `set_time_step` / `get_time_step`
 - **Bodies**: `get_velocity` / `set_velocity`, `apply_force`, `apply_impulse`,
   `set_position` (teleport, keeps velocity), `get_angular_velocity` /
@@ -137,6 +154,10 @@ let touching = physics.get_colliding_entities(player_id);
 - Joints, continuous collision detection settings and shape casts are not
   exposed; raycasts can exclude one entity only.
 - `raycast` doesn't see bodies added since the last `step`.
+- A tilemap is solid wherever it has a tile: tiles can't be passable or
+  one-way (platforms you jump through from below), and its collider is
+  rebuilt whole when a tile changes, which gets slow for very large maps
+  changing every frame.
 - `load_scene` adds only a scene's local entities; shared entities are
   ignored.
 - Changing a physics attribute while playing has no effect until the entity is

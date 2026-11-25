@@ -212,8 +212,16 @@ mod tests {
         entity
             .set_script(first.join("assets").join("scripts").join("coin.lua"))
             .unwrap();
+        entity.tilemap = Some(rust_2d_game_engine::scene::Tilemap::new(
+            first.join("assets").join("images").join("tiles.png"),
+            (16, 16),
+        ));
 
         ProjectManager::make_entity_paths_relative(&mut entity, &first);
+        assert_eq!(
+            entity.tilemap.as_ref().unwrap().tileset,
+            PathBuf::from("assets/images/tiles.png")
+        );
         assert_eq!(entity.images[0], PathBuf::from("assets/images/coin.png"));
         assert_eq!(
             entity.script,
@@ -225,6 +233,10 @@ mod tests {
         assert_eq!(
             entity.images[0],
             second.join("assets").join("images").join("coin.png")
+        );
+        assert_eq!(
+            entity.tilemap.as_ref().unwrap().tileset,
+            second.join("assets").join("images").join("tiles.png")
         );
         assert_eq!(
             entity.script,

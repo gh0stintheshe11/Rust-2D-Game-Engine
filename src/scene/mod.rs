@@ -16,11 +16,13 @@ mod archetype;
 mod attribute;
 mod entity;
 mod manager;
+mod tilemap;
 
 pub use archetype::{AttributePreset, PHYSICS_ATTRIBUTES, attribute_presets};
 pub use attribute::{Attribute, AttributeType, AttributeValue};
 pub use entity::{Entity, PhysicsProperties};
 pub use manager::SceneManager;
+pub use tilemap::{MAX_TILEMAP_SIDE, Tilemap};
 
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};

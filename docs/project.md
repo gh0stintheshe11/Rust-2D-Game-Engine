@@ -45,6 +45,7 @@ versa).
 project_path` is filled in on load), so a project can be moved or cloned
 freely.
 
+Tilemaps' tileset paths are converted like images, sounds and scripts.
 `make_entity_paths_relative(entity, project)` and `resolve_entity_paths(entity,
 project)` apply the same conversions to a single entity, e.g. for the editor's
 entity clipboard: copied with project-relative paths, resolved against the

@@ -803,4 +803,141 @@ mod tests {
         );
         assert!(physics.raycast((1.0, 1.0), (1.0, 1.0), None).is_none());
     }
+
+    /// A tilemap entity at `position` with 16 x 16 tiles in `cells`.
+    fn tilemap(
+        scene: &mut Scene,
+        position: (f32, f32),
+        cells: &[(i32, i32)],
+        collision: bool,
+    ) -> Uuid {
+        let id = scene
+            .create_physical_entity(
+                "ground",
+                (position.0, position.1, 0.0),
+                PhysicsProperties {
+                    has_collision: collision,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        let mut map = rust_2d_game_engine::scene::Tilemap::new("tiles.png".into(), (16, 16));
+        for (column, row) in cells {
+            map.set(*column, *row, Some(0)).unwrap();
+        }
+        scene.get_entity_mut(id).unwrap().tilemap = Some(map);
+        id
+    }
+
+    fn row_of_tiles(columns: i32) -> Vec<(i32, i32)> {
+        (0..columns).map(|column| (column, 0)).collect()
+    }
+
+    #[test]
+    fn test_bodies_land_on_tilemaps() {
+        let mut scene = Scene::new("test_scene").unwrap();
+        let mut physics = PhysicsEngine::new();
+        let ground = tilemap(&mut scene, (0.0, 100.0), &row_of_tiles(20), true);
+        let falling = sized_entity(&mut scene, "box", (50.0, 0.0), (10.0, 10.0), dynamic(true));
+        physics.load_scene(&scene);
+        for _ in 0..240 {
+            physics.step(&mut scene);
+        }
+        assert!(
+            (y(&scene, falling) - 90.0).abs() < 1.0,
+            "y = {}",
+            y(&scene, falling)
+        );
+        assert!(physics.get_colliding_entities(falling).contains(&ground));
+
+        // One outline per tile, centered on it
+        let outlines = physics.collider_outlines();
+        let tiles: Vec<(f32, f32)> = outlines
+            .iter()
+            .filter(|outline| outline.size == (16.0, 16.0))
+            .map(|outline| outline.center)
+            .collect();
+        assert_eq!(tiles.len(), 20);
+        assert!(tiles.contains(&(8.0, 108.0)) && tiles.contains(&(312.0, 108.0)));
+
+        // Raycasts hit it
+        let hit = physics.raycast((5.0, 0.0), (5.0, 500.0), None).unwrap();
+        assert_eq!(hit.entity_id, ground);
+        assert!((hit.point.1 - 100.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_sliding_along_tiles_doesnt_catch_on_their_edges() {
+        let mut scene = Scene::new("test_scene").unwrap();
+        let mut physics = PhysicsEngine::new();
+        physics.set_gravity(0.0, 200.0);
+        let ground = tilemap(&mut scene, (0.0, 100.0), &row_of_tiles(60), true);
+        let slider = sized_entity(&mut scene, "box", (10.0, 84.0), (16.0, 16.0), dynamic(true));
+        // Frictionless: only catching on an edge could slow it down
+        for id in [ground, slider] {
+            set_attribute(&mut scene, id, "friction", AttributeValue::Float(0.0));
+        }
+        physics.load_scene(&scene);
+        // Settle, then slide right across many tile edges
+        for _ in 0..30 {
+            physics.step(&mut scene);
+        }
+        physics.set_velocity(slider, (200.0, 0.0));
+        let start_x = scene.get_entity(slider).unwrap().get_x();
+        let mut lowest_speed = f32::MAX;
+        for _ in 0..120 {
+            physics.step(&mut scene);
+            lowest_speed = lowest_speed.min(physics.get_velocity(slider).unwrap().0);
+        }
+        let travelled = scene.get_entity(slider).unwrap().get_x() - start_x;
+        assert!(travelled > 380.0, "slowed down: {} px in 2 s", travelled);
+        assert!(
+            lowest_speed > 190.0,
+            "caught on an edge: speed {}",
+            lowest_speed
+        );
+        assert!(
+            (y(&scene, slider) - 84.0).abs() < 1.0,
+            "y = {}",
+            y(&scene, slider)
+        );
+    }
+
+    #[test]
+    fn test_removing_tiles_drops_what_rests_on_them() {
+        let mut scene = Scene::new("test_scene").unwrap();
+        let mut physics = PhysicsEngine::new();
+        let ground = tilemap(&mut scene, (0.0, 100.0), &row_of_tiles(10), true);
+        let resting = sized_entity(&mut scene, "box", (40.0, 80.0), (10.0, 10.0), dynamic(true));
+        physics.load_scene(&scene);
+        // Long enough for the box to fall asleep
+        for _ in 0..600 {
+            physics.step(&mut scene);
+        }
+        let rest_y = y(&scene, resting);
+
+        let entity = scene.get_entity_mut(ground).unwrap();
+        let map = entity.tilemap.as_mut().unwrap();
+        for column in 1..5 {
+            map.set(column, 0, None).unwrap();
+        }
+        physics.update_tilemap(scene.get_entity(ground).unwrap());
+        for _ in 0..60 {
+            physics.step(&mut scene);
+        }
+        assert!(y(&scene, resting) > rest_y + 20.0, "fell through the gap");
+    }
+
+    #[test]
+    fn test_tilemaps_without_collision_let_bodies_through() {
+        let mut scene = Scene::new("test_scene").unwrap();
+        let mut physics = PhysicsEngine::new();
+        tilemap(&mut scene, (0.0, 100.0), &row_of_tiles(20), false);
+        let falling = sized_entity(&mut scene, "box", (50.0, 0.0), (10.0, 10.0), dynamic(true));
+        physics.load_scene(&scene);
+        for _ in 0..240 {
+            physics.step(&mut scene);
+        }
+        assert!(y(&scene, falling) > 150.0, "y = {}", y(&scene, falling));
+    }
 }

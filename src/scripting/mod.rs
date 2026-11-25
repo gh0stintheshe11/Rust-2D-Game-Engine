@@ -25,6 +25,7 @@ mod physics_bindings;
 mod render_bindings;
 mod save_bindings;
 mod scene_bindings;
+mod tilemap_bindings;
 
 /// Longest a single call into a script (a hook, or a file's top-level
 /// code) may run before it is aborted with an error. Guards the editor
@@ -280,6 +281,7 @@ impl LuaScripting {
         self.register_physics_bindings(&physics_engine, &scene_manager)?;
         self.register_input_bindings(&input_handler)?;
         self.register_scene_bindings(&scene_manager, &physics_engine)?;
+        self.register_tilemap_bindings(&scene_manager, &physics_engine)?;
         self.register_audio_bindings(&audio_engine)?;
         self.register_render_bindings(&scene_manager)?;
         let save_data = Rc::clone(&self.save_data);

@@ -360,3 +360,68 @@ fn test_sensor_outlines_have_their_own_color() {
     assert_eq!(colors(false), vec![egui::Color32::RED, egui::Color32::BLUE]);
     assert_eq!(colors(true), vec![SENSOR_OUTLINE_COLOR; 2]);
 }
+
+#[test]
+fn test_tilemaps_draw_their_visible_tiles_as_one_mesh() {
+    use rust_2d_game_engine::render::paint_sprites;
+    use rust_2d_game_engine::scene::Tilemap;
+
+    let mut renderer = RenderEngine::new();
+    renderer.update_viewport_size(800.0, 600.0);
+    let mut scene = Scene::new("test_scene").unwrap();
+    // A tileset of two 16 x 16 tiles side by side
+    let mut map = Tilemap::new(temp_png(32, 16), (16, 16));
+    map.set(0, 0, Some(0)).unwrap();
+    map.set(1, 0, Some(1)).unwrap();
+    map.set(5, 3, Some(0)).unwrap();
+    let id = scene.create_entity("ground").unwrap();
+    let entity = scene.get_entity_mut(id).unwrap();
+    entity.set_position(100.0, 50.0, 0.0).unwrap();
+    entity.tilemap = Some(map);
+
+    let queue = renderer.render(&scene);
+    assert_eq!(queue.len(), 1, "one entry for the whole map");
+    let entry = &queue[0];
+    assert_eq!(entry.entity_id, id);
+    assert_eq!(entry.screen_pos, (100.0, 50.0));
+    assert_eq!(entry.screen_size, (96.0, 64.0), "6 x 4 cells");
+    let rects: Vec<egui::Rect> = entry.tiles.iter().map(|tile| tile.rect).collect();
+    let rect = |x: f32, y: f32| egui::Rect::from_min_size(egui::pos2(x, y), egui::vec2(16.0, 16.0));
+    assert_eq!(
+        rects,
+        vec![rect(100.0, 50.0), rect(116.0, 50.0), rect(180.0, 98.0)]
+    );
+    // Tile 1 is the tileset's right half, half a texel in on every side
+    let uv = entry.tiles[1].uv;
+    assert_eq!((uv.min.x, uv.max.x), (0.5 + 0.5 / 32.0, 1.0 - 0.5 / 32.0));
+    assert_eq!((uv.min.y, uv.max.y), (0.5 / 16.0, 1.0 - 0.5 / 16.0));
+
+    // Only the cells in the viewport are drawn
+    renderer.camera.position = (150.0, 0.0);
+    let queue = renderer.render(&scene);
+    assert_eq!(
+        queue[0].tiles.len(),
+        1,
+        "the first two cells are left of it"
+    );
+
+    // ...all of them in one mesh
+    renderer.camera.position = (0.0, 0.0);
+    let queue = renderer.render(&scene);
+    let ctx = egui::Context::default();
+    let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
+        paint_sprites(ui.painter(), egui::Pos2::ZERO, &queue, |_| {
+            Some(egui::TextureId::User(7))
+        });
+    });
+    output.textures_delta.clear();
+    let meshes: Vec<usize> = output
+        .shapes
+        .iter()
+        .filter_map(|clipped| match &clipped.shape {
+            egui::Shape::Mesh(mesh) => Some(mesh.vertices.len()),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(meshes, vec![12], "3 tiles, 4 vertices each");
+}

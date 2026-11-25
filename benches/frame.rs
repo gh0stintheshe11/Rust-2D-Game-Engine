@@ -37,6 +37,7 @@ struct Scenario {
 /// Files the scenarios share.
 struct Assets {
     image: PathBuf,
+    tileset: PathBuf,
     idle_script: PathBuf,
     busy_script: PathBuf,
     bullet_script: PathBuf,
@@ -50,6 +51,17 @@ impl Assets {
         image::RgbaImage::from_pixel(16, 16, image::Rgba([200, 120, 40, 255]))
             .save(&image)
             .unwrap();
+        // Two 16 x 16 tiles
+        let tileset = dir.join("tiles.png");
+        image::RgbaImage::from_fn(32, 16, |x, _| {
+            image::Rgba(if x < 16 {
+                [90, 160, 60, 255]
+            } else {
+                [120, 90, 60, 255]
+            })
+        })
+        .save(&tileset)
+        .unwrap();
         let idle_script = dir.join("idle.lua");
         std::fs::write(&idle_script, "function update(scene_id, entity_id) end\n").unwrap();
         // Typical per-frame logic: read attributes, steer, write one back
@@ -102,6 +114,7 @@ end
         .unwrap();
         Self {
             image,
+            tileset,
             idle_script,
             busy_script,
             bullet_script,
@@ -208,6 +221,44 @@ const SCENARIOS: &[Scenario] = &[
                 let (x, y) = grid(i, count);
                 let id = scene
                     .create_physical_entity("box", (x, y - 400.0, 0.0), props.clone())
+                    .unwrap();
+                scene
+                    .get_entity_mut(id)
+                    .unwrap()
+                    .add_image(assets.image.clone())
+                    .unwrap();
+            }
+        },
+    },
+    Scenario {
+        name: "tilemap",
+        description: "a tilemap of 10 tiles per entity, wider than the view, and a box per 10 tiles falling on it",
+        build: |scene, assets, count| {
+            // 20 rows of 16 px from y = 400 to 720; as many columns as needed
+            let rows = 20;
+            let columns = (count * 10 / rows).max(1) as i32;
+            let mut map =
+                rust_2d_game_engine::scene::Tilemap::new(assets.tileset.clone(), (16, 16));
+            for row in 0..rows as i32 {
+                for column in 0..columns {
+                    map.set(column, row, Some(u32::from(row > 0))).unwrap();
+                }
+            }
+            let ground = scene
+                .create_physical_entity("ground", (0.0, 400.0, 0.0), PhysicsProperties::default())
+                .unwrap();
+            scene.get_entity_mut(ground).unwrap().tilemap = Some(map);
+            let props = PhysicsProperties {
+                is_movable: true,
+                affected_by_gravity: true,
+                has_collision: true,
+                ..Default::default()
+            };
+            let boxes = (count / 10).max(1);
+            for i in 0..boxes {
+                let (x, y) = grid(i, boxes);
+                let id = scene
+                    .create_physical_entity("box", (x, y * 0.5, 1.0), props.clone())
                     .unwrap();
                 scene
                     .get_entity_mut(id)

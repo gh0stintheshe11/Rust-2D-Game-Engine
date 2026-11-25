@@ -58,6 +58,41 @@ attributes the entity lacks (existing ones keep their values) and returns how
 many it added; `has_preset` tells whether the entity has them all. The editor
 lists them in the inspector's Add Feature menu.
 
+## Tilemaps
+
+An entity can carry a **tilemap** (`Entity::tilemap`, a `Tilemap`) instead of
+a sprite: a grid of tiles drawn from one **tileset** image, which is cut into
+`tile_size` cells numbered from 0 left to right, then top to bottom (like a
+sprite sheet). Cell (0, 0) has its top-left corner at the entity's `x`/`y`;
+columns grow to the right and rows downwards, and cells can have negative
+coordinates.
+
+- `get(column, row)` and `set(column, row, Some(tile) | None)`; the grid grows
+  to include every cell that gets a tile, up to `MAX_TILEMAP_SIDE` (1024)
+  columns and rows. `set` reports whether the cell changed.
+- `tiles()` iterates the cells with tiles, `tiles_in(columns, rows)` those of a
+  range of cells (what's visible), `tile_count()` counts them, and
+  `cell_at(map_position, world)` gives the cell containing a world position.
+- `bounds()` is the area with tiles; `grid_bounds()`, the grid the map has
+  grown to, costs nothing to compute.
+
+Scene files store the area with tiles only, a string per row with a token
+per cell (`.` for an empty cell, otherwise the tile number), so maps stay
+readable and diffable:
+
+```json
+"tilemap": {
+  "tileset": "assets/images/tiles.png",
+  "tile_size": [16, 16],
+  "origin": [0, 3],
+  "rows": [". . 4 4", "1 1 1 1"]
+}
+```
+
+Entities without a tilemap have no `tilemap` key. See
+[render.md](render.md#tilemaps) and [physics.md](physics.md#tilemaps) for how
+tilemaps are drawn and collide.
+
 ## Invariants
 
 - A scene's `id` equals its key in `SceneManager::scenes`, and an entity's

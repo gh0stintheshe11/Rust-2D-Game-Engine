@@ -72,7 +72,8 @@ impl ProjectManager {
     }
 }
 
-/// Apply `f` to every resource path (images, sounds, script) of an entity.
+/// Apply `f` to every resource path (images, sounds, script, tileset) of an
+/// entity.
 fn map_paths(entity: &mut Entity, f: &mut impl FnMut(&Path) -> PathBuf) {
     for image in entity.images.iter_mut() {
         *image = f(image);
@@ -82,6 +83,11 @@ fn map_paths(entity: &mut Entity, f: &mut impl FnMut(&Path) -> PathBuf) {
     }
     if let Some(script) = entity.script.as_mut() {
         *script = f(script);
+    }
+    if let Some(tilemap) = entity.tilemap.as_mut()
+        && !tilemap.tileset.as_os_str().is_empty()
+    {
+        tilemap.tileset = f(&tilemap.tileset);
     }
 }
 

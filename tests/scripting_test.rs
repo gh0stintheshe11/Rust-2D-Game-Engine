@@ -1885,4 +1885,87 @@ mod session_tests {
             .unwrap();
         assert_eq!(best, 12);
     }
+
+    #[test]
+    fn test_tilemap_bindings() {
+        use rust_2d_game_engine::scene::{PhysicsProperties, Tilemap};
+
+        let session = setup("tilemap_bindings");
+        // A solid row of ten tiles at y = 200, and an entity without tiles
+        let (ground, plain) = {
+            let mut manager = session.scene_manager.borrow_mut();
+            let scene = manager.get_scene_mut(session.scene_id).unwrap();
+            let ground = scene
+                .create_physical_entity("ground", (100.0, 200.0, 0.0), PhysicsProperties::default())
+                .unwrap();
+            let mut map = Tilemap::new("tiles.png".into(), (16, 16));
+            for column in 0..10 {
+                map.set(column, 0, Some(1)).unwrap();
+            }
+            let entity = scene.get_entity_mut(ground).unwrap();
+            entity.tilemap = Some(map);
+            session.physics.borrow_mut().add_entity(entity);
+            (ground, scene.create_entity("plain").unwrap())
+        };
+        let lua = session.lua.lua();
+        let globals = lua.globals();
+        globals.set("SCENE", session.scene_id.to_string()).unwrap();
+        globals.set("GROUND", ground.to_string()).unwrap();
+        globals.set("PLAIN", plain.to_string()).unwrap();
+
+        let results: String = lua
+            .load(
+                r##"
+                local function show(...)
+                    local shown = {}
+                    for i = 1, select("#", ...) do
+                        shown[i] = tostring((select(i, ...)))
+                    end
+                    return table.concat(shown, " ")
+                end
+                local column, row = get_tile_cell(SCENE, GROUND, 140, 205)
+                return show(column, row,
+                    get_tile(SCENE, GROUND, 2, 0), get_tile(SCENE, GROUND, 2, 1),
+                    set_tile(SCENE, GROUND, 2, 0, nil), set_tile(SCENE, GROUND, 2, 0, nil),
+                    get_tile(SCENE, GROUND, 2, 0),
+                    set_tile(SCENE, GROUND, 4, -1, 7), get_tile(SCENE, GROUND, 4, -1))
+                "##,
+            )
+            .eval()
+            .unwrap();
+        assert_eq!(results, "2 0 1 nil true false nil true 7");
+
+        // The collider follows: rays pass through the emptied cell
+        {
+            let mut manager = session.scene_manager.borrow_mut();
+            let scene = manager.get_scene_mut(session.scene_id).unwrap();
+            session.physics.borrow_mut().step(scene);
+        }
+        let physics = session.physics.borrow();
+        assert!(
+            physics
+                .raycast((140.0, 210.0), (140.0, 600.0), None)
+                .is_none()
+        );
+        let hit = physics
+            .raycast((108.0, 150.0), (108.0, 600.0), None)
+            .unwrap();
+        assert_eq!(hit.entity_id, ground);
+        drop(physics);
+
+        let failures: Vec<bool> = lua
+            .load(
+                r#"
+                return {
+                    (pcall(get_tile, SCENE, PLAIN, 0, 0)),
+                    (pcall(set_tile, SCENE, GROUND, 1.5, 0, 1)),
+                    (pcall(set_tile, SCENE, GROUND, 0, 0, -1)),
+                    (pcall(set_tile, SCENE, GROUND, 5000, 0, 1)),
+                }
+                "#,
+            )
+            .eval()
+            .unwrap();
+        assert_eq!(failures, vec![false; 4]);
+    }
 }

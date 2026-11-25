@@ -79,6 +79,20 @@ looping animation's time wraps at the end of each cycle. Invalid `animation`
 values are reported once per Play and leave the entity unchanged. The editor
 doesn't play animations: it shows the current `frame`.
 
+## Tilemaps
+
+An entity with a tilemap (see [scene.md](scene.md#tilemaps)) is drawn as its
+tiles instead of a sprite: `render()` makes one queue entry for the map, whose
+`tiles` list the visible cells as `TileQuad`s (screen rect and tileset
+texture rectangle), and whose `screen_pos`/`screen_size` cover the whole grid
+(for picking in the editor). Only the cells inside the viewport are
+visited, and `paint_sprites` draws them all in one mesh, so a map's cost
+follows what's on screen, not its size. `z`, `tint` and `opacity` apply to
+the map; `rotation`, `scale` and mirroring don't.
+
+Each tile's texture rectangle is inset by half a texel, so linear filtering
+doesn't blend in the neighbouring tiles of the tileset (visible seams).
+
 ## Game camera
 
 `camera_frame(scene)` describes the frame the scene's default camera entity
@@ -123,7 +137,8 @@ disk.
 - Text is always drawn over the sprites, in camera frame space; there is no
   text placed in the world (e.g. a label following an entity).
 - Sprite sheets are uniform grids; frames of different sizes (texture atlases)
-  and spacing between frames aren't supported.
+  and spacing between frames aren't supported. The same goes for tilesets,
+  and tiles can't be animated.
 - The same image referenced through two different path spellings is cached
   twice.
 - The editor and the runtime each own a `RenderEngine`, so images used in

@@ -170,6 +170,23 @@ function init(scene_id, entity_id)
 end
 ```
 
+Tilemaps (see [scene.md](scene.md#tilemaps); cells are `column, row`
+integers, and the entity must have a tilemap):
+
+| Function | Notes |
+|---|---|
+| `get_tile(scene_id, entity_id, column, row)` | The tile number in the cell, or nil when it's empty |
+| `set_tile(scene_id, entity_id, column, row, tile)` | Put a tile in the cell, or empty it with nil; returns whether the cell changed. The map grows as needed (up to 1024 columns and rows). A tilemap in the playing scene gets its collider rebuilt |
+| `get_tile_cell(scene_id, entity_id, x, y)` | `column, row` of the cell containing the world position |
+
+```lua
+-- Break the block the player bumps from below
+local column, row = get_tile_cell(scene_id, ground_id, x + 8, y - 1)
+if get_tile(scene_id, ground_id, column, row) == BRICK then
+    set_tile(scene_id, ground_id, column, row, nil)
+end
+```
+
 Save data (kept between runs of the game; see [save.md](save.md)):
 
 | Function | Notes |

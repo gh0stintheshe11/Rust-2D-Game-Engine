@@ -1,4 +1,4 @@
-use super::{Attribute, AttributeType, AttributeValue};
+use super::{Attribute, AttributeType, AttributeValue, Tilemap};
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -41,6 +41,9 @@ pub struct Entity {
     pub images: Vec<PathBuf>,    // Multiple images (sprites, textures)
     pub sounds: Vec<PathBuf>,    // Multiple sounds (effects, music)
     pub script: Option<PathBuf>, // Single script per entity
+    /// A grid of tiles drawn at the entity's position, instead of a sprite
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tilemap: Option<Tilemap>,
 }
 
 impl Entity {
@@ -53,6 +56,7 @@ impl Entity {
             images: Vec::new(),
             sounds: Vec::new(),
             script: None,
+            tilemap: None,
         };
 
         // Core position attributes that cannot be deleted

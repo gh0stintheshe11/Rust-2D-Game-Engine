@@ -9,6 +9,13 @@ versions may contain breaking changes).
 
 ### Added
 
+- Tilemaps: an entity can carry a grid of tiles drawn from a tileset image
+  (`Entity::tilemap`, `scene::Tilemap`). Only the visible tiles are drawn, in
+  one mesh; with `has_collision` the tiles form one voxel collider, so bodies
+  slide along rows of tiles without catching on their edges. Scripts read and
+  change tiles with `get_tile`, `set_tile` (which rebuilds the collider) and
+  `get_tile_cell`. Scene files store a map as readable rows.
+
 - Scripts see releases and mouse clicks: `is_key_just_released`,
   `is_mouse_just_pressed` and `is_mouse_just_released`.
 - `get_mouse_screen_position()` returns the pointer in the camera frame's
