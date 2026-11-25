@@ -25,6 +25,10 @@ versions may contain breaking changes).
   Bodies passing through a platform don't collide with it, and
   `drop_through_platforms(entity_id)` lets a body fall through the
   platform it stands on (pressing down, in a platformer).
+- Animated tiles: a tile of a tileset can show other tiles in turn, for
+  water, torches or grass in the wind (`Tilemap::set_tile_animation`; the
+  editor sets the frames and speed below the palette, and previews the
+  selected tilemap). Cells keep their tile for collisions and scripts.
 - Particles: an entity with `particle_*` attributes (Add Feature → Effects →
   Particles) gives off small sprites for sparks, smoke, dust or rain, with a
   rate, lifetime, velocity and spread, gravity, and size and color changing
@@ -53,9 +57,9 @@ versions may contain breaking changes).
   `GameRuntime::queue_gamepad_events` feeds gamepad events, e.g. from
   tests. Building on Linux now needs `libudev-dev`.
 - Hilltop Hop, a second demo game: a platformer on a tilemap level with
-  one-way platforms, breakable bricks, spikes, gems, checkpoints, particles,
-  a title menu and HUD made with the game UI functions, and gamepad support
-  (`demo/hilltop_hop`, `cargo run -p hilltop_hop`).
+  one-way platforms, breakable bricks, spikes, gems, checkpoints, swaying
+  grass, particles, a title menu and HUD made with the game UI functions,
+  and gamepad support (`demo/hilltop_hop`, `cargo run -p hilltop_hop`).
 - `get_velocity(entity_id)` returns a body's velocity to scripts, so they
   can change one direction and keep the other (a platformer's run speed
   under gravity).

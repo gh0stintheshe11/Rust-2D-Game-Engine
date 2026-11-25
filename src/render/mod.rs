@@ -61,6 +61,56 @@ pub struct Quad {
     pub color: egui::Color32,
 }
 
+/// What drawing a tilemap's cells takes, worked out once per map.
+struct TileLayout {
+    /// The entity's `x`/`y`: cell (0, 0)'s top-left corner
+    origin: (f32, f32),
+    tile: (f32, f32),
+    zoom: f32,
+    camera: Camera,
+    image_size: (u32, u32),
+    /// How far each tile's texture rectangle is inset
+    inset: egui::Vec2,
+    tint: egui::Color32,
+}
+
+/// The quads of a tilemap's tiles in `cells` (columns and rows, inclusive);
+/// `shown` gives the tile a cell's tile shows, its animation frame. Generic,
+/// so maps without animations pay nothing for them.
+fn tile_quads(
+    tilemap: &Tilemap,
+    cells: ((i32, i32), (i32, i32)),
+    layout: &TileLayout,
+    shown: impl Fn(u32) -> u32,
+) -> Vec<Quad> {
+    let (tile, zoom) = (layout.tile, layout.zoom);
+    // At most the cells in range: allocated once instead of growing
+    let span = |(first, last): (i32, i32)| (last as i64 - first as i64 + 1).clamp(0, 1 << 20);
+    let capacity = (span(cells.0) * span(cells.1)).min(tilemap.tile_count_bound()) as usize;
+    let mut quads = Vec::with_capacity(capacity);
+    quads.extend(
+        tilemap
+            .tiles_in(cells.0, cells.1)
+            .map(|((column, row), number)| {
+                let world = (
+                    layout.origin.0 + column as f32 * tile.0,
+                    layout.origin.1 + row as f32 * tile.1,
+                );
+                let screen = layout.camera.world_to_screen(world);
+                let (uv, _) = sheet_frame(layout.image_size, tile, shown(number) as i64);
+                Quad {
+                    rect: egui::Rect::from_min_size(
+                        egui::pos2(screen.0, screen.1),
+                        egui::vec2(tile.0 * zoom, tile.1 * zoom),
+                    ),
+                    uv: uv.shrink2(layout.inset),
+                    color: layout.tint,
+                }
+            }),
+    );
+    quads
+}
+
 /// The whole texture, unmirrored.
 const FULL_UV: egui::Rect = egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0));
 
@@ -402,6 +452,8 @@ pub struct RenderEngine {
     grid_size: f32,
     // Particles alive, by emitter (see `update_particles`)
     particles: ParticleSystem,
+    // Seconds into tile animations (see `advance_tile_animations`)
+    tile_clock: f32,
     pub camera: Camera,
 }
 
@@ -425,6 +477,7 @@ impl RenderEngine {
             texture_ids: HashMap::new(),
             grid_size: DEFAULT_GRID_SIZE,
             particles: ParticleSystem::default(),
+            tile_clock: 0.0,
             camera: Camera::new(),
         }
     }
@@ -613,29 +666,24 @@ impl RenderEngine {
             0.5 / image_size.1.max(1) as f32,
         );
         let tint = self.sprite_tint(entity);
-        // At most the cells in range: allocated once instead of growing
-        let span = |(first, last): (i32, i32)| (last as i64 - first as i64 + 1).clamp(0, 1 << 20);
-        let capacity = (span((first.0, last.0)) * span((first.1, last.1)))
-            .min(tilemap.tile_count_bound()) as usize;
-        let mut tiles = Vec::with_capacity(capacity);
-        tiles.extend(tilemap.tiles_in((first.0, last.0), (first.1, last.1)).map(
-            |((column, row), number)| {
-                let world = (
-                    origin.0 + column as f32 * tile.0,
-                    origin.1 + row as f32 * tile.1,
-                );
-                let screen = self.camera.world_to_screen(world);
-                let (uv, _) = sheet_frame(image_size, tile, number as i64);
-                Quad {
-                    rect: egui::Rect::from_min_size(
-                        egui::pos2(screen.0, screen.1),
-                        egui::vec2(tile.0 * zoom, tile.1 * zoom),
-                    ),
-                    uv: uv.shrink2(inset),
-                    color: tint,
-                }
-            },
-        ));
+        let layout = TileLayout {
+            origin,
+            tile,
+            zoom,
+            camera: self.camera,
+            image_size,
+            inset,
+            tint,
+        };
+        let cells = ((first.0, last.0), (first.1, last.1));
+        let tiles = if tilemap.has_animations() {
+            let clock = self.tile_clock;
+            tile_quads(tilemap, cells, &layout, |number| {
+                tilemap.shown_tile(number, clock)
+            })
+        } else {
+            tile_quads(tilemap, cells, &layout, |number| number)
+        };
         if tiles.is_empty() {
             return None;
         }
@@ -730,11 +778,27 @@ impl RenderEngine {
         self.viewport_size
     }
 
-    /// Clear all caches, remove the particles and reset the camera.
+    /// Clear all caches, remove the particles, restart tile animations and
+    /// reset the camera.
     pub fn cleanup(&mut self) {
         self.clear_cache();
         self.clear_particles();
+        self.reset_tile_animations();
         self.camera.reset();
+    }
+
+    /// Move animated tiles on by `dt` seconds (see
+    /// [`Tilemap::set_tile_animation`]). Every tilemap's animations share
+    /// this clock, so the cells of a tile animate together.
+    pub fn advance_tile_animations(&mut self, dt: f32) {
+        if dt.is_finite() && dt > 0.0 {
+            self.tile_clock += dt;
+        }
+    }
+
+    /// Show animated tiles at their first frame again.
+    pub fn reset_tile_animations(&mut self) {
+        self.tile_clock = 0.0;
     }
 
     /// Forget one image, e.g. after its file changed on disk.

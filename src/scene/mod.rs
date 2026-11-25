@@ -22,7 +22,9 @@ pub use archetype::{AttributePreset, PHYSICS_ATTRIBUTES, attribute_presets};
 pub use attribute::{Attribute, AttributeType, AttributeValue};
 pub use entity::{Entity, PhysicsProperties};
 pub use manager::SceneManager;
-pub use tilemap::{MAX_TILEMAP_SIDE, TileCollision, Tilemap};
+pub use tilemap::{
+    MAX_TILE_ANIMATION_FRAMES, MAX_TILEMAP_SIDE, TileAnimation, TileCollision, Tilemap,
+};
 
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};

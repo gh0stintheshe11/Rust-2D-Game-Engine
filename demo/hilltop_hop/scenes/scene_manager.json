@@ -191,6 +191,26 @@
               "6": "passable",
               "7": "passable"
             },
+            "animations": {
+              "5": {
+                "frames": [
+                  5,
+                  9,
+                  5,
+                  11
+                ],
+                "fps": 3.0
+              },
+              "6": {
+                "frames": [
+                  6,
+                  10,
+                  6,
+                  12
+                ],
+                "fps": 3.0
+              }
+            },
             "origin": [
               0,
               12
@@ -852,6 +872,26 @@
               "5": "passable",
               "6": "passable",
               "7": "passable"
+            },
+            "animations": {
+              "5": {
+                "frames": [
+                  5,
+                  9,
+                  5,
+                  11
+                ],
+                "fps": 3.0
+              },
+              "6": {
+                "frames": [
+                  6,
+                  10,
+                  6,
+                  12
+                ],
+                "fps": 3.0
+              }
             },
             "origin": [
               -1,

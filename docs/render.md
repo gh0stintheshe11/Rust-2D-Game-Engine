@@ -93,6 +93,12 @@ apply to the map; `rotation`, `scale` and mirroring don't.
 Each tile's texture rectangle is inset by half a texel, so linear filtering
 doesn't blend in the neighbouring tiles of the tileset (visible seams).
 
+Animated tiles (see [scene.md](scene.md#tilemaps)) show the frame their
+animation is at on the render engine's tile clock, which
+`advance_tile_animations(dt)` moves on (the runtime does it every frame,
+with game time) and `reset_tile_animations()` restarts; all tilemaps share
+it, so every cell of a tile animates in step.
+
 ## Particles
 
 An entity with a `particle_rate` attribute is a **particle emitter**: it
@@ -187,8 +193,7 @@ disk.
   space; there is no text placed in the world (e.g. a label following an
   entity).
 - Sprite sheets are uniform grids; frames of different sizes (texture atlases)
-  and spacing between frames aren't supported. The same goes for tilesets,
-  and tiles can't be animated.
+  and spacing between frames aren't supported. The same goes for tilesets.
 - Particles don't collide, rotate or animate their texture, and every
   particle of an emitter has the same texture; an emitter gives off
   particles only into the world (none follow it), and only from a point or

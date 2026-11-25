@@ -8,6 +8,53 @@ use std::path::PathBuf;
 /// Most columns, or rows, a tilemap can span.
 pub const MAX_TILEMAP_SIDE: u32 = 1024;
 
+/// Most frames a tile animation has.
+pub const MAX_TILE_ANIMATION_FRAMES: usize = 4096;
+
+/// A tile of the tileset shown as other tiles in turn (water, torches,
+/// grass in the wind). Cells keep the tile, which decides how they collide
+/// and what scripts read; only the picture changes.
+#[derive(Clone, Debug, PartialEq)]
+pub struct TileAnimation {
+    frames: Vec<u32>,
+    fps: f32,
+}
+
+impl TileAnimation {
+    /// Show `frames` (tile numbers) in turn, `fps` per second, looping.
+    pub fn new(frames: Vec<u32>, fps: f32) -> Result<Self, String> {
+        if frames.is_empty() || frames.len() > MAX_TILE_ANIMATION_FRAMES {
+            return Err(format!(
+                "a tile animation has 1 to {} frames, not {}",
+                MAX_TILE_ANIMATION_FRAMES,
+                frames.len()
+            ));
+        }
+        if !(fps.is_finite() && fps > 0.0) {
+            return Err(format!(
+                "a tile animation's fps must be above 0, not {}",
+                fps
+            ));
+        }
+        Ok(Self { frames, fps })
+    }
+
+    pub fn frames(&self) -> &[u32] {
+        &self.frames
+    }
+
+    pub fn fps(&self) -> f32 {
+        self.fps
+    }
+
+    /// The tile shown `seconds` into the animation.
+    pub fn frame_at(&self, seconds: f32) -> u32 {
+        // (The float-to-int conversion saturates, and NaN becomes 0)
+        let index = (seconds.max(0.0) * self.fps) as usize % self.frames.len();
+        self.frames[index]
+    }
+}
+
 /// How the cells with a tile collide, in a tilemap with `has_collision`.
 /// Set per tile of the tileset, like the tile's picture.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -45,6 +92,8 @@ pub struct Tilemap {
     cells: Vec<u32>,
     /// How tiles of the tileset collide, for those that aren't solid
     collision: BTreeMap<u32, TileCollision>,
+    /// Tiles of the tileset that are animated
+    animations: BTreeMap<u32, TileAnimation>,
 }
 
 impl Tilemap {
@@ -57,7 +106,41 @@ impl Tilemap {
             size: (0, 0),
             cells: Vec::new(),
             collision: BTreeMap::new(),
+            animations: BTreeMap::new(),
         }
+    }
+
+    /// How a tile of the tileset is animated, if it is.
+    pub fn tile_animation(&self, tile: u32) -> Option<&TileAnimation> {
+        self.animations.get(&tile)
+    }
+
+    /// Animate a tile of the tileset, or with `None` stop animating it.
+    pub fn set_tile_animation(&mut self, tile: u32, animation: Option<TileAnimation>) {
+        match animation {
+            Some(animation) => self.animations.insert(tile, animation),
+            None => self.animations.remove(&tile),
+        };
+    }
+
+    /// The animated tiles of the tileset, in tile order.
+    pub fn tile_animations(&self) -> impl Iterator<Item = (u32, &TileAnimation)> {
+        self.animations
+            .iter()
+            .map(|(tile, animation)| (*tile, animation))
+    }
+
+    /// Whether any tile of the tileset is animated.
+    pub fn has_animations(&self) -> bool {
+        !self.animations.is_empty()
+    }
+
+    /// The tile a cell with `tile` shows `seconds` into its animation:
+    /// `tile` itself unless it's animated.
+    pub fn shown_tile(&self, tile: u32, seconds: f32) -> u32 {
+        self.animations
+            .get(&tile)
+            .map_or(tile, |animation| animation.frame_at(seconds))
     }
 
     /// How the cells with this tile of the tileset collide.
@@ -262,8 +345,17 @@ struct StoredTilemap {
     /// Tiles that aren't solid
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     collision: BTreeMap<u32, TileCollision>,
+    /// Animated tiles
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    animations: BTreeMap<u32, StoredAnimation>,
     origin: (i32, i32),
     rows: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct StoredAnimation {
+    frames: Vec<u32>,
+    fps: f32,
 }
 
 impl Serialize for Tilemap {
@@ -284,6 +376,17 @@ impl Serialize for Tilemap {
             tileset: self.tileset.clone(),
             tile_size: self.tile_size,
             collision: self.collision.clone(),
+            animations: self
+                .animations
+                .iter()
+                .map(|(tile, animation)| {
+                    let stored = StoredAnimation {
+                        frames: animation.frames.clone(),
+                        fps: animation.fps,
+                    };
+                    (*tile, stored)
+                })
+                .collect(),
             origin,
             rows,
         }
@@ -333,6 +436,11 @@ impl<'de> Deserialize<'de> for Tilemap {
         let mut tilemap = Tilemap::new(stored.tileset, stored.tile_size);
         for (tile, collision) in stored.collision {
             tilemap.set_tile_collision(tile, collision);
+        }
+        for (tile, animation) in stored.animations {
+            let animation = TileAnimation::new(animation.frames, animation.fps)
+                .map_err(|e| D::Error::custom(format!("tile {}: {}", tile, e)))?;
+            tilemap.set_tile_animation(tile, Some(animation));
         }
         if !cells.is_empty() {
             tilemap.origin = stored.origin;

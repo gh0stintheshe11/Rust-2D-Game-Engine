@@ -294,6 +294,17 @@ impl EditorApp {
         if self.render_engine.particle_count() > 0 {
             ui.ctx().request_repaint();
         }
+        // ...and the selected tilemap its animated tiles
+        let animated_tiles = selected
+            .and_then(|id| active_scene.get_entity(id).ok())
+            .and_then(|entity| entity.tilemap.as_ref())
+            .is_some_and(|tilemap| tilemap.has_animations());
+        if animated_tiles {
+            self.render_engine.advance_tile_animations(dt);
+            ui.ctx().request_repaint();
+        } else {
+            self.render_engine.reset_tile_animations();
+        }
         let render_queue = self.render_engine.render(active_scene);
 
         let selected_entity = match self.gui_state.scene_panel_selected_item {

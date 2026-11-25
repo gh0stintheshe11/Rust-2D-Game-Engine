@@ -25,6 +25,7 @@ end screens, Esc or (B) also goes to the title screen.
 | Feature | Where |
 |---|---|
 | A tilemap level painted from one tileset: solid ground and stone, one-way wooden planks you jump up through (and drop through with down: `drop_through_platforms` in `player.lua`), and grass and flowers that don't collide | `ground` entity in the `level` scene (Tilemap section of the inspector) |
+| Animated tiles: grass and flowers sway in the wind | the `ground` tilemaps' tiles 5 and 6 (their animation, below the palette) |
 | A tilemap as a trigger zone: spikes | `spikes` entity (`is_sensor`), `player.lua` |
 | Changing tiles from a script: bricks break when hit from below | `break_bricks` in `player.lua` (`get_tile_cell`, `get_tile`, `set_tile`) |
 | Platformer movement on a dynamic body: run speed with `set_velocity` / `get_velocity`, ground checks with `raycast`, coyote time, jump buffering, short hops | `player.lua`, tuned by the `speed` and `jump_speed` attributes |

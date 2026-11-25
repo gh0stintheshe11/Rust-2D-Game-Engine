@@ -3,9 +3,9 @@ use crate::state::{GuiState, SelectedItem, TileBrush};
 use eframe::egui;
 use rust_2d_game_engine::audio::AudioEngine;
 use rust_2d_game_engine::logger::LOGGER;
-use rust_2d_game_engine::render::{ONE_WAY_OUTLINE_COLOR, sheet_frame};
+use rust_2d_game_engine::render::{ONE_WAY_OUTLINE_COLOR, parse_frames, sheet_frame};
 use rust_2d_game_engine::scene::{
-    AttributeType, AttributeValue, Entity, TileCollision, Tilemap, attribute_presets,
+    AttributeType, AttributeValue, Entity, TileAnimation, TileCollision, Tilemap, attribute_presets,
 };
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -36,6 +36,19 @@ struct NewAttribute {
 /// A decoded image preview, or `None` if the file couldn't be decoded.
 type ImagePreview = Option<(egui::TextureHandle, (u32, u32))>;
 
+/// Color of the mark on animated tiles in the palette.
+const ANIMATED_TILE_COLOR: egui::Color32 = egui::Color32::from_rgb(255, 170, 60);
+
+/// Speed of a tile animation made in the inspector, in frames per second.
+const DEFAULT_TILE_ANIMATION_FPS: f32 = 4.0;
+
+/// The frames typed for a tile's animation, until they're applied.
+struct TileAnimationText {
+    tile: u32,
+    text: String,
+    error: Option<String>,
+}
+
 /// Most tiles the palette shows.
 const MAX_PALETTE_TILES: u32 = 512;
 
@@ -57,6 +70,8 @@ pub struct Inspector {
     preview_audio_duration: Option<(PathBuf, Option<f32>)>,
     // The selected tilemap's tileset, for the palette
     tileset_preview: Option<(PathBuf, ImagePreview)>,
+    // The brush tile's animation frames being typed, and why they were refused
+    tile_animation_text: Option<TileAnimationText>,
     // Snippet queued for the script editor (clicking an attribute name)
     pending_script_insert: Option<String>,
 }
@@ -79,6 +94,7 @@ impl Inspector {
             preview_image: None,
             preview_audio_duration: None,
             tileset_preview: None,
+            tile_animation_text: None,
             pending_script_insert: None,
         }
     }
@@ -95,6 +111,7 @@ impl Inspector {
         self.preview_image = None;
         self.preview_audio_duration = None;
         self.tileset_preview = None;
+        self.tile_animation_text = None;
         self.pending_script_insert = None;
     }
 
@@ -481,6 +498,93 @@ impl Inspector {
         });
         self.show_tile_palette(ui, ctx, tilemap, brush);
         self.show_tile_collision(ui, tilemap, *brush);
+        self.show_tile_animation(ui, tilemap, *brush);
+    }
+
+    /// The brush tile's animation: frames typed like a sprite animation's
+    /// ("5,9" or "5-8"), applied with Enter or when the field loses focus,
+    /// and their speed.
+    fn show_tile_animation(&mut self, ui: &mut egui::Ui, tilemap: &mut Tilemap, brush: TileBrush) {
+        let TileBrush::Tile(tile) = brush else {
+            return;
+        };
+        if tilemap.tileset.as_os_str().is_empty() {
+            return;
+        }
+        let animation = tilemap.tile_animation(tile).cloned();
+        let shown = |animation: &Option<TileAnimation>| {
+            animation.as_ref().map_or(String::new(), |animation| {
+                let frames: Vec<String> = animation.frames().iter().map(u32::to_string).collect();
+                frames.join(",")
+            })
+        };
+        // A new brush tile shows its own frames
+        if self
+            .tile_animation_text
+            .as_ref()
+            .is_none_or(|typed| typed.tile != tile)
+        {
+            self.tile_animation_text = Some(TileAnimationText {
+                tile,
+                text: shown(&animation),
+                error: None,
+            });
+        }
+        let Some(typed) = self.tile_animation_text.as_mut() else {
+            return;
+        };
+        let mut apply = false;
+        ui.horizontal(|ui| {
+            ui.label("Animation");
+            let response = ui.add(
+                egui::TextEdit::singleline(&mut typed.text)
+                    .hint_text("frames, e.g. 5,9")
+                    .desired_width(110.0),
+            );
+            apply = response.lost_focus();
+            if let Some(animation) = &animation {
+                let mut fps = animation.fps();
+                let speed = ui.add(
+                    egui::DragValue::new(&mut fps)
+                        .range(0.5..=60.0)
+                        .speed(0.1)
+                        .suffix(" fps"),
+                );
+                if speed.changed()
+                    && let Ok(faster) = TileAnimation::new(animation.frames().to_vec(), fps)
+                {
+                    tilemap.set_tile_animation(tile, Some(faster));
+                }
+                // One undo step per change, not one per frame of a drag
+                if speed.drag_stopped() || (speed.changed() && !speed.dragged()) {
+                    self.data_updated = true;
+                }
+            }
+        });
+        if apply {
+            let text = typed.text.trim();
+            let result = if text.is_empty() {
+                Ok(None)
+            } else {
+                let fps = animation
+                    .as_ref()
+                    .map_or(DEFAULT_TILE_ANIMATION_FPS, TileAnimation::fps);
+                parse_frames(text).and_then(|frames| TileAnimation::new(frames, fps).map(Some))
+            };
+            match result {
+                Ok(new) if new != animation => {
+                    typed.text = shown(&new);
+                    typed.error = None;
+                    tilemap.set_tile_animation(tile, new);
+                    self.data_updated = true;
+                }
+                Ok(_) => typed.error = None,
+                Err(e) => typed.error = Some(e),
+            }
+        }
+        if let Some(error) = &typed.error {
+            ui.colored_label(egui::Color32::RED, error);
+        }
     }
 
     /// How the brush's tile collides, as a choice.
@@ -561,6 +665,19 @@ impl Inspector {
                     .on_hover_text(format!("Tile {} · {}", number, collision_label(collision)));
                 if response.clicked() {
                     *brush = TileBrush::Tile(number);
+                }
+                // Animated tiles are marked with a small triangle ("play")
+                if tilemap.tile_animation(number).is_some() {
+                    let corner = response.rect.shrink(4.0).right_bottom();
+                    ui.painter().add(egui::Shape::convex_polygon(
+                        vec![
+                            corner + egui::vec2(-7.0, -8.0),
+                            corner + egui::vec2(0.0, -4.0),
+                            corner + egui::vec2(-7.0, 0.0),
+                        ],
+                        ANIMATED_TILE_COLOR,
+                        egui::Stroke::NONE,
+                    ));
                 }
                 // Tiles that aren't solid are marked: one-way ones with
                 // their top edge, as in collider outlines

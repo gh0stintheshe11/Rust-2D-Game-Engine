@@ -1,6 +1,6 @@
 //! Tilemaps: the grid of tiles, and how scene files store it.
 
-use rust_2d_game_engine::scene::{Entity, MAX_TILEMAP_SIDE, TileCollision, Tilemap};
+use rust_2d_game_engine::scene::{Entity, MAX_TILEMAP_SIDE, TileAnimation, TileCollision, Tilemap};
 use std::path::PathBuf;
 
 fn tilemap() -> Tilemap {
@@ -155,4 +155,44 @@ fn test_tiles_collide_as_set_per_tile() {
     let mut bad = serde_json::to_value(&map).unwrap();
     bad["collision"] = serde_json::json!({"1": "bouncy"});
     assert!(serde_json::from_value::<Tilemap>(bad).is_err());
+}
+
+#[test]
+fn test_tiles_can_be_animated() {
+    assert!(TileAnimation::new(Vec::new(), 4.0).is_err(), "no frames");
+    assert!(TileAnimation::new(vec![1, 2], 0.0).is_err(), "no speed");
+    assert!(TileAnimation::new(vec![1, 2], f32::NAN).is_err());
+    let animation = TileAnimation::new(vec![4, 5, 6], 2.0).unwrap();
+    // Half a second per frame, looping
+    let shown: Vec<u32> = [0.0, 0.4, 0.5, 1.2, 1.5, 3.0]
+        .iter()
+        .map(|seconds| animation.frame_at(*seconds))
+        .collect();
+    assert_eq!(shown, vec![4, 4, 5, 6, 4, 4]);
+    assert_eq!(animation.frame_at(-1.0), 4);
+
+    let mut map = tilemap();
+    map.set(0, 0, Some(4)).unwrap();
+    assert!(!map.has_animations());
+    map.set_tile_animation(4, Some(animation));
+    assert_eq!((map.shown_tile(4, 0.6), map.shown_tile(7, 0.6)), (5, 7));
+    assert_eq!(map.get(0, 0), Some(4), "the cell keeps its tile");
+
+    // Scene files list the animated tiles
+    let json = serde_json::to_value(&map).unwrap();
+    assert_eq!(
+        json["animations"],
+        serde_json::json!({"4": {"frames": [4, 5, 6], "fps": 2.0}})
+    );
+    assert_eq!(
+        serde_json::from_value::<Tilemap>(json.clone()).unwrap(),
+        map
+    );
+    let mut bad = json;
+    bad["animations"]["4"]["frames"] = serde_json::json!([]);
+    assert!(serde_json::from_value::<Tilemap>(bad).is_err());
+
+    map.set_tile_animation(4, None);
+    let json = serde_json::to_value(&map).unwrap();
+    assert!(json.get("animations").is_none(), "{}", json);
 }

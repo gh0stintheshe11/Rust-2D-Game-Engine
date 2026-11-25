@@ -1205,6 +1205,19 @@ mod tests {
             rust_2d_game_engine::scene::TileCollision::OneWay
         );
 
+        // ...and animated, its frames typed like a sprite animation's
+        let output = frame_with(&mut app, &ctx, vec![]);
+        click_label(&mut app, &ctx, &output, "frames, e.g. 5,9", left);
+        frame_with(&mut app, &ctx, vec![egui::Event::Text("0,1".to_string())]);
+        frame_with(
+            &mut app,
+            &ctx,
+            vec![key_press(egui::Key::Enter, egui::Modifiers::NONE)],
+        );
+        let map = entity(&app).tilemap.unwrap();
+        let animation = map.tile_animation(0).expect("animated");
+        assert_eq!((animation.frames(), animation.fps()), (&[0, 1][..], 4.0));
+
         // The eraser clears cells
         app.gui_state.tile_brush = TileBrush::Eraser;
         let from = on_screen(48.0, 16.0);

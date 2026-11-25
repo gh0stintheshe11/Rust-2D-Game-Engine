@@ -81,17 +81,25 @@ downwards, and cells can have negative coordinates.
   cells with a tile of the tileset collide, a `TileCollision`: `Solid` (the
   default), `OneWay` (a platform, solid only from above) or `Passable`
   (decoration).
+- `tile_animation(tile)` and `set_tile_animation(tile, Some(animation) |
+  None)`: a tile of the tileset shown as other tiles in turn, a
+  `TileAnimation` of frames (tile numbers, at most
+  `MAX_TILE_ANIMATION_FRAMES`) and a speed in frames per second (water,
+  torches, grass in the wind). Cells keep the tile, which decides how they
+  collide and what scripts read; `shown_tile(tile, seconds)` is the tile
+  drawn, and `tile_animations()` lists the animated tiles.
 
 Scene files store the area with tiles only, a string per row with a token
 per cell (`.` for an empty cell, otherwise the tile number), so maps stay
-readable and diffable; `collision` lists the tiles that aren't solid, and is
-left out when there are none:
+readable and diffable; `collision` lists the tiles that aren't solid, and
+`animations` the animated ones, each left out when empty:
 
 ```json
 "tilemap": {
   "tileset": "assets/images/tiles.png",
   "tile_size": [16, 16],
   "collision": {"4": "one_way", "7": "passable"},
+  "animations": {"9": {"frames": [9, 10, 11], "fps": 4.0}},
   "origin": [0, 3],
   "rows": [". . 4 4", "1 1 1 1"]
 }

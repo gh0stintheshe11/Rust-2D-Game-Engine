@@ -200,6 +200,24 @@ fn test_every_asset_exists() {
             }
         }
     }
+    // Animated tiles show tiles the tileset has
+    for scene in project.scene_manager.scenes.values() {
+        for map in scene
+            .entities
+            .values()
+            .filter_map(|entity| entity.tilemap.as_ref())
+        {
+            let (width, height) = image::image_dimensions(&map.tileset).unwrap();
+            let tiles = (width / map.tile_size.0) * (height / map.tile_size.1);
+            for (tile, animation) in map.tile_animations() {
+                assert!(
+                    animation.frames().iter().all(|frame| *frame < tiles),
+                    "tile {}",
+                    tile
+                );
+            }
+        }
+    }
     for sound in ["jump", "gem", "hurt", "brick", "checkpoint", "win"] {
         let path = demo_dir().join(format!("assets/sounds/{}.wav", sound));
         assert!(path.is_file(), "missing {}", path.display());

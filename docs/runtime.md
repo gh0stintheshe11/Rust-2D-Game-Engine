@@ -78,7 +78,7 @@ graph TD
    between frames.
 5. Sprite sheet animations advance by the frame time, and so do particles,
    adding the bursts scripts asked for (see
-   [render.md](render.md#particles)).
+   [render.md](render.md#particles)), and animated tiles.
 6. Finished sounds are reaped.
 
 When a script calls `end_game()` or `change_scene()`, the request takes

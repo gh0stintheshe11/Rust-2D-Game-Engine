@@ -197,6 +197,7 @@ impl GameRuntime {
         self.physics_engine.borrow_mut().cleanup();
         self.render_engine.clear_cache();
         self.render_engine.clear_particles();
+        self.render_engine.reset_tile_animations();
         self.audio_engine.borrow_mut().cleanup();
         if let Some(initial) = self.initial_state.take() {
             *self.scene_manager.borrow_mut() = initial;
@@ -319,7 +320,8 @@ impl GameRuntime {
             }
         }
 
-        // Sprite sheet animations and particles move on by the frame's time
+        // Sprite sheet animations, particles and animated tiles move on by
+        // the frame's time
         {
             let mut manager = self.scene_manager.borrow_mut();
             if let Some(scene) = manager.get_scene_mut(scene_id) {
@@ -331,6 +333,7 @@ impl GameRuntime {
                 let bursts = self.lua_scripting.take_particle_bursts();
                 self.render_engine
                     .update_particles(scene, frame_dt, |_| true, bursts);
+                self.render_engine.advance_tile_animations(frame_dt);
             }
         }
 

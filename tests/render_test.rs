@@ -506,3 +506,43 @@ fn test_hud_items_paint_in_order_scaled_with_the_frame() {
         other => panic!("painted in order: {:?}", other),
     }
 }
+
+#[test]
+fn test_animated_tiles_change_with_the_clock() {
+    use rust_2d_game_engine::scene::{TileAnimation, Tilemap};
+
+    let mut renderer = RenderEngine::new();
+    renderer.update_viewport_size(800.0, 600.0);
+    let mut scene = Scene::new("test_scene").unwrap();
+    // Four 16 x 16 tiles side by side; tile 0 cycles 0, 2, 3 at 4 fps
+    let mut map = Tilemap::new(temp_png(64, 16), (16, 16));
+    map.set(0, 0, Some(0)).unwrap();
+    map.set(1, 0, Some(1)).unwrap();
+    map.set_tile_animation(0, Some(TileAnimation::new(vec![0, 2, 3], 4.0).unwrap()));
+    let id = scene.create_entity("water").unwrap();
+    scene.get_entity_mut(id).unwrap().tilemap = Some(Box::new(map));
+
+    // The tile each cell shows, from its texture rectangle's left edge
+    let shown = |renderer: &mut RenderEngine| -> Vec<u32> {
+        let queue = renderer.render(&scene);
+        let quads = queue[0].quads.as_ref().unwrap();
+        quads
+            .iter()
+            .map(|quad| (quad.uv.min.x * 4.0) as u32)
+            .collect()
+    };
+    assert_eq!(shown(&mut renderer), vec![0, 1]);
+    renderer.advance_tile_animations(0.3);
+    assert_eq!(shown(&mut renderer), vec![2, 1], "a quarter second in");
+    renderer.advance_tile_animations(0.25);
+    assert_eq!(shown(&mut renderer), vec![3, 1]);
+    renderer.advance_tile_animations(f32::NAN);
+    renderer.advance_tile_animations(-5.0);
+    assert_eq!(
+        shown(&mut renderer),
+        vec![3, 1],
+        "only time going forward counts"
+    );
+    renderer.reset_tile_animations();
+    assert_eq!(shown(&mut renderer), vec![0, 1]);
+}
