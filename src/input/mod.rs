@@ -1,5 +1,15 @@
+//! Keyboard, mouse and gamepad state, refreshed once per frame.
+
 use egui::{Key, PointerButton};
 use std::collections::HashSet;
+
+mod gamepad;
+
+use gamepad::Gamepad;
+pub use gamepad::{
+    GAMEPAD_AXES, GAMEPAD_BUTTONS, GamepadAxis, GamepadButton, GamepadEvent, STICK_DEADZONE,
+    TRIGGER_DEADZONE, parse_gamepad_axis, parse_gamepad_button,
+};
 
 /// Which parts of a frame's input belong to the game (see
 /// [`InputHandler::handle_input_with`]). An embedder such as the editor
@@ -69,7 +79,8 @@ impl ButtonSet {
     }
 }
 
-/// Keyboard and mouse state, refreshed once per frame from egui's input.
+/// Keyboard and mouse state, refreshed once per frame from egui's input,
+/// and gamepad state, from gamepad events.
 #[derive(Clone)]
 pub struct InputHandler {
     keys_pressed: HashSet<Key>,
@@ -87,6 +98,8 @@ pub struct InputHandler {
     press_screen_pos: Option<(f32, f32)>,
     scroll_delta: egui::Vec2,
     modifiers: egui::Modifiers,
+    // Connected gamepads, in the order they connected
+    gamepads: Vec<Gamepad>,
 }
 
 impl Default for InputHandler {
@@ -111,6 +124,7 @@ impl InputHandler {
             press_screen_pos: None,
             scroll_delta: egui::vec2(0.0, 0.0),
             modifiers: egui::Modifiers::default(),
+            gamepads: Vec::new(),
         }
     }
 
@@ -264,6 +278,94 @@ impl InputHandler {
     /// [`set_game_pointer`](Self::set_game_pointer).
     pub fn get_mouse_screen_pos(&self) -> (f32, f32) {
         self.mouse_screen_pos
+    }
+
+    /// Take in a frame's gamepad events: call it once per frame, also
+    /// without events, since it starts the frame (nothing was just pressed
+    /// or released yet). A button pressed and released within the frame is
+    /// just pressed and just released. A pad that sends events before its
+    /// `Connected` counts as connected.
+    pub fn handle_gamepad_events(&mut self, events: impl IntoIterator<Item = GamepadEvent>) {
+        for gamepad in &mut self.gamepads {
+            gamepad.begin_frame();
+        }
+        for event in events {
+            match event {
+                GamepadEvent::Connected { gamepad } => {
+                    self.gamepad_mut(gamepad);
+                }
+                GamepadEvent::Disconnected { gamepad } => {
+                    self.gamepads.retain(|pad| pad.id != gamepad);
+                }
+                GamepadEvent::ButtonPressed { gamepad, button } => {
+                    self.gamepad_mut(gamepad).press(button);
+                }
+                GamepadEvent::ButtonReleased { gamepad, button } => {
+                    self.gamepad_mut(gamepad).release(button);
+                }
+                GamepadEvent::AxisMoved {
+                    gamepad,
+                    axis,
+                    value,
+                } => self.gamepad_mut(gamepad).set_axis(axis, value),
+            }
+        }
+    }
+
+    fn gamepad_mut(&mut self, id: usize) -> &mut Gamepad {
+        let index = match self.gamepads.iter().position(|pad| pad.id == id) {
+            Some(index) => index,
+            None => {
+                self.gamepads.push(Gamepad::new(id));
+                self.gamepads.len() - 1
+            }
+        };
+        &mut self.gamepads[index]
+    }
+
+    /// The gamepads `pad` designates: the `pad`-th connected one (from 0),
+    /// or all of them.
+    fn pads(&self, pad: Option<usize>) -> impl Iterator<Item = &Gamepad> {
+        let range = match pad {
+            Some(index) => index..index.saturating_add(1),
+            None => 0..self.gamepads.len(),
+        };
+        self.gamepads.get(range).into_iter().flatten()
+    }
+
+    /// How many gamepads are connected.
+    pub fn gamepad_count(&self) -> usize {
+        self.gamepads.len()
+    }
+
+    /// Whether a button is held, on the `pad`-th gamepad (from 0, in the
+    /// order they connected) or, with `None`, on any.
+    pub fn is_gamepad_pressed(&self, button: GamepadButton, pad: Option<usize>) -> bool {
+        self.pads(pad)
+            .any(|gamepad| gamepad.pressed.contains(&button))
+    }
+
+    /// Whether a button went down this frame (see
+    /// [`is_gamepad_pressed`](Self::is_gamepad_pressed) for `pad`).
+    pub fn is_gamepad_just_pressed(&self, button: GamepadButton, pad: Option<usize>) -> bool {
+        self.pads(pad)
+            .any(|gamepad| gamepad.just_pressed.contains(&button))
+    }
+
+    /// Whether a button went up this frame.
+    pub fn is_gamepad_just_released(&self, button: GamepadButton, pad: Option<usize>) -> bool {
+        self.pads(pad)
+            .any(|gamepad| gamepad.just_released.contains(&button))
+    }
+
+    /// An axis of the `pad`-th gamepad, past its dead zone (see
+    /// [`GamepadAxis`] for the ranges), or with `None` that of the first
+    /// gamepad where it isn't at rest; 0 without such a gamepad.
+    pub fn gamepad_axis(&self, axis: GamepadAxis, pad: Option<usize>) -> f32 {
+        self.pads(pad)
+            .map(|gamepad| gamepad.axis(axis))
+            .find(|value| *value != 0.0)
+            .unwrap_or(0.0)
     }
 
     pub fn get_mouse_delta(&self) -> Option<egui::Vec2> {

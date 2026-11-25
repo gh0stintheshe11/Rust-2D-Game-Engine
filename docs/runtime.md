@@ -21,6 +21,9 @@ gives the game:
   later in the frame, like the editor's play buttons, and windows above it
   keep their clicks.
 
+Then come the frame's gamepad events (see [input.md](input.md#gamepads)):
+those queued with `queue_gamepad_events`, e.g. by tests.
+
 It then maps the pointer's window position through the camera that paints
 this frame (the free camera, or the game camera fitted into the viewport) and
 records it in the `InputHandler`: in world coordinates, and in the camera

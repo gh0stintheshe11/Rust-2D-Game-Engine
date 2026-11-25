@@ -38,6 +38,13 @@ versions may contain breaking changes).
   Like `draw_text` they're laid out in camera frame pixels, and later
   drawings cover earlier ones. `InputHandler::get_mouse_press_screen_pos`
   tells where the left button went down.
+- Gamepads: scripts read buttons (`is_gamepad_pressed`,
+  `is_gamepad_just_pressed`, `is_gamepad_just_released`, with Xbox names
+  like `"a"`, `"lb"` or `"up"`, and PlayStation ones) and axes
+  (`get_gamepad_axis`: sticks with a round dead zone and +y down like the
+  world, triggers from 0 to 1), on any pad or on pad n, and count pads with
+  `get_gamepad_count`. `GameRuntime::queue_gamepad_events` feeds gamepad
+  events, e.g. from tests.
 - Scripts see releases and mouse clicks: `is_key_just_released`,
   `is_mouse_just_pressed` and `is_mouse_just_released`.
 - `get_mouse_screen_position()` returns the pointer in the camera frame's

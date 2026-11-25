@@ -191,3 +191,108 @@ fn test_withheld_input_counts_as_released() {
         "the position is still tracked"
     );
 }
+
+mod gamepads {
+    use rust_2d_game_engine::input::{
+        GamepadAxis, GamepadButton, GamepadEvent, InputHandler, STICK_DEADZONE, parse_gamepad_axis,
+        parse_gamepad_button,
+    };
+
+    fn press(gamepad: usize, button: GamepadButton) -> GamepadEvent {
+        GamepadEvent::ButtonPressed { gamepad, button }
+    }
+
+    fn release(gamepad: usize, button: GamepadButton) -> GamepadEvent {
+        GamepadEvent::ButtonReleased { gamepad, button }
+    }
+
+    fn axis(gamepad: usize, axis: GamepadAxis, value: f32) -> GamepadEvent {
+        GamepadEvent::AxisMoved {
+            gamepad,
+            axis,
+            value,
+        }
+    }
+
+    #[test]
+    fn test_buttons_are_just_pressed_for_one_frame() {
+        use GamepadButton::South;
+        let mut input = InputHandler::new();
+        input.handle_gamepad_events([GamepadEvent::Connected { gamepad: 7 }, press(7, South)]);
+        assert!(input.is_gamepad_pressed(South, None));
+        assert!(input.is_gamepad_just_pressed(South, Some(0)));
+        input.handle_gamepad_events([]);
+        assert!(input.is_gamepad_pressed(South, None), "still held");
+        assert!(
+            !input.is_gamepad_just_pressed(South, None),
+            "only for a frame"
+        );
+        input.handle_gamepad_events([release(7, South)]);
+        assert!(!input.is_gamepad_pressed(South, None));
+        assert!(input.is_gamepad_just_released(South, None));
+
+        // Pressed and released between two frames
+        input.handle_gamepad_events([press(7, South), release(7, South)]);
+        assert!(input.is_gamepad_just_pressed(South, None));
+        assert!(input.is_gamepad_just_released(South, None));
+        assert!(!input.is_gamepad_pressed(South, None));
+    }
+
+    #[test]
+    fn test_pads_are_numbered_in_connection_order() {
+        use GamepadButton::{East, Start};
+        let mut input = InputHandler::new();
+        // A pad sending input before it's announced counts as connected
+        input.handle_gamepad_events([press(3, East), GamepadEvent::Connected { gamepad: 1 }]);
+        input.handle_gamepad_events([press(1, Start)]);
+        assert_eq!(input.gamepad_count(), 2);
+        assert!(input.is_gamepad_pressed(East, Some(0)));
+        assert!(!input.is_gamepad_pressed(East, Some(1)));
+        assert!(input.is_gamepad_pressed(Start, Some(1)));
+        assert!(input.is_gamepad_pressed(Start, None), "any pad");
+        assert!(!input.is_gamepad_pressed(Start, Some(5)), "no such pad");
+
+        // The first one leaves: the second becomes the first
+        input.handle_gamepad_events([GamepadEvent::Disconnected { gamepad: 3 }]);
+        assert_eq!(input.gamepad_count(), 1);
+        assert!(!input.is_gamepad_pressed(East, None));
+        assert!(input.is_gamepad_pressed(Start, Some(0)));
+    }
+
+    #[test]
+    fn test_axes_have_dead_zones() {
+        use GamepadAxis::{LeftStickX, LeftStickY, LeftTrigger, RightStickX};
+        let mut input = InputHandler::new();
+        // A worn stick resting slightly off center reads as centered
+        input.handle_gamepad_events([axis(0, LeftStickX, 0.1), axis(0, LeftStickY, -0.05)]);
+        assert_eq!(input.gamepad_axis(LeftStickX, None), 0.0);
+        // All the way: 1; past the dead zone, values start again from 0
+        input.handle_gamepad_events([axis(0, LeftStickX, 1.0), axis(0, LeftStickY, 0.0)]);
+        assert_eq!(input.gamepad_axis(LeftStickX, None), 1.0);
+        let just_past = STICK_DEADZONE + 0.01;
+        input.handle_gamepad_events([axis(0, LeftStickX, -just_past)]);
+        let value = input.gamepad_axis(LeftStickX, None);
+        assert!(value < 0.0 && value > -0.05, "{}", value);
+        // Out of range values are clamped
+        input.handle_gamepad_events([axis(0, LeftTrigger, 7.0), axis(0, RightStickX, f32::NAN)]);
+        assert_eq!(input.gamepad_axis(LeftTrigger, None), 1.0);
+        assert_eq!(input.gamepad_axis(RightStickX, None), 0.0);
+
+        // Without a pad number: the first pad where the axis isn't at rest
+        input.handle_gamepad_events([axis(1, LeftStickY, 0.8), axis(0, LeftStickX, 0.0)]);
+        assert!(input.gamepad_axis(LeftStickY, None) > 0.7);
+        assert_eq!(input.gamepad_axis(LeftStickY, Some(0)), 0.0);
+    }
+
+    #[test]
+    fn test_gamepad_names() {
+        assert_eq!(parse_gamepad_button("A"), Some(GamepadButton::South));
+        assert_eq!(parse_gamepad_button("cross"), Some(GamepadButton::South));
+        assert_eq!(parse_gamepad_button("Start"), Some(GamepadButton::Start));
+        assert_eq!(parse_gamepad_button("up"), Some(GamepadButton::DPadUp));
+        assert_eq!(parse_gamepad_button("jump"), None);
+        assert_eq!(parse_gamepad_axis("LEFT_X"), Some(GamepadAxis::LeftStickX));
+        assert_eq!(parse_gamepad_axis("rt"), Some(GamepadAxis::RightTrigger));
+        assert_eq!(parse_gamepad_axis("left"), None);
+    }
+}

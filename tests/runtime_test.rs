@@ -797,3 +797,38 @@ fn test_ui_drawing_errors_are_reported_to_scripts() {
         vec![false, false, false, false, false, false, true, true]
     );
 }
+
+#[test]
+fn test_scripts_read_gamepads() {
+    use rust_2d_game_engine::input::{GamepadAxis, GamepadButton, GamepadEvent};
+
+    let mut runtime = ui_scene(
+        r#"
+        function update(scene_id, entity_id)
+            local state = script_state.state
+            if is_gamepad_just_pressed("a") then
+                state.jumps = (state.jumps or 0) + 1
+            end
+            state.steer = get_gamepad_axis("left_x")
+        end
+        "#,
+    );
+    let mut window = Window::new();
+    runtime.queue_gamepad_events([
+        GamepadEvent::Connected { gamepad: 0 },
+        GamepadEvent::ButtonPressed {
+            gamepad: 0,
+            button: GamepadButton::South,
+        },
+        GamepadEvent::AxisMoved {
+            gamepad: 0,
+            axis: GamepadAxis::LeftStickX,
+            value: 1.0,
+        },
+    ]);
+    window.frame(&mut runtime, vec![], no_widgets);
+    // Held, not pressed again
+    window.frame(&mut runtime, vec![], no_widgets);
+    assert_eq!(lua_number(&runtime, "script_state.state.jumps"), 1.0);
+    assert_eq!(lua_number(&runtime, "script_state.state.steer"), 1.0);
+}

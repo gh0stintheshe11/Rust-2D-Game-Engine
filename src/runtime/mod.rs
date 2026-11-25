@@ -7,7 +7,7 @@
 
 use crate::{
     audio::AudioEngine,
-    input::{InputAccess, InputHandler},
+    input::{GamepadEvent, InputAccess, InputHandler},
     logger::LOGGER,
     physics::PhysicsEngine,
     render::{Camera, GameView, RenderEngine},
@@ -70,6 +70,8 @@ pub struct GameRuntime {
     reported_animation_problems: HashSet<String>,
     // Fixed-timestep accumulator: real time not yet consumed by physics steps
     time_accumulator: f32,
+    // Gamepad events for the next frame (see queue_gamepad_events)
+    queued_gamepad_events: Vec<GamepadEvent>,
 }
 
 impl GameRuntime {
@@ -102,6 +104,7 @@ impl GameRuntime {
             show_colliders: false,
             reported_animation_problems: HashSet::new(),
             time_accumulator: 0.0,
+            queued_gamepad_events: Vec::new(),
         }
     }
 
@@ -223,6 +226,10 @@ impl GameRuntime {
                 .borrow_mut()
                 .handle_input_with(input, access)
         });
+        let gamepad_events = std::mem::take(&mut self.queued_gamepad_events);
+        self.input_handler
+            .borrow_mut()
+            .handle_gamepad_events(gamepad_events);
         self.update_game_pointer(viewport_rect);
 
         let frame_dt = ctx.input(|i| i.stable_dt);
@@ -502,6 +509,13 @@ impl GameRuntime {
 
     pub fn get_scene_manager(&self) -> Ref<'_, SceneManager> {
         self.scene_manager.borrow()
+    }
+
+    /// Gamepad events for the game to take in at the next
+    /// [`update`](Self::update), as if they came from the gamepads: for
+    /// tests, replays, or an embedder reading gamepads itself.
+    pub fn queue_gamepad_events(&mut self, events: impl IntoIterator<Item = GamepadEvent>) {
+        self.queued_gamepad_events.extend(events);
     }
 
     /// The render engine painting the game, with its particles.

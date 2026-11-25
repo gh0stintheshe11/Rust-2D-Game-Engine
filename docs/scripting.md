@@ -112,6 +112,10 @@ Input:
 | `get_mouse_position()` | `{x, y}` in world coordinates: where the pointer is in the game, through the camera (the same in the editor and in exported games) |
 | `get_mouse_screen_position()` | `{x, y}` in the camera frame's pixels, the coordinates `draw_text` uses: (0, 0) is the frame's top-left corner |
 | `get_scroll_delta()` | `{x, y}`; zero when not scrolling |
+| `is_gamepad_pressed(button [, pad])` | True while a gamepad button is held: `"a"`, `"b"`, `"x"`, `"y"` (named after their place on an Xbox pad: on a PlayStation pad, cross, circle, square, triangle), `"lb"`, `"rb"`, `"lt"`, `"rt"`, `"back"`, `"start"`, `"ls"`, `"rs"` (stick clicks), `"up"`, `"down"`, `"left"`, `"right"` (the d-pad). `pad` counts from 1 in the order the pads connected; without it, any pad counts |
+| `is_gamepad_just_pressed(button [, pad])` / `is_gamepad_just_released(button [, pad])` | True only on the frame the button went down / up |
+| `get_gamepad_axis(axis [, pad])` | `"left_x"`, `"left_y"`, `"right_x"`, `"right_y"`: -1 to 1, +y **down** like the world; `"lt"`, `"rt"` (triggers): 0 to 1. Dead zones are applied (see [input.md](input.md#gamepads)). Without `pad`, the first pad where the axis isn't at rest; 0 without a pad |
+| `get_gamepad_count()` | How many gamepads are connected |
 
 ```lua
 function update(scene_id, entity_id)

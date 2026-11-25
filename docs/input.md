@@ -28,10 +28,33 @@ left button has just gone down, that screen position is also kept as where
 it was pressed (`get_mouse_press_screen_pos`): scripts' buttons are clicked
 when the press and the release are both on them.
 
+## Gamepads
+
+Gamepads come in as `GamepadEvent`s (connected, disconnected, button
+pressed or released, axis moved), which `handle_gamepad_events(events)`
+takes in once per frame, also without events, since it starts the frame
+like `handle_input` does for the keyboard: a button pressed and released
+within one frame is just pressed and just released. A pad that sends input
+before it's announced counts as connected.
+
+Buttons (`GamepadButton`) are named after their place on an Xbox-style pad;
+`parse_gamepad_button` takes the names scripts use (`"a"`, `"lb"`, `"up"`,
+…, and PlayStation names like `"cross"`, see `GAMEPAD_BUTTONS`). Axes
+(`GamepadAxis`, `parse_gamepad_axis`) are the two sticks, from -1 to 1 with
++x right and +y **down** like world coordinates, and the two triggers, from
+0 to 1. Sticks have a round dead zone (`STICK_DEADZONE`, 0.15): closer to
+the middle reads as 0, so diagonals behave like the other directions, and
+past it the value starts again from 0, so there's no jump. Triggers read 0
+below `TRIGGER_DEADZONE` (0.05).
+
+Pads are numbered in the order they connected (from 0 here, from 1 in
+scripts); `None` asks about any pad: a button held on any of them, or an
+axis of the first pad where it isn't at rest.
+
 ## Interactions with other modules
 
 - **Editor** keeps its own handler for viewport camera controls, fed only while the game isn't playing.
-- **`runtime`** owns the game's handler and feeds it every frame in `GameRuntime::update`, deciding the `InputAccess`.
+- **`runtime`** owns the game's handler and feeds it every frame in `GameRuntime::update`, deciding the `InputAccess`, followed by the frame's gamepad events (`GameRuntime::queue_gamepad_events` adds some, for tests).
 - **`scripting`** binds `is_key_just_pressed` etc. for scripts and exposes `get_all_active_inputs()` as a Lua table (`bind_keys_pressed`).
 
 ## Public API overview
@@ -40,6 +63,7 @@ when the press and the release are both on them.
 - **Keyboard**: `is_key_pressed`, `is_key_just_pressed`, `is_key_just_released`
 - **Mouse**: `is_mouse_button_pressed`, `is_mouse_button_just_pressed`, `is_mouse_button_just_released`, `get_mouse_pos` (window coordinates), `get_mouse_delta`, `get_scroll_delta`
 - **Game pointer**: `set_game_pointer(world, screen)`, `get_mouse_world_pos`, `get_mouse_screen_pos`, `get_mouse_press_screen_pos`
+- **Gamepads**: `handle_gamepad_events`, `gamepad_count`, `is_gamepad_pressed`, `is_gamepad_just_pressed`, `is_gamepad_just_released`, `gamepad_axis`
 - **Introspection**: `get_all_active_inputs` — sorted names of held modifiers (`"Ctrl"`, `"Shift"`, `"Alt"`, `"Cmd"` for the macOS Command key), keys (egui names such as `"Space"`, `"A"`, `"ShiftLeft"`) and mouse buttons (`"MouseLeft"`, `"MouseRight"`, `"MouseMiddle"`)
 - **Name lookup**: `parse_key(name)` (egui key names, case-insensitive), `parse_mouse_button(name)` (`"left"`/`"right"`/`"middle"`, optional `"Mouse"` prefix, case-insensitive)
 
@@ -47,4 +71,5 @@ when the press and the release are both on them.
 
 - **`get_mouse_delta` always returns `Some`** — the `Option` is meaningless (unlike `get_scroll_delta`, which returns `None` when zero).
 - A key pressed and released several times within one frame counts once.
-- No rebinding/mapping layer, no gamepad support, no text input — entirely tied to egui's `InputState`.
+- No rebinding/mapping layer and no text input; keyboard and mouse are entirely tied to egui's `InputState`.
+- Gamepads: no rumble, and pads are renumbered when one disconnects (the later ones move up). Analog buttons other than the triggers read as pressed or not.

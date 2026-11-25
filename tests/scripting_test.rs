@@ -2032,4 +2032,59 @@ mod session_tests {
             .unwrap();
         assert_eq!(failures, vec![false; 4]);
     }
+
+    #[test]
+    fn test_gamepad_bindings() {
+        use rust_2d_game_engine::input::{GamepadAxis, GamepadButton, GamepadEvent};
+
+        let session = setup("gamepad_bindings");
+        session.input.borrow_mut().handle_gamepad_events([
+            GamepadEvent::Connected { gamepad: 4 },
+            GamepadEvent::Connected { gamepad: 9 },
+            GamepadEvent::ButtonPressed {
+                gamepad: 9,
+                button: GamepadButton::South,
+            },
+            GamepadEvent::AxisMoved {
+                gamepad: 4,
+                axis: GamepadAxis::LeftStickX,
+                value: -1.0,
+            },
+        ]);
+        let lua = session.lua.lua();
+        let results: String = lua
+            .load(
+                r##"
+                local function show(...)
+                    local shown = {}
+                    for i = 1, select("#", ...) do
+                        shown[i] = tostring((select(i, ...)))
+                    end
+                    return table.concat(shown, " ")
+                end
+                return show(
+                    get_gamepad_count(),
+                    is_gamepad_pressed("a"), is_gamepad_pressed("A", 1), is_gamepad_pressed("a", 2),
+                    is_gamepad_just_pressed("cross"), is_gamepad_just_released("a"),
+                    get_gamepad_axis("left_x"), get_gamepad_axis("left_x", 2), get_gamepad_axis("rt"))
+                "##,
+            )
+            .eval()
+            .unwrap();
+        assert_eq!(results, "2 true false true true false -1.0 0.0 0.0");
+
+        let failures: Vec<bool> = lua
+            .load(
+                r#"
+                return {
+                    (pcall(is_gamepad_pressed, "jump")),
+                    (pcall(is_gamepad_pressed, "a", 0)),
+                    (pcall(get_gamepad_axis, "left")),
+                }
+                "#,
+            )
+            .eval()
+            .unwrap();
+        assert_eq!(failures, vec![false; 3]);
+    }
 }

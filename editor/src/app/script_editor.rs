@@ -58,6 +58,31 @@ const API_GROUPS: &[(&str, &[ApiEntry])] = &[
                 "Returns {x, y} in camera frame pixels, the coordinates draw_text uses",
             ),
             (
+                "is_gamepad_pressed",
+                "is_gamepad_pressed(\"a\")",
+                "True while held on any gamepad (or pad n: is_gamepad_pressed(\"a\", 2)); a b x y lb rb lt rt back start ls rs up down left right",
+            ),
+            (
+                "is_gamepad_just_pressed",
+                "is_gamepad_just_pressed(\"a\")",
+                "True only on the frame the gamepad button goes down",
+            ),
+            (
+                "is_gamepad_just_released",
+                "is_gamepad_just_released(\"a\")",
+                "True only on the frame the gamepad button goes up",
+            ),
+            (
+                "get_gamepad_axis",
+                "get_gamepad_axis(\"left_x\")",
+                "left_x left_y right_x right_y: -1 to 1 (+y is down); lt rt: 0 to 1",
+            ),
+            (
+                "get_gamepad_count",
+                "get_gamepad_count()",
+                "How many gamepads are connected (numbered from 1 in that order)",
+            ),
+            (
                 "get_scroll_delta",
                 "get_scroll_delta()",
                 "Returns {x, y}; zero when not scrolling",
