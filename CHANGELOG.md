@@ -7,6 +7,30 @@ versions may contain breaking changes).
 
 ## [Unreleased]
 
+### Added
+
+- Scripts see releases and mouse clicks: `is_key_just_released`,
+  `is_mouse_just_pressed` and `is_mouse_just_released`.
+- `get_mouse_screen_position()` returns the pointer in the camera frame's
+  pixels, the coordinates `draw_text` uses, e.g. for clickable menus.
+- `InputHandler::handle_input_with` takes in only the input an
+  `InputAccess` allows, `Camera::screen_to_world` inverts `world_to_screen`,
+  and `GameRuntime::input` returns the game's input handler.
+
+### Changed
+
+- `get_mouse_position()` returns the pointer in world coordinates, through
+  the camera, instead of window coordinates, which differed between the
+  editor and exported games. In an exported game whose camera frame starts
+  at (0, 0) and fills the window at its own size, the values are unchanged.
+
+### Fixed
+
+- A key or mouse button pressed and released between two frames was missed;
+  it now counts as just pressed (and just released) in the next frame.
+- While playing in the editor, typing in a text field and clicking the play
+  buttons or panels reached the game as key presses and clicks.
+
 ## [0.5.0] - 2026-11-24
 
 Games with several scenes and prefabs, and trigger zones, collision layers

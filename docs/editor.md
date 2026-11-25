@@ -74,7 +74,10 @@ running game (Play gives the game its own copy). Undo works while playing.
   frame of the scene's default camera.
 
 While playing, the viewport shows the game through the editor's camera, with
-collider outlines drawn over it (View → Collider Outlines turns them off). The
+collider outlines drawn over it (View → Collider Outlines turns them off).
+The game gets the keyboard unless an editor text field has focus (clicking the
+game takes it back), and mouse clicks and scrolling only over the game itself,
+not over panels or the play buttons. The
 red rectangle then shows what the exported game frames: the camera of the
 scene the game is in, where the game's scripts moved it. Paused and Ended keep
 the last frame. The game only advances while the Viewer tab is shown.

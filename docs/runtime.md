@@ -5,9 +5,27 @@ the plumbing between scenes, scripts, physics, audio and rendering. The editor
 and the standalone player ([`src/player.rs`](../src/player.rs)) call
 `update(ctx, ui, viewport_rect)` every frame, which is:
 
-1. feed egui's input into the `InputHandler`,
+1. feed egui's input into the `InputHandler` (see below),
 2. `tick(frame_dt)` — advance the simulation (headless, used directly by tests),
 3. `paint(ui, viewport_rect)` — draw the scene (skipped when stopped).
+
+## Input
+
+`update` registers a click-only "game surface" widget over the viewport, and
+gives the game:
+
+- the keyboard, unless another egui widget has keyboard focus (in the
+  editor: a text field);
+- mouse buttons and the scroll wheel while the surface is the topmost widget
+  under the pointer, or a press that started on it is held. Widgets added
+  later in the frame, like the editor's play buttons, and windows above it
+  keep their clicks.
+
+It then maps the pointer's window position through the camera that paints
+this frame (the free camera, or the game camera fitted into the viewport) and
+records it in the `InputHandler`: in world coordinates, and in the camera
+frame's pixels, the space `draw_text` lays text out in. `input()` returns the
+handler, e.g. for tests.
 
 ## Ownership
 

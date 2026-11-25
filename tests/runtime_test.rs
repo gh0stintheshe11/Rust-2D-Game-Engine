@@ -434,3 +434,182 @@ fn box_y_in(runtime: &GameRuntime, scene_id: Uuid, box_id: Uuid) -> f32 {
         .unwrap()
         .get_y()
 }
+
+/// Run frames through `GameRuntime::update` in an 800 x 700 window whose
+/// top 800 x 600 is the game; `after` adds widgets after the game, the way
+/// the editor draws its play buttons over it.
+struct Window {
+    ctx: egui::Context,
+    text: String,
+}
+
+const GAME_VIEW: egui::Rect =
+    egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(800.0, 600.0));
+
+impl Window {
+    fn new() -> Self {
+        Self {
+            ctx: egui::Context::default(),
+            text: String::new(),
+        }
+    }
+
+    fn frame(
+        &mut self,
+        runtime: &mut GameRuntime,
+        events: Vec<egui::Event>,
+        mut after: impl FnMut(&mut egui::Ui, &mut String),
+    ) {
+        let input = egui::RawInput {
+            events,
+            screen_rect: Some(egui::Rect::from_min_size(
+                egui::Pos2::ZERO,
+                egui::vec2(800.0, 700.0),
+            )),
+            ..Default::default()
+        };
+        let text = &mut self.text;
+        let mut output = self.ctx.run_ui(input, |ui| {
+            let ctx = ui.ctx().clone();
+            runtime.update(&ctx, ui, GAME_VIEW);
+            after(ui, text);
+        });
+        output.textures_delta.clear();
+    }
+}
+
+fn no_widgets(_: &mut egui::Ui, _: &mut String) {}
+
+fn pointer_at(x: f32, y: f32) -> egui::Event {
+    egui::Event::PointerMoved(egui::pos2(x, y))
+}
+
+fn left_button(x: f32, y: f32, pressed: bool) -> egui::Event {
+    egui::Event::PointerButton {
+        pos: egui::pos2(x, y),
+        button: egui::PointerButton::Primary,
+        pressed,
+        modifiers: egui::Modifiers::NONE,
+    }
+}
+
+fn key(key: egui::Key, pressed: bool) -> egui::Event {
+    egui::Event::Key {
+        key,
+        physical_key: None,
+        pressed,
+        repeat: false,
+        modifiers: egui::Modifiers::NONE,
+    }
+}
+
+fn close(actual: (f32, f32), expected: (f32, f32)) -> bool {
+    (actual.0 - expected.0).abs() < 0.01 && (actual.1 - expected.1).abs() < 0.01
+}
+
+#[test]
+fn test_pointer_in_game_coordinates() {
+    // A 400 x 300 camera at zoom 2, centered on (0, 0): it shows 200 x 150
+    // world units, scaled 4 times into the 800 x 600 game view
+    let (mut manager, _) = falling_box_scene();
+    {
+        let scene = manager.get_active_scene_mut().unwrap();
+        let camera_id = scene.default_camera.unwrap();
+        let camera = scene.get_entity_mut(camera_id).unwrap();
+        camera.set_position(0.0, 0.0, 0.0).unwrap();
+        camera.set_camera_size(400.0, 300.0).unwrap();
+        camera.set_camera_zoom(2.0).unwrap();
+    }
+    let mut runtime = runtime(manager);
+    runtime.run().unwrap();
+    let mut window = Window::new();
+
+    window.frame(&mut runtime, vec![pointer_at(600.0, 450.0)], no_widgets);
+    let world = runtime.input().get_mouse_world_pos();
+    let screen = runtime.input().get_mouse_screen_pos();
+    assert!(close(world, (50.0, 37.5)), "world {:?}", world);
+    assert!(
+        close(screen, (300.0, 225.0)),
+        "three quarters into the 400 x 300 frame: {:?}",
+        screen
+    );
+
+    // Seen through the editor's free camera instead
+    runtime.set_camera_mode(CameraMode::Free {
+        position: (10.0, 20.0),
+        zoom: 2.0,
+    });
+    window.frame(&mut runtime, vec![], no_widgets);
+    let world = runtime.input().get_mouse_world_pos();
+    assert!(close(world, (310.0, 245.0)), "world {:?}", world);
+    // Frame pixels follow the world position: (310 + 100, 245 + 75) * 2
+    let screen = runtime.input().get_mouse_screen_pos();
+    assert!(close(screen, (820.0, 640.0)), "screen {:?}", screen);
+}
+
+#[test]
+fn test_editor_widgets_keep_their_input() {
+    let (manager, _) = falling_box_scene();
+    let mut runtime = runtime(manager);
+    runtime.run().unwrap();
+    let mut window = Window::new();
+    let left = egui::PointerButton::Primary;
+    // A button over the game's top-left corner, and a text field below it
+    let widgets = |focus: bool| {
+        move |ui: &mut egui::Ui, text: &mut String| {
+            let button = egui::Rect::from_min_size(egui::pos2(10.0, 10.0), egui::vec2(100.0, 30.0));
+            ui.put(button, egui::Button::new("Pause"));
+            let field = egui::Rect::from_min_size(egui::pos2(10.0, 620.0), egui::vec2(200.0, 30.0));
+            let response = ui.put(field, egui::TextEdit::singleline(text));
+            if focus {
+                response.request_focus();
+            }
+        }
+    };
+
+    // Clicking the button: the game doesn't see it
+    let mut game_saw_click = false;
+    for events in [
+        vec![pointer_at(50.0, 25.0)],
+        vec![],
+        vec![left_button(50.0, 25.0, true)],
+        vec![left_button(50.0, 25.0, false)],
+    ] {
+        window.frame(&mut runtime, events, widgets(false));
+        game_saw_click |= runtime.input().is_mouse_button_just_pressed(left);
+    }
+    assert!(!game_saw_click, "the click was the button's");
+
+    // Clicking the game itself
+    window.frame(&mut runtime, vec![pointer_at(400.0, 300.0)], widgets(false));
+    window.frame(&mut runtime, vec![], widgets(false));
+    window.frame(
+        &mut runtime,
+        vec![left_button(400.0, 300.0, true)],
+        widgets(false),
+    );
+    assert!(runtime.input().is_mouse_button_just_pressed(left));
+    window.frame(
+        &mut runtime,
+        vec![left_button(400.0, 300.0, false)],
+        widgets(false),
+    );
+
+    // Typing into the text field: the game doesn't see the keys
+    window.frame(&mut runtime, vec![], widgets(true));
+    window.frame(&mut runtime, vec![key(egui::Key::A, true)], widgets(false));
+    assert!(!runtime.input().is_key_just_pressed(egui::Key::A));
+    window.frame(&mut runtime, vec![key(egui::Key::A, false)], widgets(false));
+
+    // Clicking the game takes the keyboard back
+    window.frame(
+        &mut runtime,
+        vec![
+            left_button(400.0, 300.0, true),
+            left_button(400.0, 300.0, false),
+        ],
+        widgets(false),
+    );
+    window.frame(&mut runtime, vec![key(egui::Key::B, true)], widgets(false));
+    assert!(runtime.input().is_key_just_pressed(egui::Key::B));
+}

@@ -158,6 +158,7 @@ mod session_tests {
         lua: LuaScripting,
         scene_manager: Rc<RefCell<SceneManager>>,
         physics: Rc<RefCell<PhysicsEngine>>,
+        input: Rc<RefCell<InputHandler>>,
         audio: Rc<RefCell<AudioEngine>>,
         scene_id: uuid::Uuid,
         script_dir: PathBuf,
@@ -209,6 +210,7 @@ mod session_tests {
             lua,
             scene_manager,
             physics: physics_engine,
+            input: input_handler,
             audio: audio_engine,
             scene_id,
             script_dir,
@@ -1717,6 +1719,79 @@ mod session_tests {
                     (pcall(spawn, SCENE, "prefabs/boss", 0, 0)),
                     (pcall(spawn, SCENE, "bullet", 0/0, 0)),
                     (pcall(spawn, "00000000-0000-0000-0000-000000000000", "bullet", 0, 0)),
+                }
+                "#,
+            )
+            .eval()
+            .unwrap();
+        assert_eq!(failures, vec![false; 3]);
+    }
+
+    #[test]
+    fn test_input_bindings_for_presses_releases_and_the_pointer() {
+        use egui::{Event, Key, Modifiers, PointerButton, pos2};
+
+        let session = setup("input_bindings");
+        // One frame in which Space was tapped and the left button clicked
+        let key = |pressed| Event::Key {
+            key: Key::Space,
+            physical_key: None,
+            pressed,
+            repeat: false,
+            modifiers: Modifiers::NONE,
+        };
+        let click = |pressed| Event::PointerButton {
+            pos: pos2(5.0, 5.0),
+            button: PointerButton::Primary,
+            pressed,
+            modifiers: Modifiers::NONE,
+        };
+        let ctx = egui::Context::default();
+        let input = egui::RawInput {
+            events: vec![key(true), key(false), click(true), click(false)],
+            ..Default::default()
+        };
+        let mut output = ctx.run_ui(input, |ui| {
+            ui.ctx()
+                .input(|i| session.input.borrow_mut().handle_input(i));
+        });
+        output.textures_delta.clear();
+        // Where the runtime maps the pointer to
+        session
+            .input
+            .borrow_mut()
+            .set_game_pointer((120.0, -40.5), (60.0, 20.0));
+
+        let result: (bool, bool, bool, bool, bool, bool, f32, f32, f32, f32) = session
+            .lua
+            .lua()
+            .load(
+                r#"
+                local world, screen = get_mouse_position(), get_mouse_screen_position()
+                return is_key_just_pressed("Space"), is_key_just_released("space"),
+                    is_key_pressed("Space"), is_mouse_just_pressed("left"),
+                    is_mouse_just_released("MouseLeft"), is_mouse_pressed("left"),
+                    world.x, world.y, screen.x, screen.y
+                "#,
+            )
+            .eval()
+            .unwrap();
+        assert_eq!(
+            result,
+            (
+                true, true, false, true, true, false, 120.0, -40.5, 60.0, 20.0
+            )
+        );
+
+        let failures: Vec<bool> = session
+            .lua
+            .lua()
+            .load(
+                r#"
+                return {
+                    (pcall(is_key_just_released, "NoSuchKey")),
+                    (pcall(is_mouse_just_pressed, "thumb")),
+                    (pcall(is_mouse_just_released, "thumb")),
                 }
                 "#,
             )

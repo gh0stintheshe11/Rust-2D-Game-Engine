@@ -23,6 +23,11 @@ const API_GROUPS: &[(&str, &[ApiEntry])] = &[
                 "True only on the frame the key goes down (key names are case-insensitive)",
             ),
             (
+                "is_key_just_released",
+                "is_key_just_released(\"Space\")",
+                "True only on the frame the key goes up",
+            ),
+            (
                 "is_key_pressed",
                 "is_key_pressed(\"A\")",
                 "True while the key is held",
@@ -30,12 +35,22 @@ const API_GROUPS: &[(&str, &[ApiEntry])] = &[
             (
                 "is_mouse_pressed",
                 "is_mouse_pressed(\"left\")",
-                "\"left\", \"right\" or \"middle\"",
+                "True while held: \"left\", \"right\" or \"middle\"",
+            ),
+            (
+                "is_mouse_just_pressed",
+                "is_mouse_just_pressed(\"left\")",
+                "True only on the frame the button goes down (also is_mouse_just_released)",
             ),
             (
                 "get_mouse_position",
                 "get_mouse_position()",
-                "Returns {x, y} in window coordinates",
+                "Returns {x, y} in world coordinates: where the pointer is in the game",
+            ),
+            (
+                "get_mouse_screen_position",
+                "get_mouse_screen_position()",
+                "Returns {x, y} in camera frame pixels, the coordinates draw_text uses",
             ),
             (
                 "get_scroll_delta",

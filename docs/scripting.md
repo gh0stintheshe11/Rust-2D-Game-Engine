@@ -104,11 +104,33 @@ Input:
 
 | Function | Notes |
 |---|---|
-| `is_key_just_pressed(key)` | True only on the frame the key went down. Key names are egui's (`"Space"`, `"A"`, `"ArrowUp"`), case-insensitive; unknown names raise an error |
+| `is_key_just_pressed(key)` | True only on the frame the key went down, even if it was released before the frame ended. Key names are egui's (`"Space"`, `"A"`, `"ArrowUp"`), case-insensitive; unknown names raise an error |
+| `is_key_just_released(key)` | True only on the frame the key went up |
 | `is_key_pressed(key)` | True while held |
-| `is_mouse_pressed(button)` | `"left"`, `"right"` or `"middle"` (also `"MouseLeft"` etc.) |
-| `get_mouse_position()` | `{x, y}` in window coordinates |
+| `is_mouse_pressed(button)` | True while held: `"left"`, `"right"` or `"middle"` (also `"MouseLeft"` etc.) |
+| `is_mouse_just_pressed(button)` / `is_mouse_just_released(button)` | True only on the frame the button went down / up |
+| `get_mouse_position()` | `{x, y}` in world coordinates: where the pointer is in the game, through the camera (the same in the editor and in exported games) |
+| `get_mouse_screen_position()` | `{x, y}` in the camera frame's pixels, the coordinates `draw_text` uses: (0, 0) is the frame's top-left corner |
 | `get_scroll_delta()` | `{x, y}`; zero when not scrolling |
+
+```lua
+function update(scene_id, entity_id)
+    -- Shoot towards the pointer
+    if is_mouse_just_pressed("left") then
+        local target = get_mouse_position()
+        local x = get_attribute(scene_id, entity_id, "x")
+        local y = get_attribute(scene_id, entity_id, "y")
+        local bullet = spawn(scene_id, "prefabs/bullet", x, y)
+        local dx, dy = target.x - x, target.y - y
+        local length = math.max(math.sqrt(dx * dx + dy * dy), 1)
+        set_velocity(bullet, dx / length * 400, dy / length * 400)
+    end
+end
+```
+
+In the editor, the game gets the keyboard unless an editor text field has
+focus, and mouse buttons and the scroll wheel only while the pointer is over
+the game, not over panels or the play buttons.
 
 Drawing and animation:
 
@@ -241,7 +263,6 @@ for live error reporting.
 - No `on_destroy` hook.
 - Prefabs are single entities: there are no groups of entities or nested
   prefabs.
-- `get_mouse_position` is in window coordinates, not world coordinates.
 - `script_state` is shared by all scripts; key collisions are the script
   author's problem.
 - Entity ids are strings, re-parsed on every binding call.

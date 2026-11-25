@@ -36,6 +36,16 @@ impl Camera {
         )
     }
 
+    /// The inverse of [`world_to_screen`](Self::world_to_screen): the world
+    /// point at a viewport-relative screen position.
+    pub fn screen_to_world(&self, screen_pos: (f32, f32)) -> (f32, f32) {
+        let zoom = self.zoom.max(f32::MIN_POSITIVE);
+        (
+            screen_pos.0 / zoom + self.position.0,
+            screen_pos.1 / zoom + self.position.1,
+        )
+    }
+
     pub fn reset(&mut self) {
         self.position = (0.0, 0.0);
         self.zoom = 1.0;

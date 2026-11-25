@@ -210,6 +210,17 @@ pub struct CameraFrame {
     pub size: (f32, f32),
 }
 
+impl CameraFrame {
+    /// A world position in the frame's own pixels: (0, 0) is the frame's
+    /// top-left corner, and the frame is [`size`](Self::size) pixels big.
+    pub fn world_to_pixels(&self, world: (f32, f32)) -> (f32, f32) {
+        (
+            (world.0 - self.world_min.0) * self.size.0 / self.world_size.0,
+            (world.1 - self.world_min.1) * self.size.1 / self.world_size.1,
+        )
+    }
+}
+
 /// The scene's default camera frame, or `None` when the scene has no usable
 /// camera (missing, or a size or zoom that isn't positive).
 pub fn camera_frame(scene: &Scene) -> Option<CameraFrame> {

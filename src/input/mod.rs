@@ -1,14 +1,88 @@
 use egui::{Key, PointerButton};
 use std::collections::HashSet;
 
+/// Which parts of a frame's input belong to the game (see
+/// [`InputHandler::handle_input_with`]). An embedder such as the editor
+/// withholds the keyboard while one of its own widgets has keyboard focus,
+/// and the pointer while it is over its own widgets.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct InputAccess {
+    /// Keys and modifiers.
+    pub keyboard: bool,
+    /// Mouse buttons and the scroll wheel. The pointer's position is
+    /// tracked either way.
+    pub pointer: bool,
+}
+
+impl InputAccess {
+    /// All input belongs to the game.
+    pub const ALL: Self = Self {
+        keyboard: true,
+        pointer: true,
+    };
+}
+
+const MOUSE_BUTTONS: [PointerButton; 5] = [
+    PointerButton::Primary,
+    PointerButton::Secondary,
+    PointerButton::Middle,
+    PointerButton::Extra1,
+    PointerButton::Extra2,
+];
+
+/// A set of mouse buttons (`PointerButton` isn't hashable).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct ButtonSet(u8);
+
+impl ButtonSet {
+    fn bit(button: PointerButton) -> u8 {
+        match button {
+            PointerButton::Primary => 1,
+            PointerButton::Secondary => 2,
+            PointerButton::Middle => 4,
+            PointerButton::Extra1 => 8,
+            PointerButton::Extra2 => 16,
+        }
+    }
+
+    fn insert(&mut self, button: PointerButton) {
+        self.0 |= Self::bit(button);
+    }
+
+    fn contains(self, button: PointerButton) -> bool {
+        self.0 & Self::bit(button) != 0
+    }
+
+    /// The buttons in `self` that aren't in `other`.
+    fn difference(self, other: Self) -> Self {
+        Self(self.0 & !other.0)
+    }
+
+    fn union(self, other: Self) -> Self {
+        Self(self.0 | other.0)
+    }
+
+    fn iter(self) -> impl Iterator<Item = PointerButton> {
+        MOUSE_BUTTONS
+            .into_iter()
+            .filter(move |button| self.contains(*button))
+    }
+}
+
 /// Keyboard and mouse state, refreshed once per frame from egui's input.
 #[derive(Clone)]
 pub struct InputHandler {
     keys_pressed: HashSet<Key>,
     keys_just_pressed: HashSet<Key>,
-    mouse_buttons: Vec<PointerButton>,
+    keys_just_released: HashSet<Key>,
+    mouse_buttons: ButtonSet,
+    mouse_just_pressed: ButtonSet,
+    mouse_just_released: ButtonSet,
     mouse_pos: egui::Pos2,
     prev_mouse_pos: egui::Pos2,
+    // The pointer in the game, as the runtime maps it (see set_game_pointer)
+    mouse_world_pos: (f32, f32),
+    mouse_screen_pos: (f32, f32),
     scroll_delta: egui::Vec2,
     modifiers: egui::Modifiers,
 }
@@ -24,66 +98,158 @@ impl InputHandler {
         InputHandler {
             keys_pressed: HashSet::new(),
             keys_just_pressed: HashSet::new(),
-            mouse_buttons: Vec::new(),
+            keys_just_released: HashSet::new(),
+            mouse_buttons: ButtonSet::default(),
+            mouse_just_pressed: ButtonSet::default(),
+            mouse_just_released: ButtonSet::default(),
             mouse_pos: egui::pos2(0.0, 0.0),
             prev_mouse_pos: egui::pos2(0.0, 0.0),
+            mouse_world_pos: (0.0, 0.0),
+            mouse_screen_pos: (0.0, 0.0),
             scroll_delta: egui::vec2(0.0, 0.0),
             modifiers: egui::Modifiers::default(),
         }
     }
 
+    /// Take in a frame's input, all of it.
     pub fn handle_input(&mut self, input: &egui::InputState) {
-        // Store modifiers state
-        self.modifiers = input.modifiers;
+        self.handle_input_with(input, InputAccess::ALL);
+    }
 
-        // Track which keys were just pressed this frame
-        let old_keys = self.keys_pressed.clone();
+    /// Take in the parts of a frame's input that `access` allows; the rest
+    /// counts as released.
+    ///
+    /// Presses and releases come from the frame's events as well as from
+    /// comparing what is held with the previous frame, so a key or button
+    /// pressed and released within one frame is still seen as just pressed
+    /// (and just released).
+    pub fn handle_input_with(&mut self, input: &egui::InputState, access: InputAccess) {
+        self.modifiers = if access.keyboard {
+            input.modifiers
+        } else {
+            egui::Modifiers::NONE
+        };
 
-        // Update key states
-        self.keys_pressed.clear();
+        let old_keys = std::mem::take(&mut self.keys_pressed);
         self.keys_just_pressed.clear();
-
-        input.keys_down.iter().for_each(|key| {
-            self.keys_pressed.insert(*key);
-            if !old_keys.contains(key) {
-                self.keys_just_pressed.insert(*key);
+        self.keys_just_released.clear();
+        if access.keyboard {
+            self.keys_pressed.extend(input.keys_down.iter().copied());
+            for event in &input.events {
+                if let egui::Event::Key {
+                    key,
+                    pressed,
+                    repeat,
+                    ..
+                } = event
+                {
+                    if !pressed {
+                        self.keys_just_released.insert(*key);
+                    } else if !repeat {
+                        self.keys_just_pressed.insert(*key);
+                    }
+                }
             }
-        });
+        }
+        // Changes without an event, e.g. keys withheld or the window losing
+        // focus while they are held
+        self.keys_just_pressed
+            .extend(self.keys_pressed.difference(&old_keys));
+        self.keys_just_released
+            .extend(old_keys.difference(&self.keys_pressed));
 
-        // Update mouse position
+        let old_buttons = std::mem::take(&mut self.mouse_buttons);
+        self.mouse_just_pressed = ButtonSet::default();
+        self.mouse_just_released = ButtonSet::default();
+        if access.pointer {
+            for button in MOUSE_BUTTONS {
+                if input.pointer.button_down(button) {
+                    self.mouse_buttons.insert(button);
+                }
+            }
+            for event in &input.events {
+                if let egui::Event::PointerButton {
+                    button, pressed, ..
+                } = event
+                {
+                    if *pressed {
+                        self.mouse_just_pressed.insert(*button);
+                    } else {
+                        self.mouse_just_released.insert(*button);
+                    }
+                }
+            }
+        }
+        self.mouse_just_pressed = self
+            .mouse_just_pressed
+            .union(self.mouse_buttons.difference(old_buttons));
+        self.mouse_just_released = self
+            .mouse_just_released
+            .union(old_buttons.difference(self.mouse_buttons));
+
+        // The position is tracked even when the pointer is withheld
         self.prev_mouse_pos = self.mouse_pos;
         self.mouse_pos = input.pointer.hover_pos().unwrap_or(self.mouse_pos);
 
-        // Update mouse buttons
-        self.mouse_buttons.clear();
-        if input.pointer.middle_down() {
-            self.mouse_buttons.push(PointerButton::Middle);
-        }
-        if input.pointer.primary_down() {
-            self.mouse_buttons.push(PointerButton::Primary);
-        }
-        if input.pointer.secondary_down() {
-            self.mouse_buttons.push(PointerButton::Secondary);
-        }
-
-        // Update scroll
-        self.scroll_delta = input.smooth_scroll_delta;
+        self.scroll_delta = if access.pointer {
+            input.smooth_scroll_delta
+        } else {
+            egui::Vec2::ZERO
+        };
     }
 
     pub fn is_key_pressed(&self, key: Key) -> bool {
         self.keys_pressed.contains(&key)
     }
 
+    /// True on the frame the key went down.
     pub fn is_key_just_pressed(&self, key: Key) -> bool {
         self.keys_just_pressed.contains(&key)
     }
 
-    pub fn is_mouse_button_pressed(&self, button: PointerButton) -> bool {
-        self.mouse_buttons.contains(&button)
+    /// True on the frame the key went up.
+    pub fn is_key_just_released(&self, key: Key) -> bool {
+        self.keys_just_released.contains(&key)
     }
 
+    pub fn is_mouse_button_pressed(&self, button: PointerButton) -> bool {
+        self.mouse_buttons.contains(button)
+    }
+
+    /// True on the frame the button went down.
+    pub fn is_mouse_button_just_pressed(&self, button: PointerButton) -> bool {
+        self.mouse_just_pressed.contains(button)
+    }
+
+    /// True on the frame the button went up.
+    pub fn is_mouse_button_just_released(&self, button: PointerButton) -> bool {
+        self.mouse_just_released.contains(button)
+    }
+
+    /// The pointer's position in the window (the last known one when it
+    /// isn't over the window).
     pub fn get_mouse_pos(&self) -> egui::Pos2 {
         self.mouse_pos
+    }
+
+    /// Record where the pointer is in the game: in world coordinates, and
+    /// in screen coordinates (the camera frame's pixels, which text is laid
+    /// out in). The runtime calls this every frame.
+    pub fn set_game_pointer(&mut self, world: (f32, f32), screen: (f32, f32)) {
+        self.mouse_world_pos = world;
+        self.mouse_screen_pos = screen;
+    }
+
+    /// The pointer in world coordinates, as last recorded with
+    /// [`set_game_pointer`](Self::set_game_pointer).
+    pub fn get_mouse_world_pos(&self) -> (f32, f32) {
+        self.mouse_world_pos
+    }
+
+    /// The pointer in the camera frame's pixels, as last recorded with
+    /// [`set_game_pointer`](Self::set_game_pointer).
+    pub fn get_mouse_screen_pos(&self) -> (f32, f32) {
+        self.mouse_screen_pos
     }
 
     pub fn get_mouse_delta(&self) -> Option<egui::Vec2> {
@@ -123,7 +289,7 @@ impl InputHandler {
             .chain(
                 self.mouse_buttons
                     .iter()
-                    .map(|b| mouse_button_name(*b).to_string()),
+                    .map(|button| mouse_button_name(button).to_string()),
             )
             .collect();
         inputs.sort();

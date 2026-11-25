@@ -9,7 +9,7 @@ screen space; callers paint them with `paint_sprite`, using GPU textures from
 
 | Item | Responsibility |
 |---|---|
-| `Camera` | `position` = world point at the viewport's top-left, `zoom` = screen pixels per world unit; `world_to_screen` |
+| `Camera` | `position` = world point at the viewport's top-left, `zoom` = screen pixels per world unit; `world_to_screen` and its inverse `screen_to_world` |
 | `RenderEngine` | Owns a `Camera`, the viewport size, and caches of decoded images and GPU textures keyed by file path (`path_to_uuid`) |
 | `RenderQueueEntry` | One sprite: entity, texture, screen position and size, rotation (radians), z |
 | `paint_sprite` | Draws a textured rect, rotated around its center if needed |
@@ -86,7 +86,7 @@ shows:
   are attributes of the camera entity): `world_min` and `world_size`.
 - `size` is the camera's `width` × `height`: the frame's size in its own
   pixels, whatever the zoom. Text drawn over the game is laid out in this
-  space.
+  space; `world_to_pixels` converts a world position into it.
 
 `game_view(scene, viewport_size)` fits that frame into a viewport: scaled
 uniformly and centered; the returned `frame` rect is the part of the viewport

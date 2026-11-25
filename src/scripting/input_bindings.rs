@@ -32,6 +32,13 @@ impl LuaScripting {
         })?;
         globals.set("is_key_just_pressed", is_key_just_pressed)?;
 
+        // is_key_just_released(key): true only on the frame the key went up
+        let input = Rc::clone(input_handler);
+        let is_key_just_released = self.lua.create_function(move |_, name: String| {
+            Ok(input.borrow().is_key_just_released(key(&name)?))
+        })?;
+        globals.set("is_key_just_released", is_key_just_released)?;
+
         // is_key_pressed(key): true while the key is held down
         let input = Rc::clone(input_handler);
         let is_key_pressed = self.lua.create_function(move |_, name: String| {
@@ -39,23 +46,53 @@ impl LuaScripting {
         })?;
         globals.set("is_key_pressed", is_key_pressed)?;
 
-        // is_mouse_pressed("left" | "right" | "middle")
+        // is_mouse_pressed("left" | "right" | "middle"): true while held
         let input = Rc::clone(input_handler);
         let is_mouse_pressed = self.lua.create_function(move |_, name: String| {
             Ok(input.borrow().is_mouse_button_pressed(mouse_button(&name)?))
         })?;
         globals.set("is_mouse_pressed", is_mouse_pressed)?;
 
-        // get_mouse_position() -> {x, y} in window coordinates
+        // is_mouse_just_pressed(button) / is_mouse_just_released(button):
+        // true only on the frame the button went down / up
+        let input = Rc::clone(input_handler);
+        let is_mouse_just_pressed = self.lua.create_function(move |_, name: String| {
+            Ok(input
+                .borrow()
+                .is_mouse_button_just_pressed(mouse_button(&name)?))
+        })?;
+        globals.set("is_mouse_just_pressed", is_mouse_just_pressed)?;
+        let input = Rc::clone(input_handler);
+        let is_mouse_just_released = self.lua.create_function(move |_, name: String| {
+            Ok(input
+                .borrow()
+                .is_mouse_button_just_released(mouse_button(&name)?))
+        })?;
+        globals.set("is_mouse_just_released", is_mouse_just_released)?;
+
+        // get_mouse_position() -> {x, y} in world coordinates: where the
+        // pointer is in the game, through the camera
         let input = Rc::clone(input_handler);
         let get_mouse_position = self.lua.create_function(move |lua, ()| {
-            let pos = input.borrow().get_mouse_pos();
+            let (x, y) = input.borrow().get_mouse_world_pos();
             let table = lua.create_table()?;
-            table.set("x", pos.x)?;
-            table.set("y", pos.y)?;
+            table.set("x", x)?;
+            table.set("y", y)?;
             Ok(table)
         })?;
         globals.set("get_mouse_position", get_mouse_position)?;
+
+        // get_mouse_screen_position() -> {x, y} in the camera frame's pixels,
+        // the coordinates draw_text uses
+        let input = Rc::clone(input_handler);
+        let get_mouse_screen_position = self.lua.create_function(move |lua, ()| {
+            let (x, y) = input.borrow().get_mouse_screen_pos();
+            let table = lua.create_table()?;
+            table.set("x", x)?;
+            table.set("y", y)?;
+            Ok(table)
+        })?;
+        globals.set("get_mouse_screen_position", get_mouse_screen_position)?;
 
         // get_scroll_delta() -> {x, y} (zero when not scrolling)
         let input = Rc::clone(input_handler);

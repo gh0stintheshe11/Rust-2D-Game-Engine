@@ -6,8 +6,13 @@
 //! testable) followed by [`paint`](GameRuntime::paint).
 
 use crate::{
-    audio::AudioEngine, input::InputHandler, logger::LOGGER, physics::PhysicsEngine,
-    render::RenderEngine, scene::SceneManager, scripting::LuaScripting,
+    audio::AudioEngine,
+    input::{InputAccess, InputHandler},
+    logger::LOGGER,
+    physics::PhysicsEngine,
+    render::{Camera, GameView, RenderEngine},
+    scene::{Scene, SceneManager},
+    scripting::LuaScripting,
 };
 use egui::Rect;
 use std::cell::{Ref, RefCell};
@@ -187,8 +192,31 @@ impl GameRuntime {
 
     /// One rendered frame: feed input, advance the game by the frame's real
     /// duration, and paint it (unless stopped).
+    ///
+    /// The game gets the keyboard unless another egui widget has keyboard
+    /// focus (an editor text field, say), and mouse buttons and scrolling
+    /// only while the pointer is over the game itself, not over widgets
+    /// drawn on top of it. Scripts see the pointer in game coordinates,
+    /// through the camera that paints this frame.
     pub fn update(&mut self, ctx: &egui::Context, ui: &mut egui::Ui, viewport_rect: Rect) {
-        ctx.input(|input| self.input_handler.borrow_mut().handle_input(input));
+        // Click-only, so it can't take keyboard focus; widgets added later
+        // in the frame (like the editor's play buttons) are on top of it
+        let surface = ui.interact(
+            viewport_rect,
+            ui.make_persistent_id("game_surface"),
+            egui::Sense::CLICK,
+        );
+        let access = InputAccess {
+            keyboard: !ctx.egui_wants_keyboard_input(),
+            pointer: surface.hovered() || surface.is_pointer_button_down_on(),
+        };
+        ctx.input(|input| {
+            self.input_handler
+                .borrow_mut()
+                .handle_input_with(input, access)
+        });
+        self.update_game_pointer(viewport_rect);
+
         let frame_dt = ctx.input(|i| i.stable_dt);
         self.tick(frame_dt);
         if self.state != RuntimeState::Stopped {
@@ -343,6 +371,38 @@ impl GameRuntime {
         Ok(())
     }
 
+    /// How the active scene appears in a viewport of `viewport_size`: the
+    /// render camera and the viewport-relative frame it fills (smaller than
+    /// the viewport when letterboxed). `None` when the game camera can't be
+    /// used.
+    fn view(&self, scene: &Scene, viewport_size: (f32, f32)) -> Option<GameView> {
+        match self.camera_mode {
+            CameraMode::Free { position, zoom } => Some(GameView {
+                camera: Camera { position, zoom },
+                frame: (0.0, 0.0, viewport_size.0, viewport_size.1),
+            }),
+            CameraMode::Game => crate::render::game_view(scene, viewport_size),
+        }
+    }
+
+    /// Record where the pointer is in the game: in world coordinates
+    /// through this frame's camera, and in the camera frame's pixels.
+    fn update_game_pointer(&mut self, viewport_rect: Rect) {
+        let manager = self.scene_manager.borrow();
+        let Some(scene) = manager.get_active_scene() else {
+            return;
+        };
+        let Some(view) = self.view(scene, (viewport_rect.width(), viewport_rect.height())) else {
+            return;
+        };
+        let mut input = self.input_handler.borrow_mut();
+        let local = input.get_mouse_pos() - viewport_rect.min;
+        let world = view.camera.screen_to_world((local.x, local.y));
+        let screen =
+            crate::render::camera_frame(scene).map_or(world, |frame| frame.world_to_pixels(world));
+        input.set_game_pointer(world, screen);
+    }
+
     /// Paint the active scene into `viewport_rect`, through the current
     /// [`CameraMode`]: sprites, then the text scripts drew this frame, then
     /// collider outlines when enabled with
@@ -354,22 +414,14 @@ impl GameRuntime {
         };
 
         let mut clip_rect = viewport_rect;
-        match self.camera_mode {
-            CameraMode::Free { position, zoom } => {
-                self.render_engine.camera.position = position;
-                self.render_engine.camera.zoom = zoom;
-            }
-            CameraMode::Game => {
-                let viewport_size = (viewport_rect.width(), viewport_rect.height());
-                if let Some(view) = crate::render::game_view(scene, viewport_size) {
-                    self.render_engine.camera = view.camera;
-                    let (x, y, w, h) = view.frame;
-                    clip_rect =
-                        Rect::from_min_size(viewport_rect.min + egui::vec2(x, y), egui::vec2(w, h));
-                    // Letterbox bars around the camera frame
-                    ui.painter()
-                        .rect_filled(viewport_rect, 0.0, egui::Color32::BLACK);
-                }
+        if let Some(view) = self.view(scene, (viewport_rect.width(), viewport_rect.height())) {
+            self.render_engine.camera = view.camera;
+            let (x, y, w, h) = view.frame;
+            clip_rect = Rect::from_min_size(viewport_rect.min + egui::vec2(x, y), egui::vec2(w, h));
+            if self.camera_mode == CameraMode::Game {
+                // Letterbox bars around the camera frame
+                ui.painter()
+                    .rect_filled(viewport_rect, 0.0, egui::Color32::BLACK);
             }
         }
 
@@ -448,6 +500,11 @@ impl GameRuntime {
 
     pub fn get_scene_manager(&self) -> Ref<'_, SceneManager> {
         self.scene_manager.borrow()
+    }
+
+    /// The input the game saw in the last [`update`](Self::update).
+    pub fn input(&self) -> Ref<'_, InputHandler> {
+        self.input_handler.borrow()
     }
 
     /// The scripting session, e.g. to inspect script state in tests.
