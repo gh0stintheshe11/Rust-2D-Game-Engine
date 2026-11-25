@@ -441,26 +441,12 @@ impl GameRuntime {
         // Clip all game drawing to the visible area; the GPU scissor also
         // handles rotated sprites correctly
         let painter = ui.painter().with_clip_rect(clip_rect);
-        for entry in render_queue {
-            let Some(texture) = self
-                .render_engine
-                .get_egui_texture(ui.ctx(), entry.texture_id)
-            else {
-                continue;
-            };
-            let rect = Rect::from_min_size(
-                viewport_rect.min + egui::vec2(entry.screen_pos.0, entry.screen_pos.1),
-                egui::vec2(entry.screen_size.0, entry.screen_size.1),
-            );
-            crate::render::paint_sprite(
-                &painter,
-                texture.id(),
-                rect,
-                entry.uv,
-                entry.tint,
-                entry.rotation,
-            );
-        }
+        let ctx = ui.ctx().clone();
+        crate::render::paint_sprites(&painter, viewport_rect.min, &render_queue, |id| {
+            self.render_engine
+                .get_egui_texture(&ctx, id)
+                .map(|texture| texture.id())
+        });
 
         // Script text is laid out in the camera frame's pixels and scales
         // with the frame, wherever the frame is on screen

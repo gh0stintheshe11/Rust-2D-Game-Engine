@@ -38,6 +38,17 @@ versions may contain breaking changes).
 
 ### Changed
 
+- Faster frames, measured with the new `cargo bench --bench frame`: calling
+  a script's hooks costs about a quarter of what it did (entity and scene ids
+  are passed as cached Lua strings, script files are looked up once per
+  frame, and only scripts with collision hooks track contacts), and drawing
+  sprites about a fifth (consecutive sprites with the same texture are
+  painted as one mesh, texture ids are cached, and looking up a missing
+  attribute no longer allocates). `render::paint_sprites` paints a render
+  queue that way, and `Entity::attribute` looks attributes up without
+  allocating.
+- The editor draws the selection outline over every sprite instead of right
+  above the selected one.
 - `get_mouse_position()` returns the pointer in world coordinates, through
   the camera, instead of window coordinates, which differed between the
   editor and exported games. In an exported game whose camera frame starts

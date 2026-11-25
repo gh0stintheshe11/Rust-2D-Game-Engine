@@ -9,7 +9,7 @@ use crate::logger::LOGGER;
 use crate::physics::{ColliderOutline, ColliderShape};
 use crate::scene::{Entity, Scene};
 use std::collections::{HashMap, HashSet};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
 mod animation;
@@ -102,6 +102,64 @@ pub fn paint_sprite(
     tint: egui::Color32,
     rotation: f32,
 ) {
+    let mut mesh = egui::Mesh::with_texture(texture_id);
+    add_quad(&mut mesh, rect, uv, tint, rotation);
+    painter.add(mesh);
+}
+
+/// Paint render queue entries in order, with as few meshes as possible:
+/// consecutive entries with the same texture share one mesh, which egui
+/// draws in one go. `origin` is the screen position of the viewport the
+/// entries' positions are relative to; `texture` gives the GPU texture of a
+/// [`RenderQueueEntry::texture_id`] (entries without one are skipped).
+pub fn paint_sprites(
+    painter: &egui::Painter,
+    origin: egui::Pos2,
+    entries: &[RenderQueueEntry],
+    mut texture: impl FnMut(Uuid) -> Option<egui::TextureId>,
+) {
+    let mut mesh: Option<egui::Mesh> = None;
+    for entry in entries {
+        let Some(texture_id) = texture(entry.texture_id) else {
+            continue;
+        };
+        if let Some(current) = mesh.take_if(|current| current.texture_id != texture_id) {
+            painter.add(current);
+        }
+        let mesh = mesh.get_or_insert_with(|| egui::Mesh::with_texture(texture_id));
+        add_quad(
+            mesh,
+            entry.screen_rect(origin),
+            entry.uv,
+            entry.tint,
+            entry.rotation,
+        );
+    }
+    if let Some(mesh) = mesh {
+        painter.add(mesh);
+    }
+}
+
+impl RenderQueueEntry {
+    /// The sprite's rect on screen, before rotation, given the screen
+    /// position of the viewport's top-left corner.
+    pub fn screen_rect(&self, origin: egui::Pos2) -> egui::Rect {
+        egui::Rect::from_min_size(
+            origin + egui::vec2(self.screen_pos.0, self.screen_pos.1),
+            egui::vec2(self.screen_size.0, self.screen_size.1),
+        )
+    }
+}
+
+/// Append a textured quad: `uv` of the texture in `rect`, multiplied by
+/// `tint`, rotated by `rotation` radians around the rect's center.
+fn add_quad(
+    mesh: &mut egui::Mesh,
+    rect: egui::Rect,
+    uv: egui::Rect,
+    tint: egui::Color32,
+    rotation: f32,
+) {
     let center = rect.center();
     let (sin, cos) = rotation.sin_cos();
     let corners = [
@@ -118,7 +176,7 @@ pub fn paint_sprite(
         egui::pos2(uv.min.x, uv.max.y),
     ];
 
-    let mut mesh = egui::Mesh::with_texture(texture_id);
+    let first = mesh.vertices.len() as u32;
     for (corner, uv) in corners.iter().zip(uvs) {
         let rel = *corner - center;
         let rotated = egui::vec2(rel.x * cos - rel.y * sin, rel.x * sin + rel.y * cos);
@@ -128,8 +186,8 @@ pub fn paint_sprite(
             color: tint,
         });
     }
-    mesh.indices.extend([0, 1, 2, 0, 2, 3]);
-    painter.add(mesh);
+    mesh.indices
+        .extend([0, 1, 2, 0, 2, 3].map(|index| first + index));
 }
 
 /// Outline color of sensors (trigger zones), whatever their shape.
@@ -285,6 +343,9 @@ pub struct RenderEngine {
     failed_textures: HashSet<Uuid>,
     // Invalid `tint` values already reported
     reported_tints: HashSet<String>,
+    // Texture ids of image paths: hashing a path into its id every frame,
+    // for every sprite, would cost more than drawing it
+    texture_ids: HashMap<PathBuf, Uuid>,
     // Cell size of the editor grid, in world units
     grid_size: f32,
     pub camera: Camera,
@@ -307,6 +368,7 @@ impl RenderEngine {
             egui_textures: HashMap::new(),
             failed_textures: HashSet::new(),
             reported_tints: HashSet::new(),
+            texture_ids: HashMap::new(),
             grid_size: DEFAULT_GRID_SIZE,
             camera: Camera::new(),
         }
@@ -331,8 +393,18 @@ impl RenderEngine {
 
     /// Decode (once) the image at `path` and return its cache key, or `None`
     /// if it can't be loaded. Failures are logged once per path.
+    /// [`path_to_uuid`](Self::path_to_uuid), cached.
+    fn texture_id(&mut self, path: &Path) -> Uuid {
+        if let Some(id) = self.texture_ids.get(path) {
+            return *id;
+        }
+        let id = Self::path_to_uuid(path);
+        self.texture_ids.insert(path.to_path_buf(), id);
+        id
+    }
+
     fn load_texture(&mut self, path: &Path) -> Option<Uuid> {
-        let texture_id = Self::path_to_uuid(path);
+        let texture_id = self.texture_id(path);
         if self.texture_cache.contains_key(&texture_id) {
             return Some(texture_id);
         }
@@ -519,6 +591,7 @@ impl RenderEngine {
         self.texture_cache.clear();
         self.egui_textures.clear();
         self.failed_textures.clear();
+        self.texture_ids.clear();
     }
 
     /// Bytes of decoded image data held in the cache.

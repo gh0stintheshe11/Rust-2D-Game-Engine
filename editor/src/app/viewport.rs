@@ -286,38 +286,29 @@ impl EditorApp {
             _ => None,
         };
 
-        for entry in &render_queue {
-            if let Some(texture) = self
-                .render_engine
-                .get_egui_texture(ui.ctx(), entry.texture_id)
-            {
-                let rect = egui::Rect::from_min_size(
-                    egui::pos2(
-                        content_rect.min.x + entry.screen_pos.0,
-                        content_rect.min.y + entry.screen_pos.1,
-                    ),
-                    egui::vec2(entry.screen_size.0, entry.screen_size.1),
-                );
+        let ctx = ui.ctx().clone();
+        rust_2d_game_engine::render::paint_sprites(
+            ui.painter(),
+            content_rect.min,
+            &render_queue,
+            |id| {
+                self.render_engine
+                    .get_egui_texture(&ctx, id)
+                    .map(|texture| texture.id())
+            },
+        );
 
-                rust_2d_game_engine::render::paint_sprite(
-                    ui.painter(),
-                    texture.id(),
-                    rect,
-                    entry.uv,
-                    entry.tint,
-                    entry.rotation,
-                );
-
-                // Selection highlight
-                if selected_entity == Some(entry.entity_id) {
-                    ui.painter().rect_stroke(
-                        rect,
-                        0.0,
-                        egui::Stroke::new(2.0_f32, egui::Color32::from_rgb(255, 200, 0)),
-                        egui::StrokeKind::Outside,
-                    );
-                }
-            }
+        // Selection highlight, over every sprite
+        if let Some(entry) = render_queue
+            .iter()
+            .find(|entry| Some(entry.entity_id) == selected_entity)
+        {
+            ui.painter().rect_stroke(
+                entry.screen_rect(content_rect.min),
+                0.0,
+                egui::Stroke::new(2.0_f32, egui::Color32::from_rgb(255, 200, 0)),
+                egui::StrokeKind::Outside,
+            );
         }
 
         // Then draw the game camera bounds
