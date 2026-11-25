@@ -16,9 +16,9 @@ standalone executable.
 |---|---|
 | Editor | Scene hierarchy, inspector, file browser, Lua script editor with live syntax checking and an API palette, click-to-select and drag-to-move in the viewport, tilemap painting, undo/redo, play/pause/reset, console |
 | Scenes | Scenes made of entities with named, typed attributes (numbers, booleans, strings, vectors); saved as portable JSON. Tilemaps (grids of tiles from a tileset image). Games switch scenes while playing (title screen, levels) and spawn copies of template entities (prefabs) |
-| Physics | rapier2d bodies and colliders built from entity attributes: dynamic, kinematic and fixed bodies, rotation, gravity scale, gravity fields, trigger zones, collision layers, raycasts, collision events; tilemaps collide as one smooth surface |
+| Physics | rapier2d bodies and colliders built from entity attributes: dynamic, kinematic and fixed bodies, rotation, gravity scale, gravity fields, trigger zones, collision layers, raycasts, collision events; tilemaps collide as one smooth surface, with one-way platforms |
 | Scripting | Lua 5.4 scripts per entity with `init` / `update` / `on_collision` / `on_collision_end` hooks, save data kept between runs, hot reload while playing, and a sandbox |
-| Rendering | Sprites with rotation, scale, z-order, mirroring, opacity and tint; sprite sheet animation; tilemaps, drawing only the tiles on screen; text over the game; camera framing with letterboxing |
+| Rendering | Sprites with rotation, scale, z-order, mirroring, opacity and tint; sprite sheet animation; tilemaps, drawing only the tiles on screen; particles; text, panels, images and buttons over the game; camera framing with letterboxing |
 | Audio | Sound effects and looping music with per-sound and master volume (wav, ogg, mp3, flac); runs fine without an audio device |
 | Export | One click builds a standalone game for your platform |
 
@@ -106,8 +106,7 @@ builds and publishes the editor binaries.
 
 ## Status
 
-The engine is young: it has a small API, and no particles or UI widgets
-(buttons, menus) for games yet. The "Known limitations" sections of
+The engine is young and its API small. The "Known limitations" sections of
 the [docs](docs/README.md) list what's missing per module.
 
 ## License and credits
