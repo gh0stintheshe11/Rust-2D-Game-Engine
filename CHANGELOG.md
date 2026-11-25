@@ -14,7 +14,10 @@ versions may contain breaking changes).
   one mesh; with `has_collision` the tiles form one voxel collider, so bodies
   slide along rows of tiles without catching on their edges. Scripts read and
   change tiles with `get_tile`, `set_tile` (which rebuilds the collider) and
-  `get_tile_cell`. Scene files store a map as readable rows.
+  `get_tile_cell`. Scene files store a map as readable rows. In the editor,
+  Create → Tilemap makes one, and its inspector section picks the tileset
+  and offers a palette and a paint mode: left-drag paints in the viewport,
+  one undo step per stroke.
 
 - Scripts see releases and mouse clicks: `is_key_just_released`,
   `is_mouse_just_pressed` and `is_mouse_just_released`.

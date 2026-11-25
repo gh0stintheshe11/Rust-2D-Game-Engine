@@ -1,8 +1,12 @@
-use crate::state::{GuiState, SelectedItem};
+use crate::project::AssetType;
+use crate::state::{GuiState, SelectedItem, TileBrush};
 use eframe::egui;
 use rust_2d_game_engine::audio::AudioEngine;
 use rust_2d_game_engine::logger::LOGGER;
-use rust_2d_game_engine::scene::{AttributeType, AttributeValue, Entity, attribute_presets};
+use rust_2d_game_engine::render::sheet_frame;
+use rust_2d_game_engine::scene::{
+    AttributeType, AttributeValue, Entity, Tilemap, attribute_presets,
+};
 use std::fs;
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
@@ -32,6 +36,12 @@ struct NewAttribute {
 /// A decoded image preview, or `None` if the file couldn't be decoded.
 type ImagePreview = Option<(egui::TextureHandle, (u32, u32))>;
 
+/// Most tiles the palette shows.
+const MAX_PALETTE_TILES: u32 = 512;
+
+/// Side of a tile button in the palette, in points.
+const PALETTE_TILE_SIZE: f32 = 32.0;
+
 pub struct Inspector {
     editing: Option<FieldEdit>,
     new_attribute: Option<NewAttribute>,
@@ -45,6 +55,8 @@ pub struct Inspector {
     // decoded from disk every frame (failures are cached too)
     preview_image: Option<(PathBuf, ImagePreview)>,
     preview_audio_duration: Option<(PathBuf, Option<f32>)>,
+    // The selected tilemap's tileset, for the palette
+    tileset_preview: Option<(PathBuf, ImagePreview)>,
     // Snippet queued for the script editor (clicking an attribute name)
     pending_script_insert: Option<String>,
 }
@@ -66,6 +78,7 @@ impl Inspector {
             audio_engine: AudioEngine::new(),
             preview_image: None,
             preview_audio_duration: None,
+            tileset_preview: None,
             pending_script_insert: None,
         }
     }
@@ -81,6 +94,7 @@ impl Inspector {
         self.data_updated = false;
         self.preview_image = None;
         self.preview_audio_duration = None;
+        self.tileset_preview = None;
         self.pending_script_insert = None;
     }
 
@@ -357,6 +371,18 @@ impl Inspector {
             self.show_new_attribute_popup(ctx, entity);
         }
 
+        if entity.tilemap.is_some() {
+            ui.separator();
+            self.show_tilemap_section(
+                ui,
+                ctx,
+                entity,
+                &gui_state.project_path,
+                &mut gui_state.tile_brush,
+                &mut gui_state.painting_tiles,
+            );
+        }
+
         ui.separator();
         ui.label("Images:");
         for path in &entity.images {
@@ -367,6 +393,178 @@ impl Inspector {
         for path in &entity.sounds {
             ui.label(path.to_string_lossy());
         }
+    }
+
+    /// An entity's tilemap: its tileset and tile size, and the paint mode and
+    /// palette that paint it in the viewport.
+    fn show_tilemap_section(
+        &mut self,
+        ui: &mut egui::Ui,
+        ctx: &egui::Context,
+        entity: &mut Entity,
+        project_path: &Path,
+        brush: &mut TileBrush,
+        painting: &mut bool,
+    ) {
+        let Some(tilemap) = entity.tilemap.as_mut() else {
+            return;
+        };
+        ui.strong("Tilemap");
+
+        let current = tilemap
+            .tileset
+            .file_name()
+            .map_or("Choose an image…".to_string(), |name| {
+                name.to_string_lossy().into_owned()
+            });
+        egui::ComboBox::from_label("Tileset")
+            .selected_text(current)
+            .show_ui(ui, |ui| {
+                // Listed only while the list is open
+                for image in project_images(project_path) {
+                    let name = image
+                        .strip_prefix(project_path.join("assets").join("images"))
+                        .unwrap_or(&image)
+                        .to_string_lossy()
+                        .into_owned();
+                    if ui
+                        .selectable_label(tilemap.tileset == image, name)
+                        .clicked()
+                    {
+                        tilemap.tileset = image;
+                        self.data_updated = true;
+                    }
+                }
+            });
+
+        ui.horizontal(|ui| {
+            ui.label("Tile size");
+            let mut size = tilemap.tile_size;
+            let width = ui.add(
+                egui::DragValue::new(&mut size.0)
+                    .range(1..=1024)
+                    .suffix(" px"),
+            );
+            ui.label("×");
+            let height = ui.add(
+                egui::DragValue::new(&mut size.1)
+                    .range(1..=1024)
+                    .suffix(" px"),
+            );
+            tilemap.tile_size = size;
+            // One undo step per change, not one per frame of a drag
+            let done = |response: &egui::Response| {
+                response.drag_stopped() || (response.changed() && !response.dragged())
+            };
+            if done(&width) || done(&height) {
+                self.data_updated = true;
+            }
+        });
+        ui.label(format!("{} tiles", tilemap.tile_count()));
+
+        // Tiles painted without a tileset would be invisible, yet solid
+        let has_tileset = !tilemap.tileset.as_os_str().is_empty();
+        ui.add_enabled_ui(has_tileset, |ui| {
+            ui.horizontal(|ui| {
+                ui.toggle_value(painting, "🖌 Paint")
+                    .on_hover_text(
+                        "Left-drag in the viewport to paint with the selected tile; Esc stops",
+                    )
+                    .on_disabled_hover_text("Choose a tileset first");
+                if ui
+                    .selectable_label(*brush == TileBrush::Eraser, "Eraser")
+                    .clicked()
+                {
+                    *brush = TileBrush::Eraser;
+                }
+            });
+        });
+        self.show_tile_palette(ui, ctx, tilemap, brush);
+    }
+
+    /// The tileset's tiles as buttons; clicking one makes it the brush.
+    fn show_tile_palette(
+        &mut self,
+        ui: &mut egui::Ui,
+        ctx: &egui::Context,
+        tilemap: &Tilemap,
+        brush: &mut TileBrush,
+    ) {
+        if tilemap.tileset.as_os_str().is_empty() {
+            ui.label("Choose a tileset to paint with.");
+            return;
+        }
+        let Some((texture, image_size)) = self.tileset_texture(ctx, &tilemap.tileset) else {
+            ui.colored_label(egui::Color32::RED, "The tileset can't be loaded.");
+            return;
+        };
+        let tile = (tilemap.tile_size.0 as f32, tilemap.tile_size.1 as f32);
+        let columns = (image_size.0 / tilemap.tile_size.0).max(1);
+        let rows = (image_size.1 / tilemap.tile_size.1).max(1);
+        let count = columns.saturating_mul(rows);
+        // The brush is one of this tileset's tiles (it may come from a
+        // larger one)
+        if matches!(*brush, TileBrush::Tile(number) if number >= count) {
+            *brush = TileBrush::Tile(0);
+        }
+        ui.horizontal_wrapped(|ui| {
+            ui.spacing_mut().item_spacing = egui::vec2(2.0, 2.0);
+            for number in 0..count.min(MAX_PALETTE_TILES) {
+                let (uv, _) = sheet_frame(image_size, tile, number as i64);
+                let image =
+                    egui::Image::new((texture.id(), egui::Vec2::splat(PALETTE_TILE_SIZE))).uv(uv);
+                let selected = *brush == TileBrush::Tile(number);
+                if ui
+                    .add(egui::Button::image(image).selected(selected))
+                    .on_hover_text(format!("Tile {}", number))
+                    .clicked()
+                {
+                    *brush = TileBrush::Tile(number);
+                }
+            }
+        });
+        if count > MAX_PALETTE_TILES {
+            ui.label(format!(
+                "The first {} of {} tiles",
+                MAX_PALETTE_TILES, count
+            ));
+        }
+    }
+
+    /// The tileset as a texture, and its size in pixels; cached per path.
+    fn tileset_texture(
+        &mut self,
+        ctx: &egui::Context,
+        path: &Path,
+    ) -> Option<(egui::TextureHandle, (u32, u32))> {
+        if self
+            .tileset_preview
+            .as_ref()
+            .map(|(cached, _)| cached.as_path())
+            != Some(path)
+        {
+            let max_side = ctx.input(|i| i.max_texture_side) as u32;
+            let loaded = image::open(path).ok().map(|image| {
+                let size = (image.width(), image.height());
+                // The texture may be smaller than the image; tile positions
+                // are fractions, so the palette still finds them
+                let image = if size.0 > max_side || size.1 > max_side {
+                    image.resize(max_side, max_side, image::imageops::FilterType::Triangle)
+                } else {
+                    image
+                };
+                let rgba = image.to_rgba8();
+                let pixels = egui::ColorImage::from_rgba_unmultiplied(
+                    [rgba.width() as usize, rgba.height() as usize],
+                    rgba.as_raw(),
+                );
+                let texture =
+                    ctx.load_texture("tileset_palette", pixels, egui::TextureOptions::NEAREST);
+                (texture, size)
+            });
+            self.tileset_preview = Some((path.to_path_buf(), loaded));
+        }
+        self.tileset_preview.as_ref()?.1.clone()
     }
 
     /// The presets menu: one submenu per group; choosing a preset adds the
@@ -581,6 +779,33 @@ impl Inspector {
 
 /// Parse `text` as the attribute's current type and store it. Returns
 /// whether the value changed; invalid input is reported and ignored.
+/// The project's images (`assets/images` and its folders), sorted.
+fn project_images(project_path: &Path) -> Vec<PathBuf> {
+    let extensions = AssetType::Image.valid_extensions();
+    let mut images = Vec::new();
+    let mut folders = vec![project_path.join("assets").join("images")];
+    while let Some(folder) = folders.pop() {
+        let Ok(entries) = fs::read_dir(&folder) else {
+            continue;
+        };
+        for path in entries.flatten().map(|entry| entry.path()) {
+            if path.is_dir() {
+                folders.push(path);
+            } else if path
+                .extension()
+                .and_then(|extension| extension.to_str())
+                .is_some_and(|extension| {
+                    extensions.contains(&extension.to_ascii_lowercase().as_str())
+                })
+            {
+                images.push(path);
+            }
+        }
+    }
+    images.sort();
+    images
+}
+
 fn apply_text(entity: &mut Entity, attribute_id: Uuid, text: &str) -> bool {
     let Ok(attribute) = entity.get_attribute(attribute_id) else {
         return false;

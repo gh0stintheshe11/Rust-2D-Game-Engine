@@ -64,6 +64,8 @@ pub struct EditorApp {
     allow_close: bool,
     // Entity being moved in the viewport: (entity id, world-space grab offset)
     viewport_drag: Option<(uuid::Uuid, (f32, f32))>,
+    // The tilemap stroke being painted in the viewport
+    tile_stroke: Option<viewport::TileStroke>,
 }
 
 impl EditorApp {
@@ -109,6 +111,7 @@ impl EditorApp {
             reset_editor_cursor: false,
             allow_close: false,
             viewport_drag: None,
+            tile_stroke: None,
         }
     }
 
@@ -245,6 +248,7 @@ impl EditorApp {
             )));
         self.render_engine.cleanup();
         self.viewport_drag = None;
+        self.tile_stroke = None;
         self.inspector.reset();
         self.scene_hierarchy.popup_manager.close_all();
         self.file_system.reset();
@@ -1094,5 +1098,166 @@ mod tests {
         app.gui_state.clear_save_data_requested = true;
         run_frames(&mut app, &ctx, 1280.0, 1);
         assert!(!save.exists());
+    }
+
+    #[test]
+    fn test_tilemaps_are_created_and_painted() {
+        use crate::state::{SelectedItem, TileBrush};
+
+        let (ctx, mut app, project) = app_with_project();
+        // A tileset of two 32 x 32 tiles
+        let tileset = project.join("assets").join("images").join("tiles.png");
+        image::RgbaImage::new(64, 32).save(&tileset).unwrap();
+        let scene_id = app
+            .gui_state
+            .scene_manager
+            .as_ref()
+            .unwrap()
+            .active_scene
+            .unwrap();
+        app.gui_state.select_scene(scene_id);
+        let left = egui::PointerButton::Primary;
+
+        // Create > Tilemap
+        let popup = &mut app.scene_hierarchy.popup_manager;
+        popup.create_popup_active = true;
+        popup.create_item_name = "ground".to_string();
+        // A new window is laid out invisibly in its first frame
+        frame_with(&mut app, &ctx, vec![]);
+        let output = frame_with(&mut app, &ctx, vec![]);
+        let output = click_label(&mut app, &ctx, &output, "Tilemap", left);
+        click_label(&mut app, &ctx, &output, "Create", left);
+        let SelectedItem::Entity(_, ground) = app.gui_state.selected_item else {
+            panic!("the new tilemap is selected");
+        };
+        let entity = |app: &EditorApp| {
+            let manager = app.gui_state.scene_manager.as_ref().unwrap();
+            manager
+                .get_scene(scene_id)
+                .unwrap()
+                .get_entity(ground)
+                .unwrap()
+                .clone()
+        };
+        assert!(entity(&app).tilemap.is_some());
+        assert_eq!(entity(&app).get_bool("has_collision"), Some(true), "solid");
+
+        // Paint mode needs a tileset: tiles without one would be invisible
+        let output = frame_with(&mut app, &ctx, vec![]);
+        let output = click_label(&mut app, &ctx, &output, "🖌 Paint", left);
+        assert!(!app.gui_state.painting_tiles, "no tileset yet");
+
+        // Inspector: pick the tileset, turn on paint mode
+        let output = click_label(&mut app, &ctx, &output, "Choose an image…", left);
+        let output = click_label(&mut app, &ctx, &output, "tiles.png", left);
+        assert_eq!(entity(&app).tilemap.unwrap().tileset, tileset);
+        click_label(&mut app, &ctx, &output, "🖌 Paint", left);
+        assert!(app.gui_state.painting_tiles);
+        assert_eq!(app.gui_state.tile_brush, TileBrush::Tile(0));
+        // A brush from a larger tileset becomes one of this one's tiles
+        app.gui_state.tile_brush = TileBrush::Tile(99);
+
+        // Drag across five cells of row 0; the hint shows where the view is
+        let output = frame_with(&mut app, &ctx, vec![]);
+        assert_eq!(app.gui_state.tile_brush, TileBrush::Tile(0));
+        let hint =
+            label_rect(&output, "🖌 Painting 'ground' · Esc to stop").expect("the paint hint");
+        let view_origin = hint.min - egui::vec2(8.0, 36.0);
+        let camera = app.render_engine.camera;
+        let on_screen = |x: f32, y: f32| {
+            let (sx, sy) = camera.world_to_screen((x, y));
+            view_origin + egui::vec2(sx, sy)
+        };
+        let undo_steps = app.gui_state.undo_stack.can_undo();
+        let from = on_screen(16.0, 16.0);
+        drag(
+            &mut app,
+            &ctx,
+            from,
+            on_screen(144.0, 16.0) - from,
+            egui::Modifiers::NONE,
+        );
+        let map = entity(&app).tilemap.unwrap();
+        assert_eq!(
+            map.tiles().collect::<Vec<_>>(),
+            (0..5).map(|column| ((column, 0), 0)).collect::<Vec<_>>()
+        );
+        assert!(undo_steps && app.gui_state.undo_stack.can_undo());
+
+        // The eraser clears cells
+        app.gui_state.tile_brush = TileBrush::Eraser;
+        let from = on_screen(48.0, 16.0);
+        drag(
+            &mut app,
+            &ctx,
+            from,
+            on_screen(80.0, 16.0) - from,
+            egui::Modifiers::NONE,
+        );
+        assert_eq!(entity(&app).tilemap.unwrap().tile_count(), 3);
+
+        // One undo step per stroke
+        app.gui_state.undo();
+        app.gui_state.select_entity(scene_id, ground);
+        assert_eq!(entity(&app).tilemap.unwrap().tile_count(), 5);
+
+        // Esc ends paint mode
+        frame_with(
+            &mut app,
+            &ctx,
+            vec![key_press(egui::Key::Escape, egui::Modifiers::NONE)],
+        );
+        assert!(!app.gui_state.painting_tiles);
+
+        // With paint mode on but the tilemap not selected, dragging it moves
+        // it, even once the drag has selected it
+        app.gui_state.tile_brush = TileBrush::Tile(1);
+        app.gui_state.painting_tiles = true;
+        app.gui_state.clear_selection();
+        let from = on_screen(16.0, 16.0);
+        drag(
+            &mut app,
+            &ctx,
+            from,
+            on_screen(16.0, 80.0) - from,
+            egui::Modifiers::NONE,
+        );
+        assert!(matches!(
+            app.gui_state.selected_item,
+            SelectedItem::Entity(_, id) if id == ground
+        ));
+        assert_eq!((entity(&app).get_x(), entity(&app).get_y()), (0.0, 64.0));
+        assert_eq!(entity(&app).tilemap.unwrap().tile_count(), 5, "not painted");
+        // The next drag paints, into row 1 of the moved map
+        let from = on_screen(16.0, 112.0);
+        drag(
+            &mut app,
+            &ctx,
+            from,
+            on_screen(48.0, 112.0) - from,
+            egui::Modifiers::NONE,
+        );
+        let map = entity(&app).tilemap.unwrap();
+        assert_eq!(
+            (map.get(0, 1), map.get(1, 1), map.tile_count()),
+            (Some(1), Some(1), 7)
+        );
+
+        // A tilemap without a tileset isn't painted, even in paint mode
+        {
+            let manager = app.gui_state.scene_manager.as_mut().unwrap();
+            let scene = manager.get_scene_mut(scene_id).unwrap();
+            let entity = scene.get_entity_mut(ground).unwrap();
+            entity.tilemap.as_mut().unwrap().tileset = std::path::PathBuf::new();
+        }
+        let from = on_screen(16.0, 144.0);
+        drag(
+            &mut app,
+            &ctx,
+            from,
+            on_screen(48.0, 144.0) - from,
+            egui::Modifiers::NONE,
+        );
+        assert_eq!(entity(&app).tilemap.unwrap().tile_count(), 7);
     }
 }

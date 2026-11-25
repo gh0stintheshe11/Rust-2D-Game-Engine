@@ -69,6 +69,19 @@ console.
   holds JSON with project-relative paths (see [project.md](project.md)), so
   entities can be pasted into another project that has the same assets. The
   shortcuts apply when no text field has focus and the game isn't playing.
+- **Tilemaps**: Create → Tilemap adds an entity with an empty tilemap of
+  32 px tiles and `has_collision` (a solid ground; turn it off for
+  decoration). Its inspector section picks the tileset among the project's
+  images, sets the tile size, counts the tiles, and has a palette of the
+  tileset's tiles (the first 512) plus an Eraser. Once the tilemap has a
+  tileset (tiles painted without one would be invisible, yet solid),
+  🖌 Paint turns on paint mode for the selected tilemap: left-drag in the
+  viewport paints the chosen tile (or erases) into the cells under the
+  pointer, filling the cells between two frames' positions; each stroke is
+  one undo step. The cell under the pointer is outlined, selecting and
+  dragging entities is off (a drag that began before, like the one that
+  selected the tilemap, still moves it), right-drag still pans, and Esc ends
+  paint mode. See [scene.md](scene.md#tilemaps).
 - **Presets**: the inspector's Add Feature menu adds the attributes an engine
   feature needs, with working values: physics (physics, static or kinematic
   body, trigger zone, collision layers, collider size, circle collider,
@@ -134,6 +147,8 @@ a window.
 
 - No multi-select, drag-and-drop of assets, or gizmos (rotation/scale
   handles).
+- Tilemaps are painted cell by cell: there are no rectangle or flood fills,
+  brushes of several tiles, or automatic tile borders (auto-tiling).
 - Grid settings (snapping, size) aren't saved: every session starts with
   snapping on and 32 px cells.
 - `rfd` file dialogs block the UI while open.

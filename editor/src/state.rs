@@ -12,6 +12,15 @@ use uuid::Uuid;
 /// name it would otherwise exactly cover, in world units along x and y.
 pub const COPY_OFFSET: f32 = 16.0;
 
+/// What painting a tilemap puts in a cell.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TileBrush {
+    /// This tile of the tileset
+    Tile(u32),
+    /// Nothing: empties the cell
+    Eraser,
+}
+
 /// What the inspector shows.
 pub enum SelectedItem {
     None,
@@ -138,6 +147,9 @@ pub struct GuiState {
     pub snap_to_grid: bool,
     /// The viewport grid's cell size, in world units
     pub grid_size: f32,
+    /// Left-dragging in the viewport paints the selected tilemap
+    pub painting_tiles: bool,
+    pub tile_brush: TileBrush,
 
     pub selected_item: SelectedItem,
     pub scene_panel_selected_item: ScenePanelSelectedItem,
@@ -200,6 +212,8 @@ impl GuiState {
             show_colliders: true,
             snap_to_grid: true,
             grid_size: rust_2d_game_engine::render::DEFAULT_GRID_SIZE,
+            painting_tiles: false,
+            tile_brush: TileBrush::Tile(0),
 
             selected_item: SelectedItem::None,
             scene_panel_selected_item: ScenePanelSelectedItem::None,

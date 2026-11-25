@@ -1,8 +1,11 @@
 use crate::state::GuiState;
 use rust_2d_game_engine::logger::LOGGER;
-use rust_2d_game_engine::scene::SceneManager;
+use rust_2d_game_engine::scene::{AttributeValue, SceneManager, Tilemap};
 use std::path::Path;
 use uuid::Uuid;
+
+/// Tile width and height of a new tilemap, in pixels.
+const DEFAULT_TILE_SIZE: u32 = 32;
 
 /// What the rename popup renames.
 #[derive(Clone, Copy)]
@@ -178,6 +181,7 @@ impl PopupManager {
                         ("Entity", "Entity"),
                         ("Camera", "Camera"),
                         ("Physics", "Physics"),
+                        ("Tilemap", "Tilemap"),
                     ];
 
                     for (type_name, label) in all_item_types {
@@ -235,6 +239,7 @@ impl PopupManager {
             "Entity" => self.create_new_entity(gui_state, "Empty"),
             "Camera" => self.create_new_entity(gui_state, "Camera"),
             "Physics" => self.create_new_entity(gui_state, "Physics"),
+            "Tilemap" => self.create_new_entity(gui_state, "Tilemap"),
             _ => {}
         }
 
@@ -306,6 +311,18 @@ impl PopupManager {
             "Physics" => scene.create_entity(&name).inspect(|entity_id| {
                 if let Ok(entity) = scene.get_entity_mut(*entity_id) {
                     entity.add_physics_attributes();
+                }
+            }),
+            // Solid, like a ground; turning has_collision off makes it
+            // decoration. The tileset is chosen in the inspector.
+            "Tilemap" => scene.create_entity(&name).inspect(|entity_id| {
+                if let Ok(entity) = scene.get_entity_mut(*entity_id) {
+                    let _ = entity
+                        .set_or_create_attribute("has_collision", AttributeValue::Boolean(true));
+                    entity.tilemap = Some(Tilemap::new(
+                        std::path::PathBuf::new(),
+                        (DEFAULT_TILE_SIZE, DEFAULT_TILE_SIZE),
+                    ));
                 }
             }),
             _ => scene.create_entity(&name),

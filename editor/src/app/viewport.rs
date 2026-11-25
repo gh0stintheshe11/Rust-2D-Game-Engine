@@ -346,6 +346,22 @@ impl EditorApp {
             egui::Sense::click_and_drag(),
         );
 
+        // A move whose end this view missed (it wasn't shown then) is over
+        if !response.dragged() && !response.drag_stopped() && self.viewport_drag.take().is_some() {
+            self.gui_state.commit_change();
+        }
+
+        // Painting a tilemap takes the place of selecting and dragging. A
+        // drag that began before, like the one that selected the tilemap,
+        // stays a move until it ends.
+        if self.viewport_drag.is_none()
+            && let Some(tilemap_id) = self.painted_tilemap(active_scene_id)
+        {
+            self.paint_tiles(ui, &response, content_rect, active_scene_id, tilemap_id);
+            return;
+        }
+        self.finish_tile_stroke();
+
         let alt_held = ui.ctx().input(|i| i.modifiers.alt);
         let zoom = self.render_engine.camera.zoom.max(0.0001);
 
@@ -438,10 +454,175 @@ impl EditorApp {
         }
     }
 
+    /// The tilemap being painted: the selected entity, when paint mode is on
+    /// and it is a tilemap with a tileset in the scene the viewport shows.
+    /// Without a tileset, painted tiles would be invisible, yet solid.
+    fn painted_tilemap(&self, active_scene_id: uuid::Uuid) -> Option<uuid::Uuid> {
+        let crate::state::SelectedItem::Entity(scene_id, entity_id) = self.gui_state.selected_item
+        else {
+            return None;
+        };
+        let entity = self
+            .gui_state
+            .scene_manager
+            .as_ref()?
+            .get_scene(scene_id)?
+            .get_entity(entity_id)
+            .ok()?;
+        let has_tileset = entity
+            .tilemap
+            .as_ref()
+            .is_some_and(|tilemap| !tilemap.tileset.as_os_str().is_empty());
+        (self.gui_state.painting_tiles && scene_id == active_scene_id && has_tileset)
+            .then_some(entity_id)
+    }
+
+    /// Paint mode: the left button paints the brush into the cells under
+    /// the pointer, one undo step per stroke; Esc ends paint mode.
+    fn paint_tiles(
+        &mut self,
+        ui: &mut egui::Ui,
+        response: &egui::Response,
+        content_rect: egui::Rect,
+        scene_id: uuid::Uuid,
+        tilemap_id: uuid::Uuid,
+    ) {
+        if ui.input(|i| i.key_pressed(egui::Key::Escape)) {
+            self.gui_state.painting_tiles = false;
+            self.finish_tile_stroke();
+            return;
+        }
+        let camera = self.render_engine.camera;
+        let to_world = |pos: egui::Pos2| {
+            camera.screen_to_world((pos.x - content_rect.min.x, pos.y - content_rect.min.y))
+        };
+        let pressing = response.is_pointer_button_down_on()
+            && ui.input(|i| i.pointer.primary_down() && !i.modifiers.alt);
+        let brush = match self.gui_state.tile_brush {
+            crate::state::TileBrush::Tile(tile) => Some(tile),
+            crate::state::TileBrush::Eraser => None,
+        };
+        let Some(entity) = self
+            .gui_state
+            .scene_manager
+            .as_mut()
+            .and_then(|manager| manager.get_scene_mut(scene_id))
+            .and_then(|scene| scene.get_entity_mut(tilemap_id).ok())
+        else {
+            return;
+        };
+        let origin = (entity.get_x(), entity.get_y());
+        let name = entity.name.clone();
+        let Some(tilemap) = entity.tilemap.as_mut() else {
+            return;
+        };
+        let tile = (tilemap.tile_size.0 as f32, tilemap.tile_size.1 as f32);
+
+        // The cell under the pointer
+        if let Some(pointer) = response.hover_pos() {
+            let (column, row) = tilemap.cell_at(origin, to_world(pointer));
+            let min = camera.world_to_screen((
+                origin.0 + column as f32 * tile.0,
+                origin.1 + row as f32 * tile.1,
+            ));
+            let cell = egui::Rect::from_min_size(
+                content_rect.min + egui::vec2(min.0, min.1),
+                egui::vec2(tile.0 * camera.zoom, tile.1 * camera.zoom),
+            );
+            ui.painter().rect_stroke(
+                cell,
+                0.0,
+                egui::Stroke::new(1.5, egui::Color32::WHITE),
+                egui::StrokeKind::Inside,
+            );
+        }
+        ui.painter().text(
+            content_rect.left_top() + egui::vec2(8.0, 36.0),
+            egui::Align2::LEFT_TOP,
+            format!("🖌 Painting '{}' · Esc to stop", name),
+            egui::FontId::proportional(13.0),
+            egui::Color32::WHITE,
+        );
+
+        if pressing && let Some(pointer) = ui.input(|i| i.pointer.interact_pos()) {
+            let cell = tilemap.cell_at(origin, to_world(pointer));
+            let stroke = self.tile_stroke.get_or_insert_default();
+            // Fill the cells between this frame's and the last one's, so
+            // fast strokes have no gaps
+            for (column, row) in cells_on_line(stroke.last_cell.unwrap_or(cell), cell) {
+                match tilemap.set(column, row, brush) {
+                    Ok(changed) => stroke.changed |= changed,
+                    Err(e) if !stroke.reported => {
+                        LOGGER.warning(format!("Can't paint there: {}", e));
+                        stroke.reported = true;
+                    }
+                    Err(_) => {}
+                }
+            }
+            stroke.last_cell = Some(cell);
+        } else {
+            self.finish_tile_stroke();
+        }
+    }
+
+    /// End the stroke being painted: one undo step if it changed anything.
+    pub(super) fn finish_tile_stroke(&mut self) {
+        if let Some(stroke) = self.tile_stroke.take()
+            && stroke.changed
+        {
+            self.gui_state.commit_change();
+        }
+    }
+
     /// Give the runtime a copy of the editor's scenes to play.
     pub(super) fn sync_scene_manager_to_runtime(&mut self) {
         if let Some(scene_manager) = &self.gui_state.scene_manager {
             self.game_runtime.set_scene_manager(scene_manager.clone());
+        }
+    }
+}
+
+/// A tilemap stroke in progress.
+#[derive(Default)]
+pub(super) struct TileStroke {
+    /// The cell painted last
+    last_cell: Option<(i32, i32)>,
+    /// Whether any cell changed
+    changed: bool,
+    /// Whether a cell that couldn't be painted was reported
+    reported: bool,
+}
+
+/// The cells on the straight line from one cell to another, both included.
+/// Lines longer than a tilemap can be are reduced to their end.
+fn cells_on_line(from: (i32, i32), to: (i32, i32)) -> Vec<(i32, i32)> {
+    let (dx, dy) = (
+        (to.0 as i64 - from.0 as i64).abs(),
+        -(to.1 as i64 - from.1 as i64).abs(),
+    );
+    if dx > rust_2d_game_engine::scene::MAX_TILEMAP_SIDE as i64
+        || -dy > rust_2d_game_engine::scene::MAX_TILEMAP_SIDE as i64
+    {
+        return vec![to];
+    }
+    let step = |from: i32, to: i32| if from < to { 1 } else { -1 };
+    let (step_x, step_y) = (step(from.0, to.0), step(from.1, to.1));
+    let (mut x, mut y) = from;
+    let mut error = dx + dy;
+    let mut cells = Vec::new();
+    loop {
+        cells.push((x, y));
+        if (x, y) == to {
+            return cells;
+        }
+        let doubled = 2 * error;
+        if doubled >= dy {
+            error += dy;
+            x += step_x;
+        }
+        if doubled <= dx {
+            error += dx;
+            y += step_y;
         }
     }
 }
@@ -463,6 +644,24 @@ fn dragged_position(pointer: (f32, f32), offset: (f32, f32), grid: Option<f32>) 
 #[cfg(test)]
 mod tests {
     use super::dragged_position;
+
+    #[test]
+    fn test_cells_on_line() {
+        use super::cells_on_line;
+        assert_eq!(cells_on_line((0, 0), (0, 0)), vec![(0, 0)]);
+        assert_eq!(
+            cells_on_line((0, 0), (3, 0)),
+            vec![(0, 0), (1, 0), (2, 0), (3, 0)]
+        );
+        assert_eq!(cells_on_line((2, 2), (0, 0)), vec![(2, 2), (1, 1), (0, 0)]);
+        let steep = cells_on_line((0, 0), (1, 4));
+        assert_eq!((steep.len(), steep[0], steep[4]), (5, (0, 0), (1, 4)));
+        assert_eq!(
+            cells_on_line((0, 0), (i32::MAX, 0)),
+            vec![(i32::MAX, 0)],
+            "too long"
+        );
+    }
 
     #[test]
     fn test_dragged_position_snaps_to_the_grid() {
