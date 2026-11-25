@@ -41,6 +41,23 @@ impl LuaScripting {
         })?;
         globals.set("get_velocity", get_velocity)?;
 
+        // drop_through_platforms(entity_id): the body falls through the
+        // one-way platforms it stands on, until it's clear of them (press
+        // down to drop); nothing happens on solid ground
+        let physics = Rc::clone(physics_engine);
+        let drop_through_platforms = self.lua.create_function(move |_, entity_id: String| {
+            let uuid = parse_uuid(&entity_id, "entity")?;
+            if physics.borrow_mut().drop_through_platforms(uuid) {
+                Ok(())
+            } else {
+                Err(mlua::Error::external(format!(
+                    "Entity '{}' not found in physics engine",
+                    uuid
+                )))
+            }
+        })?;
+        globals.set("drop_through_platforms", drop_through_platforms)?;
+
         let physics = Rc::clone(physics_engine);
         let apply_force =
             self.lua

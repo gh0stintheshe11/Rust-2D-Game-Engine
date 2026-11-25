@@ -1,5 +1,6 @@
--- The player: runs and jumps with the keyboard or a gamepad, breaks bricks
--- by jumping into them from below, and loses a heart in a pit or on spikes.
+-- The player: runs and jumps with the keyboard or a gamepad, drops through
+-- wooden planks with down, breaks bricks by jumping into them from below,
+-- and loses a heart in a pit or on spikes.
 --
 -- Tuning (attributes, edit in the Inspector):
 --   speed (Float): running speed, px/s
@@ -17,6 +18,7 @@ local BRICK = 3 -- the tileset's brick tile
 local start = { x = 0, y = 0 }
 local ground, spikes, dust, debris
 local since_ground, since_jump_pressed, was_grounded, last_vy, invulnerable
+local stick_was_down = false
 
 function init(scene_id, entity_id)
     start.x = get_attribute(scene_id, entity_id, "x")
@@ -27,6 +29,15 @@ function init(scene_id, entity_id)
     debris = find_entity(scene_id, "debris")
     since_ground, since_jump_pressed = 1, 1
     was_grounded, last_vy, invulnerable = false, 0, 0
+end
+
+-- Down, just pressed: a key, the d-pad, or the stick pushed down
+local function down_pressed()
+    local stick_down = get_gamepad_axis("left_y") > 0.7
+    local pushed = stick_down and not stick_was_down
+    stick_was_down = stick_down
+    return pushed or is_key_just_pressed("ArrowDown") or is_key_just_pressed("S")
+        or is_gamepad_just_pressed("down")
 end
 
 -- Keyboard and gamepad together: the direction to run (-1 to 1), whether
@@ -138,6 +149,10 @@ function update(scene_id, entity_id)
 
     local move, jump, held = read_input()
     local grounded = vy > -1 and on_ground(entity_id, x, y)
+    -- On a plank, down drops through it (on solid ground, nothing happens)
+    if down_pressed() and grounded then
+        drop_through_platforms(entity_id)
+    end
     since_ground = grounded and 0 or since_ground + delta_time
     since_jump_pressed = jump and 0 or since_jump_pressed + delta_time
 

@@ -22,7 +22,9 @@ versions may contain breaking changes).
   collides as solid (the default), as a platform that bodies land on but
   jump up through and walk through sideways, or not at all, for decoration
   (`Tilemap::set_tile_collision`; the editor sets it below the palette).
-  Bodies passing through a platform don't collide with it.
+  Bodies passing through a platform don't collide with it, and
+  `drop_through_platforms(entity_id)` lets a body fall through the
+  platform it stands on (pressing down, in a platformer).
 - Particles: an entity with `particle_*` attributes (Add Feature → Effects →
   Particles) gives off small sprites for sparks, smoke, dust or rain, with a
   rate, lifetime, velocity and spread, gravity, and size and color changing

@@ -104,7 +104,10 @@ as their tile's `TileCollision` says:
   `update_as_oneway_platform` keeps a contact refused while the body still
   penetrates, so a body halfway through isn't popped on top. A refused
   contact isn't reported: a body passing through isn't colliding with the
-  tilemap.
+  tilemap. `drop_through_platforms(entity)` lets a body fall through the
+  one-way tiles it stands on (pressing down, in a platformer): they refuse
+  its contacts until it has no contact point with any of them, and its
+  contacts start out refused, so it isn't popped back on top.
 - **Passable** cells don't collide (decoration).
 
 The entity's material, `is_sensor` and collision layers apply to both
@@ -140,7 +143,7 @@ Distances below 10 px count as 10 px.
 - **World**: `set_gravity` / `get_gravity`, `set_time_step` / `get_time_step`
 - **Bodies**: `get_velocity` / `set_velocity`, `apply_force`, `apply_impulse`,
   `set_position` (teleport, keeps velocity), `get_angular_velocity` /
-  `set_angular_velocity`, `apply_torque`
+  `set_angular_velocity`, `apply_torque`, `drop_through_platforms`
 - **Queries**: `get_colliding_entities` (entities currently touching, or
   overlapping when either is a sensor), `raycast`, `collider_outlines` (debug
   drawing), `has_rigid_body`, `has_collider`,
@@ -170,9 +173,7 @@ let touching = physics.get_colliding_entities(player_id);
 - `raycast` doesn't see bodies added since the last `step`.
 - A tilemap's colliders are rebuilt whole when a tile changes, which gets
   slow for very large maps changing every frame.
-- One-way tiles only face up, and bodies can't drop down through them
-  (there's no "fall through the platform" control). Raycasts hit them from
-  every side.
+- One-way tiles only face up, and raycasts hit them from every side.
 - `load_scene` adds only a scene's local entities; shared entities are
   ignored.
 - Changing a physics attribute while playing has no effect until the entity is

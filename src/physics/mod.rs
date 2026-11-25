@@ -30,6 +30,12 @@ const MIN_GRAVITY_FIELD_DISTANCE: f32 = 10.0;
 /// this far (radians) from straight up: landing on its corner counts too.
 const ONE_WAY_ALLOWED_ANGLE: f32 = std::f32::consts::FRAC_PI_4;
 
+/// The contact state rapier's `update_as_oneway_platform` keeps in a
+/// manifold's `user_data` for "refused until the bodies are apart": a body
+/// that dropped through a platform isn't popped back on top when it stops
+/// dropping while still inside.
+const ONE_WAY_REFUSED: u32 = 2;
+
 /// Where a ray first hits a collider (see [`PhysicsEngine::raycast`]).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RayHit {
@@ -88,31 +94,43 @@ impl BodyInfo {
     }
 }
 
+/// Whether a collider is a one-way platform (a tilemap's one-way tiles).
+fn is_one_way(colliders: &ColliderSet, handle: ColliderHandle) -> bool {
+    colliders.get(handle).is_some_and(|collider| {
+        collider
+            .active_hooks()
+            .contains(ActiveHooks::MODIFY_SOLVER_CONTACTS)
+    })
+}
+
 /// Physics hooks making colliders with
 /// [`ActiveHooks::MODIFY_SOLVER_CONTACTS`] (a tilemap's one-way tiles) solid
 /// only for bodies coming from above: a body jumps up through them, lands on
-/// them, and walks through them sideways.
-struct OneWayPlatforms;
+/// them, and walks through them sideways. Bodies in `dropping` fall through
+/// them (see [`PhysicsEngine::drop_through_platforms`]).
+struct OneWayPlatforms<'a> {
+    dropping: &'a HashSet<RigidBodyHandle>,
+}
 
-impl PhysicsHooks for OneWayPlatforms {
+impl PhysicsHooks for OneWayPlatforms<'_> {
     fn modify_solver_contacts(&self, context: &mut ContactModificationContext) {
         let colliders = context.colliders;
-        let is_platform = |handle: ColliderHandle| {
-            colliders.get(handle).is_some_and(|collider| {
-                collider
-                    .active_hooks()
-                    .contains(ActiveHooks::MODIFY_SOLVER_CONTACTS)
-            })
-        };
         // Contact normals point out of collider1: the allowed one points up
         // (-y) out of a platform, or down into it
-        let allowed = if is_platform(context.collider1) {
-            Vector::new(0.0, -1.0)
-        } else if is_platform(context.collider2) {
-            Vector::new(0.0, 1.0)
+        let (allowed, other_body) = if is_one_way(colliders, context.collider1) {
+            (Vector::new(0.0, -1.0), context.rigid_body2)
+        } else if is_one_way(colliders, context.collider2) {
+            (Vector::new(0.0, 1.0), context.rigid_body1)
         } else {
             return;
         };
+        if other_body.is_some_and(|body| self.dropping.contains(&body)) {
+            if let Some(rigid) = context.rigid_mut() {
+                rigid.solver_contacts.clear();
+                *rigid.user_data = ONE_WAY_REFUSED;
+            }
+            return;
+        }
         let Some(collider1) = colliders.get(context.collider1) else {
             return;
         };
@@ -131,6 +149,8 @@ pub struct PhysicsEngine {
     /// Linear and angular impulses from `apply_force` / `apply_torque`,
     /// applied at the next simulation step.
     pending_impulses: HashMap<Uuid, (Vector, f32)>,
+    /// Bodies falling through one-way platforms, until they're clear of them
+    dropping: HashSet<RigidBodyHandle>,
     /// Invalid attribute values already reported, so entities added again
     /// and again (spawned copies) don't flood the console.
     reported_problems: HashSet<String>,
@@ -153,6 +173,7 @@ impl PhysicsEngine {
             time_step: DEFAULT_TIME_STEP,
             frame_dt: DEFAULT_TIME_STEP,
             pending_impulses: HashMap::new(),
+            dropping: HashSet::new(),
             reported_problems: HashSet::new(),
         }
     }
@@ -271,9 +292,63 @@ impl PhysicsEngine {
     pub fn remove_entity(&mut self, entity_id: Uuid) {
         self.pending_impulses.remove(&entity_id);
         if let Some(info) = self.bodies.remove(&entity_id) {
+            self.dropping.remove(&info.body);
             // Also removes the attached collider
             self.world.remove_body(info.body);
         }
+    }
+
+    /// Let an entity's body fall through the one-way platforms it stands
+    /// on, or touches: they stop holding it until it's clear of all of
+    /// them, and hold it as usual again after. A body touching none is left
+    /// as it is. Returns whether the entity has a body.
+    pub fn drop_through_platforms(&mut self, entity_id: Uuid) -> bool {
+        let Some(info) = self.bodies.get(&entity_id) else {
+            return false;
+        };
+        let body = info.body;
+        self.dropping.insert(body);
+        // Resting bodies sleep
+        self.world.wake_up(body, true);
+        true
+    }
+
+    /// Stop the drops of the bodies clear of every one-way platform.
+    fn end_finished_drops(&mut self) {
+        let finished: Vec<RigidBodyHandle> = self
+            .dropping
+            .iter()
+            .filter(|body| !self.touches_one_way_platform(**body))
+            .copied()
+            .collect();
+        for body in finished {
+            self.dropping.remove(&body);
+        }
+    }
+
+    /// Whether a body has contact points with a one-way platform, even ones
+    /// the platform refuses.
+    fn touches_one_way_platform(&self, body: RigidBodyHandle) -> bool {
+        let Some(rigid_body) = self.world.bodies.get(body) else {
+            return false;
+        };
+        rigid_body.colliders().iter().any(|&collider| {
+            self.world
+                .narrow_phase
+                .contact_pairs_with(collider)
+                .any(|pair| {
+                    let other = if pair.collider1 == collider {
+                        pair.collider2
+                    } else {
+                        pair.collider1
+                    };
+                    is_one_way(&self.world.colliders, other)
+                        && pair
+                            .manifolds()
+                            .iter()
+                            .any(|manifold| !manifold.points.is_empty())
+                })
+        })
     }
 
     /// Mirror every qualifying entity of the scene into the physics world.
@@ -315,7 +390,11 @@ impl PhysicsEngine {
         }
 
         self.apply_gravity_fields(scene);
-        self.world.step_with_events(&OneWayPlatforms, &());
+        let hooks = OneWayPlatforms {
+            dropping: &self.dropping,
+        };
+        self.world.step_with_events(&hooks, &());
+        self.end_finished_drops();
 
         // Field forces are persistent in rapier; they're recomputed each step
         for (_, rb) in self.world.bodies.iter_mut() {
@@ -362,6 +441,7 @@ impl PhysicsEngine {
     pub fn cleanup(&mut self) {
         self.bodies.clear();
         self.pending_impulses.clear();
+        self.dropping.clear();
         self.reported_problems.clear();
         self.world = new_world(
             Vector::new(DEFAULT_GRAVITY.0, DEFAULT_GRAVITY.1),

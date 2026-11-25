@@ -1072,4 +1072,76 @@ mod tests {
         }
         assert!(y(&scene, falling) > 150.0, "y = {}", y(&scene, falling));
     }
+
+    #[test]
+    fn test_bodies_drop_through_one_way_tiles_on_request() {
+        let mut scene = Scene::new("test_scene").unwrap();
+        let mut physics = PhysicsEngine::new();
+        physics.set_gravity(0.0, 400.0);
+        // A platform at y = 100 over solid ground at y = 300
+        let platform = tilemap(&mut scene, (0.0, 100.0), &row_of_tiles(10), true);
+        set_tile_kind(&mut scene, platform, TileCollision::OneWay);
+        tilemap(&mut scene, (0.0, 300.0), &row_of_tiles(10), true);
+        let body = sized_entity(&mut scene, "box", (40.0, 80.0), (10.0, 10.0), dynamic(true));
+        physics.load_scene(&scene);
+        // Long enough to fall asleep on the platform
+        for _ in 0..600 {
+            physics.step(&mut scene);
+        }
+        assert!(
+            (y(&scene, body) - 90.0).abs() < 1.0,
+            "y = {}",
+            y(&scene, body)
+        );
+
+        assert!(physics.drop_through_platforms(body));
+        let mut touched = false;
+        for _ in 0..120 {
+            physics.step(&mut scene);
+            touched |= physics.get_colliding_entities(body).contains(&platform);
+        }
+        assert!(
+            (y(&scene, body) - 290.0).abs() < 1.0,
+            "on the ground: y = {}",
+            y(&scene, body)
+        );
+        assert!(!touched, "falling through isn't colliding");
+
+        // The platform holds it again: jumping up, it lands back on top
+        physics.set_velocity(body, (0.0, -420.0));
+        for _ in 0..180 {
+            physics.step(&mut scene);
+        }
+        assert!(
+            (y(&scene, body) - 90.0).abs() < 1.0,
+            "y = {}",
+            y(&scene, body)
+        );
+    }
+
+    #[test]
+    fn test_solid_tiles_cant_be_dropped_through() {
+        let mut scene = Scene::new("test_scene").unwrap();
+        let mut physics = PhysicsEngine::new();
+        physics.set_gravity(0.0, 400.0);
+        tilemap(&mut scene, (0.0, 100.0), &row_of_tiles(10), true);
+        let body = sized_entity(&mut scene, "box", (40.0, 80.0), (10.0, 10.0), dynamic(true));
+        physics.load_scene(&scene);
+        for _ in 0..60 {
+            physics.step(&mut scene);
+        }
+        assert!(physics.drop_through_platforms(body));
+        for _ in 0..60 {
+            physics.step(&mut scene);
+        }
+        assert!(
+            (y(&scene, body) - 90.0).abs() < 1.0,
+            "y = {}",
+            y(&scene, body)
+        );
+        assert!(
+            !physics.drop_through_platforms(uuid::Uuid::new_v4()),
+            "no body"
+        );
+    }
 }

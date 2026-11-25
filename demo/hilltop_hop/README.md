@@ -8,7 +8,8 @@ screen shows your best time, which is saved between runs.
 ![Hilltop Hop](../../docs/images/hilltop_hop.png)
 
 **Controls:** ← / → or A / D to run, Space, W or ↑ to jump (hold for a
-higher jump). A gamepad works too: the left stick or d-pad runs, (A) jumps.
+higher jump), ↓ or S to drop through a wooden plank. A gamepad works too:
+the left stick or d-pad runs and drops, (A) jumps.
 Esc (or Start) returns to the title screen. In the menus, the arrow keys or
 the d-pad choose a button and Enter or (A) presses it, or click it; on the
 end screens, Esc or (B) also goes to the title screen.
@@ -23,7 +24,7 @@ end screens, Esc or (B) also goes to the title screen.
 
 | Feature | Where |
 |---|---|
-| A tilemap level painted from one tileset: solid ground and stone, one-way wooden planks you jump up through, and grass and flowers that don't collide | `ground` entity in the `level` scene (Tilemap section of the inspector) |
+| A tilemap level painted from one tileset: solid ground and stone, one-way wooden planks you jump up through (and drop through with down: `drop_through_platforms` in `player.lua`), and grass and flowers that don't collide | `ground` entity in the `level` scene (Tilemap section of the inspector) |
 | A tilemap as a trigger zone: spikes | `spikes` entity (`is_sensor`), `player.lua` |
 | Changing tiles from a script: bricks break when hit from below | `break_bricks` in `player.lua` (`get_tile_cell`, `get_tile`, `set_tile`) |
 | Platformer movement on a dynamic body: run speed with `set_velocity` / `get_velocity`, ground checks with `raycast`, coyote time, jump buffering, short hops | `player.lua`, tuned by the `speed` and `jump_speed` attributes |

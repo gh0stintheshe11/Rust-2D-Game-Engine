@@ -108,6 +108,11 @@ const API_GROUPS: &[(&str, &[ApiEntry])] = &[
                 "The body's velocity, px/s (+y is down)",
             ),
             (
+                "drop_through_platforms",
+                "drop_through_platforms(entity_id)",
+                "Fall through the one-way platforms the body stands on (press down to drop)",
+            ),
+            (
                 "apply_force",
                 "apply_force(entity_id, 0.0, 0.0)",
                 "Push for this frame; call every frame for a continuous force",

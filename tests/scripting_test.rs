@@ -2114,10 +2114,16 @@ mod session_tests {
             .eval()
             .unwrap();
         assert_eq!((vx, vy), (30.0, -40.0));
-        let missing: bool = lua
-            .load(r#"return (pcall(get_velocity, "00000000-0000-0000-0000-000000000000"))"#)
+        lua.load("drop_through_platforms(BODY)").exec().unwrap();
+        let missing: (bool, bool) = lua
+            .load(
+                r#"
+                local nobody = "00000000-0000-0000-0000-000000000000"
+                return (pcall(get_velocity, nobody)), (pcall(drop_through_platforms, nobody))
+                "#,
+            )
             .eval()
             .unwrap();
-        assert!(!missing);
+        assert_eq!(missing, (false, false));
     }
 }

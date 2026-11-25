@@ -296,6 +296,37 @@ fn test_bricks_break_from_below() {
 }
 
 #[test]
+fn test_down_drops_through_planks() {
+    let mut game = Game::new();
+    game.start_level();
+    // On the planks at row 10, columns 21 to 25
+    game.teleport(23.0 * TILE, 10.0 * TILE - 43.0);
+    game.frames(30);
+    let (_, on_plank) = game.player();
+    assert!(
+        close(on_plank, 10.0 * TILE - 42.0, 2.0),
+        "on the plank: y = {}",
+        on_plank
+    );
+    game.tap(egui::Key::ArrowDown);
+    game.frames(60);
+    assert!(
+        close(game.player().1, START.1, 2.0),
+        "on the ground: y = {}",
+        game.player().1
+    );
+    // Down on solid ground does nothing
+    game.tap(egui::Key::ArrowDown);
+    game.frames(30);
+    assert!(
+        close(game.player().1, START.1, 2.0),
+        "still on the ground: y = {}",
+        game.player().1
+    );
+    assert!(script_errors().is_empty(), "{:?}", script_errors());
+}
+
+#[test]
 fn test_reaching_the_flag_wins_and_keeps_the_best_time() {
     let mut game = Game::new();
     game.start_level();
