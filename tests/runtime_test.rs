@@ -680,3 +680,120 @@ fn test_particles_play_with_the_game() {
     runtime.reset();
     assert_eq!(count(&runtime), 0);
 }
+
+/// A scene seen through a 400 x 300 camera frame filling the 800 x 600
+/// game view of [`Window`]: frame pixel (x, y) is at window point (2x, 2y).
+fn ui_scene(script: &str) -> GameRuntime {
+    let (mut manager, box_id) = falling_box_scene();
+    {
+        let scene = manager.get_active_scene_mut().unwrap();
+        let camera_id = scene.default_camera.unwrap();
+        let camera = scene.get_entity_mut(camera_id).unwrap();
+        camera.set_position(0.0, 0.0, 0.0).unwrap();
+        camera.set_camera_size(400.0, 300.0).unwrap();
+        camera.set_camera_zoom(2.0).unwrap();
+    }
+    with_script(&mut manager, box_id, script);
+    let mut runtime = runtime(manager);
+    runtime.run().unwrap();
+    runtime
+}
+
+#[test]
+fn test_buttons_click_when_pressed_and_released_on_them() {
+    use rust_2d_game_engine::render::HudItem;
+
+    // A panel, and a button at frame pixels (100, 100) to (200, 140): window
+    // points (200, 200) to (400, 280)
+    let mut runtime = ui_scene(
+        r##"
+        function update(scene_id, entity_id)
+            draw_rect(0, 0, 400, 30, {color = "#00000080", radius = 4})
+            if button("Play", 100, 100, 100, 40) then
+                script_state.state.clicks = (script_state.state.clicks or 0) + 1
+            end
+        end
+        "##,
+    );
+    let mut window = Window::new();
+    let clicks = |runtime: &GameRuntime| lua_number(runtime, "script_state.state.clicks or 0");
+    let background = |runtime: &GameRuntime| match &runtime.scripting().hud()[..] {
+        [HudItem::Rect(_), HudItem::Button(button)] => button.background,
+        other => panic!("drawn in order: {:?}", other),
+    };
+
+    window.frame(&mut runtime, vec![pointer_at(50.0, 50.0)], no_widgets);
+    let idle = background(&runtime);
+    window.frame(&mut runtime, vec![pointer_at(300.0, 240.0)], no_widgets);
+    let hovered = background(&runtime);
+    window.frame(
+        &mut runtime,
+        vec![left_button(300.0, 240.0, true)],
+        no_widgets,
+    );
+    let pressed = background(&runtime);
+    assert!(idle != hovered && hovered != pressed && pressed != idle);
+    assert_eq!(clicks(&runtime), 0.0, "not before the release");
+    window.frame(
+        &mut runtime,
+        vec![left_button(300.0, 240.0, false)],
+        no_widgets,
+    );
+    assert_eq!(clicks(&runtime), 1.0);
+    window.frame(&mut runtime, vec![], no_widgets);
+    assert_eq!(clicks(&runtime), 1.0, "once");
+
+    // Pressed elsewhere and released on it: no click
+    window.frame(
+        &mut runtime,
+        vec![left_button(50.0, 50.0, true)],
+        no_widgets,
+    );
+    window.frame(&mut runtime, vec![pointer_at(300.0, 240.0)], no_widgets);
+    window.frame(
+        &mut runtime,
+        vec![left_button(300.0, 240.0, false)],
+        no_widgets,
+    );
+    // Pressed on it and released elsewhere: no click
+    window.frame(
+        &mut runtime,
+        vec![left_button(300.0, 240.0, true)],
+        no_widgets,
+    );
+    window.frame(&mut runtime, vec![pointer_at(50.0, 50.0)], no_widgets);
+    window.frame(
+        &mut runtime,
+        vec![left_button(50.0, 50.0, false)],
+        no_widgets,
+    );
+    assert_eq!(clicks(&runtime), 1.0);
+}
+
+#[test]
+fn test_ui_drawing_errors_are_reported_to_scripts() {
+    let runtime = ui_scene("function update(scene_id, entity_id) end");
+    let results: Vec<bool> = runtime
+        .scripting()
+        .lua()
+        .load(
+            r##"
+            return {
+                (pcall(draw_rect, 0, 0, -1, 10)),
+                (pcall(draw_rect, 0, 0, 10, 10, {colour = "#ffffff"})),
+                (pcall(draw_rect, 0, 0, 10, 10, {color = "red"})),
+                (pcall(draw_rect, 0/0, 0, 10, 10)),
+                (pcall(draw_image, "a.png", 0, 0, {width = 0})),
+                (pcall(button, "Go", 0, 0, 10, 10, {size = "big"})),
+                (pcall(draw_rect, 0, 0, 10, 10, {outline = "#ff0000", outline_width = 3})),
+                (pcall(draw_image, "a.png", 0, 0, {width = 32, opacity = 0.5})),
+            }
+            "##,
+        )
+        .eval()
+        .unwrap();
+    assert_eq!(
+        results,
+        vec![false, false, false, false, false, false, true, true]
+    );
+}

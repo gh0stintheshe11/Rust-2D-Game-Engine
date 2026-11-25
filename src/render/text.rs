@@ -56,23 +56,28 @@ pub fn parse_rgba(text: &str) -> Result<[u8; 4], String> {
 /// top-left corner and `scale` the screen pixels per camera frame pixel.
 pub fn paint_texts(painter: &egui::Painter, texts: &[HudText], origin: egui::Pos2, scale: f32) {
     for text in texts {
-        let size = text.size * scale;
-        // Too small to read (or NaN): skip instead of laying out
-        if size.is_nan() || size < 1.0 {
-            continue;
-        }
-        let anchor = match text.align {
-            TextAlign::Left => egui::Align2::LEFT_TOP,
-            TextAlign::Center => egui::Align2::CENTER_TOP,
-            TextAlign::Right => egui::Align2::RIGHT_TOP,
-        };
-        let position = origin + egui::vec2(text.position.0 * scale, text.position.1 * scale);
-        painter.text(
-            position,
-            anchor,
-            &text.text,
-            egui::FontId::proportional(size),
-            text.color,
-        );
+        paint_text(painter, text, origin, scale);
     }
+}
+
+/// Paint one text, as [`paint_texts`] does.
+pub(super) fn paint_text(painter: &egui::Painter, text: &HudText, origin: egui::Pos2, scale: f32) {
+    let size = text.size * scale;
+    // Too small to read (or NaN): skip instead of laying out
+    if size.is_nan() || size < 1.0 {
+        return;
+    }
+    let anchor = match text.align {
+        TextAlign::Left => egui::Align2::LEFT_TOP,
+        TextAlign::Center => egui::Align2::CENTER_TOP,
+        TextAlign::Right => egui::Align2::RIGHT_TOP,
+    };
+    let position = origin + egui::vec2(text.position.0 * scale, text.position.1 * scale);
+    painter.text(
+        position,
+        anchor,
+        &text.text,
+        egui::FontId::proportional(size),
+        text.color,
+    );
 }

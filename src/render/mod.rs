@@ -14,11 +14,13 @@ use uuid::Uuid;
 
 mod animation;
 mod camera;
+mod hud;
 mod particles;
 mod text;
 
 pub use animation::{DEFAULT_ANIMATION_FPS, advance_animations, parse_frames};
 pub use camera::Camera;
+pub use hud::{HudButton, HudImage, HudItem, HudRect, paint_hud};
 pub use particles::{
     EMITTER_MARKER_SIZE, MAX_BURST, MAX_PARTICLES, PARTICLE_TEXTURE_ID, ParticleBurst,
     ParticleSettings, ParticleSystem, is_particle_emitter,
@@ -440,6 +442,19 @@ impl RenderEngine {
 
     /// Decode (once) the image at `path` and return its cache key, or `None`
     /// if it can't be loaded. Failures are logged once per path.
+    /// The GPU texture of an image file and its size in pixels, loading it
+    /// the first time; `None` if it can't be loaded (reported once).
+    pub fn image_texture(
+        &mut self,
+        ctx: &egui::Context,
+        path: &Path,
+    ) -> Option<(egui::TextureId, (u32, u32))> {
+        let texture_id = self.load_texture(path)?;
+        let dimensions = self.texture_cache.get(&texture_id)?.dimensions;
+        let handle = self.get_egui_texture(ctx, texture_id)?;
+        Some((handle.id(), dimensions))
+    }
+
     /// [`path_to_uuid`](Self::path_to_uuid), cached.
     fn texture_id(&mut self, path: &Path) -> Uuid {
         if let Some(id) = self.texture_ids.get(path) {

@@ -5,7 +5,7 @@ use mlua::{Table, Value};
 
 use super::{LuaScripting, parse_uuid};
 use crate::render::{
-    HudText, MAX_BURST, MAX_PARTICLES, ParticleBurst, TextAlign, parse_color, parse_frames,
+    HudItem, HudText, MAX_BURST, MAX_PARTICLES, ParticleBurst, TextAlign, parse_color, parse_frames,
 };
 use crate::scene::{AttributeValue, SceneManager};
 
@@ -171,7 +171,7 @@ impl LuaScripting {
                 if let Some(options) = &options {
                     apply_options(&mut hud_text, options)?;
                 }
-                hud.borrow_mut().push(hud_text);
+                hud.borrow_mut().push(HudItem::Text(hud_text));
                 Ok(())
             },
         )?;

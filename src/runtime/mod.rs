@@ -416,8 +416,9 @@ impl GameRuntime {
     }
 
     /// Paint the active scene into `viewport_rect`, through the current
-    /// [`CameraMode`]: sprites, then the text scripts drew this frame, then
-    /// collider outlines when enabled with
+    /// [`CameraMode`]: sprites, then what scripts drew over the game this
+    /// frame (text, rectangles, images, buttons), then collider outlines
+    /// when enabled with
     /// [`set_show_colliders`](Self::set_show_colliders).
     pub fn paint(&mut self, ui: &mut egui::Ui, viewport_rect: Rect) {
         let manager = self.scene_manager.borrow();
@@ -453,10 +454,10 @@ impl GameRuntime {
                 .map(|texture| texture.id())
         });
 
-        // Script text is laid out in the camera frame's pixels and scales
-        // with the frame, wherever the frame is on screen
-        let texts = self.lua_scripting.hud_texts();
-        if !texts.is_empty()
+        // What scripts drew is laid out in the camera frame's pixels and
+        // scales with the frame, wherever the frame is on screen
+        let hud = self.lua_scripting.hud();
+        if !hud.is_empty()
             && let Some(frame) = frame
         {
             let camera = self.render_engine.camera;
@@ -467,10 +468,13 @@ impl GameRuntime {
                 origin,
                 egui::vec2(frame.size.0 * scale, frame.size.1 * scale),
             );
-            let text_painter = ui.painter().with_clip_rect(frame_rect.intersect(clip_rect));
-            crate::render::paint_texts(&text_painter, &texts, origin, scale);
+            let hud_painter = ui.painter().with_clip_rect(frame_rect.intersect(clip_rect));
+            let render_engine = &mut self.render_engine;
+            crate::render::paint_hud(&hud_painter, &hud, origin, scale, |path| {
+                render_engine.image_texture(&ctx, path)
+            });
         }
-        drop(texts);
+        drop(hud);
 
         if self.show_colliders {
             let outlines = self.physics_engine.borrow().collider_outlines();

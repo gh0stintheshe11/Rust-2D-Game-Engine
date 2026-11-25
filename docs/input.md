@@ -23,7 +23,10 @@ hover position.
 
 The pointer's **game position** isn't computed here: the runtime maps the
 window position through its camera every frame and records it with
-`set_game_pointer(world, screen)` (see [runtime.md](runtime.md)).
+`set_game_pointer(world, screen)` (see [runtime.md](runtime.md)). When the
+left button has just gone down, that screen position is also kept as where
+it was pressed (`get_mouse_press_screen_pos`): scripts' buttons are clicked
+when the press and the release are both on them.
 
 ## Interactions with other modules
 
@@ -36,7 +39,7 @@ window position through its camera every frame and records it with
 - **Lifecycle**: `new`, `handle_input(&egui::InputState)`, `handle_input_with(&egui::InputState, InputAccess)`
 - **Keyboard**: `is_key_pressed`, `is_key_just_pressed`, `is_key_just_released`
 - **Mouse**: `is_mouse_button_pressed`, `is_mouse_button_just_pressed`, `is_mouse_button_just_released`, `get_mouse_pos` (window coordinates), `get_mouse_delta`, `get_scroll_delta`
-- **Game pointer**: `set_game_pointer(world, screen)`, `get_mouse_world_pos`, `get_mouse_screen_pos`
+- **Game pointer**: `set_game_pointer(world, screen)`, `get_mouse_world_pos`, `get_mouse_screen_pos`, `get_mouse_press_screen_pos`
 - **Introspection**: `get_all_active_inputs` — sorted names of held modifiers (`"Ctrl"`, `"Shift"`, `"Alt"`, `"Cmd"` for the macOS Command key), keys (egui names such as `"Space"`, `"A"`, `"ShiftLeft"`) and mouse buttons (`"MouseLeft"`, `"MouseRight"`, `"MouseMiddle"`)
 - **Name lookup**: `parse_key(name)` (egui key names, case-insensitive), `parse_mouse_button(name)` (`"left"`/`"right"`/`"middle"`, optional `"Mouse"` prefix, case-insensitive)
 

@@ -15,7 +15,7 @@ use crate::audio::AudioEngine;
 use crate::input::InputHandler;
 use crate::logger::LOGGER;
 use crate::physics::PhysicsEngine;
-use crate::render::{HudText, ParticleBurst};
+use crate::render::{HudItem, HudText, ParticleBurst};
 use crate::save::SaveData;
 use crate::scene::{Scene, SceneManager};
 
@@ -26,6 +26,7 @@ mod render_bindings;
 mod save_bindings;
 mod scene_bindings;
 mod tilemap_bindings;
+mod ui_bindings;
 
 /// Longest a single call into a script (a hook, or a file's top-level
 /// code) may run before it is aborted with an error. Guards the editor
@@ -160,7 +161,7 @@ pub struct LuaScripting {
     // Set by the change_scene() binding; polled by the runtime
     scene_change_request: Rc<Cell<Option<Uuid>>>,
     // Text drawn by scripts this frame (draw_text), painted by the runtime
-    hud: Rc<RefCell<Vec<HudText>>>,
+    hud: Rc<RefCell<Vec<HudItem>>>,
     // Bursts scripts asked for with emit_particles, for the runtime to take
     particle_bursts: Rc<RefCell<Vec<ParticleBurst>>>,
     // What save_data / load_data read and write (see set_save_data)
@@ -221,10 +222,23 @@ impl LuaScripting {
         }
     }
 
-    /// Text drawn with `draw_text` since the current frame's scripts
-    /// started.
-    pub fn hud_texts(&self) -> Ref<'_, Vec<HudText>> {
+    /// What scripts drew over the game (`draw_text`, `draw_rect`,
+    /// `draw_image`, `button`) since the current frame's scripts started,
+    /// in drawing order.
+    pub fn hud(&self) -> Ref<'_, Vec<HudItem>> {
         self.hud.borrow()
+    }
+
+    /// The texts among what scripts drew this frame (see [`hud`](Self::hud)).
+    pub fn hud_texts(&self) -> Vec<HudText> {
+        self.hud
+            .borrow()
+            .iter()
+            .filter_map(|item| match item {
+                HudItem::Text(text) => Some(text.clone()),
+                _ => None,
+            })
+            .collect()
     }
 
     /// The particle bursts scripts asked for since the last call (with
@@ -294,6 +308,7 @@ impl LuaScripting {
         self.register_tilemap_bindings(&scene_manager, &physics_engine)?;
         self.register_audio_bindings(&audio_engine)?;
         self.register_render_bindings(&scene_manager)?;
+        self.register_ui_bindings(&input_handler)?;
         let save_data = Rc::clone(&self.save_data);
         self.register_save_bindings(&save_data)?;
 

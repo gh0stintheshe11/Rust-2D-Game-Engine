@@ -118,9 +118,10 @@ user's data folder, the editor the project's `saves/` folder), and
   The editor shows play mode through its own pan/zoom camera and draws the
   game camera's frame as a red rectangle.
 
-Sprites, then the text scripts drew with `draw_text` this frame (laid out in
-the camera frame, see [render.md](render.md)), are clipped to the visible
-area. Scripts' text is collected while they run and cleared when the next
+Sprites, then what scripts drew over the game this frame (text,
+rectangles, images and buttons, laid out in the camera frame; see
+[render.md](render.md#text-and-game-ui)), are clipped to the visible area.
+What scripts draw is collected while they run and cleared when the next
 frame's scripts start, so a paused or ended game keeps showing it.
 
 Collider outlines (a debugging aid) are drawn on top only after

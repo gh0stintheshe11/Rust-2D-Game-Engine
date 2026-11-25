@@ -83,6 +83,8 @@ pub struct InputHandler {
     // The pointer in the game, as the runtime maps it (see set_game_pointer)
     mouse_world_pos: (f32, f32),
     mouse_screen_pos: (f32, f32),
+    // Where the left button last went down, in the camera frame's pixels
+    press_screen_pos: Option<(f32, f32)>,
     scroll_delta: egui::Vec2,
     modifiers: egui::Modifiers,
 }
@@ -106,6 +108,7 @@ impl InputHandler {
             prev_mouse_pos: egui::pos2(0.0, 0.0),
             mouse_world_pos: (0.0, 0.0),
             mouse_screen_pos: (0.0, 0.0),
+            press_screen_pos: None,
             scroll_delta: egui::vec2(0.0, 0.0),
             modifiers: egui::Modifiers::default(),
         }
@@ -234,10 +237,21 @@ impl InputHandler {
 
     /// Record where the pointer is in the game: in world coordinates, and
     /// in screen coordinates (the camera frame's pixels, which text is laid
-    /// out in). The runtime calls this every frame.
+    /// out in). The runtime calls this every frame, after taking in the
+    /// frame's input: when the left button just went down, this is also
+    /// where it was pressed.
     pub fn set_game_pointer(&mut self, world: (f32, f32), screen: (f32, f32)) {
         self.mouse_world_pos = world;
         self.mouse_screen_pos = screen;
+        if self.mouse_just_pressed.contains(PointerButton::Primary) {
+            self.press_screen_pos = Some(screen);
+        }
+    }
+
+    /// Where the left button last went down, in the camera frame's pixels:
+    /// a button is clicked when the press and the release are both on it.
+    pub fn get_mouse_press_screen_pos(&self) -> Option<(f32, f32)> {
+        self.press_screen_pos
     }
 
     /// The pointer in world coordinates, as last recorded with

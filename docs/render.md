@@ -145,14 +145,28 @@ uniformly and centered; the returned `frame` rect is the part of the viewport
 it covers (the rest is letterboxing). The runtime uses it for exported games;
 the editor draws the same frame as a red rectangle (`get_game_camera_bounds`).
 
-## Text
+## Text and game UI
 
-`HudText` is one text drawn over the game: its string, position (the top of
-the text, in camera frame pixels), font height, color and horizontal
-alignment (`TextAlign`). `paint_texts(painter, texts, origin, scale)` draws
-them with egui's built-in fonts, given the screen position of the camera
-frame's top-left corner and the screen pixels per frame pixel, so text scales
-with the game. Texts smaller than one screen pixel are skipped.
+What scripts draw over the game for a frame is a list of `HudItem`s, in the
+order they drew them (later ones cover earlier ones), laid out in camera
+frame pixels:
+
+- `HudText`: a string, its position (the top of the text), font height,
+  color and horizontal alignment (`TextAlign`).
+- `HudRect`: a filled rectangle with a corner radius and an optional
+  outline, drawn inside it (panels, health bars).
+- `HudImage`: an image file at a position, at its own size (one image pixel
+  per frame pixel), at a given width and height, or at one of them keeping
+  its proportions; multiplied by a tint.
+- `HudButton`: a rectangle with a label centered in it, colored for the
+  button's state by the script binding that made it.
+
+`paint_hud(painter, items, origin, scale, image)` paints them, given the
+screen position of the camera frame's top-left corner and the screen pixels
+per frame pixel, so they scale with the game; `image` gives an image file's
+GPU texture and size (`RenderEngine::image_texture`). Text uses egui's
+built-in fonts; texts smaller than one screen pixel are skipped.
+`paint_texts` paints texts alone.
 
 `parse_color("#rrggbb")` / `parse_color("#rrggbbaa")` reads the color strings
 scripts use.
@@ -169,8 +183,9 @@ disk.
 - The camera entity's `rotation` attribute is not applied.
 - Text uses egui's built-in fonts (plus system fonts for missing glyphs);
   projects can't bring their own, and text can't be measured from scripts.
-- Text is always drawn over the sprites, in camera frame space; there is no
-  text placed in the world (e.g. a label following an entity).
+- Text and game UI are always drawn over the sprites, in camera frame
+  space; there is no text placed in the world (e.g. a label following an
+  entity).
 - Sprite sheets are uniform grids; frames of different sizes (texture atlases)
   and spacing between frames aren't supported. The same goes for tilesets,
   and tiles can't be animated.

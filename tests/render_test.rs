@@ -438,3 +438,71 @@ fn test_tilemaps_draw_their_visible_tiles_as_one_mesh() {
         .collect();
     assert_eq!(meshes, vec![12], "3 tiles, 4 vertices each");
 }
+
+#[test]
+fn test_hud_items_paint_in_order_scaled_with_the_frame() {
+    use rust_2d_game_engine::render::{HudButton, HudImage, HudItem, HudRect, paint_hud};
+
+    let white = egui::Color32::WHITE;
+    let items = vec![
+        HudItem::Rect(HudRect {
+            position: (10.0, 10.0),
+            size: (100.0, 50.0),
+            color: egui::Color32::RED,
+            radius: 4.0,
+            outline: (white, 2.0),
+        }),
+        // Only a width: the height keeps the 16 x 8 image's proportions
+        HudItem::Image(HudImage {
+            path: PathBuf::from("icon.png"),
+            position: (20.0, 20.0),
+            size: (Some(32.0), None),
+            tint: white,
+        }),
+        HudItem::Button(HudButton {
+            label: "Go".to_string(),
+            position: (0.0, 100.0),
+            size: (80.0, 30.0),
+            text_size: 20.0,
+            text_color: white,
+            background: egui::Color32::BLUE,
+            radius: 6.0,
+            outline: (white, 1.0),
+        }),
+    ];
+    // The frame's top-left corner at (100, 50), 2 screen pixels per frame pixel
+    let ctx = egui::Context::default();
+    let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
+        paint_hud(ui.painter(), &items, egui::pos2(100.0, 50.0), 2.0, |path| {
+            assert_eq!(path, std::path::Path::new("icon.png"));
+            Some((egui::TextureId::User(3), (16, 8)))
+        });
+    });
+    output.textures_delta.clear();
+    let shapes: Vec<egui::Shape> = output.shapes.into_iter().map(|c| c.shape).collect();
+    let rect = |min: (f32, f32), size: (f32, f32)| {
+        egui::Rect::from_min_size(egui::pos2(min.0, min.1), egui::vec2(size.0, size.1))
+    };
+    match &shapes[..] {
+        [
+            egui::Shape::Rect(panel),
+            egui::Shape::Mesh(image),
+            egui::Shape::Rect(button),
+            egui::Shape::Text(label),
+        ] => {
+            assert_eq!(panel.rect, rect((120.0, 70.0), (200.0, 100.0)));
+            assert_eq!(panel.fill, egui::Color32::RED);
+            assert_eq!(image.texture_id, egui::TextureId::User(3));
+            assert_eq!(image.calc_bounds(), rect((140.0, 90.0), (64.0, 32.0)));
+            assert_eq!(button.rect, rect((100.0, 250.0), (160.0, 60.0)));
+            assert_eq!(button.fill, egui::Color32::BLUE);
+            let text = label.visual_bounding_rect();
+            assert!(
+                (text.center().x - 180.0).abs() < 1.0 && (text.center().y - 280.0).abs() < 4.0,
+                "the label is centered on the button: {:?}",
+                text
+            );
+        }
+        other => panic!("painted in order: {:?}", other),
+    }
+}

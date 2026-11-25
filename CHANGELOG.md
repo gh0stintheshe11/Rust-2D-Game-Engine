@@ -31,6 +31,13 @@ versions may contain breaking changes).
   right after. Up to 20,000 particles are simulated and drawn in a few
   batched meshes (10,000 cost about 0.35 ms per frame). The editor marks
   emitters in the viewport and previews the selected one.
+- Game UI: scripts draw rectangles (`draw_rect`: panels, health bars),
+  images (`draw_image`: icons, lives) and buttons over the game.
+  `button(label, x, y, width, height)` returns true on the frame it's
+  clicked, pressed and released on it, and shows hover and press states.
+  Like `draw_text` they're laid out in camera frame pixels, and later
+  drawings cover earlier ones. `InputHandler::get_mouse_press_screen_pos`
+  tells where the left button went down.
 - Scripts see releases and mouse clicks: `is_key_just_released`,
   `is_mouse_just_pressed` and `is_mouse_just_released`.
 - `get_mouse_screen_position()` returns the pointer in the camera frame's
@@ -76,6 +83,9 @@ versions may contain breaking changes).
   editor and exported games. In an exported game whose camera frame starts
   at (0, 0) and fills the window at its own size, the values are unchanged.
 - The Star Catcher demo saves its best score between runs.
+- `LuaScripting::hud()` returns everything scripts drew over the game this
+  frame (`HudItem`s); `hud_texts()` returns copies of the texts among them,
+  instead of a borrow of a list of texts.
 
 ### Fixed
 

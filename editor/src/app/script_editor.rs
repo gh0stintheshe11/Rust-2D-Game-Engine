@@ -282,6 +282,31 @@ const API_GROUPS: &[(&str, &[ApiEntry])] = &[
         ],
     ),
     (
+        "Game UI",
+        &[
+            (
+                "button",
+                "if button(\"Play\", 540, 300, 200, 60) then change_scene(\"level 1\") end",
+                "Draw a button this frame; true on the frame it's clicked (camera frame pixels, like draw_text)",
+            ),
+            (
+                "button with options",
+                "button(\"Quit\", 540, 380, 200, 60, {size = 26, background = \"#5a2a2acc\"})",
+                "size, color (label), background, hover, pressed, radius, outline, outline_width",
+            ),
+            (
+                "draw_rect",
+                "draw_rect(10, 10, 200, 24, {color = \"#00000080\", radius = 6})",
+                "A rectangle this frame: panels, health bars; options color, radius, outline, outline_width",
+            ),
+            (
+                "draw_image",
+                "draw_image(\"assets/images/heart.png\", 10, 40, {width = 32})",
+                "An image this frame: icons, lives; options width, height, color, opacity",
+            ),
+        ],
+    ),
+    (
         "Audio",
         &[
             (

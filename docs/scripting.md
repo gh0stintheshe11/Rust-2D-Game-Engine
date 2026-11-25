@@ -153,6 +153,33 @@ function update(scene_id, entity_id)
 end
 ```
 
+Game UI, drawn over the game for the current frame like `draw_text` (call
+these every frame, from `update`; positions and sizes in the camera frame's
+pixels; later drawings cover earlier ones):
+
+| Function | Notes |
+|---|---|
+| `draw_rect(x, y, width, height [, options])` | A filled rectangle: panels, health bars. Options: `color` (default white), `radius` (corner radius, default 0), `outline` (a color), `outline_width` (default 2 with an outline) |
+| `draw_image(path, x, y [, options])` | An image file (project-relative path): icons, lives. Without `width` and `height` it has its own size; with one of them, its proportions. Options: `width`, `height`, `color` (tint), `opacity` (0 to 1) |
+| `button(label, x, y, width, height [, options])` | Draws a button and returns whether it was clicked this frame: pressed and released with the left mouse button on it. It's lighter while hovered and darker while pressed. Options: `size` (label height, default 22), `color` (label), `background`, `hover`, `pressed`, `radius` (default 8), `outline`, `outline_width` |
+
+Colors are `"#rrggbb"` or `"#rrggbbaa"`; unknown options, values of the
+wrong type and negative sizes raise an error.
+
+```lua
+-- A title screen
+function update(scene_id, entity_id)
+    draw_rect(440, 180, 400, 330, {color = "#10142080", radius = 12})
+    draw_text("My Game", 640, 210, {size = 48, align = "center"})
+    if button("Play", 540, 300, 200, 60) then
+        change_scene("level 1")
+    end
+    if button("Quit", 540, 390, 200, 60) then
+        end_game()
+    end
+end
+```
+
 Audio:
 
 | Function | Notes |
@@ -295,6 +322,9 @@ for live error reporting.
 
 ## Known limitations
 
+- Buttons answer the mouse only: there's no keyboard or gamepad focus to
+  move between them, and a click on a button is also seen by
+  `is_mouse_just_pressed` and friends.
 - No `on_destroy` hook.
 - Prefabs are single entities: there are no groups of entities or nested
   prefabs.
