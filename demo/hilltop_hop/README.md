@@ -12,7 +12,8 @@ higher jump), ↓ or S to drop through a wooden plank. A gamepad works too:
 the left stick or d-pad runs and drops, (A) jumps.
 Esc (or Start) returns to the title screen. In the menus, the arrow keys or
 the d-pad choose a button and Enter or (A) presses it, or click it; on the
-end screens, Esc or (B) also goes to the title screen. These keys and
+end screens, Esc or (B) also goes to the title screen. On the title
+screen, M or (Y) turns the music on or off (or click the button). These keys and
 buttons are the project's input actions: change them with Project → Input
 Actions in the editor.
 
@@ -38,6 +39,7 @@ Actions in the editor.
 | Tweens and the `on_destroy` hook: gems bob with a looping tween and sparkle as they're removed; a checkpoint's flag hops when reached | `gem.lua` (`tween`, `on_destroy`), `checkpoint.lua` (`tween` and its `on_done`) |
 | A camera following the player a moment behind, held within the level (`camera_follow` with `smoothing` and `bounds`), with the sky and slower hills placed by it (parallax); it shakes when the player gets hurt or breaks a brick (`camera_shake`) | `init` and `place_backgrounds` in `level.lua`, `player.lua` |
 | Fades between the title screen and the level (`change_scene` with a transition) | `title.lua`, `level.lua` |
+| Music: each scene's track crossfades into the next (`play_music`); the level's plays on, quieter, under the end screens and back up when playing again; a Music on / off button sets the music volume group, kept between runs (`set_group_volume`, `save_data`) | `init` in `title.lua` and `level.lua` |
 | Trigger zones with collision hooks: gems, checkpoints, the goal | `gem.lua`, `checkpoint.lua`, `goal.lua` |
 | State shared by scripts and kept between runs: hearts, gems, the best time | `script_state`, `save_data` / `load_data` in `goal.lua` and `title.lua` |
 

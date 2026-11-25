@@ -41,7 +41,9 @@ versions may contain breaking changes).
 
 - Hilltop Hop's camera follows the player with `camera_follow` (a moment
   behind, within the level) and shakes when the player gets hurt or breaks
-  a brick; both demos go between scenes through transitions.
+  a brick; both demos go between scenes through transitions. Hilltop Hop
+  has music: a title track and a level track that crossfade, the level's
+  quieter under the end screens, and a Music on / off setting.
 - `LuaScripting::take_scene_change_request` returns a `SceneChange` (the
   scene and its transition) instead of the scene's id.
 - `audio::PlayOptions` has `group` and `fade_in` fields and is no longer

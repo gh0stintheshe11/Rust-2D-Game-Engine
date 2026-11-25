@@ -13,6 +13,8 @@ local MAX_LIVES = 3
 local END_SCREEN_DELAY = 0.6
 -- How the screen goes to another scene
 local FADE = { transition = "fade", seconds = 0.5 }
+local MUSIC = "assets/sounds/level_music.wav"
+local MUSIC_VOLUME = 0.45
 
 local camera, player, sky, hills
 
@@ -25,6 +27,10 @@ function init(scene_id, entity_id)
     local state = script_state.state
     state.lives, state.gems, state.time = MAX_LIVES, 0, 0
     state.won, state.game_over, state.checkpoint = false, false, nil
+    state.music_lowered = false
+    -- The title's music fades out as this one fades in. Playing again, the
+    -- same track plays on, back up from under the end screen
+    play_music(MUSIC, { volume = MUSIC_VOLUME, crossfade = 0.8 })
     -- The camera keeps the player in view, a moment behind, and doesn't
     -- show what's beyond the level's ends
     camera_follow(player, {
@@ -82,6 +88,12 @@ function update(scene_id, entity_id)
         state.time = state.time + delta_time
     end
     heads_up(state)
+
+    -- Under the end screens, the music plays on, quieter
+    if (state.won or state.game_over) and not state.music_lowered then
+        play_music(MUSIC, { volume = 0.12, crossfade = 0.6 })
+        state.music_lowered = true
+    end
 
     if state.won then
         local time = string.format("Time: %.1f s", state.time)

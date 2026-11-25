@@ -36,6 +36,10 @@
     "back": [
       "key:Escape",
       "pad:b"
+    ],
+    "music": [
+      "key:M",
+      "pad:y"
     ]
   }
 }

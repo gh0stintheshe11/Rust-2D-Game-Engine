@@ -31,6 +31,12 @@ struct Game {
 
 impl Game {
     fn new() -> Self {
+        Self::with_audio(AudioEngine::new())
+    }
+
+    /// The demo playing through `audio` (an offline engine, to see what it
+    /// plays).
+    fn with_audio(audio: AudioEngine) -> Self {
         let project = ProjectManager::load_project_full(&demo_dir()).expect("the demo loads");
         ProjectManager::set_project_path(demo_dir().to_string_lossy().into_owned());
         let mut runtime = GameRuntime::new(
@@ -38,7 +44,7 @@ impl Game {
             PhysicsEngine::new(),
             RenderEngine::new(),
             InputHandler::new(),
-            AudioEngine::new(),
+            audio,
             60,
         );
         runtime.set_save_data(SaveData::in_memory());
@@ -524,5 +530,57 @@ fn test_gamepads_play_too() {
         "dropped: y = {}",
         game.player().1
     );
+    assert!(script_errors().is_empty(), "{:?}", script_errors());
+}
+
+#[test]
+fn test_the_music_crossfades_and_can_be_turned_off() {
+    let (audio, mut output) = AudioEngine::offline(
+        std::num::NonZero::new(22_050).unwrap(),
+        std::num::NonZero::new(1).unwrap(),
+    );
+    let mut game = Game::with_audio(audio);
+    let music = |game: &Game| game.runtime.audio().music().expect("music plays");
+    let volume = |game: &Game, id| game.runtime.audio().volume(id);
+    let title_music = music(&game);
+    assert_eq!(volume(&game, title_music), Some(0.5));
+    // Half a second of it, fading in (audio plays as it's read)
+    let peak = output
+        .by_ref()
+        .take(11_025)
+        .fold(0.0_f32, |peak, sample| peak.max(sample.abs()));
+    assert!(peak > 0.05, "{}", peak);
+
+    // The level's music takes over
+    game.start_level();
+    let level_music = music(&game);
+    assert_ne!(level_music, title_music);
+    assert_eq!(volume(&game, level_music), Some(0.45));
+    assert_eq!(volume(&game, title_music), Some(0.0), "fading out");
+
+    // Quieter under the end screen; playing again, the same track plays on
+    game.lua::<()>("script_state.state.lives = 1");
+    game.teleport(40.0 * TILE + 2.0, START.1 - 40.0);
+    game.frames(30);
+    assert!(game.flag("game_over"));
+    assert_eq!(volume(&game, level_music), Some(0.12));
+    game.frames(40);
+    game.tap(egui::Key::Enter);
+    game.frames(20);
+    assert!(!game.flag("game_over"));
+    assert_eq!(music(&game), level_music);
+    assert_eq!(volume(&game, level_music), Some(0.45));
+
+    // On the title screen, M turns the music off, for the next runs too
+    game.tap(egui::Key::Escape);
+    game.frames(20);
+    assert_eq!(game.scene_name(), "title");
+    assert_eq!(game.runtime.audio().group_volume("music"), 1.0);
+    game.tap(egui::Key::M);
+    assert_eq!(game.runtime.audio().group_volume("music"), 0.0);
+    let off: bool = game.lua("return load_data('music_off')");
+    assert!(off);
+    game.tap(egui::Key::M);
+    assert_eq!(game.runtime.audio().group_volume("music"), 1.0);
     assert!(script_errors().is_empty(), "{:?}", script_errors());
 }
