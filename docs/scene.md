@@ -74,6 +74,13 @@ downwards, and cells can have negative coordinates.
   precision and physics' voxel coordinates would overflow. `set` reports
   whether the cell changed, and refuses cells it can't add; scene files with
   cells out of range fail to load.
+- `fill_rect(columns, rows, tile)` puts a tile (or with `None`, nothing) in
+  every cell of a rectangle, given as its columns' and rows' ranges (both
+  inclusive, either way round); a rectangle the grid can't take changes
+  nothing. `flood_fill(column, row, tile)` is a paint bucket: the cell and
+  every cell connected to it through sides (not corners) that holds what it
+  holds, within `bounds()`; a cell beyond them fills nothing. Both return the
+  cells that changed, for the physics engine to update just those.
 - `tiles()` iterates the cells with tiles, `tiles_in(columns, rows)` those of a
   range of cells (what's visible), `tile_count()` counts them,
   `tile_count_bound()` is an upper bound that costs nothing to compute (the

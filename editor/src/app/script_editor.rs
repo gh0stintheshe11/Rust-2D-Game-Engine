@@ -320,6 +320,16 @@ const API_GROUPS: &[(&str, &[ApiEntry])] = &[
                 "Put a tile in a cell, or empty it with nil; the tilemap's collider follows",
             ),
             (
+                "fill_tiles",
+                "fill_tiles(scene_id, tilemap_id, column, row, 4, 2, nil)",
+                "Put a tile (nil empties) in columns x rows cells from a corner: open a door, build a bridge; returns how many changed",
+            ),
+            (
+                "flood_fill_tiles",
+                "flood_fill_tiles(scene_id, tilemap_id, column, row, 3)",
+                "Paint bucket: the cell and every cell connected to it holding the same, within the tiles' bounds; returns how many changed",
+            ),
+            (
                 "get_tile_cell",
                 "get_tile_cell(scene_id, tilemap_id, x, y)",
                 "column, row of the cell containing a world position",

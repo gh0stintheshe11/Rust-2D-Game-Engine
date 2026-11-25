@@ -114,9 +114,22 @@ The entity's material, `is_sensor` and collision layers apply to both
 colliders; a sensor tilemap's one-way cells are part of the zone like its
 solid ones. Contacts report the tilemap entity, and raycasts hit it.
 
-`update_tilemap(entity)` rebuilds a tilemap's colliders after its tiles, or
-how they collide, changed (scripts' `set_tile` calls it) and wakes the
-bodies that touched them, so none stays floating where a tile was removed.
+`update_tilemap_cells(entity, cells)` brings the colliders up to date after
+the tiles of some cells changed (scripts' `set_tile`, `fill_tiles` and
+`flood_fill_tiles` call it): only those cells' voxels change
+(`Voxels::set_voxel`, which also updates their neighbours' faces, so bodies
+still slide along smoothly), and the body keeps a count of each collider's
+voxels, removing a collider left without any. Tilemap colliders have no
+density: the body is fixed, so its mass doesn't matter, and rapier would
+otherwise work it out again, through every tile, after each change. A
+change costs about 0.3 µs, including the next step, on a map of any size
+(rebuilding took 90 µs for Hilltop Hop's 1,870 tiles and 4.7 ms for 100,000).
+When a kind of tile the map had no collider for appears (its first one-way
+tile, say), it rebuilds instead. Bodies touching the map within a tile of
+the changed cells wake up, so none stays floating where a tile was removed.
+
+`update_tilemap(entity)` rebuilds a tilemap's colliders whole, after how its
+tiles collide changed, and wakes the bodies that touched them.
 Debug outlines draw a square per solid tile and the top edge of each one-way
 tile.
 
@@ -139,7 +152,7 @@ Distances below 10 px count as 10 px.
 ## Public API
 
 - **Lifecycle**: `new`, `add_entity`, `remove_entity`, `load_scene`,
-  `begin_frame`, `step`, `cleanup`, `update_tilemap`
+  `begin_frame`, `step`, `cleanup`, `update_tilemap_cells`, `update_tilemap`
 - **World**: `set_gravity` / `get_gravity`, `set_time_step` / `get_time_step`
 - **Bodies**: `get_velocity` / `set_velocity`, `apply_force`, `apply_impulse`,
   `set_position` (teleport, keeps velocity), `body_center` (the body's
@@ -172,8 +185,8 @@ let touching = physics.get_colliding_entities(player_id);
 - Joints, continuous collision detection settings and shape casts are not
   exposed; raycasts can exclude one entity only.
 - `raycast` doesn't see bodies added since the last `step`.
-- A tilemap's colliders are rebuilt whole when a tile changes, which gets
-  slow for very large maps changing every frame.
+- Changing how a tile of the tileset collides (`set_tile_collision`), or a
+  tilemap's first tile of a kind, rebuilds its colliders whole.
 - One-way tiles only face up, and raycasts hit them from every side.
 - `load_scene` adds only a scene's local entities; shared entities are
   ignored.

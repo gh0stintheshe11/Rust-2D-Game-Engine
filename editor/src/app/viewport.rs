@@ -517,8 +517,11 @@ impl EditorApp {
             .then_some(entity_id)
     }
 
-    /// Paint mode: the left button paints the brush into the cells under
-    /// the pointer, one undo step per stroke; Esc ends paint mode.
+    /// Paint mode: the left button puts the brush into the tilemap with the
+    /// tool chosen (B, R and F pick one), one undo step each time: into the
+    /// cells under the pointer while it's down (brush), into the rectangle
+    /// dragged out once the button is released (rectangle), or into the
+    /// region clicked (fill). Esc ends paint mode.
     fn paint_tiles(
         &mut self,
         ui: &mut egui::Ui,
@@ -532,12 +535,30 @@ impl EditorApp {
             self.finish_tile_stroke();
             return;
         }
+        // Keys pick the tool, unless they're being typed somewhere
+        if ui.ctx().memory(|m| m.focused().is_none()) {
+            let picked = ui.input(|i| {
+                crate::state::TileTool::ALL
+                    .into_iter()
+                    .find(|(_, _, key)| i.key_pressed(*key) && i.modifiers.is_none())
+                    .map(|(tool, ..)| tool)
+            });
+            if let Some(tool) = picked
+                && tool != self.gui_state.tile_tool
+            {
+                // A rectangle being dragged out is dropped
+                self.tile_stroke = None;
+                self.gui_state.tile_tool = tool;
+            }
+        }
+        let tool = self.gui_state.tile_tool;
         let camera = self.render_engine.camera;
         let to_world = |pos: egui::Pos2| {
             camera.screen_to_world((pos.x - content_rect.min.x, pos.y - content_rect.min.y))
         };
-        let pressing = response.is_pointer_button_down_on()
-            && ui.input(|i| i.pointer.primary_down() && !i.modifiers.alt);
+        let down = ui.input(|i| i.pointer.primary_down() && !i.modifiers.alt);
+        let pressing = response.is_pointer_button_down_on() && down;
+        let pressed_now = pressing && ui.input(|i| i.pointer.primary_pressed());
         let brush = match self.gui_state.tile_brush {
             crate::state::TileBrush::Tile(tile) => Some(tile),
             crate::state::TileBrush::Eraser => None,
@@ -557,51 +578,100 @@ impl EditorApp {
             return;
         };
         let tile = (tilemap.tile_size.0 as f32, tilemap.tile_size.1 as f32);
+        // The cells from `first` to `last` (any two corners) on screen
+        let cells_rect = |first: (i32, i32), last: (i32, i32)| {
+            let (min, max) = (
+                (first.0.min(last.0), first.1.min(last.1)),
+                (first.0.max(last.0), first.1.max(last.1)),
+            );
+            let corner = camera.world_to_screen((
+                origin.0 + min.0 as f32 * tile.0,
+                origin.1 + min.1 as f32 * tile.1,
+            ));
+            let cells = ((max.0 - min.0) as f32 + 1.0, (max.1 - min.1) as f32 + 1.0);
+            egui::Rect::from_min_size(
+                content_rect.min + egui::vec2(corner.0, corner.1),
+                egui::vec2(
+                    cells.0 * tile.0 * camera.zoom,
+                    cells.1 * tile.1 * camera.zoom,
+                ),
+            )
+        };
+        let outline = |rect: egui::Rect, color: egui::Color32| {
+            ui.painter().rect_stroke(
+                rect,
+                0.0,
+                egui::Stroke::new(1.5, color),
+                egui::StrokeKind::Inside,
+            );
+        };
 
         // The cell under the pointer
         if let Some(pointer) = response.hover_pos() {
-            let (column, row) = tilemap.cell_at(origin, to_world(pointer));
-            let min = camera.world_to_screen((
-                origin.0 + column as f32 * tile.0,
-                origin.1 + row as f32 * tile.1,
-            ));
-            let cell = egui::Rect::from_min_size(
-                content_rect.min + egui::vec2(min.0, min.1),
-                egui::vec2(tile.0 * camera.zoom, tile.1 * camera.zoom),
-            );
-            ui.painter().rect_stroke(
-                cell,
-                0.0,
-                egui::Stroke::new(1.5, egui::Color32::WHITE),
-                egui::StrokeKind::Inside,
-            );
+            let cell = tilemap.cell_at(origin, to_world(pointer));
+            outline(cells_rect(cell, cell), egui::Color32::WHITE);
         }
-        ui.painter().text(
-            content_rect.left_top() + egui::vec2(8.0, 36.0),
-            egui::Align2::LEFT_TOP,
-            format!("🖌 Painting '{}' · Esc to stop", name),
-            egui::FontId::proportional(13.0),
-            egui::Color32::WHITE,
+        let hint = |offset: f32, text: String| {
+            ui.painter().text(
+                content_rect.left_top() + egui::vec2(8.0, offset),
+                egui::Align2::LEFT_TOP,
+                text,
+                egui::FontId::proportional(13.0),
+                egui::Color32::WHITE,
+            );
+        };
+        hint(36.0, format!("🖌 Painting '{}' · Esc to stop", name));
+        hint(
+            54.0,
+            format!("{} · B brush, R rectangle, F fill", tool.name()),
         );
 
-        if pressing && let Some(pointer) = ui.input(|i| i.pointer.interact_pos()) {
-            let cell = tilemap.cell_at(origin, to_world(pointer));
-            let stroke = self.tile_stroke.get_or_insert_default();
-            // Fill the cells between this frame's and the last one's, so
-            // fast strokes have no gaps
-            for (column, row) in cells_on_line(stroke.last_cell.unwrap_or(cell), cell) {
-                match tilemap.set(column, row, brush) {
-                    Ok(changed) => stroke.changed |= changed,
-                    Err(e) if !stroke.reported => {
-                        LOGGER.warning(format!("Can't paint there: {}", e));
-                        stroke.reported = true;
+        let pointer_cell = ui
+            .input(|i| i.pointer.interact_pos())
+            .map(|pointer| tilemap.cell_at(origin, to_world(pointer)));
+        match (tool, pointer_cell) {
+            (crate::state::TileTool::Brush, Some(cell)) if pressing => {
+                let stroke = self.tile_stroke.get_or_insert_default();
+                // Fill the cells between this frame's and the last one's, so
+                // fast strokes have no gaps
+                for (column, row) in cells_on_line(stroke.last_cell.unwrap_or(cell), cell) {
+                    match tilemap.set(column, row, brush) {
+                        Ok(changed) => stroke.changed |= changed,
+                        Err(e) if !stroke.reported => {
+                            LOGGER.warning(format!("Can't paint there: {}", e));
+                            stroke.reported = true;
+                        }
+                        Err(_) => {}
                     }
-                    Err(_) => {}
+                }
+                stroke.last_cell = Some(cell);
+            }
+            (crate::state::TileTool::Rectangle, Some(cell)) if pressing => {
+                let stroke = self.tile_stroke.get_or_insert_default();
+                let start = *stroke.start.get_or_insert(cell);
+                stroke.last_cell = Some(cell);
+                outline(cells_rect(start, cell), egui::Color32::YELLOW);
+            }
+            (crate::state::TileTool::Fill, Some((column, row))) if pressed_now => {
+                match tilemap.flood_fill(column, row, brush) {
+                    Ok(changed) if !changed.is_empty() => self.gui_state.commit_change(),
+                    Ok(_) => {}
+                    Err(e) => LOGGER.warning(format!("Can't fill there: {}", e)),
                 }
             }
-            stroke.last_cell = Some(cell);
-        } else {
-            self.finish_tile_stroke();
+            _ if pressing => {}
+            _ => {
+                // Released: a rectangle dragged out is filled
+                if let Some(stroke) = self.tile_stroke.as_mut()
+                    && let (Some(start), Some(end)) = (stroke.start, stroke.last_cell)
+                {
+                    match tilemap.fill_rect((start.0, end.0), (start.1, end.1), brush) {
+                        Ok(changed) => stroke.changed |= !changed.is_empty(),
+                        Err(e) => LOGGER.warning(format!("Can't fill that: {}", e)),
+                    }
+                }
+                self.finish_tile_stroke();
+            }
         }
     }
 
@@ -637,8 +707,10 @@ const MAX_PREVIEW_DT: f32 = 0.1;
 /// A tilemap stroke in progress.
 #[derive(Default)]
 pub(super) struct TileStroke {
-    /// The cell painted last
+    /// The cell painted last, or the rectangle's corner under the pointer
     last_cell: Option<(i32, i32)>,
+    /// The rectangle's corner where the drag started
+    start: Option<(i32, i32)>,
     /// Whether any cell changed
     changed: bool,
     /// Whether a cell that couldn't be painted was reported

@@ -82,10 +82,15 @@ console.
   border and animated ones an orange triangle; the selected tilemap plays
   its animations in the viewport. Once the tilemap has a
   tileset (tiles painted without one would be invisible, yet solid),
-  🖌 Paint turns on paint mode for the selected tilemap: left-drag in the
-  viewport paints the chosen tile (or erases) into the cells under the
-  pointer, filling the cells between two frames' positions; each stroke is
-  one undo step. The cell under the pointer is outlined, selecting and
+  🖌 Paint turns on paint mode for the selected tilemap, with the chosen tile
+  (or the eraser) and a tool, picked in the inspector or with a key: **Brush**
+  (B) paints the cells the pointer drags across, filling the cells between
+  two frames' positions; **Rectangle** (R) fills the rectangle dragged from
+  one corner to the other once the button is released, outlined meanwhile;
+  **Fill** (F) fills the cell clicked and every cell connected to it holding
+  the same, within the tiles' bounds (`Tilemap::flood_fill`). Each stroke,
+  rectangle or fill is one undo step. The cell under the pointer is
+  outlined, the tool is named under the paint hint, selecting and
   dragging entities is off (a drag that began before, like the one that
   selected the tilemap, still moves it), right-drag still pans, and Esc ends
   paint mode. See [scene.md](scene.md#tilemaps).
@@ -172,8 +177,8 @@ a window.
 
 - No multi-select, drag-and-drop of assets, or gizmos (rotation/scale
   handles).
-- Tilemaps are painted cell by cell: there are no rectangle or flood fills,
-  brushes of several tiles, or automatic tile borders (auto-tiling).
+- Tilemaps have no brushes of several tiles, no line tool, and no automatic
+  tile borders (auto-tiling).
 - Grid settings (snapping, size) aren't saved: every session starts with
   snapping on and 32 px cells.
 - `rfd` file dialogs block the UI while open.

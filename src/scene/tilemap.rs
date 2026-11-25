@@ -179,12 +179,7 @@ impl Tilemap {
     /// than [`MAX_TILEMAP_SIDE`] columns or rows, and cells' columns and
     /// rows are within ±[`MAX_TILEMAP_COORDINATE`].
     pub fn set(&mut self, column: i32, row: i32, tile: Option<u32>) -> Result<bool, String> {
-        let stored = match tile {
-            Some(tile) => tile
-                .checked_add(1)
-                .ok_or_else(|| format!("tile {} is too large", tile))?,
-            None => 0,
-        };
+        let stored = stored(tile)?;
         let index = match self.index(column, row) {
             Some(index) => index,
             // Emptying a cell outside the grid changes nothing
@@ -197,6 +192,102 @@ impl Tilemap {
         };
         let changed = self.cells[index] != stored;
         self.cells[index] = stored;
+        Ok(changed)
+    }
+
+    /// Put `tile` in every cell from `columns.0` to `columns.1` and from
+    /// `rows.0` to `rows.1` (inclusive, either way round), or with `None`
+    /// empty them; returns the cells that changed. The grid grows as for
+    /// [`set`](Self::set), and a rectangle it can't take changes nothing.
+    pub fn fill_rect(
+        &mut self,
+        columns: (i32, i32),
+        rows: (i32, i32),
+        tile: Option<u32>,
+    ) -> Result<Vec<(i32, i32)>, String> {
+        let stored = stored(tile)?;
+        let mut first = (columns.0.min(columns.1), rows.0.min(rows.1));
+        let mut last = (columns.0.max(columns.1), rows.0.max(rows.1));
+        if stored != 0 {
+            self.include_area(first, last)?;
+        } else {
+            // Emptying: only cells of the grid can change
+            let Some((origin, size)) = self.grid_bounds() else {
+                return Ok(Vec::new());
+            };
+            let end = (
+                (i64::from(origin.0) + i64::from(size.0) - 1) as i32,
+                (i64::from(origin.1) + i64::from(size.1) - 1) as i32,
+            );
+            first = (first.0.max(origin.0), first.1.max(origin.1));
+            last = (last.0.min(end.0), last.1.min(end.1));
+        }
+        let mut changed = Vec::new();
+        for row in first.1..=last.1 {
+            for column in first.0..=last.0 {
+                if let Some(index) = self.index(column, row)
+                    && self.cells[index] != stored
+                {
+                    self.cells[index] = stored;
+                    changed.push((column, row));
+                }
+            }
+        }
+        Ok(changed)
+    }
+
+    /// Put `tile` (or with `None`, nothing) in the cell and every cell
+    /// connected to it through sides, not corners, that holds what it holds,
+    /// within [`bounds`](Self::bounds): a paint bucket. Returns the cells
+    /// that changed; none when the cell is beyond the bounds or holds that
+    /// already.
+    pub fn flood_fill(
+        &mut self,
+        column: i32,
+        row: i32,
+        tile: Option<u32>,
+    ) -> Result<Vec<(i32, i32)>, String> {
+        let stored = stored(tile)?;
+        let Some((origin, size)) = self.bounds() else {
+            return Ok(Vec::new());
+        };
+        let (width, height) = (i64::from(size.0), i64::from(size.1));
+        // A cell's place in the bounds, if it's in them
+        let place = |column: i32, row: i32| {
+            let x = i64::from(column) - i64::from(origin.0);
+            let y = i64::from(row) - i64::from(origin.1);
+            (x >= 0 && y >= 0 && x < width && y < height).then(|| (y * width + x) as usize)
+        };
+        let Some(start) = place(column, row) else {
+            return Ok(Vec::new());
+        };
+        let target = self.get(column, row).map_or(0, |tile| tile + 1);
+        if target == stored {
+            return Ok(Vec::new());
+        }
+        let mut seen = vec![false; (width * height) as usize];
+        seen[start] = true;
+        let mut pending = vec![(column, row)];
+        let mut changed = Vec::new();
+        while let Some((column, row)) = pending.pop() {
+            let Some(index) = self.index(column, row) else {
+                continue;
+            };
+            if self.cells[index] != target {
+                continue;
+            }
+            self.cells[index] = stored;
+            changed.push((column, row));
+            for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+                let (next_column, next_row) = (column.wrapping_add(dx), row.wrapping_add(dy));
+                if let Some(next) = place(next_column, next_row)
+                    && !seen[next]
+                {
+                    seen[next] = true;
+                    pending.push((next_column, next_row));
+                }
+            }
+        }
         Ok(changed)
     }
 
@@ -311,30 +402,56 @@ impl Tilemap {
 
     /// Grow the grid to include a cell, keeping the tiles where they are.
     fn include(&mut self, column: i32, row: i32) -> Result<(), String> {
-        if !(in_range(column.into()) && in_range(row.into())) {
-            return Err(format!(
-                "cell {}, {} is out of range: columns and rows go from -{} to {}",
-                column, row, MAX_TILEMAP_COORDINATE, MAX_TILEMAP_COORDINATE
-            ));
+        self.include_area((column, row), (column, row))
+    }
+
+    /// Grow the grid to include the cells from `first` to `last` (columns
+    /// and rows, `first` the smaller), keeping the tiles where they are, or
+    /// change nothing when it can't.
+    fn include_area(&mut self, first: (i32, i32), last: (i32, i32)) -> Result<(), String> {
+        for (column, row) in [first, last] {
+            if !(in_range(column.into()) && in_range(row.into())) {
+                return Err(format!(
+                    "cell {}, {} is out of range: columns and rows go from -{} to {}",
+                    column, row, MAX_TILEMAP_COORDINATE, MAX_TILEMAP_COORDINATE
+                ));
+            }
         }
+        let (first, last) = (
+            (i64::from(first.0), i64::from(first.1)),
+            (i64::from(last.0), i64::from(last.1)),
+        );
         let (min, max) = if self.cells.is_empty() {
-            ((column as i64, row as i64), (column as i64, row as i64))
+            (first, last)
         } else {
             let (origin_x, origin_y) = (self.origin.0 as i64, self.origin.1 as i64);
             (
-                (origin_x.min(column as i64), origin_y.min(row as i64)),
+                (origin_x.min(first.0), origin_y.min(first.1)),
                 (
-                    (origin_x + self.size.0 as i64 - 1).max(column as i64),
-                    (origin_y + self.size.1 as i64 - 1).max(row as i64),
+                    (origin_x + self.size.0 as i64 - 1).max(last.0),
+                    (origin_y + self.size.1 as i64 - 1).max(last.1),
                 ),
             )
         };
         let (columns, rows) = (max.0 - min.0 + 1, max.1 - min.1 + 1);
         if columns > MAX_TILEMAP_SIDE as i64 || rows > MAX_TILEMAP_SIDE as i64 {
+            let cell = if (first.0, first.1) == (min.0, min.1) {
+                last
+            } else {
+                first
+            };
             return Err(format!(
                 "a tilemap can't span more than {} columns or rows (cell {}, {})",
-                MAX_TILEMAP_SIDE, column, row
+                MAX_TILEMAP_SIDE, cell.0, cell.1
             ));
+        }
+        if (min, (columns, rows))
+            == (
+                (self.origin.0 as i64, self.origin.1 as i64),
+                (self.size.0 as i64, self.size.1 as i64),
+            )
+        {
+            return Ok(());
         }
         let mut cells = vec![0; (columns * rows) as usize];
         for ((x, y), tile) in self.tiles() {
@@ -345,6 +462,16 @@ impl Tilemap {
         self.size = (columns as u32, rows as u32);
         self.cells = cells;
         Ok(())
+    }
+}
+
+/// How a cell stores `tile`: 0 for none, the tile + 1 otherwise.
+fn stored(tile: Option<u32>) -> Result<u32, String> {
+    match tile {
+        Some(tile) => tile
+            .checked_add(1)
+            .ok_or_else(|| format!("tile {} is too large", tile)),
+        None => Ok(0),
     }
 }
 

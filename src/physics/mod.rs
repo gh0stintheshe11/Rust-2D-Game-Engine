@@ -74,6 +74,9 @@ struct BodyInfo {
     collider: Option<ColliderHandle>,
     /// A tilemap's one-way tiles, apart from its solid ones (`collider`)
     one_way_collider: Option<ColliderHandle>,
+    /// A tilemap's voxels in `collider` and in `one_way_collider`: a
+    /// collider left without any goes
+    voxel_counts: [usize; 2],
     /// Offset from the entity's `x`/`y` (sprite top-left) to the body origin.
     half_extents: (f32, f32),
     /// Fixed bodies never move by themselves; nothing to write back.
@@ -279,6 +282,7 @@ impl PhysicsEngine {
                 body,
                 collider,
                 one_way_collider: None,
+                voxel_counts: [0, 0],
                 half_extents,
                 is_fixed: !is_kinematic && !is_movable,
                 writes_rotation: is_movable && !is_kinematic && can_rotate,
@@ -555,12 +559,20 @@ impl PhysicsEngine {
                 .active_hooks(ActiveHooks::MODIFY_SOLVER_CONTACTS);
             self.insert_collider(entity, builder, body)
         });
+        // The body is fixed, so its mass doesn't matter, and working it out
+        // goes through every tile: rapier would after every change of tiles
+        for handle in collider.into_iter().chain(one_way_collider) {
+            if let Some(collider) = self.world.colliders.get_mut(handle) {
+                collider.set_density(0.0);
+            }
+        }
         self.bodies.insert(
             entity.id,
             BodyInfo {
                 body,
                 collider,
                 one_way_collider,
+                voxel_counts: [solid.len(), one_way.len()],
                 half_extents: (0.0, 0.0),
                 is_fixed: true,
                 writes_rotation: false,
@@ -601,10 +613,141 @@ impl PhysicsEngine {
         self.world.insert_collider(builder.build(), Some(body))
     }
 
-    /// Rebuild a tilemap's collider after its tiles changed, e.g. when a
-    /// script broke a block. Bodies that touched it wake up, so none stays
-    /// floating where a tile was removed. Does nothing for an entity without
-    /// a body (one in a scene that isn't playing, say).
+    /// Bring a tilemap's colliders up to date after the tiles of `cells`
+    /// changed (a script broke a block, filled an area): only those cells'
+    /// voxels change, which costs the same on a map of any size. Bodies
+    /// touching the map around them wake up, so none stays floating where a
+    /// tile was removed. When a kind of tile the map had none of appears
+    /// (its first one-way tile, say), the colliders are rebuilt instead (see
+    /// [`update_tilemap`](Self::update_tilemap)). Does nothing for an entity
+    /// without a body.
+    pub fn update_tilemap_cells(&mut self, entity: &Entity, cells: &[(i32, i32)]) {
+        let (Some(tilemap), Some(info)) = (&entity.tilemap, self.bodies.get(&entity.id)) else {
+            return;
+        };
+        if cells.is_empty() {
+            return;
+        }
+        let has_collision = attr_bool(entity, "has_collision", true);
+        let is_sensor = attr_bool(entity, "is_sensor", false);
+        // Whether a cell has a voxel in the solid collider, and in the
+        // one-way one (see add_tilemap)
+        let wanted = |(column, row): (i32, i32)| -> [bool; 2] {
+            let tile = tilemap.get(column, row).filter(|_| has_collision);
+            match tile.map(|tile| tilemap.tile_collision(tile)) {
+                Some(TileCollision::Solid) => [true, false],
+                Some(TileCollision::OneWay) if is_sensor => [true, false],
+                Some(TileCollision::OneWay) => [false, true],
+                Some(TileCollision::Passable) | None => [false, false],
+            }
+        };
+        let handles = [info.collider, info.one_way_collider];
+        let missing = cells.iter().any(|&cell| {
+            let wanted = wanted(cell);
+            (wanted[0] && handles[0].is_none()) || (wanted[1] && handles[1].is_none())
+        });
+        if missing {
+            self.update_tilemap(entity);
+            return;
+        }
+
+        // Bodies touching the map near the cells, found before a collider
+        // may go
+        let tile = (tilemap.tile_size.0 as f32, tilemap.tile_size.1 as f32);
+        let (mut first, mut last) = (cells[0], cells[0]);
+        for &(column, row) in cells {
+            first = (first.0.min(column), first.1.min(row));
+            last = (last.0.max(column), last.1.max(row));
+        }
+        let origin = (entity.get_x(), entity.get_y());
+        // One tile around the cells
+        let area = Aabb::new(
+            Vector::new(
+                origin.0 + (first.0 as f32 - 1.0) * tile.0,
+                origin.1 + (first.1 as f32 - 1.0) * tile.1,
+            ),
+            Vector::new(
+                origin.0 + (last.0 as f32 + 2.0) * tile.0,
+                origin.1 + (last.1 as f32 + 2.0) * tile.1,
+            ),
+        );
+        let touching = self.bodies_touching(handles.into_iter().flatten(), &area);
+
+        let mut counts = info.voxel_counts;
+        let mut emptied = Vec::new();
+        for (slot, handle) in handles.into_iter().enumerate() {
+            let Some(handle) = handle else {
+                continue;
+            };
+            let Some(voxels) = self
+                .world
+                .colliders
+                .get_mut(handle)
+                .and_then(|collider| collider.shape_mut().as_voxels_mut())
+            else {
+                continue;
+            };
+            for &cell in cells {
+                let filled = wanted(cell)[slot];
+                let before = voxels.set_voxel(IVector::new(cell.0, cell.1), filled);
+                match (before.is_empty(), filled) {
+                    (true, true) => counts[slot] += 1,
+                    (false, false) => counts[slot] = counts[slot].saturating_sub(1),
+                    _ => {}
+                }
+            }
+            if counts[slot] == 0 {
+                emptied.push(handle);
+            }
+        }
+        for handle in &emptied {
+            self.world.remove_collider(*handle);
+        }
+        if let Some(info) = self.bodies.get_mut(&entity.id) {
+            info.voxel_counts = counts;
+            let gone = |handle: Option<ColliderHandle>| handle.filter(|h| !emptied.contains(h));
+            info.collider = gone(info.collider);
+            info.one_way_collider = gone(info.one_way_collider);
+        }
+        for body in touching {
+            self.world.wake_up(body, true);
+        }
+    }
+
+    /// The bodies of colliders in contact with `colliders` whose bounding
+    /// box meets `area`.
+    fn bodies_touching(
+        &self,
+        colliders: impl Iterator<Item = ColliderHandle>,
+        area: &Aabb,
+    ) -> Vec<RigidBodyHandle> {
+        let world = &self.world;
+        colliders
+            .flat_map(|collider| {
+                world
+                    .narrow_phase
+                    .contact_pairs_with(collider)
+                    .filter_map(move |pair| {
+                        let other = if pair.collider1 == collider {
+                            pair.collider2
+                        } else {
+                            pair.collider1
+                        };
+                        let other = world.colliders.get(other)?;
+                        other
+                            .compute_aabb()
+                            .intersects(area)
+                            .then_some(other.parent()?)
+                    })
+            })
+            .collect()
+    }
+
+    /// Rebuild a tilemap's colliders, e.g. after its tileset's collision
+    /// changed. Bodies that touched it wake up, so none stays floating where
+    /// a tile was removed. Does nothing for an entity without a body (one in
+    /// a scene that isn't playing, say). After tiles changed,
+    /// [`update_tilemap_cells`](Self::update_tilemap_cells) costs less.
     pub fn update_tilemap(&mut self, entity: &Entity) {
         let Some(info) = self.bodies.get(&entity.id) else {
             return;

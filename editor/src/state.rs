@@ -21,6 +21,35 @@ pub enum TileBrush {
     Eraser,
 }
 
+/// How paint mode puts the brush into a tilemap.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum TileTool {
+    /// Into the cells the pointer drags across
+    #[default]
+    Brush,
+    /// Into a rectangle dragged from one corner to the other
+    Rectangle,
+    /// Into the cell clicked and every cell connected to it holding the
+    /// same (a paint bucket)
+    Fill,
+}
+
+impl TileTool {
+    /// Every tool, its name, and the key that picks it in paint mode.
+    pub const ALL: [(TileTool, &'static str, egui::Key); 3] = [
+        (TileTool::Brush, "Brush", egui::Key::B),
+        (TileTool::Rectangle, "Rectangle", egui::Key::R),
+        (TileTool::Fill, "Fill", egui::Key::F),
+    ];
+
+    pub fn name(self) -> &'static str {
+        Self::ALL
+            .iter()
+            .find(|(tool, ..)| *tool == self)
+            .map_or("Brush", |(_, name, _)| name)
+    }
+}
+
 /// What the inspector shows.
 pub enum SelectedItem {
     None,
@@ -150,6 +179,7 @@ pub struct GuiState {
     /// Left-dragging in the viewport paints the selected tilemap
     pub painting_tiles: bool,
     pub tile_brush: TileBrush,
+    pub tile_tool: TileTool,
 
     pub selected_item: SelectedItem,
     pub scene_panel_selected_item: ScenePanelSelectedItem,
@@ -214,6 +244,7 @@ impl GuiState {
             grid_size: rust_2d_game_engine::render::DEFAULT_GRID_SIZE,
             painting_tiles: false,
             tile_brush: TileBrush::Tile(0),
+            tile_tool: TileTool::Brush,
 
             selected_item: SelectedItem::None,
             scene_panel_selected_item: ScenePanelSelectedItem::None,

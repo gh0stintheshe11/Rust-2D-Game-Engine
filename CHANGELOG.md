@@ -36,6 +36,13 @@ versions may contain breaking changes).
   music, or any name), which `set_group_volume` scales: settings menus.
   Mixing costs about 0.8 ns more per sample of each sound.
   `GameRuntime::audio` lends out the game's audio engine.
+- Rectangle and fill tools for tilemaps. In the editor's paint mode, R
+  drags out a rectangle, filled once the button is released, and F fills
+  the cell clicked and every cell connected to it holding the same (a paint
+  bucket), within the tiles' bounds; B is the brush. Each is one undo step.
+  Scripts have `fill_tiles` and `flood_fill_tiles`, and Rust code
+  `Tilemap::fill_rect` and `Tilemap::flood_fill`, which return the cells
+  that changed.
 
 ### Changed
 
@@ -46,6 +53,12 @@ versions may contain breaking changes).
   quieter under the end screens, and a Music on / off setting.
 - `LuaScripting::take_scene_change_request` returns a `SceneChange` (the
   scene and its transition) instead of the scene's id.
+- Changing tiles while playing updates the tilemap's colliders cell by
+  cell (`PhysicsEngine::update_tilemap_cells`) instead of rebuilding them:
+  a changed tile costs about 0.3 µs, including the next physics step, on a
+  map of any size, against 90 µs for Hilltop Hop's level and 4.7 ms for a
+  map of 100,000 tiles. Tilemap colliders have no density (their bodies are
+  fixed), which kept rapier from going through every tile after a change.
 - `audio::PlayOptions` has `group` and `fade_in` fields and is no longer
   `Copy` (breaking for Rust code that constructs it without
   `..PlayOptions::default()`). Setting a sound's volume gets there over 5

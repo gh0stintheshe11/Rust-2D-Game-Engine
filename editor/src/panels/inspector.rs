@@ -1,5 +1,5 @@
 use crate::project::AssetType;
-use crate::state::{GuiState, SelectedItem, TileBrush};
+use crate::state::{GuiState, SelectedItem, TileBrush, TileTool};
 use eframe::egui;
 use rust_2d_game_engine::audio::AudioEngine;
 use rust_2d_game_engine::logger::LOGGER;
@@ -80,6 +80,14 @@ impl Default for Inspector {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// Paint mode's settings, which the tilemap section changes.
+struct TilePainting<'a> {
+    brush: &'a mut TileBrush,
+    tool: &'a mut TileTool,
+    /// Paint mode is on
+    on: &'a mut bool,
 }
 
 impl Inspector {
@@ -395,8 +403,11 @@ impl Inspector {
                 ctx,
                 entity,
                 &gui_state.project_path,
-                &mut gui_state.tile_brush,
-                &mut gui_state.painting_tiles,
+                TilePainting {
+                    brush: &mut gui_state.tile_brush,
+                    tool: &mut gui_state.tile_tool,
+                    on: &mut gui_state.painting_tiles,
+                },
             );
         }
 
@@ -420,9 +431,13 @@ impl Inspector {
         ctx: &egui::Context,
         entity: &mut Entity,
         project_path: &Path,
-        brush: &mut TileBrush,
-        painting: &mut bool,
+        paint: TilePainting,
     ) {
+        let TilePainting {
+            brush,
+            tool,
+            on: painting,
+        } = paint;
         let Some(tilemap) = entity.tilemap.as_mut() else {
             return;
         };
@@ -493,6 +508,24 @@ impl Inspector {
                     .clicked()
                 {
                     *brush = TileBrush::Eraser;
+                }
+            });
+            ui.horizontal(|ui| {
+                let hints = [
+                    "Left-drag across cells",
+                    "Left-drag from one corner to the other",
+                    "Click a cell: it and every cell connected to it holding the same, within \
+                     the tiles' bounds",
+                ];
+                for ((choice, name, key), hint) in TileTool::ALL.into_iter().zip(hints) {
+                    let label = format!("{} ({})", name, key.name());
+                    if ui
+                        .selectable_label(*tool == choice, label)
+                        .on_hover_text(hint)
+                        .clicked()
+                    {
+                        *tool = choice;
+                    }
                 }
             });
         });

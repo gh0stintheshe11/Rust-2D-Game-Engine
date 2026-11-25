@@ -75,12 +75,91 @@ impl LuaScripting {
                     .set(column, row, tile)
                     .map_err(|e| tile_error("set_tile", e))?;
                 if changed {
-                    physics.borrow_mut().update_tilemap(entity);
+                    physics
+                        .borrow_mut()
+                        .update_tilemap_cells(entity, &[(column, row)]);
                 }
                 Ok(changed)
             },
         )?;
         globals.set("set_tile", set_tile)?;
+
+        // fill_tiles(scene_id, entity_id, column, row, columns, rows, tile)
+        // -> how many cells changed: put `tile` (nil empties) in a
+        // `columns` x `rows` rectangle from (column, row)
+        let manager = Rc::clone(scene_manager);
+        let physics = Rc::clone(physics_engine);
+        let fill_tiles = self.lua.create_function(
+            move |_,
+                  (scene_id, entity_id, column, row, columns, rows, tile): (
+                String,
+                String,
+                i32,
+                i32,
+                i32,
+                i32,
+                Option<u32>,
+            )| {
+                if columns < 0 || rows < 0 {
+                    return Err(tile_error(
+                        "fill_tiles",
+                        format!("columns and rows can't be negative: {} x {}", columns, rows),
+                    ));
+                }
+                if columns == 0 || rows == 0 {
+                    return Ok(0);
+                }
+                let last = |first: i32, count: i32| {
+                    first.checked_add(count - 1).ok_or_else(|| {
+                        tile_error(
+                            "fill_tiles",
+                            "the rectangle goes past the last column or row",
+                        )
+                    })
+                };
+                let (last_column, last_row) = (last(column, columns)?, last(row, rows)?);
+                let mut manager = manager.borrow_mut();
+                let entity = tilemap_entity(&mut manager, "fill_tiles", &scene_id, &entity_id)?;
+                let changed = entity
+                    .tilemap
+                    .as_mut()
+                    .expect("checked by tilemap_entity")
+                    .fill_rect((column, last_column), (row, last_row), tile)
+                    .map_err(|e| tile_error("fill_tiles", e))?;
+                physics.borrow_mut().update_tilemap_cells(entity, &changed);
+                Ok(changed.len())
+            },
+        )?;
+        globals.set("fill_tiles", fill_tiles)?;
+
+        // flood_fill_tiles(scene_id, entity_id, column, row, tile) -> how
+        // many cells changed: like a paint bucket, from the cell through its
+        // neighbours holding the same, within the map's tiles' bounds
+        let manager = Rc::clone(scene_manager);
+        let physics = Rc::clone(physics_engine);
+        let flood_fill_tiles = self.lua.create_function(
+            move |_,
+                  (scene_id, entity_id, column, row, tile): (
+                String,
+                String,
+                i32,
+                i32,
+                Option<u32>,
+            )| {
+                let mut manager = manager.borrow_mut();
+                let entity =
+                    tilemap_entity(&mut manager, "flood_fill_tiles", &scene_id, &entity_id)?;
+                let changed = entity
+                    .tilemap
+                    .as_mut()
+                    .expect("checked by tilemap_entity")
+                    .flood_fill(column, row, tile)
+                    .map_err(|e| tile_error("flood_fill_tiles", e))?;
+                physics.borrow_mut().update_tilemap_cells(entity, &changed);
+                Ok(changed.len())
+            },
+        )?;
+        globals.set("flood_fill_tiles", flood_fill_tiles)?;
 
         // get_tile_cell(scene_id, entity_id, x, y) -> column, row of the cell
         // containing the world position

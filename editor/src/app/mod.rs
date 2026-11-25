@@ -1444,6 +1444,58 @@ mod tests {
         app.gui_state.select_entity(scene_id, ground);
         assert_eq!(entity(&app).tilemap.unwrap().tile_count(), 5);
 
+        // R: a rectangle, filled once it's dragged out, in one undo step
+        app.gui_state.tile_brush = TileBrush::Tile(0);
+        frame_with(
+            &mut app,
+            &ctx,
+            vec![key_press(egui::Key::R, egui::Modifiers::NONE)],
+        );
+        assert_eq!(app.gui_state.tile_tool, crate::state::TileTool::Rectangle);
+        // Tiles are 32 x 32: from cell (1, 2) to cell (3, 3)
+        let from = on_screen(48.0, 80.0);
+        drag(
+            &mut app,
+            &ctx,
+            from,
+            on_screen(112.0, 112.0) - from,
+            egui::Modifiers::NONE,
+        );
+        let map = entity(&app).tilemap.unwrap();
+        assert_eq!(map.tile_count(), 11, "row 0's five and 3 x 2 more");
+        assert!(
+            (1..=3).all(|column| map.get(column, 2) == Some(0) && map.get(column, 3) == Some(0))
+        );
+        app.gui_state.undo();
+        app.gui_state.select_entity(scene_id, ground);
+        assert_eq!(entity(&app).tilemap.unwrap().tile_count(), 5);
+        app.gui_state.redo();
+        app.gui_state.select_entity(scene_id, ground);
+
+        // F: the empty cells around the rectangle, within the tiles' bounds
+        // (columns 0 to 4, rows 0 to 3), are one region
+        frame_with(
+            &mut app,
+            &ctx,
+            vec![key_press(egui::Key::F, egui::Modifiers::NONE)],
+        );
+        assert_eq!(app.gui_state.tile_tool, crate::state::TileTool::Fill);
+        click_at(&mut app, &ctx, on_screen(16.0, 48.0), left);
+        assert_eq!(entity(&app).tilemap.unwrap().tile_count(), 20);
+        app.gui_state.undo();
+        app.gui_state.select_entity(scene_id, ground);
+        assert_eq!(entity(&app).tilemap.unwrap().tile_count(), 11);
+        // (Back to row 0's five, as the rest of the test expects)
+        app.gui_state.undo();
+        app.gui_state.select_entity(scene_id, ground);
+        assert_eq!(entity(&app).tilemap.unwrap().tile_count(), 5);
+        frame_with(
+            &mut app,
+            &ctx,
+            vec![key_press(egui::Key::B, egui::Modifiers::NONE)],
+        );
+        assert_eq!(app.gui_state.tile_tool, crate::state::TileTool::Brush);
+
         // Esc ends paint mode
         frame_with(
             &mut app,

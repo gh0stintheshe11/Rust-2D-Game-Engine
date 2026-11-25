@@ -954,6 +954,111 @@ mod tests {
         assert!(y(&scene, resting) > rest_y + 20.0, "fell through the gap");
     }
 
+    /// Change tiles of a tilemap with `change`, and its colliders cell by
+    /// cell.
+    fn change_tiles(
+        scene: &mut Scene,
+        physics: &mut PhysicsEngine,
+        map_id: Uuid,
+        change: impl FnOnce(&mut rust_2d_game_engine::scene::Tilemap) -> Vec<(i32, i32)>,
+    ) {
+        let entity = scene.get_entity_mut(map_id).unwrap();
+        let changed = change(entity.tilemap.as_mut().unwrap());
+        physics.update_tilemap_cells(scene.get_entity(map_id).unwrap(), &changed);
+    }
+
+    #[test]
+    fn test_tiles_changed_cell_by_cell_collide_as_they_are() {
+        let mut scene = Scene::new("test_scene").unwrap();
+        let mut physics = PhysicsEngine::new();
+        physics.set_gravity(0.0, 200.0);
+        let ground = tilemap(&mut scene, (0.0, 100.0), &row_of_tiles(60), true);
+        // Frictionless: only catching on an edge could slow the slider below
+        set_attribute(&mut scene, ground, "friction", AttributeValue::Float(0.0));
+        let resting = sized_entity(&mut scene, "box", (40.0, 80.0), (10.0, 10.0), dynamic(true));
+        physics.load_scene(&scene);
+        for _ in 0..600 {
+            physics.step(&mut scene);
+        }
+        let rest_y = y(&scene, resting);
+
+        // A tile taken out and put back in the middle of the row: still
+        // smooth to slide along
+        change_tiles(&mut scene, &mut physics, ground, |map| {
+            map.fill_rect((30, 30), (0, 0), None).unwrap()
+        });
+        change_tiles(&mut scene, &mut physics, ground, |map| {
+            map.fill_rect((30, 30), (0, 0), Some(0)).unwrap()
+        });
+        let slider = sized_entity(
+            &mut scene,
+            "slider",
+            (420.0, 84.0),
+            (16.0, 16.0),
+            dynamic(true),
+        );
+        set_attribute(&mut scene, slider, "friction", AttributeValue::Float(0.0));
+        physics.add_entity(scene.get_entity(slider).unwrap());
+        for _ in 0..30 {
+            physics.step(&mut scene);
+        }
+        physics.set_velocity(slider, (200.0, 0.0));
+        let mut lowest_speed = f32::MAX;
+        for _ in 0..60 {
+            physics.step(&mut scene);
+            lowest_speed = lowest_speed.min(physics.get_velocity(slider).unwrap().0);
+        }
+        assert!(lowest_speed > 190.0, "caught on an edge: {}", lowest_speed);
+
+        // Taken out under the sleeping box: it falls into the gap, onto a
+        // tile put in where there was none
+        change_tiles(&mut scene, &mut physics, ground, |map| {
+            let mut changed = map.fill_rect((1, 4), (0, 0), None).unwrap();
+            changed.extend(map.fill_rect((2, 2), (3, 3), Some(0)).unwrap());
+            changed
+        });
+        for _ in 0..120 {
+            physics.step(&mut scene);
+        }
+        let landed = y(&scene, resting);
+        assert!(landed > rest_y + 20.0, "fell: y = {}", landed);
+        assert!(
+            (landed - (100.0 + 48.0 - 10.0)).abs() < 1.0,
+            "on the new tile: y = {}",
+            landed
+        );
+
+        // Every solid tile gone: no collider left; one back: there's one again
+        change_tiles(&mut scene, &mut physics, ground, |map| {
+            map.fill_rect((0, 59), (0, 3), None).unwrap()
+        });
+        assert!(!physics.has_collider(ground));
+        change_tiles(&mut scene, &mut physics, ground, |map| {
+            map.fill_rect((0, 0), (5, 5), Some(0)).unwrap()
+        });
+        assert!(physics.has_collider(ground));
+
+        // A one-way tile where the map had none: its colliders are rebuilt
+        // with one; taken out again, that one goes
+        change_tiles(&mut scene, &mut physics, ground, |map| {
+            map.set_tile_collision(1, rust_2d_game_engine::scene::TileCollision::OneWay);
+            map.fill_rect((10, 10), (5, 5), Some(1)).unwrap()
+        });
+        let one_way = |physics: &PhysicsEngine| {
+            physics
+                .collider_outlines()
+                .iter()
+                .filter(|outline| outline.one_way)
+                .count()
+        };
+        assert_eq!(one_way(&physics), 1);
+        change_tiles(&mut scene, &mut physics, ground, |map| {
+            map.fill_rect((10, 10), (5, 5), None).unwrap()
+        });
+        assert_eq!(one_way(&physics), 0);
+        assert!(physics.has_collider(ground), "the solid tile stays");
+    }
+
     #[test]
     fn test_tilemaps_without_collision_let_bodies_through() {
         let mut scene = Scene::new("test_scene").unwrap();

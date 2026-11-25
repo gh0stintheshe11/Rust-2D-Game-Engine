@@ -111,6 +111,104 @@ fn test_cells_stay_within_the_coordinate_range() {
     assert!(stored((i32::MAX, i32::MIN)).is_err());
 }
 
+/// The map's rows as text: `.` for an empty cell, the tile number
+/// otherwise, over the bounds of its tiles.
+fn rows(map: &Tilemap) -> Vec<String> {
+    let Some((origin, size)) = map.bounds() else {
+        return Vec::new();
+    };
+    (0..size.1 as i32)
+        .map(|y| {
+            (0..size.0 as i32)
+                .map(|x| match map.get(origin.0 + x, origin.1 + y) {
+                    Some(tile) => tile.to_string(),
+                    None => ".".to_string(),
+                })
+                .collect()
+        })
+        .collect()
+}
+
+#[test]
+fn test_rectangles_are_filled_and_emptied() {
+    let mut map = tilemap();
+    let changed = map.fill_rect((3, 0), (2, 0), Some(4)).unwrap();
+    assert_eq!(changed.len(), 12, "corners either way round, inclusive");
+    assert_eq!(rows(&map), ["4444", "4444", "4444"]);
+    assert_eq!(map.bounds(), Some(((0, 0), (4, 3))));
+    // Only what changes is reported
+    let changed = map.fill_rect((1, 2), (3, 3), Some(4)).unwrap();
+    assert_eq!(changed, vec![(1, 3), (2, 3)]);
+    let changed = map.fill_rect((2, 1), (1, 2), None).unwrap();
+    assert_eq!(changed.len(), 4);
+    assert_eq!(rows(&map), ["4444", "4..4", "4..4", ".44."]);
+    // Emptying far beyond the grid only empties what's there
+    let changed = map
+        .fill_rect(
+            (-MAX_TILEMAP_COORDINATE, MAX_TILEMAP_COORDINATE),
+            (2, 2),
+            None,
+        )
+        .unwrap();
+    assert_eq!(changed, vec![(0, 2), (3, 2)]);
+    assert!(
+        tilemap()
+            .fill_rect((0, 5), (0, 5), None)
+            .unwrap()
+            .is_empty()
+    );
+
+    // Too large: nothing changes
+    let before = map.clone();
+    let side = MAX_TILEMAP_SIDE as i32;
+    assert!(map.fill_rect((0, side), (0, 0), Some(1)).is_err());
+    assert!(
+        map.fill_rect((0, 0), (0, MAX_TILEMAP_COORDINATE + 1), Some(1))
+            .is_err()
+    );
+    assert!(map.fill_rect((0, 0), (0, 0), Some(u32::MAX)).is_err());
+    assert_eq!(map, before);
+    // As large as can be: fine
+    let mut map = tilemap();
+    let changed = map.fill_rect((0, side - 1), (0, 0), Some(0)).unwrap();
+    assert_eq!(changed.len(), MAX_TILEMAP_SIDE as usize);
+}
+
+#[test]
+fn test_flood_fills_spread_through_sides_within_the_bounds() {
+    let mut map = tilemap();
+    // A room of 1s with a gap in its wall, and a corner-only neighbour
+    for (row, text) in ["11111", "1...1", "1.1.1", "1...1", "11.11"]
+        .iter()
+        .enumerate()
+    {
+        for (column, cell) in text.chars().enumerate() {
+            if cell == '1' {
+                map.set(column as i32, row as i32, Some(1)).unwrap();
+            }
+        }
+    }
+    // The inside: spreads through the gap at the bottom, but not past the
+    // bounds of the tiles
+    let changed = map.flood_fill(1, 1, Some(7)).unwrap();
+    assert_eq!(changed.len(), 9);
+    assert_eq!(rows(&map), ["11111", "17771", "17171", "17771", "11711"]);
+    // The walls: every 1 that touches another through a side
+    let changed = map.flood_fill(0, 0, Some(2)).unwrap();
+    assert_eq!(changed.len(), 15);
+    assert_eq!(rows(&map), ["22222", "27772", "27172", "27772", "22722"]);
+    // Erasing a region; the lone 1 inside stays
+    map.flood_fill(2, 1, None).unwrap();
+    assert_eq!(rows(&map), ["22222", "2...2", "2.1.2", "2...2", "22.22"]);
+
+    // Nothing to do: the same tile, outside the bounds, an empty map
+    assert!(map.flood_fill(0, 0, Some(2)).unwrap().is_empty());
+    assert!(map.flood_fill(9, 9, Some(3)).unwrap().is_empty());
+    assert!(map.flood_fill(-1, 0, Some(3)).unwrap().is_empty());
+    assert!(tilemap().flood_fill(0, 0, Some(3)).unwrap().is_empty());
+    assert!(map.flood_fill(0, 0, Some(u32::MAX)).is_err());
+}
+
 #[test]
 fn test_world_positions_to_cells() {
     let map = tilemap();

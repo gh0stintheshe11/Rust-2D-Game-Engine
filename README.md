@@ -14,7 +14,7 @@ standalone executable.
 
 | Area | What you get |
 |---|---|
-| Editor | Scene hierarchy, inspector, file browser, Lua script editor with live syntax checking and an API palette, click-to-select and drag-to-move in the viewport, tilemap painting, undo/redo, play/pause/reset, console |
+| Editor | Scene hierarchy, inspector, file browser, Lua script editor with live syntax checking and an API palette, click-to-select and drag-to-move in the viewport, tilemap painting with brush, rectangle and fill tools, undo/redo, play/pause/reset, console |
 | Scenes | Scenes made of entities with named, typed attributes (numbers, booleans, strings, vectors); saved as portable JSON. Tilemaps (grids of tiles from a tileset image). Games switch scenes while playing (title screen, levels) and spawn copies of template entities (prefabs) |
 | Physics | rapier2d bodies and colliders built from entity attributes: dynamic, kinematic and fixed bodies, rotation, gravity scale, gravity fields, trigger zones, collision layers, raycasts, collision events; tilemaps collide as one smooth surface, with one-way platforms |
 | Scripting | Lua 5.4 scripts per entity with `init` / `update` / `on_collision` / `on_collision_end` / `on_destroy` hooks, timers and tweens (eased, looping, chained), save data kept between runs, hot reload while playing, and a sandbox |

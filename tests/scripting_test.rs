@@ -2088,6 +2088,61 @@ mod session_tests {
             .eval()
             .unwrap();
         assert_eq!(failures, vec![false; 4]);
+
+        // Rectangles and paint buckets, and their colliders
+        let results: String = lua
+            .load(
+                r#"
+                local filled = fill_tiles(SCENE, GROUND, 0, 2, 3, 2, 5)
+                local again = fill_tiles(SCENE, GROUND, 0, 2, 3, 2, 5)
+                local none = fill_tiles(SCENE, GROUND, 0, 2, 0, 9, 5)
+                local spread = flood_fill_tiles(SCENE, GROUND, 1, 3, 6)
+                return table.concat({filled, again, none, spread,
+                    get_tile(SCENE, GROUND, 2, 3), get_tile(SCENE, GROUND, 3, 3) or "nil"}, " ")
+                "#,
+            )
+            .eval()
+            .unwrap();
+        assert_eq!(results, "6 0 0 6 6 nil");
+        {
+            let mut manager = session.scene_manager.borrow_mut();
+            let scene = manager.get_scene_mut(session.scene_id).unwrap();
+            session.physics.borrow_mut().step(scene);
+        }
+        // Row 2 is at y = 232: a ray down between the rows hits it
+        let hit = session
+            .physics
+            .borrow()
+            .raycast((108.0, 220.0), (108.0, 600.0), None)
+            .unwrap();
+        assert!((hit.point.1 - 232.0).abs() < 0.01, "{:?}", hit.point);
+        let cleared: usize = lua
+            .load("return fill_tiles(SCENE, GROUND, 0, 2, 3, 2, nil)")
+            .eval()
+            .unwrap();
+        assert_eq!(cleared, 6);
+        let errors: Vec<String> = lua
+            .load(
+                r#"
+                local function message(...) return tostring(select(2, pcall(...))) end
+                return {
+                    message(fill_tiles, SCENE, GROUND, 0, 0, -1, 1, 1),
+                    message(fill_tiles, SCENE, GROUND, 0, 0, 2000, 1, 1),
+                    message(fill_tiles, SCENE, GROUND, 2147483647, 0, 2, 1, 1),
+                    message(flood_fill_tiles, SCENE, PLAIN, 0, 0, 1),
+                }
+                "#,
+            )
+            .eval()
+            .unwrap();
+        for (error, expected) in errors.iter().zip([
+            "can't be negative",
+            "more than 1024 columns",
+            "past the last column",
+            "has no tilemap",
+        ]) {
+            assert!(error.contains(expected), "{}", error);
+        }
     }
 
     #[test]

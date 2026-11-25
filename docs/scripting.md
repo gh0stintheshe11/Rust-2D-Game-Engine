@@ -256,7 +256,9 @@ integers, and the entity must have a tilemap):
 | Function | Notes |
 |---|---|
 | `get_tile(scene_id, entity_id, column, row)` | The tile number in the cell, or nil when it's empty |
-| `set_tile(scene_id, entity_id, column, row, tile)` | Put a tile in the cell, or empty it with nil; returns whether the cell changed. The map grows as needed (up to 1024 columns and rows, with columns and rows from -1,048,576 to 1,048,576); a cell it can't add raises an error. A tilemap in the playing scene gets its collider rebuilt |
+| `set_tile(scene_id, entity_id, column, row, tile)` | Put a tile in the cell, or empty it with nil; returns whether the cell changed. The map grows as needed (up to 1024 columns and rows, with columns and rows from -1,048,576 to 1,048,576); a cell it can't add raises an error. A tilemap in the playing scene has its collider updated for that cell, which costs the same on a map of any size |
+| `fill_tiles(scene_id, entity_id, column, row, columns, rows, tile)` | Put a tile (nil empties) in the `columns` × `rows` cells from (column, row): open a door, build a bridge. Returns how many cells changed; a rectangle the map can't take raises an error and changes nothing |
+| `flood_fill_tiles(scene_id, entity_id, column, row, tile)` | A paint bucket: the cell and every cell connected to it through sides that holds what it holds, within the bounds of the map's tiles. Returns how many cells changed |
 | `get_tile_cell(scene_id, entity_id, x, y)` | `column, row` of the cell containing the world position |
 
 ```lua
