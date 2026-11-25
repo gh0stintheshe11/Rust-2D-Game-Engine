@@ -134,6 +134,9 @@ pub(super) struct Gamepad {
     pub(super) just_released: HashSet<GamepadButton>,
     /// Raw values, indexed like [`GAMEPAD_AXES`]
     raw_axes: [f32; 6],
+    /// Values past the dead zone at the end of the previous frame, indexed
+    /// the same way
+    previous_axes: [f32; 6],
 }
 
 impl Gamepad {
@@ -191,10 +194,19 @@ impl Gamepad {
         if along_y { y * scale } else { x * scale }
     }
 
-    /// Start a new frame: nothing was just pressed or released yet.
+    /// An axis at the end of the previous frame (see [`axis`](Self::axis)).
+    pub(super) fn previous_axis(&self, axis: GamepadAxis) -> f32 {
+        self.previous_axes[axis_index(axis)]
+    }
+
+    /// Start a new frame: nothing was just pressed or released yet, and
+    /// the axes are remembered as they were.
     pub(super) fn begin_frame(&mut self) {
         self.just_pressed.clear();
         self.just_released.clear();
+        for (index, (axis, _)) in GAMEPAD_AXES.iter().enumerate() {
+            self.previous_axes[index] = self.axis(*axis);
+        }
     }
 }
 

@@ -6,6 +6,7 @@ use std::process::{Child, Command, Stdio};
 use strip_ansi_escapes::strip;
 
 use rust_2d_game_engine::logger::LOGGER;
+use rust_2d_game_engine::project::PROJECT_FILE_NAME;
 
 /// The engine's license and attribution notice. Apache-2.0 requires both to
 /// accompany every distribution of the engine, including games built with
@@ -44,8 +45,15 @@ pub fn build_project(project_path: &Path) -> Result<(), String> {
         return Err("Project build failed".into());
     }
 
-    // Copy the project files next to the executable
     let release_dir = target_dir.join("release");
+    copy_project_files(project_path, &release_dir)?;
+    write_engine_licenses(&release_dir)
+        .map_err(|e| format!("Failed to write the engine's license files: {}", e))
+}
+
+/// Copy what the game reads while it runs next to its executable: the
+/// `assets` and `scenes` folders, and `project.epm` (its input actions).
+fn copy_project_files(project_path: &Path, release_dir: &Path) -> Result<(), String> {
     for folder in ["assets", "scenes"] {
         let source = project_path.join(folder);
         if source.exists() {
@@ -53,8 +61,12 @@ pub fn build_project(project_path: &Path) -> Result<(), String> {
                 .map_err(|e| format!("Failed to copy {}: {}", folder, e))?;
         }
     }
-    write_engine_licenses(&release_dir)
-        .map_err(|e| format!("Failed to write the engine's license files: {}", e))
+    fs::copy(
+        project_path.join(PROJECT_FILE_NAME),
+        release_dir.join(PROJECT_FILE_NAME),
+    )
+    .map(|_| ())
+    .map_err(|e| format!("Failed to copy {}: {}", PROJECT_FILE_NAME, e))
 }
 
 /// Put the engine's LICENSE and NOTICE in `<dir>/licenses/rust-2d-game-engine/`.
@@ -143,6 +155,35 @@ fn copy_directory_contents(src: &Path, dst: &Path) -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_what_the_game_reads_is_copied_next_to_it() {
+        let guard = tempfile::Builder::new()
+            .prefix("rust2d_build_")
+            .tempdir()
+            .unwrap();
+        let (project, release) = (guard.path().join("game"), guard.path().join("release"));
+        for (file, contents) in [
+            ("project.epm", r#"{"project_name": "game"}"#),
+            ("scenes/scene_manager.json", "{}"),
+            ("assets/images/hero.png", "png"),
+            ("src/main.rs", "fn main() {}"),
+        ] {
+            let path = project.join(file);
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(path, contents).unwrap();
+        }
+        fs::create_dir_all(&release).unwrap();
+        copy_project_files(&project, &release).unwrap();
+        for file in [
+            "project.epm",
+            "scenes/scene_manager.json",
+            "assets/images/hero.png",
+        ] {
+            assert!(release.join(file).is_file(), "{}", file);
+        }
+        assert!(!release.join("src").exists(), "sources stay behind");
+    }
 
     #[test]
     fn test_engine_licenses_are_written() {

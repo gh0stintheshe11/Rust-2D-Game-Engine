@@ -18,6 +18,46 @@ const API_GROUPS: &[(&str, &[ApiEntry])] = &[
         "Input",
         &[
             (
+                "is_action_pressed",
+                "is_action_pressed(\"jump\")",
+                "True while an input action is held, through any of its keys and buttons (Project > Input Actions)",
+            ),
+            (
+                "is_action_just_pressed",
+                "is_action_just_pressed(\"jump\")",
+                "True only on the frame the action goes down",
+            ),
+            (
+                "is_action_just_released",
+                "is_action_just_released(\"jump\")",
+                "True only on the frame the action goes up",
+            ),
+            (
+                "get_action_strength",
+                "get_action_strength(\"right\")",
+                "How far the action is held, 0 to 1 (a stick can hold it part way)",
+            ),
+            (
+                "get_action_axis",
+                "get_action_axis(\"left\", \"right\")",
+                "Strength of the second action minus the first: -1 to 1, e.g. to run",
+            ),
+            (
+                "get_action_bindings",
+                "get_action_bindings(\"jump\")",
+                "The action's bindings: {\"key:Space\", \"pad:a\", ...}",
+            ),
+            (
+                "set_action_bindings",
+                "set_action_bindings(\"jump\", {\"key:Space\", \"pad:a\"})",
+                "Rebind an action (or add one) until the game stops: key:Space mouse:left pad:a pad2:start pad:left_x-",
+            ),
+            (
+                "get_just_pressed_binding",
+                "get_just_pressed_binding()",
+                "What went down this frame as a binding (\"key:Q\", \"pad:y\"), or nil: for rebinding menus",
+            ),
+            (
                 "is_key_just_pressed",
                 "is_key_just_pressed(\"Space\")",
                 "True only on the frame the key goes down (key names are case-insensitive)",

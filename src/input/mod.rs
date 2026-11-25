@@ -1,11 +1,16 @@
 //! Keyboard, mouse and gamepad state, refreshed once per frame.
 
 use egui::{Key, PointerButton};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
+mod actions;
 mod gamepad;
 mod gamepad_backend;
 
+pub use actions::{
+    ACTION_PRESS_THRESHOLD, ActionState, AxisDirection, InputActions, InputBinding,
+    MAX_ACTION_NAME_CHARS,
+};
 use gamepad::Gamepad;
 pub use gamepad::{
     GAMEPAD_AXES, GAMEPAD_BUTTONS, GamepadAxis, GamepadButton, GamepadEvent, STICK_DEADZONE,
@@ -102,6 +107,9 @@ pub struct InputHandler {
     modifiers: egui::Modifiers,
     // Connected gamepads, in the order they connected
     gamepads: Vec<Gamepad>,
+    // The game's actions (see set_actions), and their state this frame
+    actions: InputActions,
+    action_states: HashMap<String, ActionState>,
 }
 
 impl Default for InputHandler {
@@ -127,6 +135,8 @@ impl InputHandler {
             scroll_delta: egui::vec2(0.0, 0.0),
             modifiers: egui::Modifiers::default(),
             gamepads: Vec::new(),
+            actions: InputActions::new(),
+            action_states: HashMap::new(),
         }
     }
 

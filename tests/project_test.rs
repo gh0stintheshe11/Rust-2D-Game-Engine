@@ -167,6 +167,7 @@ mod tests {
         let metadata = ProjectMetadata {
             project_name: "atomic".to_string(),
             version: "1.0.0".to_string(),
+            input_actions: Default::default(),
             project_path: project.to_string_lossy().into_owned(),
         };
 
@@ -187,6 +188,58 @@ mod tests {
             !epm.contains("project_path"),
             "the project file must not record this machine's path: {}",
             epm
+        );
+    }
+
+    #[test]
+    fn test_input_actions_are_kept_in_the_project_file() {
+        use rust_2d_game_engine::input::{InputActions, InputBinding};
+
+        let (_guard, project) = temp_project("actions");
+        // Projects from before input actions have none
+        fs::write(project.join("project.epm"), r#"{"project_name": "old"}"#).unwrap();
+        let metadata = ProjectManager::load_project(&project).unwrap();
+        assert!(metadata.input_actions.is_empty());
+        ProjectManager::save_project(&project, &metadata).unwrap();
+        let text = fs::read_to_string(project.join("project.epm")).unwrap();
+        assert!(
+            !text.contains("input_actions"),
+            "left out when empty: {}",
+            text
+        );
+
+        let mut actions = InputActions::new();
+        let fire = ["mouse:left", "pad2:rt+"].map(|text| InputBinding::parse(text).unwrap());
+        actions.set("fire", fire.to_vec()).unwrap();
+        actions
+            .set("jump", vec![InputBinding::parse("key:Space").unwrap()])
+            .unwrap();
+        let metadata = ProjectMetadata {
+            input_actions: actions.clone(),
+            ..metadata
+        };
+        ProjectManager::save_project(&project, &metadata).unwrap();
+        let text = fs::read_to_string(project.join("project.epm")).unwrap();
+        assert!(
+            text.contains(r#""fire": ["#) && text.contains(r#""pad2:rt+""#),
+            "{}",
+            text
+        );
+        assert_eq!(
+            ProjectManager::load_project(&project)
+                .unwrap()
+                .input_actions,
+            actions
+        );
+
+        // A binding that doesn't exist is an error naming it
+        let broken = text.replace("pad2:rt+", "pad2:rt*");
+        fs::write(project.join("project.epm"), broken).unwrap();
+        let error = ProjectManager::load_project(&project).unwrap_err();
+        assert!(
+            error.contains("pad2:rt*") && error.contains("fire"),
+            "{}",
+            error
         );
     }
 

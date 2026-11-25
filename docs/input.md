@@ -61,11 +61,63 @@ flipped to point down, analog triggers become the trigger axes, and d-pads
 reported as axes become d-pad buttons. Building on Linux needs libudev's
 development files (`libudev-dev` on Debian and Ubuntu).
 
+## Input actions
+
+An action is a named control such as `"jump"` or `"left"`, bound to any
+number of keys, mouse buttons, gamepad buttons and stick or trigger
+directions (`InputBinding`). Games ask whether the action is pressed rather
+than checking every key and button that stands for it, and players can bind
+it to others. A game's actions (`InputActions`, in the order they were
+defined) come from its project file (see [project.md](project.md)); new
+projects start with `InputActions::defaults()`: `left`, `right`, `up` and
+`down` on WASD, the arrow keys, the d-pad and the left stick, `jump` on Space
+and gamepad A, and `pause` on Escape and Start.
+
+Bindings are written as text in project files and scripts:
+
+| Binding | Meaning |
+|---|---|
+| `key:Space`, `key:A`, `key:ArrowLeft` | A key, by its egui name (case-insensitive; the arrow keys are written `ArrowLeft` and so on, though `Left` reads too) |
+| `mouse:left`, `mouse:right`, `mouse:middle`, `mouse:extra1`, `mouse:extra2` | A mouse button |
+| `pad:a`, `pad:start`, `pad:up` | A gamepad button on any gamepad, by the names scripts use; `pad1:a` only on the first gamepad, `pad2:a` the second, … (local multiplayer) |
+| `pad:left_x-`, `pad:left_x+`, `pad:left_y-`, `pad:left_y+`, `pad:right_…` | A stick pushed left, right, up or down (+y is down), by how far |
+| `pad:lt+`, `pad:rt+` | A trigger, by how far it's pressed (`pad:lt` without a sign is the trigger as a button) |
+
+`InputBinding::parse` reads them, with an error naming the bad text,
+`Display` writes them back, and `label()` is a name for menus (`"Space"`,
+`"Gamepad A"`, `"Gamepad 2 left stick up"`).
+
+Every frame, `update_actions()` works out each action's `ActionState`:
+
+- `strength`: how far it's held, from 0 to 1, as far as its strongest
+  binding: keys and buttons are 0 or 1, sticks and triggers in between;
+- `pressed`: the strength reaches the action's threshold, 0.5
+  (`ACTION_PRESS_THRESHOLD`) unless `InputActions::set_threshold` says
+  otherwise. A higher one keeps a stick pushed diagonally from pressing a
+  `down` action, say;
+- `just_pressed` / `just_released`: it went down / up this frame. Another of
+  its bindings going down while it's held doesn't press it again, and a key
+  pressed and released within the frame (a tap) counts as both.
+
+`action(name)` returns the state (`None` for an action that doesn't exist),
+and `action_axis(negative, positive)` the strength of one minus the other,
+from -1 to 1 (`("left", "right")` to run, as far as the stick is pushed).
+`set_actions` replaces the actions (those that stay keep their state, so a
+held key isn't pressed anew), and `set_action_bindings` rebinds one, adding
+it if it's new (a game's controls menu). For such menus,
+`just_pressed_binding()` returns whatever went down this frame as a binding:
+a key, a mouse button, a gamepad button, or a stick or trigger pushed past
+0.5 (for any gamepad).
+
+Action names are 1 to 64 (`MAX_ACTION_NAME_CHARS`) characters, without
+spaces around them.
+
 ## Interactions with other modules
 
 - **Editor** keeps its own handler for viewport camera controls, fed only while the game isn't playing.
-- **`runtime`** owns the game's handler and feeds it every frame in `GameRuntime::update`, deciding the `InputAccess`, followed by the frame's gamepad events: the system's, once `set_gamepads(true)` (exported games and the editor do it), and those queued with `queue_gamepad_events` (tests).
-- **`scripting`** binds `is_key_just_pressed` etc. for scripts and exposes `get_all_active_inputs()` as a Lua table (`bind_keys_pressed`).
+- **`runtime`** owns the game's handler and feeds it every frame in `GameRuntime::update`, deciding the `InputAccess`, followed by the frame's gamepad events: the system's, once `set_gamepads(true)` (exported games and the editor do it), and those queued with `queue_gamepad_events` (tests). It gives the handler the project's input actions at the start of every run (`GameRuntime::set_input_actions`), so bindings scripts changed are forgotten, and updates them before the scripts run each frame.
+- **`scripting`** binds `is_key_just_pressed`, `is_action_pressed` etc. for scripts and exposes `get_all_active_inputs()` as a Lua table (`bind_keys_pressed`).
+- **`project`** keeps the actions in `project.epm` (`ProjectMetadata::input_actions`); the editor edits them in its Input Actions window.
 
 ## Public API overview
 
@@ -74,6 +126,7 @@ development files (`libudev-dev` on Debian and Ubuntu).
 - **Mouse**: `is_mouse_button_pressed`, `is_mouse_button_just_pressed`, `is_mouse_button_just_released`, `get_mouse_pos` (window coordinates), `get_mouse_delta`, `get_scroll_delta`
 - **Game pointer**: `set_game_pointer(world, screen)`, `get_mouse_world_pos`, `get_mouse_screen_pos`, `get_mouse_press_screen_pos`
 - **Gamepads**: `handle_gamepad_events`, `gamepad_count`, `is_gamepad_pressed`, `is_gamepad_just_pressed`, `is_gamepad_just_released`, `gamepad_axis`; `GamepadBackend::open`, `poll`
+- **Actions**: `set_actions`, `actions`, `set_action_bindings`, `update_actions`, `action`, `action_axis`, `just_pressed_binding`; `InputActions` (`defaults`, `iter`, `bindings`, `threshold`, `set`, `set_threshold`, `rename`, `remove`), `InputBinding` (`parse`, `label`, `Display`), `ActionState`
 - **Introspection**: `get_all_active_inputs` — sorted names of held modifiers (`"Ctrl"`, `"Shift"`, `"Alt"`, `"Cmd"` for the macOS Command key), keys (egui names such as `"Space"`, `"A"`, `"ShiftLeft"`) and mouse buttons (`"MouseLeft"`, `"MouseRight"`, `"MouseMiddle"`)
 - **Name lookup**: `parse_key(name)` (egui key names, case-insensitive), `parse_mouse_button(name)` (`"left"`/`"right"`/`"middle"`, optional `"Mouse"` prefix, case-insensitive)
 
@@ -81,5 +134,6 @@ development files (`libudev-dev` on Debian and Ubuntu).
 
 - **`get_mouse_delta` always returns `Some`** — the `Option` is meaningless (unlike `get_scroll_delta`, which returns `None` when zero).
 - A key pressed and released several times within one frame counts once.
-- No rebinding/mapping layer and no text input; keyboard and mouse are entirely tied to egui's `InputState`.
+- No text input; keyboard and mouse are entirely tied to egui's `InputState`.
+- Input actions: a binding is one key or button, without modifiers (no `Ctrl+S`), and an action's strength is its strongest binding's, not a sum. Button focus in the game UI (arrow keys, Tab, Enter, the d-pad, A) uses fixed keys and buttons rather than actions. `just_pressed_binding` reports gamepad bindings for any gamepad.
 - Gamepads: no rumble, and pads are renumbered when one disconnects (the later ones move up). Analog buttons other than the triggers read as pressed or not, and pads gilrs has no mapping for may report their triggers on axes the engine ignores. Gamepads are read even while the window isn't focused.

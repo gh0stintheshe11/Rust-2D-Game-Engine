@@ -614,10 +614,15 @@ impl EditorApp {
         }
     }
 
-    /// Give the runtime a copy of the editor's scenes to play.
+    /// Give the runtime a copy of the editor's scenes to play, and the
+    /// project's input actions.
     pub(super) fn sync_scene_manager_to_runtime(&mut self) {
         if let Some(scene_manager) = &self.gui_state.scene_manager {
             self.game_runtime.set_scene_manager(scene_manager.clone());
+        }
+        if let Some(metadata) = &self.gui_state.project_metadata {
+            self.game_runtime
+                .set_input_actions(metadata.input_actions.clone());
         }
     }
 }

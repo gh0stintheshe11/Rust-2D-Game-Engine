@@ -19,9 +19,9 @@
 //! user's data folder, in a folder named after the game (the `title`).
 
 use crate::audio::AudioEngine;
-use crate::input::InputHandler;
+use crate::input::{InputActions, InputHandler};
 use crate::physics::PhysicsEngine;
-use crate::project::ProjectManager;
+use crate::project::{PROJECT_FILE_NAME, ProjectManager};
 use crate::render::RenderEngine;
 use crate::runtime::{CameraMode, GameRuntime, RuntimeState};
 use crate::save::SaveData;
@@ -55,7 +55,12 @@ pub fn run(title: &str) -> eframe::Result<()> {
     runtime.set_save_data(SaveData::for_game(title));
 
     let mut window_size = [800.0, 600.0];
-    let error = match ProjectManager::load_scene_hierarchy(&project_dir) {
+    let scenes = load_input_actions(&project_dir).and_then(|actions| {
+        runtime.set_input_actions(actions);
+        ProjectManager::load_scene_hierarchy(&project_dir)
+            .map_err(|e| format!("Failed to load the game's scenes: {}", e))
+    });
+    let error = match scenes {
         Ok(scene_manager) => {
             if let Some(size) = camera_frame_size(&scene_manager) {
                 window_size = size;
@@ -63,7 +68,7 @@ pub fn run(title: &str) -> eframe::Result<()> {
             runtime.set_scene_manager(scene_manager);
             runtime.run().err()
         }
-        Err(e) => Some(format!("Failed to load the game's scenes: {}", e)),
+        Err(e) => Some(e),
     };
     if let Some(error) = &error {
         eprintln!("{}", error);
@@ -105,6 +110,17 @@ fn find_project_dir_in(
         .find(|dir| dir.join("scenes").join("scene_manager.json").is_file())
         .or(exe_dir)
         .unwrap_or_else(|| PathBuf::from("."))
+}
+
+/// The game's input actions, from the `project.epm` next to its scenes;
+/// none without one (games built before builds included it).
+fn load_input_actions(project_dir: &Path) -> Result<InputActions, String> {
+    if !project_dir.join(PROJECT_FILE_NAME).is_file() {
+        return Ok(InputActions::new());
+    }
+    ProjectManager::load_project(project_dir)
+        .map(|metadata| metadata.input_actions)
+        .map_err(|e| format!("Failed to load the game's settings: {}", e))
 }
 
 /// Size of the active scene's camera frame, used as the initial window size.
@@ -164,11 +180,15 @@ impl eframe::App for PlayerApp {
 
 #[cfg(test)]
 mod tests {
-    use super::find_project_dir_in;
+    use super::{find_project_dir_in, load_input_actions};
 
     #[test]
     fn test_projects_are_found_where_cargo_run_started_them() {
-        let root = std::env::temp_dir().join(format!("rust2d_player_{}", uuid::Uuid::new_v4()));
+        let guard = tempfile::Builder::new()
+            .prefix("rust2d_player_")
+            .tempdir()
+            .unwrap();
+        let root = guard.path();
         let (exe, game, elsewhere) = (root.join("target"), root.join("game"), root.join("cwd"));
         for dir in [&exe, &elsewhere, &game.join("scenes")] {
             std::fs::create_dir_all(dir).unwrap();
@@ -191,6 +211,33 @@ mod tests {
             find_project_dir_in(Some(exe.clone()), None, Some(elsewhere)),
             exe
         );
-        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn test_input_actions_come_from_the_project_file() {
+        let guard = tempfile::Builder::new()
+            .prefix("rust2d_player_")
+            .tempdir()
+            .unwrap();
+        let game = guard.path();
+        // Built before builds included project.epm: no actions
+        assert!(load_input_actions(game).unwrap().is_empty());
+
+        let file = game.join("project.epm");
+        std::fs::write(
+            &file,
+            r#"{"project_name": "game", "input_actions": {"jump": ["key:Space", "pad:a"]}}"#,
+        )
+        .unwrap();
+        let actions = load_input_actions(game).unwrap();
+        assert_eq!(actions.bindings("jump").map(<[_]>::len), Some(2));
+
+        std::fs::write(
+            &file,
+            r#"{"project_name": "game", "input_actions": {"jump": ["key:Spcae"]}}"#,
+        )
+        .unwrap();
+        let error = load_input_actions(game).unwrap_err();
+        assert!(error.contains("key:Spcae"), "{}", error);
     }
 }

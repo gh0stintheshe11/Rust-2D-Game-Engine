@@ -19,7 +19,7 @@ standalone executable.
 | Physics | rapier2d bodies and colliders built from entity attributes: dynamic, kinematic and fixed bodies, rotation, gravity scale, gravity fields, trigger zones, collision layers, raycasts, collision events; tilemaps collide as one smooth surface, with one-way platforms |
 | Scripting | Lua 5.4 scripts per entity with `init` / `update` / `on_collision` / `on_collision_end` hooks, save data kept between runs, hot reload while playing, and a sandbox |
 | Rendering | Sprites with rotation, scale, z-order, mirroring, opacity and tint; sprite sheet animation; tilemaps, drawing only the tiles on screen; particles; text, panels, images and buttons over the game; camera framing with letterboxing |
-| Input | Keyboard, mouse (in world or camera frame coordinates) and gamepads, with just-pressed and just-released states |
+| Input | Keyboard, mouse (in world or camera frame coordinates) and gamepads, with just-pressed and just-released states; input actions (`"jump"`, `"left"`) bound to keys and gamepad controls in the editor, and rebindable by scripts |
 | Audio | Sound effects and looping music with per-sound and master volume (wav, ogg, mp3, flac); runs fine without an audio device |
 | Export | One click builds a standalone game for your platform |
 
@@ -71,11 +71,13 @@ Two small games made with the engine:
    menu.
 3. Add physics through the "Physics" entity template, or by adding attributes
    such as `has_gravity` and `collider_width` in the inspector.
-4. Write a script and attach it to an entity:
+4. Write a script and attach it to an entity. New projects have input
+   actions such as `jump` (Space or gamepad A) and `left` / `right`; see
+   **Project → Input Actions**.
 
    ```lua
    function update(scene_id, entity_id)
-       if is_key_just_pressed("Space") then
+       if is_action_just_pressed("jump") then
            local jump = get_attribute(scene_id, entity_id, "jump_velocity") or -260
            set_velocity(entity_id, 0, jump)
        end

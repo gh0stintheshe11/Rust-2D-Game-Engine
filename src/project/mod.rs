@@ -5,6 +5,7 @@
 //! importing assets and building games are editor features
 //! (`editor/src/project/`).
 
+use crate::input::InputActions;
 use crate::scene::SceneManager;
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -24,6 +25,10 @@ pub struct ProjectMetadata {
     pub project_name: String,
     #[serde(default = "default_version")]
     pub version: String,
+    /// The game's input actions (see [`InputActions`]), as `"input_actions":
+    /// {"jump": ["key:Space", "pad:a"], …}`; left out when there are none.
+    #[serde(default, skip_serializing_if = "InputActions::is_empty")]
+    pub input_actions: InputActions,
     /// The folder the project was opened from. Never written to the file:
     /// it would tie the project to one machine.
     #[serde(skip_serializing, default)]

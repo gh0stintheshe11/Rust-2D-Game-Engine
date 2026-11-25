@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use rust_2d_game_engine::input::InputActions;
 use rust_2d_game_engine::project::{LoadedProject, ProjectManager, ProjectMetadata};
 use rust_2d_game_engine::scene::SceneManager;
 
@@ -40,6 +41,7 @@ pub fn create_project(project_path: &Path) -> Result<LoadedProject, String> {
     let metadata = ProjectMetadata {
         project_name: project_name.to_string(),
         version: "1.0.0".to_string(),
+        input_actions: InputActions::defaults(),
         project_path: project_path.to_string_lossy().into_owned(),
     };
     ProjectManager::save_project(project_path, &metadata)?;
@@ -205,6 +207,10 @@ mod tests {
         assert!(cargo.contains("[workspace]"));
         let main = fs::read_to_string(project.join("src/main.rs")).unwrap();
         assert!(main.contains("player::run(\"My Cool Game!\")"), "{}", main);
+        // Input actions to start from, in the project file the game reads
+        assert_eq!(loaded.metadata.input_actions, InputActions::defaults());
+        let reloaded = ProjectManager::load_project(&project).unwrap();
+        assert_eq!(reloaded.input_actions, InputActions::defaults());
         assert!(project.join(".gitignore").is_file());
 
         // A starter scene exists and is active, so Play works immediately

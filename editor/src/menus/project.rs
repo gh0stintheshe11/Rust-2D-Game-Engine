@@ -1,16 +1,29 @@
+use crate::panels::input_actions::InputActionsWindow;
 use crate::state::GuiState;
 use eframe::egui;
 use rust_2d_game_engine::logger::LOGGER;
 use std::sync::{Arc, Mutex};
 
-pub struct ProjectMenu;
+pub struct ProjectMenu {
+    pub input_actions: InputActionsWindow,
+}
 
 impl ProjectMenu {
     pub fn new() -> Self {
-        Self {}
+        Self {
+            input_actions: InputActionsWindow::default(),
+        }
     }
 
     pub fn show(&mut self, _ctx: &egui::Context, ui: &mut egui::Ui, gui_state: &mut GuiState) {
+        if ui
+            .add_enabled(gui_state.project_open, egui::Button::new("Input Actions…"))
+            .on_hover_text("Named controls such as \"jump\", and the keys and buttons for each")
+            .clicked()
+        {
+            self.input_actions.open = true;
+            ui.close();
+        }
         let enabled = gui_state.project_open && !*gui_state.is_building.lock().unwrap();
         if ui
             .add_enabled(enabled, egui::Button::new("Build Project"))
@@ -35,6 +48,7 @@ impl ProjectMenu {
     }
 
     pub fn show_active_popup(&mut self, ctx: &egui::Context, gui_state: &mut GuiState) {
+        self.input_actions.show(ctx, gui_state);
         if gui_state.show_build_project_popup {
             Self::render_build_project_popup(ctx, gui_state);
         }

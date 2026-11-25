@@ -8,7 +8,7 @@ and building games are editor features (`editor/src/project/`).
 
 ```
 my_game/
-├── project.epm              # metadata (JSON): project_name, version
+├── project.epm              # settings (JSON): project_name, version, input_actions
 ├── scenes/scene_manager.json
 ├── assets/{images,sounds,scripts}/
 ├── Cargo.toml               # the game's cargo package
@@ -20,6 +20,23 @@ my_game/
 Only `project.epm` is required: version control drops empty folders, so a
 cloned project may lack some `assets/` folders, and the editor creates them on
 import.
+
+`project.epm` holds the project's name and version, and its input actions
+(`ProjectMetadata::input_actions`, see [input.md](input.md#input-actions)),
+left out when there are none:
+
+```json
+{
+  "project_name": "My Game",
+  "version": "1.0.0",
+  "input_actions": {
+    "jump": ["key:Space", "pad:a"],
+    "down": {"bindings": ["key:S", "pad:left_y+"], "threshold": 0.7}
+  }
+}
+```
+
+An invalid binding fails the load with an error naming it.
 
 ## Engine: `ProjectManager`
 
@@ -59,8 +76,8 @@ over it, so a crash mid-save can't leave a truncated project behind.
 ## Editor: `editor/src/project/`
 
 - **`create_project(dir)`**: refuses existing non-empty folders, creates the
-  layout above, a starter scene (active, with a camera), and the game's cargo
-  package. The package name is derived from the folder name (prefixed with
+  layout above, a starter scene (active, with a camera), the default input
+  actions (`InputActions::defaults()`), and the game's cargo package. The package name is derived from the folder name (prefixed with
   `game_` when it would start with a non-letter or clash with a reserved
   name). The engine dependency is the local engine checkout the editor was
   built from when it exists, otherwise the engine release matching the
@@ -73,8 +90,11 @@ over it, so a crash mid-save can't leave a truncated project behind.
 - **`build_project(project)`**: runs `cargo build --release --target-dir
   <project>/target` (cargo is also looked for in `~/.cargo/bin` when it isn't
   on the editor's PATH), streams the output to the console, and copies
-  `assets/` and `scenes/` into `target/release/`, which is then a complete
-  game folder. The engine's `LICENSE` and `NOTICE` are written to
+  `assets/`, `scenes/` and `project.epm` (for the input actions) into
+  `target/release/`, which is then a complete game folder. The game
+  (`player::run`) reads its input actions from that `project.epm`; a game
+  folder without one has none, and an invalid one is an error shown in the
+  game's window. The engine's `LICENSE` and `NOTICE` are written to
   `target/release/licenses/rust-2d-game-engine/`: Apache-2.0 requires them to
   accompany the game. Licenses of the game's other dependencies are not
   collected (tools like `cargo-about` can do that).

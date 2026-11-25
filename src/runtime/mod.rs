@@ -7,7 +7,7 @@
 
 use crate::{
     audio::AudioEngine,
-    input::{GamepadBackend, GamepadEvent, InputAccess, InputHandler},
+    input::{GamepadBackend, GamepadEvent, InputAccess, InputActions, InputHandler},
     logger::LOGGER,
     physics::PhysicsEngine,
     render::{Camera, GameView, RenderEngine},
@@ -77,6 +77,9 @@ pub struct GameRuntime {
     // ...through this, once opened (None until then, or if that failed)
     gamepads: Option<GamepadBackend>,
     gamepads_opened: bool,
+    // The project's input actions (see set_input_actions), which every run
+    // starts from
+    input_actions: InputActions,
 }
 
 impl GameRuntime {
@@ -113,6 +116,7 @@ impl GameRuntime {
             use_gamepads: false,
             gamepads: None,
             gamepads_opened: false,
+            input_actions: InputActions::new(),
         }
     }
 
@@ -167,6 +171,10 @@ impl GameRuntime {
         }
 
         LOGGER.info("Game starting with active scene");
+        // Bindings scripts changed in an earlier run are forgotten
+        self.input_handler
+            .borrow_mut()
+            .set_actions(self.input_actions.clone());
         self.time_accumulator = 0.0;
         self.reported_animation_problems.clear();
         self.state = RuntimeState::Playing;
@@ -284,6 +292,7 @@ impl GameRuntime {
         if let Err(e) = self.lua_scripting.update_global_time(frame_dt) {
             LOGGER.error(format!("Failed to update Lua time: {}", e));
         }
+        self.input_handler.borrow_mut().update_actions();
         if let Err(e) = self
             .lua_scripting
             .bind_keys_pressed(&self.input_handler.borrow())
@@ -542,6 +551,19 @@ impl GameRuntime {
             self.gamepads = None;
             self.gamepads_opened = false;
         }
+    }
+
+    /// The project's input actions (see [`InputActions`]): every run of the
+    /// game starts with these bindings, whatever scripts changed in an
+    /// earlier one. Takes effect at the next [`run`](Self::run).
+    pub fn set_input_actions(&mut self, actions: InputActions) {
+        self.input_actions = actions;
+    }
+
+    /// The project's input actions, as given to
+    /// [`set_input_actions`](Self::set_input_actions).
+    pub fn input_actions(&self) -> &InputActions {
+        &self.input_actions
     }
 
     /// Gamepad events for the game to take in at the next

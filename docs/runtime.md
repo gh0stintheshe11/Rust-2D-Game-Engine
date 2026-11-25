@@ -26,6 +26,11 @@ the system's gamepads, once `set_gamepads(true)` was called (exported games
 and the editor do it; the gamepads open at the next `update`), and those
 queued with `queue_gamepad_events`, e.g. by tests.
 
+The project's input actions (see [input.md](input.md#input-actions)) are
+given with `set_input_actions`; every `run()` hands them to the
+`InputHandler` again, so bindings scripts changed with
+`set_action_bindings` last only until the game stops.
+
 It then maps the pointer's window position through the camera that paints
 this frame (the free camera, or the game camera fitted into the viewport) and
 records it in the `InputHandler`: in world coordinates, and in the camera
@@ -57,7 +62,7 @@ graph TD
 
 | Call | From → to | What happens |
 |---|---|---|
-| `run()` | Stopped → Playing | Activates the first scene if none is active, remembers the scenes' initial state, loads a fresh physics world (default gravity), starts a fresh Lua session. Running from another state resets first |
+| `run()` | Stopped → Playing | Activates the first scene if none is active, remembers the scenes' initial state, loads a fresh physics world (default gravity), starts a fresh Lua session, restores the project's input actions. Running from another state resets first |
 | `pause()` / `resume()` | Playing ⇄ Paused | Simulation and audio freeze; the scene keeps rendering |
 | script calls `end_game()` | Playing → Ended | Sounds stop and the last frame stays visible |
 | `reset()` | any → Stopped | Physics, render caches and audio cleared; scenes restored to their initial state |
@@ -70,8 +75,10 @@ graph TD
    see the same time.
 2. `physics.begin_frame(frame_dt)` — forces scripts apply this frame act for
    this frame's duration.
-3. Lua: `accumulated_time += frame_dt`, `keys_pressed` refreshed, every
-   scripted entity's `update` runs (once per rendered frame).
+3. Input actions are worked out from the frame's input
+   (`InputHandler::update_actions`), then Lua: `accumulated_time +=
+   frame_dt`, `keys_pressed` refreshed, every scripted entity's `update`
+   runs (once per rendered frame).
 4. Physics runs as many fixed steps (`1/target_fps`) as the accumulated time
    allows. After **each step**, `on_collision_end` and `on_collision` fire for
    the contacts that step ended and started, so short contacts aren't missed

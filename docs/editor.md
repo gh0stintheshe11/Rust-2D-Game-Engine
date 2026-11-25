@@ -17,7 +17,8 @@ tab) or the **script editor** (Editor tab).
 | Scene hierarchy | `panels/hierarchy/` | Scene/entity tree, create/rename/delete popups, asset attach/detach |
 | File browser | `panels/files.rs` | Project tree (rescanned every 2 s, ⟳ to refresh), file selection/deletion |
 | Inspector | `panels/inspector.rs` | Attributes (edit/add/delete), file previews, snippet insertion |
-| Menus | `menu_bar.rs`, `menus/` | File, Edit (undo/redo), View, Import, Project (build, clear save data) |
+| Input actions | `panels/input_actions.rs` | The project's input actions and their bindings (Project → Input Actions) |
+| Menus | `menu_bar.rs`, `menus/` | File, Edit (undo/redo), View, Import, Project (input actions, build, clear save data) |
 | State | `state.rs` | Shared state: open project, selection, undo history, requests; duplicating and pasting entities |
 | Clipboard | `clipboard.rs` | Entities as clipboard text, for pasting between windows and projects |
 | Project operations | `project/` | Scaffolding, asset import, builds (see [project.md](project.md)) |
@@ -108,6 +109,19 @@ What the game saves with `save_data` while playing in the editor goes to the
 project's `saves/save.json`, not where the exported game keeps its saves (see
 [save.md](save.md)). Project → Clear Save Data deletes it.
 
+Project → Input Actions opens the project's input actions (see
+[input.md](input.md#input-actions)): each action with its bindings, which
+go with a click, and a **+ Add** menu: **Press a key…** binds the next key
+pressed (which the editor's shortcuts then don't see: Delete binds Delete
+rather than deleting the selected entity), and submenus offer the mouse
+buttons, gamepad buttons and stick and trigger directions, for any gamepad
+or, chosen at the top of the window, one of the first four (local
+multiplayer). Actions are added (scrolled into view), renamed (✏) and
+removed (🗑); an action with a stick or trigger has a threshold, how far
+it's pushed to press the action. Changes are saved to `project.epm` at once
+(a dragged threshold when the drag ends) and reach the game the next time
+it plays.
+
 ## Viewport (Viewer tab)
 
 - **Left-click**: select the topmost entity under the cursor (gold outline);
@@ -166,3 +180,5 @@ a window.
 - The editor and the runtime each own a `RenderEngine`, so images are decoded
   and uploaded twice.
 - The file tree is rescanned on the UI thread every 2 seconds.
+- Input action changes aren't part of undo, and a key can't be bound with
+  modifiers (Ctrl+S).

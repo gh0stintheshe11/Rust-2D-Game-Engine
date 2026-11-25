@@ -102,7 +102,33 @@ function update(scene_id, entity_id)
 end
 ```
 
-Input:
+Input actions are the project's named controls (Project → Input Actions in
+the editor, see [input.md](input.md#input-actions)): `"jump"` can stand for
+Space, W and gamepad A, so scripts don't check each of them, and players can
+rebind it.
+
+| Function | Notes |
+|---|---|
+| `is_action_pressed(action)` | True while the action is held, through any of its bindings. An action the project doesn't have raises an error listing those it has |
+| `is_action_just_pressed(action)` / `is_action_just_released(action)` | True only on the frame the action went down / up (a key tapped within one frame counts as both) |
+| `get_action_strength(action)` | How far it's held, from 0 to 1: a stick or trigger bound to it holds it part way; it's pressed from its threshold on (0.5 unless the project sets another) |
+| `get_action_axis(negative, positive)` | The strength of `positive` minus that of `negative`, from -1 to 1: `get_action_axis("left", "right")` to run, as fast as the stick is pushed |
+| `get_action_bindings(action)` | The action's bindings, e.g. `{"key:Space", "pad:a"}` (written as in [input.md](input.md#input-actions)) |
+| `set_action_bindings(action, bindings)` | Rebind an action, or add one, until the game stops (the next run starts with the project's bindings; keep a player's choice with `save_data`). Invalid bindings raise an error |
+| `get_just_pressed_binding()` | Whatever went down this frame as a binding (`"key:Q"`, `"mouse:left"`, `"pad:y"`, `"pad:left_x-"`), or nil: for "press a key" menus |
+
+```lua
+function update(scene_id, entity_id)
+    -- Run with the left / right actions (keys, d-pad or stick), jump with jump
+    local _, vy = get_velocity(entity_id)
+    if is_action_just_pressed("jump") then
+        vy = -320
+    end
+    set_velocity(entity_id, 200 * get_action_axis("left", "right"), vy)
+end
+```
+
+Keys, mouse buttons and gamepads, read directly:
 
 | Function | Notes |
 |---|---|
@@ -325,7 +351,7 @@ an attribute in the Inspector and read it from the script.
 function update(scene_id, entity_id)
     -- `jump_velocity` is a Float attribute on this entity, editable in the
     -- Inspector - no code changes needed to retune the game
-    if is_key_just_pressed("Space") then
+    if is_action_just_pressed("jump") then
         local jump = get_attribute(scene_id, entity_id, "jump_velocity") or -260.0
         set_velocity(entity_id, 0.0, jump)
     end

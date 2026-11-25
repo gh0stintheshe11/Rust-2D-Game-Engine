@@ -7,6 +7,29 @@ versions may contain breaking changes).
 
 ## [Unreleased]
 
+### Added
+
+- Input actions: named controls such as `jump` or `left`, each bound to
+  keys, mouse buttons, gamepad buttons and stick or trigger directions, any
+  gamepad or a given one (`key:Space`, `pad:a`, `pad2:start`,
+  `pad:left_x-`). Scripts read them with `is_action_pressed`,
+  `is_action_just_pressed`, `is_action_just_released`,
+  `get_action_strength` (sticks hold an action part way) and
+  `get_action_axis("left", "right")`, rebind them with
+  `set_action_bindings` until the game stops, and build "press a key"
+  menus with `get_just_pressed_binding`. A stick or trigger presses an
+  action from a threshold of 0.5, or the action's own. Actions are kept in
+  `project.epm` (`ProjectMetadata::input_actions`, `input::InputActions`),
+  which builds now copy next to the game; new projects start with `left`,
+  `right`, `up`, `down`, `jump` and `pause`. In the editor, Project →
+  Input Actions edits them: press a key to bind it, or pick a mouse button
+  or gamepad control from a menu.
+
+### Changed
+
+- `ProjectMetadata` has an `input_actions` field (breaking for Rust code
+  that constructs it).
+
 ## [0.6.0] - 2026-11-24
 
 Platformer building blocks: tilemaps with one-way platforms and animated

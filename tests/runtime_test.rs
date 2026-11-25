@@ -949,3 +949,113 @@ fn test_buttons_take_keyboard_and_gamepad_focus() {
     window.frame(&mut runtime, vec![], no_widgets);
     assert_eq!(focused(&runtime), "Two");
 }
+
+#[test]
+fn test_scripts_read_input_actions() {
+    use rust_2d_game_engine::input::{GamepadAxis, GamepadEvent, InputActions, InputBinding};
+
+    let (mut manager, box_id) = falling_box_scene();
+    let _script = with_script(
+        &mut manager,
+        box_id,
+        r#"
+        function update(scene_id, entity_id)
+            local state = script_state.state
+            state.jump = is_action_pressed("jump")
+            state.jumped = (state.jumped or 0) + (is_action_just_pressed("jump") and 1 or 0)
+            state.landed = (state.landed or 0) + (is_action_just_released("jump") and 1 or 0)
+            state.run = get_action_axis("left", "right")
+            state.right = get_action_strength("right")
+            state.binding = get_just_pressed_binding() or state.binding or ""
+        end
+        "#,
+    );
+    let mut actions = InputActions::new();
+    for (name, bindings) in [
+        ("jump", &["key:Space", "pad:a"][..]),
+        ("left", &["key:A"]),
+        ("right", &["key:D", "pad:left_x+"]),
+    ] {
+        let bindings = bindings
+            .iter()
+            .map(|text| InputBinding::parse(text).unwrap())
+            .collect();
+        actions.set(name, bindings).unwrap();
+    }
+    let mut runtime = runtime(manager);
+    runtime.set_input_actions(actions);
+    runtime.run().unwrap();
+    let mut window = Window::new();
+    let state = |runtime: &GameRuntime, name: &str| {
+        lua_number(runtime, &format!("script_state.state.{}", name))
+    };
+    let held = |runtime: &GameRuntime| lua_string(runtime, "tostring(script_state.state.jump)");
+
+    window.frame(&mut runtime, vec![key(egui::Key::Space, true)], no_widgets);
+    assert_eq!(
+        (held(&runtime).as_str(), state(&runtime, "jumped")),
+        ("true", 1.0)
+    );
+    assert_eq!(
+        lua_string(&runtime, "script_state.state.binding"),
+        "key:Space"
+    );
+    window.frame(&mut runtime, vec![], no_widgets);
+    assert_eq!(state(&runtime, "jumped"), 1.0, "once per press");
+    window.frame(&mut runtime, vec![key(egui::Key::Space, false)], no_widgets);
+    assert_eq!(
+        (held(&runtime).as_str(), state(&runtime, "landed")),
+        ("false", 1.0)
+    );
+
+    // Running with the stick, part way
+    runtime.queue_gamepad_events([
+        GamepadEvent::Connected { gamepad: 0 },
+        GamepadEvent::AxisMoved {
+            gamepad: 0,
+            axis: GamepadAxis::LeftStickX,
+            value: 0.6,
+        },
+    ]);
+    window.frame(&mut runtime, vec![], no_widgets);
+    let (run, right) = (state(&runtime, "run"), state(&runtime, "right"));
+    assert!(run > 0.4 && run < 0.6 && run == right, "{} {}", run, right);
+
+    // Rebound by a script, for this run of the game
+    lua_exec(&runtime, r#"set_action_bindings("jump", {"key:Q"})"#);
+    assert_eq!(
+        lua_string(
+            &runtime,
+            r#"table.concat(get_action_bindings("jump"), " ")"#
+        ),
+        "key:Q"
+    );
+    window.frame(&mut runtime, vec![key(egui::Key::Space, true)], no_widgets);
+    window.frame(&mut runtime, vec![key(egui::Key::Space, false)], no_widgets);
+    assert_eq!(state(&runtime, "jumped"), 1.0, "Space doesn't jump anymore");
+    window.frame(&mut runtime, vec![key(egui::Key::Q, true)], no_widgets);
+    assert_eq!(state(&runtime, "jumped"), 2.0);
+
+    // Mistakes are errors that say what's wrong
+    let error = |code: &str| {
+        lua_string(
+            &runtime,
+            &format!("tostring(select(2, pcall(function() {} end)))", code),
+        )
+    };
+    let unknown = error(r#"is_action_pressed("fly")"#);
+    assert!(
+        unknown.contains("unknown input action 'fly'") && unknown.contains("jump, left, right"),
+        "{}",
+        unknown
+    );
+    assert!(error(r#"set_action_bindings("jump", {"key:Spcae"})"#).contains("key:Spcae"));
+    assert!(error(r#"get_action_axis("left", "up")"#).contains("'up'"));
+
+    // A new run starts with the project's bindings again
+    runtime.reset();
+    runtime.run().unwrap();
+    window.frame(&mut runtime, vec![key(egui::Key::Q, false)], no_widgets);
+    window.frame(&mut runtime, vec![key(egui::Key::Space, true)], no_widgets);
+    assert_eq!(state(&runtime, "jumped"), 1.0);
+}

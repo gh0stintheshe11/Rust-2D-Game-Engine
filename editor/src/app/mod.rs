@@ -254,12 +254,19 @@ impl EditorApp {
         self.inspector.reset();
         self.scene_hierarchy.popup_manager.close_all();
         self.file_system.reset();
+        self.menu_bar.project_menu.input_actions = Default::default();
     }
 
     fn show_windows(&mut self, ctx: &egui::Context) {
         let screen_rect = ctx.content_rect();
         let spacing = 4.0;
         let min_side_panel_width = 200.0;
+
+        // A key pressed for an input action's binding is that and nothing else
+        self.menu_bar
+            .project_menu
+            .input_actions
+            .capture_key(ctx, &mut self.gui_state);
 
         // Scene undo/redo shortcuts, only when no text field is focused
         // (focused text fields have their own undo). The more specific
@@ -1130,6 +1137,163 @@ mod tests {
         app.gui_state.clear_save_data_requested = true;
         run_frames(&mut app, &ctx, 1280.0, 1);
         assert!(!save.exists());
+    }
+
+    #[test]
+    fn test_input_actions_are_edited_in_their_window() {
+        use rust_2d_game_engine::input::{GamepadButton, InputActions, InputBinding};
+
+        let (_guard, ctx, mut app, project) = app_with_project();
+        let left = egui::PointerButton::Primary;
+        let actions = |app: &EditorApp| {
+            let metadata = app.gui_state.project_metadata.as_ref().unwrap();
+            metadata.input_actions.clone()
+        };
+        let saved = || {
+            rust_2d_game_engine::project::ProjectManager::load_project(&project)
+                .unwrap()
+                .input_actions
+        };
+        let dash = |app: &EditorApp| actions(app).bindings("dash").map(<[_]>::to_vec);
+        // The last "+ Add", "✏" or "🗑" belongs to the last action
+        let last = |output: &egui::FullOutput, text: &str| {
+            shape_rects(output, text).last().expect(text).0.center()
+        };
+        assert_eq!(
+            actions(&app),
+            InputActions::defaults(),
+            "new projects have some"
+        );
+        assert_eq!(saved(), InputActions::defaults());
+
+        // Project > Input Actions…
+        let output = frame_with(&mut app, &ctx, vec![]);
+        let output = click_label(&mut app, &ctx, &output, "Project", left);
+        let output = click_label(&mut app, &ctx, &output, "Input Actions…", left);
+        assert!(
+            label_rect(&output, "left").is_some(),
+            "the actions are listed"
+        );
+
+        // A new action, named in the field at the bottom
+        click_label(&mut app, &ctx, &output, "new action, e.g. jump", left);
+        frame_with(&mut app, &ctx, vec![egui::Event::Text("dash".to_string())]);
+        let output = frame_with(&mut app, &ctx, vec![]);
+        click_label(&mut app, &ctx, &output, "Add action", left);
+        assert_eq!(dash(&app), Some(Vec::new()));
+        // The list scrolls to the new action
+        let output = frame_with(&mut app, &ctx, vec![]);
+        assert!(label_rect(&output, "dash").is_some());
+        assert_eq!(saved(), actions(&app), "saved right away");
+
+        // Bound to a key pressed for it. Delete is taken for the binding
+        // only: the selected entity isn't deleted too.
+        let manager = app.gui_state.scene_manager.as_ref().unwrap();
+        let scene = manager.get_active_scene().unwrap();
+        let entity = *scene.entities.keys().next().unwrap();
+        app.gui_state.select_entity(scene.id, entity);
+        let output = click_at(&mut app, &ctx, last(&output, "+ Add"), left);
+        let output = click_label(&mut app, &ctx, &output, "Press a key…", left);
+        assert!(label_rect(&output, "Cancel").is_some(), "waiting for a key");
+        frame_with(
+            &mut app,
+            &ctx,
+            vec![key_press(egui::Key::Delete, egui::Modifiers::NONE)],
+        );
+        assert_eq!(dash(&app), Some(vec![InputBinding::Key(egui::Key::Delete)]));
+        assert!(app.scene_hierarchy.popup_manager.pending_delete.is_none());
+
+        // ...and to a gamepad button, from the menu
+        let output = frame_with(&mut app, &ctx, vec![]);
+        let output = click_at(&mut app, &ctx, last(&output, "+ Add"), left);
+        let output = hover_label(&mut app, &ctx, &output, "Gamepad button");
+        let output = click_label(&mut app, &ctx, &output, "Gamepad B", left);
+        let b = InputBinding::GamepadButton {
+            button: GamepadButton::East,
+            pad: None,
+        };
+        assert_eq!(
+            dash(&app),
+            Some(vec![InputBinding::Key(egui::Key::Delete), b])
+        );
+
+        // A binding goes with a click on it
+        let output = click_label(&mut app, &ctx, &output, "Delete  ✖", left);
+        assert_eq!(dash(&app), Some(vec![b]));
+
+        // Renamed, keeping its place; a name that's taken is refused
+        click_at(&mut app, &ctx, last(&output, "✏"), left);
+        let backspace = key_press(egui::Key::Backspace, egui::Modifiers::NONE);
+        frame_with(&mut app, &ctx, vec![backspace; 4]);
+        frame_with(
+            &mut app,
+            &ctx,
+            vec![egui::Event::Text("sprint".to_string())],
+        );
+        frame_with(&mut app, &ctx, vec![]);
+        let output = frame_with(
+            &mut app,
+            &ctx,
+            vec![key_press(egui::Key::Enter, egui::Modifiers::NONE)],
+        );
+        let names: Vec<String> = actions(&app)
+            .iter()
+            .map(|(name, _)| name.to_string())
+            .collect();
+        assert_eq!(names.last().map(String::as_str), Some("sprint"));
+        assert_eq!(actions(&app).bindings("sprint"), Some(&[b][..]));
+        click_at(&mut app, &ctx, last(&output, "✏"), left);
+        frame_with(
+            &mut app,
+            &ctx,
+            vec![key_press(egui::Key::Backspace, egui::Modifiers::NONE); 6],
+        );
+        frame_with(&mut app, &ctx, vec![egui::Event::Text("jump".to_string())]);
+        frame_with(&mut app, &ctx, vec![]);
+        frame_with(
+            &mut app,
+            &ctx,
+            vec![key_press(egui::Key::Enter, egui::Modifiers::NONE)],
+        );
+        let output = frame_with(&mut app, &ctx, vec![]);
+        assert!(
+            label_rect(&output, "there's already an action named \"jump\"").is_some(),
+            "the refusal is shown"
+        );
+        assert!(actions(&app).bindings("sprint").is_some());
+
+        // Removed
+        click_at(&mut app, &ctx, last(&output, "🗑"), left);
+        assert_eq!(actions(&app), InputActions::defaults());
+        assert_eq!(saved(), InputActions::defaults());
+
+        // An action with a stick has a threshold, typed into its field
+        let output = frame_with(&mut app, &ctx, vec![]);
+        let threshold = shape_rects(&output, "0.50")
+            .first()
+            .expect("a threshold on screen")
+            .0
+            .center();
+        click_at(&mut app, &ctx, threshold, left);
+        frame_with(
+            &mut app,
+            &ctx,
+            vec![key_press(egui::Key::Backspace, egui::Modifiers::NONE); 4],
+        );
+        frame_with(&mut app, &ctx, vec![egui::Event::Text("0.7".to_string())]);
+        frame_with(
+            &mut app,
+            &ctx,
+            vec![key_press(egui::Key::Enter, egui::Modifiers::NONE)],
+        );
+        frame_with(&mut app, &ctx, vec![]);
+        let raised: Vec<String> = actions(&app)
+            .iter()
+            .map(|(name, _)| name.to_string())
+            .filter(|name| actions(&app).threshold(name) == Some(0.7))
+            .collect();
+        assert_eq!(raised.len(), 1, "one action's threshold: {:?}", raised);
+        assert_eq!(saved(), actions(&app));
     }
 
     #[test]
