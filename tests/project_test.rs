@@ -196,4 +196,39 @@ mod tests {
         assert_eq!(loaded.metadata.project_name, "bare");
         assert!(loaded.scene_manager.scenes.is_empty());
     }
+
+    #[test]
+    fn test_entity_paths_move_between_projects() {
+        use rust_2d_game_engine::scene::Entity;
+
+        let first = temp_project("entity_from");
+        let second = temp_project("entity_to");
+        let elsewhere = std::env::temp_dir().join("shared").join("theme.ogg");
+        let mut entity = Entity::new(uuid::Uuid::new_v4(), "coin").unwrap();
+        entity
+            .add_image(first.join("assets").join("images").join("coin.png"))
+            .unwrap();
+        entity.add_sound(elsewhere.clone()).unwrap();
+        entity
+            .set_script(first.join("assets").join("scripts").join("coin.lua"))
+            .unwrap();
+
+        ProjectManager::make_entity_paths_relative(&mut entity, &first);
+        assert_eq!(entity.images[0], PathBuf::from("assets/images/coin.png"));
+        assert_eq!(
+            entity.script,
+            Some(PathBuf::from("assets/scripts/coin.lua"))
+        );
+        assert_eq!(entity.sounds[0], elsewhere, "outside the project: kept");
+
+        ProjectManager::resolve_entity_paths(&mut entity, &second);
+        assert_eq!(
+            entity.images[0],
+            second.join("assets").join("images").join("coin.png")
+        );
+        assert_eq!(
+            entity.script,
+            Some(second.join("assets").join("scripts").join("coin.lua"))
+        );
+    }
 }

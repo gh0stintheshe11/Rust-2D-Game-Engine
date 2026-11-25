@@ -17,7 +17,7 @@ mod attribute;
 mod entity;
 mod manager;
 
-pub use archetype::PHYSICS_ATTRIBUTES;
+pub use archetype::{AttributePreset, PHYSICS_ATTRIBUTES, attribute_presets};
 pub use attribute::{Attribute, AttributeType, AttributeValue};
 pub use entity::{Entity, PhysicsProperties};
 pub use manager::SceneManager;

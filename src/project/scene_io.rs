@@ -53,30 +53,48 @@ impl ProjectManager {
 
         Ok(scene_manager)
     }
+
+    /// Store one entity's resource paths relative to `project_path`, the
+    /// way scene files do (e.g. to copy the entity to the clipboard). Paths
+    /// outside the project stay as they are.
+    pub fn make_entity_paths_relative(entity: &mut Entity, project_path: &Path) {
+        map_paths(entity, &mut |path| {
+            to_relative_string(path, project_path)
+                .map(PathBuf::from)
+                .unwrap_or_else(|| path.to_path_buf())
+        });
+    }
+
+    /// Resolve one entity's stored resource paths against `project_path`,
+    /// the way loading a scene does.
+    pub fn resolve_entity_paths(entity: &mut Entity, project_path: &Path) {
+        map_paths(entity, &mut |path| resolve_path(path, project_path));
+    }
 }
 
-/// Apply `f` to every resource path (images, sounds, script) of every entity,
-/// in all scenes and in the shared-entity registry.
-fn map_entity_paths(scene_manager: &mut SceneManager, mut f: impl FnMut(&Path) -> PathBuf) {
-    let mut apply = |entity: &mut Entity| {
-        for image in entity.images.iter_mut() {
-            *image = f(image);
-        }
-        for sound in entity.sounds.iter_mut() {
-            *sound = f(sound);
-        }
-        if let Some(script) = entity.script.as_mut() {
-            *script = f(script);
-        }
-    };
+/// Apply `f` to every resource path (images, sounds, script) of an entity.
+fn map_paths(entity: &mut Entity, f: &mut impl FnMut(&Path) -> PathBuf) {
+    for image in entity.images.iter_mut() {
+        *image = f(image);
+    }
+    for sound in entity.sounds.iter_mut() {
+        *sound = f(sound);
+    }
+    if let Some(script) = entity.script.as_mut() {
+        *script = f(script);
+    }
+}
 
+/// Apply `f` to every resource path of every entity, in all scenes and in
+/// the shared-entity registry.
+fn map_entity_paths(scene_manager: &mut SceneManager, mut f: impl FnMut(&Path) -> PathBuf) {
     for scene in scene_manager.scenes.values_mut() {
         for entity in scene.entities.values_mut() {
-            apply(entity);
+            map_paths(entity, &mut f);
         }
     }
     for entity in scene_manager.shared_entities.values_mut() {
-        apply(entity);
+        map_paths(entity, &mut f);
     }
 }
 

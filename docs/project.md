@@ -44,6 +44,11 @@ versa).
 project_path` is filled in on load), so a project can be moved or cloned
 freely.
 
+`make_entity_paths_relative(entity, project)` and `resolve_entity_paths(entity,
+project)` apply the same conversions to a single entity, e.g. for the editor's
+entity clipboard: copied with project-relative paths, resolved against the
+project it is pasted into.
+
 ### Saving
 
 Files are written to a temporary file next to the target and then renamed

@@ -3,10 +3,14 @@
 
 use rust_2d_game_engine::logger::LOGGER;
 use rust_2d_game_engine::project::{LoadedProject, ProjectManager, ProjectMetadata};
-use rust_2d_game_engine::scene::SceneManager;
+use rust_2d_game_engine::scene::{AttributeValue, Entity, SceneManager};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use uuid::Uuid;
+
+/// How far a duplicated or pasted entity moves from an entity of the same
+/// name it would otherwise exactly cover, in world units along x and y.
+pub const COPY_OFFSET: f32 = 16.0;
 
 /// What the inspector shows.
 pub enum SelectedItem {
@@ -130,6 +134,10 @@ pub struct GuiState {
     pub show_debug_overlay: bool,
     /// Draw physics collider outlines while the game plays
     pub show_colliders: bool,
+    /// Round dragged entities' positions to the grid (Shift inverts it)
+    pub snap_to_grid: bool,
+    /// The viewport grid's cell size, in world units
+    pub grid_size: f32,
 
     pub selected_item: SelectedItem,
     pub scene_panel_selected_item: ScenePanelSelectedItem,
@@ -157,6 +165,11 @@ pub struct GuiState {
     pub deleted_file: Option<PathBuf>,
 
     pub undo_stack: UndoStack,
+
+    /// Clipboard text of the last entity copied, for the hierarchy's Paste
+    /// menu item (Ctrl+V pastes from the system clipboard). Text, not an
+    /// entity, so pasting into another project resolves its paths there.
+    pub copied_entity: Option<String>,
 }
 
 impl Default for GuiState {
@@ -183,6 +196,8 @@ impl GuiState {
             show_console: true,
             show_debug_overlay: false,
             show_colliders: true,
+            snap_to_grid: true,
+            grid_size: rust_2d_game_engine::render::DEFAULT_GRID_SIZE,
 
             selected_item: SelectedItem::None,
             scene_panel_selected_item: ScenePanelSelectedItem::None,
@@ -199,6 +214,7 @@ impl GuiState {
             deleted_file: None,
 
             undo_stack: UndoStack::new(),
+            copied_entity: None,
         }
     }
 
@@ -271,6 +287,67 @@ impl GuiState {
     pub fn clear_selection(&mut self) {
         self.selected_item = SelectedItem::None;
         self.scene_panel_selected_item = ScenePanelSelectedItem::None;
+    }
+
+    fn entity(&self, scene_id: Uuid, entity_id: Uuid) -> Option<&Entity> {
+        self.scene_manager
+            .as_ref()?
+            .get_scene(scene_id)?
+            .get_entity(entity_id)
+            .ok()
+    }
+
+    /// Copy an entity: remembered for the Paste menu item, and returned as
+    /// text for the system clipboard (see [`crate::clipboard`]).
+    pub fn copy_entity(&mut self, scene_id: Uuid, entity_id: Uuid) -> Option<String> {
+        let entity = self.entity(scene_id, entity_id)?;
+        let text = crate::clipboard::to_clipboard_text(entity, &self.project_path);
+        LOGGER.info(format!("Copied '{}'", entity.name));
+        self.copied_entity = Some(text.clone());
+        Some(text)
+    }
+
+    /// Paste the entity last copied in this editor into a scene.
+    pub fn paste_copied_entity(&mut self, scene_id: Uuid) -> Option<Uuid> {
+        let text = self.copied_entity.as_deref()?;
+        let entity = crate::clipboard::from_clipboard_text(text, &self.project_path)?;
+        self.paste_entity(scene_id, entity)
+    }
+
+    /// Put a copy of an entity into its own scene (see
+    /// [`paste_entity`](Self::paste_entity)).
+    pub fn duplicate_entity(&mut self, scene_id: Uuid, entity_id: Uuid) -> Option<Uuid> {
+        let entity = self.entity(scene_id, entity_id)?.clone();
+        self.paste_entity(scene_id, entity)
+    }
+
+    /// Add `entity` to a scene with a new id, select it, and record one
+    /// undo step. A copy that would exactly cover an entity of the same name
+    /// (a duplicate, or a paste into the scene it was copied from) moves by
+    /// [`COPY_OFFSET`] until it doesn't, so repeated copies cascade.
+    pub fn paste_entity(&mut self, scene_id: Uuid, mut entity: Entity) -> Option<Uuid> {
+        let scene = self.scene_manager.as_mut()?.get_scene_mut(scene_id)?;
+        let (mut x, mut y) = (entity.get_x(), entity.get_y());
+        while scene
+            .entities
+            .values()
+            .any(|other| other.name == entity.name && other.get_x() == x && other.get_y() == y)
+        {
+            x += COPY_OFFSET;
+            y += COPY_OFFSET;
+        }
+        let _ = entity.set_x(x);
+        let _ = entity.set_y(y);
+        if entity.get_vector2("position").is_some() {
+            let _ = entity.set_or_create_attribute("position", AttributeValue::Vector2(x, y));
+        }
+        entity.id = Uuid::new_v4();
+        let id = entity.id;
+        LOGGER.info(format!("Pasted '{}'", entity.name));
+        scene.entities.insert(id, entity);
+        self.select_entity(scene_id, id);
+        self.commit_change();
+        Some(id)
     }
 
     /// The scene a new entity should go into: the selected scene, or the

@@ -10,7 +10,7 @@ screen space; callers paint them with `paint_sprite`, using GPU textures from
 | Item | Responsibility |
 |---|---|
 | `Camera` | `position` = world point at the viewport's top-left, `zoom` = screen pixels per world unit; `world_to_screen` and its inverse `screen_to_world` |
-| `RenderEngine` | Owns a `Camera`, the viewport size, and caches of decoded images and GPU textures keyed by file path (`path_to_uuid`) |
+| `RenderEngine` | Owns a `Camera`, the viewport size, and caches of decoded images and GPU textures keyed by file path (`path_to_uuid`); `get_grid_lines` draws the editor grid, whose cell size `set_grid_size` sets (`DEFAULT_GRID_SIZE`, 32) |
 | `RenderQueueEntry` | One sprite: entity, texture, screen position and size, rotation (radians), z |
 | `paint_sprite` | Draws a textured rect, rotated around its center if needed |
 | `game_view(scene, viewport_size)` | Fits the scene's default camera into a viewport (see below) |

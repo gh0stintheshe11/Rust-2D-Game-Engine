@@ -139,6 +139,31 @@ impl EntityItem {
                 );
                 ui.close();
             }
+            let duplicate_shortcut = ui.ctx().format_shortcut(&egui::KeyboardShortcut::new(
+                egui::Modifiers::COMMAND,
+                egui::Key::D,
+            ));
+            if ui
+                .add(egui::Button::new("Duplicate").shortcut_text(duplicate_shortcut))
+                .clicked()
+            {
+                gui_state.duplicate_entity(*scene_id, *entity_id);
+                ui.close();
+            }
+            let copy_shortcut = ui.ctx().format_shortcut(&egui::KeyboardShortcut::new(
+                egui::Modifiers::COMMAND,
+                egui::Key::C,
+            ));
+            if ui
+                .add(egui::Button::new("Copy").shortcut_text(copy_shortcut))
+                .on_hover_text("Paste it into a scene with Ctrl+V or the scene's menu")
+                .clicked()
+            {
+                if let Some(text) = gui_state.copy_entity(*scene_id, *entity_id) {
+                    ui.ctx().copy_text(text);
+                }
+                ui.close();
+            }
             if ui.button("Delete").clicked() {
                 hierarchy.popup_manager.pending_delete =
                     Some(crate::panels::hierarchy::popup::PendingDelete::Entity(

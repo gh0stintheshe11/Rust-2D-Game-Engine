@@ -4,13 +4,18 @@
 use crate::menu_bar::MenuBar;
 use crate::panels::files::FileSystem;
 use crate::panels::hierarchy::SceneHierarchy;
+use crate::panels::hierarchy::popup::PendingDelete;
 use crate::panels::inspector::Inspector;
-use crate::state::GuiState;
+use crate::state::{GuiState, SelectedItem};
 use eframe::egui;
 use rust_2d_game_engine::logger::{ConsoleMessage, ConsoleMessageType, LOGGER};
 use rust_2d_game_engine::{
-    audio::AudioEngine, input::InputHandler, physics::PhysicsEngine, render::RenderEngine,
-    runtime::GameRuntime, scene::SceneManager,
+    audio::AudioEngine,
+    input::InputHandler,
+    physics::PhysicsEngine,
+    render::RenderEngine,
+    runtime::{GameRuntime, RuntimeState},
+    scene::SceneManager,
 };
 use std::path::PathBuf;
 
@@ -158,6 +163,60 @@ impl EditorApp {
         }
     }
 
+    /// Duplicate (Ctrl+D), copy and paste (the platform's clipboard
+    /// shortcuts) and delete (Delete or Backspace, after confirmation) the
+    /// selected entity. Pastes go into the selected scene, or the active one.
+    fn handle_entity_shortcuts(&mut self, ctx: &egui::Context) {
+        let (duplicate, delete, copy, paste) = ctx.input_mut(|i| {
+            let duplicate = i.consume_shortcut(&egui::KeyboardShortcut::new(
+                egui::Modifiers::COMMAND,
+                egui::Key::D,
+            ));
+            let delete = i.consume_key(egui::Modifiers::NONE, egui::Key::Delete)
+                || i.consume_key(egui::Modifiers::NONE, egui::Key::Backspace);
+            let copy = i.events.iter().any(|e| matches!(e, egui::Event::Copy));
+            let paste = i.events.iter().find_map(|e| match e {
+                egui::Event::Paste(text) => Some(text.clone()),
+                _ => None,
+            });
+            (duplicate, delete, copy, paste)
+        });
+
+        if let SelectedItem::Entity(scene_id, entity_id) = self.gui_state.selected_item {
+            if copy && let Some(text) = self.gui_state.copy_entity(scene_id, entity_id) {
+                ctx.copy_text(text);
+            }
+            if duplicate {
+                self.gui_state.duplicate_entity(scene_id, entity_id);
+            } else if delete {
+                let name = self
+                    .gui_state
+                    .scene_manager
+                    .as_ref()
+                    .and_then(|manager| manager.get_scene(scene_id))
+                    .and_then(|scene| scene.get_entity(entity_id).ok())
+                    .map(|entity| entity.name.clone());
+                if let Some(name) = name {
+                    self.scene_hierarchy.popup_manager.pending_delete =
+                        Some(PendingDelete::Entity(scene_id, entity_id, name));
+                }
+            }
+        }
+
+        if let Some(text) = paste
+            && let Some(entity) =
+                crate::clipboard::from_clipboard_text(&text, &self.gui_state.project_path)
+            && let Some(scene_id) = self.gui_state.selected_scene().or_else(|| {
+                self.gui_state
+                    .scene_manager
+                    .as_ref()
+                    .and_then(|manager| manager.active_scene)
+            })
+        {
+            self.gui_state.paste_entity(scene_id, entity);
+        }
+    }
+
     /// Reset everything that belonged to the previous project.
     fn on_project_opened(&mut self) {
         // The buffer belongs to the previous project; its path is absolute,
@@ -201,6 +260,11 @@ impl EditorApp {
                 self.gui_state.redo();
             } else if undo_pressed {
                 self.gui_state.undo();
+            }
+
+            // While the game plays, keys belong to it
+            if self.game_runtime.get_state() != RuntimeState::Playing {
+                self.handle_entity_shortcuts(ctx);
             }
         }
 
@@ -573,5 +637,402 @@ mod tests {
             }
         }
         app.game_runtime.reset();
+    }
+
+    /// One frame with `events`, returning egui's output.
+    fn frame_with(
+        app: &mut EditorApp,
+        ctx: &egui::Context,
+        events: Vec<egui::Event>,
+    ) -> egui::FullOutput {
+        let input = egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(
+                egui::Pos2::ZERO,
+                egui::vec2(1280.0, 720.0),
+            )),
+            events,
+            ..Default::default()
+        };
+        let mut output = ctx.run_ui(input, |ui| app.frame(ui));
+        output.textures_delta.clear();
+        output
+    }
+
+    fn key_press(key: egui::Key, modifiers: egui::Modifiers) -> egui::Event {
+        egui::Event::Key {
+            key,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers,
+        }
+    }
+
+    /// (x, y) of every entity named `name` in a scene, sorted.
+    fn positions(app: &EditorApp, scene_id: uuid::Uuid, name: &str) -> Vec<(f32, f32)> {
+        let manager = app.gui_state.scene_manager.as_ref().unwrap();
+        let mut found: Vec<(f32, f32)> = manager
+            .get_scene(scene_id)
+            .unwrap()
+            .entities
+            .values()
+            .filter(|entity| entity.name == name)
+            .map(|entity| (entity.get_x(), entity.get_y()))
+            .collect();
+        found.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        found
+    }
+
+    #[test]
+    fn test_duplicate_copy_paste_and_delete_shortcuts() {
+        use rust_2d_game_engine::scene::AttributeValue;
+
+        let (ctx, mut app, _project) = app_with_project();
+        let (scene_id, coin, level) = {
+            let manager = app.gui_state.scene_manager.as_mut().unwrap();
+            let level = manager.create_scene("level 2").unwrap();
+            let scene_id = manager.active_scene.unwrap();
+            let scene = manager.get_scene_mut(scene_id).unwrap();
+            let coin = scene.create_entity("coin").unwrap();
+            let entity = scene.get_entity_mut(coin).unwrap();
+            entity.set_position(40.0, 60.0, 0.0).unwrap();
+            entity
+                .set_or_create_attribute("value", AttributeValue::Integer(5))
+                .unwrap();
+            (scene_id, coin, level)
+        };
+        app.gui_state.commit_change();
+        app.gui_state.select_entity(scene_id, coin);
+
+        // Ctrl+D: a copy, moved off the original, selected; one undo step
+        frame_with(
+            &mut app,
+            &ctx,
+            vec![key_press(egui::Key::D, egui::Modifiers::COMMAND)],
+        );
+        assert_eq!(
+            positions(&app, scene_id, "coin"),
+            vec![(40.0, 60.0), (56.0, 76.0)]
+        );
+        let crate::state::SelectedItem::Entity(_, copy) = app.gui_state.selected_item else {
+            panic!("the copy is selected");
+        };
+        assert_ne!(copy, coin);
+        app.gui_state.undo();
+        assert_eq!(positions(&app, scene_id, "coin"), vec![(40.0, 60.0)]);
+
+        // Copy puts the entity on the system clipboard
+        app.gui_state.select_entity(scene_id, coin);
+        let output = frame_with(&mut app, &ctx, vec![egui::Event::Copy]);
+        let text = output
+            .platform_output
+            .commands
+            .iter()
+            .find_map(|command| match command {
+                egui::OutputCommand::CopyText(text) => Some(text.clone()),
+                _ => None,
+            })
+            .expect("copied to the clipboard");
+
+        // Pasted into another scene: same place; into its own scene: moved
+        app.gui_state.select_scene(level);
+        frame_with(&mut app, &ctx, vec![egui::Event::Paste(text.clone())]);
+        assert_eq!(positions(&app, level, "coin"), vec![(40.0, 60.0)]);
+        let pasted = {
+            let manager = app.gui_state.scene_manager.as_ref().unwrap();
+            let scene = manager.get_scene(level).unwrap();
+            let coin = scene.entities.values().find(|e| e.name == "coin").unwrap();
+            coin.get_float("value")
+        };
+        assert_eq!(pasted, Some(5.0), "attributes come along");
+        app.gui_state.select_scene(scene_id);
+        frame_with(&mut app, &ctx, vec![egui::Event::Paste(text)]);
+        assert_eq!(
+            positions(&app, scene_id, "coin"),
+            vec![(40.0, 60.0), (56.0, 76.0)]
+        );
+
+        // Other text on the clipboard isn't an entity
+        frame_with(
+            &mut app,
+            &ctx,
+            vec![egui::Event::Paste("hello".to_string())],
+        );
+        assert_eq!(positions(&app, scene_id, "coin").len(), 2);
+
+        // The menu's Paste uses the last entity copied
+        assert!(app.gui_state.paste_copied_entity(level).is_some());
+        assert_eq!(
+            positions(&app, level, "coin"),
+            vec![(40.0, 60.0), (56.0, 76.0)]
+        );
+
+        // Delete asks first
+        app.gui_state.select_entity(scene_id, coin);
+        frame_with(
+            &mut app,
+            &ctx,
+            vec![key_press(egui::Key::Delete, egui::Modifiers::NONE)],
+        );
+        assert!(matches!(
+            app.scene_hierarchy.popup_manager.pending_delete,
+            Some(PendingDelete::Entity(_, id, _)) if id == coin
+        ));
+        app.scene_hierarchy.popup_manager.pending_delete = None;
+
+        // While the game plays, the keys are the game's
+        app.sync_scene_manager_to_runtime();
+        app.game_runtime.run().unwrap();
+        app.gui_state.select_entity(scene_id, coin);
+        frame_with(
+            &mut app,
+            &ctx,
+            vec![
+                key_press(egui::Key::Delete, egui::Modifiers::NONE),
+                key_press(egui::Key::D, egui::Modifiers::COMMAND),
+            ],
+        );
+        assert!(app.scene_hierarchy.popup_manager.pending_delete.is_none());
+        assert_eq!(positions(&app, scene_id, "coin").len(), 2);
+        app.game_runtime.reset();
+    }
+
+    /// One frame with `events` and `modifiers` held.
+    fn frame_with_modifiers(
+        app: &mut EditorApp,
+        ctx: &egui::Context,
+        events: Vec<egui::Event>,
+        modifiers: egui::Modifiers,
+    ) -> egui::FullOutput {
+        let input = egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(
+                egui::Pos2::ZERO,
+                egui::vec2(1280.0, 720.0),
+            )),
+            events: std::iter::once(egui::Event::ModifiersChanged(modifiers))
+                .chain(events)
+                .collect(),
+            ..Default::default()
+        };
+        let mut output = ctx.run_ui(input, |ui| app.frame(ui));
+        output.textures_delta.clear();
+        output
+    }
+
+    /// Drag with the left button from `from` by `delta` screen pixels.
+    fn drag(
+        app: &mut EditorApp,
+        ctx: &egui::Context,
+        from: egui::Pos2,
+        delta: egui::Vec2,
+        modifiers: egui::Modifiers,
+    ) {
+        let button = |pos, pressed| egui::Event::PointerButton {
+            pos,
+            button: egui::PointerButton::Primary,
+            pressed,
+            modifiers,
+        };
+        let mut frames = vec![
+            vec![egui::Event::PointerMoved(from)],
+            vec![button(from, true)],
+        ];
+        for step in 1..=5 {
+            frames.push(vec![egui::Event::PointerMoved(
+                from + delta * step as f32 / 5.0,
+            )]);
+        }
+        frames.push(vec![button(from + delta, false)]);
+        frames.push(vec![]);
+        for events in frames {
+            frame_with_modifiers(app, ctx, events, modifiers);
+        }
+    }
+
+    #[test]
+    fn test_dragging_snaps_to_the_grid_unless_shift_is_held() {
+        let (ctx, mut app, project) = app_with_project();
+        let image = project.join("assets").join("images").join("box.png");
+        image::RgbaImage::new(40, 40).save(&image).unwrap();
+        let (scene_id, id) = {
+            let manager = app.gui_state.scene_manager.as_mut().unwrap();
+            let scene_id = manager.active_scene.unwrap();
+            let scene = manager.get_scene_mut(scene_id).unwrap();
+            let id = scene.create_entity("box").unwrap();
+            let entity = scene.get_entity_mut(id).unwrap();
+            entity.set_position(200.0, 150.0, 0.0).unwrap();
+            entity.add_image(image).unwrap();
+            (scene_id, id)
+        };
+        app.gui_state.commit_change();
+
+        // The sprite on screen: the only mesh with an image texture (text,
+        // e.g. the console's, is drawn from the font texture)
+        let output = frame_with(&mut app, &ctx, vec![]);
+        let sprite = output
+            .shapes
+            .iter()
+            .find_map(|clipped| match &clipped.shape {
+                egui::Shape::Mesh(mesh) if mesh.texture_id != egui::TextureId::default() => {
+                    Some(mesh.calc_bounds())
+                }
+                _ => None,
+            })
+            .expect("the sprite is painted");
+        let zoom = app.render_engine.camera.zoom;
+        let position = |app: &EditorApp| {
+            let manager = app.gui_state.scene_manager.as_ref().unwrap();
+            let entity = manager.get_scene(scene_id).unwrap().get_entity(id).unwrap();
+            (entity.get_x(), entity.get_y())
+        };
+
+        // Snapping is on by default, to the 32 px grid
+        drag(
+            &mut app,
+            &ctx,
+            sprite.center(),
+            egui::vec2(60.0, 45.0),
+            egui::Modifiers::NONE,
+        );
+        let (x, y) = position(&app);
+        let raw = (200.0 + 60.0 / zoom, 150.0 + 45.0 / zoom);
+        assert_eq!(
+            (x % 32.0, y % 32.0),
+            (0.0, 0.0),
+            "on the grid: ({}, {})",
+            x,
+            y
+        );
+        assert!((x - raw.0).abs() <= 16.0 && (y - raw.1).abs() <= 16.0);
+
+        // Shift drags freely
+        let from = sprite.center() + egui::vec2(60.0, 45.0);
+        drag(
+            &mut app,
+            &ctx,
+            from,
+            egui::vec2(13.0, 7.0),
+            egui::Modifiers::SHIFT,
+        );
+        let (free_x, free_y) = position(&app);
+        assert!(
+            (free_x - (x + 13.0 / zoom)).abs() < 0.01 && (free_y - (y + 7.0 / zoom)).abs() < 0.01,
+            "({}, {}) from ({}, {})",
+            free_x,
+            free_y,
+            x,
+            y
+        );
+    }
+
+    /// Where a label with exactly this text was painted.
+    fn label_rect(output: &egui::FullOutput, text: &str) -> Option<egui::Rect> {
+        output
+            .shapes
+            .iter()
+            .find_map(|clipped| match &clipped.shape {
+                egui::Shape::Text(shape) if shape.galley.text() == text => {
+                    Some(shape.visual_bounding_rect())
+                }
+                _ => None,
+            })
+    }
+
+    /// Click the label with this text (as painted in the last frame), with
+    /// `button`, and run frames until whatever it opened has been drawn;
+    /// returns the last frame's output.
+    fn click_label(
+        app: &mut EditorApp,
+        ctx: &egui::Context,
+        output: &egui::FullOutput,
+        text: &str,
+        button: egui::PointerButton,
+    ) -> egui::FullOutput {
+        let pos = label_rect(output, text)
+            .unwrap_or_else(|| panic!("no label {:?} on screen", text))
+            .center();
+        let press = |pressed| egui::Event::PointerButton {
+            pos,
+            button,
+            pressed,
+            modifiers: egui::Modifiers::NONE,
+        };
+        frame_with(app, ctx, vec![egui::Event::PointerMoved(pos)]);
+        frame_with(app, ctx, vec![press(true)]);
+        frame_with(app, ctx, vec![press(false)]);
+        frame_with(app, ctx, vec![]);
+        frame_with(app, ctx, vec![])
+    }
+
+    /// Hover the label with this text until its submenu is drawn.
+    fn hover_label(
+        app: &mut EditorApp,
+        ctx: &egui::Context,
+        output: &egui::FullOutput,
+        text: &str,
+    ) -> egui::FullOutput {
+        let pos = label_rect(output, text)
+            .unwrap_or_else(|| panic!("no label {:?} on screen", text))
+            .center();
+        for _ in 0..4 {
+            frame_with(app, ctx, vec![egui::Event::PointerMoved(pos)]);
+        }
+        frame_with(app, ctx, vec![])
+    }
+
+    #[test]
+    fn test_presets_context_and_grid_menus() {
+        let (ctx, mut app, _project) = app_with_project();
+        let left = egui::PointerButton::Primary;
+        let (scene_id, zone) = {
+            let manager = app.gui_state.scene_manager.as_mut().unwrap();
+            let scene_id = manager.active_scene.unwrap();
+            let zone = manager
+                .get_scene_mut(scene_id)
+                .unwrap()
+                .create_entity("zone")
+                .unwrap();
+            (scene_id, zone)
+        };
+        app.gui_state.commit_change();
+        app.gui_state.select_entity(scene_id, zone);
+        let entity = |app: &EditorApp, id| {
+            let manager = app.gui_state.scene_manager.as_ref().unwrap();
+            manager
+                .get_scene(scene_id)
+                .unwrap()
+                .get_entity(id)
+                .unwrap()
+                .clone()
+        };
+
+        // Inspector: Add Feature > Physics > Trigger zone
+        let output = frame_with(&mut app, &ctx, vec![]);
+        let output = click_label(&mut app, &ctx, &output, "Add Feature", left);
+        let output = hover_label(&mut app, &ctx, &output, "Physics");
+        click_label(&mut app, &ctx, &output, "Trigger zone", left);
+        let zone_entity = entity(&app, zone);
+        assert_eq!(zone_entity.get_bool("is_sensor"), Some(true));
+        assert_eq!(zone_entity.get_bool("has_collision"), Some(true));
+        assert!(app.gui_state.undo_stack.can_undo(), "an undo step");
+
+        // Hierarchy: right-click > Duplicate
+        let output = frame_with(&mut app, &ctx, vec![]);
+        let output = click_label(
+            &mut app,
+            &ctx,
+            &output,
+            "🖼 zone",
+            egui::PointerButton::Secondary,
+        );
+        click_label(&mut app, &ctx, &output, "Duplicate", left);
+        assert_eq!(positions(&app, scene_id, "zone").len(), 2);
+
+        // View > Grid > 16 px
+        let output = frame_with(&mut app, &ctx, vec![]);
+        let output = click_label(&mut app, &ctx, &output, "View", left);
+        let output = hover_label(&mut app, &ctx, &output, "Grid");
+        click_label(&mut app, &ctx, &output, "16 px", left);
+        assert_eq!(app.gui_state.grid_size, 16.0);
     }
 }

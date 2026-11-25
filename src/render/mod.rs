@@ -285,8 +285,13 @@ pub struct RenderEngine {
     failed_textures: HashSet<Uuid>,
     // Invalid `tint` values already reported
     reported_tints: HashSet<String>,
+    // Cell size of the editor grid, in world units
+    grid_size: f32,
     pub camera: Camera,
 }
+
+/// Cell size of [`RenderEngine::get_grid_lines`] unless set otherwise.
+pub const DEFAULT_GRID_SIZE: f32 = 32.0;
 
 impl Default for RenderEngine {
     fn default() -> Self {
@@ -302,8 +307,21 @@ impl RenderEngine {
             egui_textures: HashMap::new(),
             failed_textures: HashSet::new(),
             reported_tints: HashSet::new(),
+            grid_size: DEFAULT_GRID_SIZE,
             camera: Camera::new(),
         }
+    }
+
+    /// Set the cell size of [`get_grid_lines`](Self::get_grid_lines), in
+    /// world units; sizes below 1 (or not finite) are ignored.
+    pub fn set_grid_size(&mut self, size: f32) {
+        if size.is_finite() && size >= 1.0 {
+            self.grid_size = size;
+        }
+    }
+
+    pub fn grid_size(&self) -> f32 {
+        self.grid_size
     }
 
     /// Deterministic cache key for an image path.
@@ -513,14 +531,17 @@ impl RenderEngine {
     }
 
     /// Grid lines in screen space, aligned to world coordinates so the grid
-    /// sticks to the world at any camera position and zoom. Spacing adapts
-    /// (powers of two) so lines never get denser than ~24px on screen.
+    /// sticks to the world at any camera position and zoom. Lines are a grid
+    /// size apart (see [`set_grid_size`](Self::set_grid_size)), or a power
+    /// of two times that while zoomed out, so they never get denser than
+    /// ~24 px on screen.
     pub fn get_grid_lines(&self) -> Vec<((f32, f32), (f32, f32))> {
         let mut lines = Vec::new();
         let zoom = self.camera.zoom.max(0.0001);
 
-        // Base cell of 32 world units, coarsened while zoomed out
-        let mut spacing = 32.0_f32;
+        // Cells of the grid size, merged while zoomed out until lines are at
+        // least 24 px apart
+        let mut spacing = self.grid_size;
         while spacing * zoom < 24.0 {
             spacing *= 2.0;
         }

@@ -2,7 +2,7 @@ use crate::state::{GuiState, SelectedItem};
 use eframe::egui;
 use rust_2d_game_engine::audio::AudioEngine;
 use rust_2d_game_engine::logger::LOGGER;
-use rust_2d_game_engine::scene::{AttributeType, AttributeValue, Entity};
+use rust_2d_game_engine::scene::{AttributeType, AttributeValue, Entity, attribute_presets};
 use std::fs;
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
@@ -336,6 +336,18 @@ impl Inspector {
                 self.delete_mode = !self.delete_mode;
             }
         });
+        ui.vertical_centered(|ui| {
+            ui.menu_button("Add Feature", |ui| {
+                if Self::show_presets_menu(ui, entity) {
+                    self.data_updated = true;
+                }
+            })
+            .response
+            .on_hover_text(
+                "Add the attributes a feature needs (a trigger zone, an animation, …), \
+                 with working values",
+            );
+        });
 
         if self
             .new_attribute
@@ -355,6 +367,41 @@ impl Inspector {
         for path in &entity.sounds {
             ui.label(path.to_string_lossy());
         }
+    }
+
+    /// The presets menu: one submenu per group; choosing a preset adds the
+    /// attributes it needs that the entity lacks. Returns whether any were
+    /// added.
+    fn show_presets_menu(ui: &mut egui::Ui, entity: &mut Entity) -> bool {
+        let presets = attribute_presets();
+        let mut groups: Vec<&str> = presets.iter().map(|preset| preset.group).collect();
+        groups.dedup();
+        let mut added = 0;
+        for group in groups {
+            ui.menu_button(group, |ui| {
+                for preset in presets.iter().filter(|preset| preset.group == group) {
+                    let names: Vec<&str> =
+                        preset.attributes.iter().map(|(name, _)| *name).collect();
+                    let response = ui
+                        .add_enabled(!entity.has_preset(preset), egui::Button::new(preset.name))
+                        .on_hover_text(format!(
+                            "{}\n\nAdds {}",
+                            preset.description,
+                            names.join(", ")
+                        ))
+                        .on_disabled_hover_text("The entity has these attributes already");
+                    if response.clicked() {
+                        added = entity.apply_preset(preset);
+                        LOGGER.info(format!(
+                            "Added {} to '{}' ({} attributes)",
+                            preset.name, entity.name, added
+                        ));
+                        ui.close();
+                    }
+                }
+            });
+        }
+        added > 0
     }
 
     /// The "Add Attribute" popup.

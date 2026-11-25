@@ -18,7 +18,8 @@ tab) or the **script editor** (Editor tab).
 | File browser | `panels/files.rs` | Project tree (rescanned every 2 s, ⟳ to refresh), file selection/deletion |
 | Inspector | `panels/inspector.rs` | Attributes (edit/add/delete), file previews, snippet insertion |
 | Menus | `menu_bar.rs`, `menus/` | File, Edit (undo/redo), View, Import, Project (build) |
-| State | `state.rs` | Shared state: open project, selection, undo history, requests |
+| State | `state.rs` | Shared state: open project, selection, undo history, requests; duplicating and pasting entities |
+| Clipboard | `clipboard.rs` | Entities as clipboard text, for pasting between windows and projects |
 | Project operations | `project/` | Scaffolding, asset import, builds (see [project.md](project.md)) |
 
 ## How the panels cooperate
@@ -58,6 +59,23 @@ console.
   that doesn't start with a digit, so it can be used from scripts as is.
 - Deleting a scene, entity or file asks for confirmation; deleting a file that
   entities still use lists them.
+- **Entities**: Ctrl+D duplicates the selected entity, Ctrl+C / Ctrl+V copy it
+  to the system clipboard and paste it into the selected scene (or the active
+  one), and Delete or Backspace deletes it after confirmation. The entity's
+  context menu has Duplicate and Copy, the scene's has Paste Entity (the last
+  entity copied in this editor). A copy keeps the name, attributes and assets
+  and gets a new id; when it would exactly cover an entity of the same name,
+  it moves 16 px right and down, so repeated duplicates cascade. The clipboard
+  holds JSON with project-relative paths (see [project.md](project.md)), so
+  entities can be pasted into another project that has the same assets. The
+  shortcuts apply when no text field has focus and the game isn't playing.
+- **Presets**: the inspector's Add Feature menu adds the attributes an engine
+  feature needs, with working values: physics (physics, static or kinematic
+  body, trigger zone, collision layers, collider size, circle collider,
+  gravity scale, gravity field), sprites (scale, rotation, mirror, opacity,
+  tint) and animation (sprite sheet, animation). Attributes the entity has
+  keep their values; presets it has entirely are greyed out (see
+  [scene.md](scene.md)).
 
 Edits made while the game is playing change the editor's scenes, not the
 running game (Play gives the game its own copy). Undo works while playing.
@@ -66,28 +84,32 @@ running game (Play gives the game its own copy). Undo works while playing.
 
 - **Left-click**: select the topmost entity under the cursor (gold outline);
   click empty space to deselect.
-- **Left-drag**: move the entity under the press point; one undo step.
+- **Left-drag**: move the entity under the press point; one undo step. Its
+  position snaps to the grid (View → Grid → Snap to Grid); holding Shift
+  inverts snapping.
 - **Right-drag / Alt+drag**: pan. **Scroll**: zoom towards the cursor.
 - Camera input only applies while the pointer is over the viewport itself,
   not over a window floating above it.
-- The grid is world-locked with power-of-two spacing; the red rectangle is the
-  frame of the scene's default camera.
+- The grid is world-locked. Its cell size is set in View → Grid (8 to 128
+  px, 32 by default); while zoomed out, lines are drawn every 2, 4, …
+  cells. The red rectangle is the frame of the scene's default camera.
 
 While playing, the viewport shows the game through the editor's camera, with
 collider outlines drawn over it (View → Collider Outlines turns them off).
 The game gets the keyboard unless an editor text field has focus (clicking the
 game takes it back), and mouse clicks and scrolling only over the game itself,
-not over panels or the play buttons. The
-red rectangle then shows what the exported game frames: the camera of the
-scene the game is in, where the game's scripts moved it. Paused and Ended keep
-the last frame. The game only advances while the Viewer tab is shown.
+not over panels or the play buttons. The red rectangle then shows what the
+exported game frames: the camera of the scene the game is in, where the game's
+scripts moved it. Paused and Ended keep the last frame. The game only advances
+while the Viewer tab is shown.
 
 ## Script editor (Editor tab)
 
 - Lua syntax highlighting, line numbers, Ln/Col, live syntax checking.
 - Engine API palette (📖 API): every binding with its signature and doc; click
   to insert at the cursor.
-- Empty files offer a template with `init`, `update` and `on_collision`.
+- Empty files offer a template with `init`, `update`, `on_collision` and
+  `on_collision_end`.
 - Saving: Ctrl+S (Cmd+S), focus loss, switching files or tabs, Play, Save
   Project, Build. Unsaved changes show a ● marker.
 
@@ -106,8 +128,10 @@ a window.
 
 ## Known limitations
 
-- No multi-select, entity duplication, drag-and-drop of assets, or gizmos
-  (rotation/scale handles).
+- No multi-select, drag-and-drop of assets, or gizmos (rotation/scale
+  handles).
+- Grid settings (snapping, size) aren't saved: every session starts with
+  snapping on and 32 px cells.
 - `rfd` file dialogs block the UI while open.
 - The editor and the runtime each own a `RenderEngine`, so images are decoded
   and uploaded twice.

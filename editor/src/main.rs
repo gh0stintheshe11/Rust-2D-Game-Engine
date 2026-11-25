@@ -1,6 +1,7 @@
 //! Rust 2D Game Engine editor.
 
 mod app;
+mod clipboard;
 mod menu_bar;
 mod menus;
 mod panels;

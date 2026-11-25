@@ -4079,6 +4079,7 @@ dependencies = [
  "image",
  "rfd",
  "rust-2d-game-engine",
+ "serde_json",
  "strip-ansi-escapes",
  "uuid",
 ]

@@ -255,6 +255,7 @@ impl EditorApp {
         // Update render engine with the full viewport dimensions first
         self.render_engine
             .update_viewport_size(content_rect.width(), content_rect.height());
+        self.render_engine.set_grid_size(self.gui_state.grid_size);
 
         // Draw grid and game content using the full viewport area
         let grid_lines = self.render_engine.get_grid_lines();
@@ -413,8 +414,9 @@ impl EditorApp {
             let camera = &self.render_engine.camera;
             let world_x = (pointer.x - content_rect.min.x) / zoom + camera.position.0;
             let world_y = (pointer.y - content_rect.min.y) / zoom + camera.position.1;
-            let new_x = world_x - offset.0;
-            let new_y = world_y - offset.1;
+            let snapping = self.gui_state.snap_to_grid != ui.input(|i| i.modifiers.shift);
+            let grid = snapping.then_some(self.gui_state.grid_size);
+            let (new_x, new_y) = dragged_position((world_x, world_y), offset, grid);
 
             if let Some(scene_manager) = &mut self.gui_state.scene_manager
                 && let Some(scene) = scene_manager.get_scene_mut(active_scene_id)
@@ -450,5 +452,44 @@ impl EditorApp {
         if let Some(scene_manager) = &self.gui_state.scene_manager {
             self.game_runtime.set_scene_manager(scene_manager.clone());
         }
+    }
+}
+
+/// Where a dragged entity goes: its top-left corner follows the pointer
+/// (`pointer` minus the grab `offset`, in world units), rounded to the
+/// nearest multiple of `grid` when snapping.
+fn dragged_position(pointer: (f32, f32), offset: (f32, f32), grid: Option<f32>) -> (f32, f32) {
+    let position = (pointer.0 - offset.0, pointer.1 - offset.1);
+    match grid {
+        Some(grid) if grid > 0.0 => (
+            (position.0 / grid).round() * grid,
+            (position.1 / grid).round() * grid,
+        ),
+        _ => position,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::dragged_position;
+
+    #[test]
+    fn test_dragged_position_snaps_to_the_grid() {
+        assert_eq!(
+            dragged_position((110.0, 75.0), (10.0, 5.0), None),
+            (100.0, 70.0)
+        );
+        assert_eq!(
+            dragged_position((110.0, 75.0), (10.0, 5.0), Some(32.0)),
+            (96.0, 64.0)
+        );
+        assert_eq!(
+            dragged_position((-20.0, 9.0), (0.0, 0.0), Some(16.0)),
+            (-16.0, 16.0)
+        );
+        assert_eq!(
+            dragged_position((5.0, 5.0), (0.0, 0.0), Some(0.0)),
+            (5.0, 5.0)
+        );
     }
 }

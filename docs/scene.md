@@ -46,6 +46,15 @@ Typed getters (`get_bool`, `get_float`, `get_string`, `get_vector2`) read such
 optional attributes, returning `None` when one is missing or has another type;
 `set_or_create_attribute` sets one, creating it if needed.
 
+**Attribute presets** (`attribute_presets()`, in `archetype.rs` next to the
+Physics template) are named sets of such attributes that turn on a feature,
+with working default values: a trigger zone, collision layers, a sprite sheet
+animation, a tint, … Each has a group ("Physics", "Sprite", "Animation"), a
+name and a one-line description. `Entity::apply_preset` adds the preset's
+attributes the entity lacks (existing ones keep their values) and returns how
+many it added; `has_preset` tells whether the entity has them all. The editor
+lists them in the inspector's Add Feature menu.
+
 ## Invariants
 
 - A scene's `id` equals its key in `SceneManager::scenes`, and an entity's

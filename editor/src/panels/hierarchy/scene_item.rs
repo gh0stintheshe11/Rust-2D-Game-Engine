@@ -140,6 +140,21 @@ impl SceneItem {
                         ));
                     ui.close();
                 }
+                let paste_shortcut = ui.ctx().format_shortcut(&egui::KeyboardShortcut::new(
+                    egui::Modifiers::COMMAND,
+                    egui::Key::V,
+                ));
+                if ui
+                    .add_enabled(
+                        gui_state.copied_entity.is_some(),
+                        egui::Button::new("Paste Entity").shortcut_text(paste_shortcut),
+                    )
+                    .on_disabled_hover_text("Copy an entity first (its menu, or Ctrl+C)")
+                    .clicked()
+                {
+                    gui_state.paste_copied_entity(*scene_id);
+                    ui.close();
+                }
                 if ui
                     .add_enabled(!is_active, egui::Button::new("Set Active"))
                     .on_hover_text("The scene that plays and that exported games start in")

@@ -16,6 +16,19 @@ versions may contain breaking changes).
 - `InputHandler::handle_input_with` takes in only the input an
   `InputAccess` allows, `Camera::screen_to_world` inverts `world_to_screen`,
   and `GameRuntime::input` returns the game's input handler.
+- Editor: Ctrl+D duplicates the selected entity, Ctrl+C / Ctrl+V copy and
+  paste it (through the system clipboard, so also between projects), and
+  Delete or Backspace deletes it. The hierarchy's context menus have
+  Duplicate, Copy and Paste Entity.
+- Editor: dragged entities snap to the grid (hold Shift to move freely), and
+  View → Grid sets the grid size and turns snapping off.
+- Editor: the inspector's Add Feature menu adds a feature's attributes with
+  working values: physics bodies, trigger zones, collision layers, sprite
+  effects, sprite sheet animation and more. The engine provides them as
+  `attribute_presets()` with `Entity::apply_preset` and `has_preset`.
+- `ProjectManager::make_entity_paths_relative` and `resolve_entity_paths`
+  convert a single entity's paths, and `RenderEngine::set_grid_size` sets
+  the editor grid's cell size.
 
 ### Changed
 
