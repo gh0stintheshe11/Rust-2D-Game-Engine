@@ -319,10 +319,10 @@ impl PopupManager {
                 if let Ok(entity) = scene.get_entity_mut(*entity_id) {
                     let _ = entity
                         .set_or_create_attribute("has_collision", AttributeValue::Boolean(true));
-                    entity.tilemap = Some(Tilemap::new(
+                    entity.tilemap = Some(Box::new(Tilemap::new(
                         std::path::PathBuf::new(),
                         (DEFAULT_TILE_SIZE, DEFAULT_TILE_SIZE),
-                    ));
+                    )));
                 }
             }),
             _ => scene.create_entity(&name),

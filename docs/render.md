@@ -83,12 +83,12 @@ doesn't play animations: it shows the current `frame`.
 
 An entity with a tilemap (see [scene.md](scene.md#tilemaps)) is drawn as its
 tiles instead of a sprite: `render()` makes one queue entry for the map, whose
-`tiles` list the visible cells as `TileQuad`s (screen rect and tileset
-texture rectangle), and whose `screen_pos`/`screen_size` cover the whole grid
-(for picking in the editor). Only the cells inside the viewport are
-visited, and `paint_sprites` draws them all in one mesh, so a map's cost
-follows what's on screen, not its size. `z`, `tint` and `opacity` apply to
-the map; `rotation`, `scale` and mirroring don't.
+`quads` are the visible cells (screen rect and tileset texture rectangle of
+each), and whose `screen_pos`/`screen_size` cover the whole grid (for picking
+in the editor). Only the cells inside the viewport are visited, a row at a
+time, and `paint_sprites` draws them all in one mesh, sized up front, so a
+map's cost follows what's on screen, not its size. `z`, `tint` and `opacity`
+apply to the map; `rotation`, `scale` and mirroring don't.
 
 Each tile's texture rectangle is inset by half a texel, so linear filtering
 doesn't blend in the neighbouring tiles of the tileset (visible seams).

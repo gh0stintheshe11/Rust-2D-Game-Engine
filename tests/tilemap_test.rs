@@ -32,6 +32,23 @@ fn test_cells_grow_in_every_direction() {
         vec![((2, 1), 5)],
         "only the asked columns"
     );
+    // Ranges beside the grid (it spans columns -3 to 2, rows -2 to 1)
+    for (columns, rows) in [
+        ((3, 50), (-10, 10)),
+        ((-50, -4), (-10, 10)),
+        ((-10, 10), (2, 50)),
+        ((-10, 10), (-50, -3)),
+        ((40, 60), (40, 60)),
+        ((5, 1), (-10, 10)),
+    ] {
+        assert_eq!(
+            map.tiles_in(columns, rows).count(),
+            0,
+            "{:?} x {:?}",
+            columns,
+            rows
+        );
+    }
 
     assert_eq!(map.set(-3, -2, None), Ok(true));
     assert_eq!(map.bounds(), Some(((2, 1), (1, 1))));

@@ -128,18 +128,40 @@ impl Tilemap {
         columns: (i32, i32),
         rows: (i32, i32),
     ) -> impl Iterator<Item = ((i32, i32), u32)> + '_ {
-        let (first_column, last_column) = (
-            columns.0.max(self.origin.0),
-            columns.1.min(self.origin.0 + self.size.0 as i32 - 1),
-        );
-        let (first_row, last_row) = (
-            rows.0.max(self.origin.1),
-            rows.1.min(self.origin.1 + self.size.1 as i32 - 1),
-        );
+        // The part of a range within the grid (in i64, like the offsets
+        // below, so no sum overflows)
+        let within = |range: (i32, i32), origin: i32, size: u32| {
+            let first = i64::from(range.0).max(i64::from(origin));
+            let last = i64::from(range.1).min(i64::from(origin) + i64::from(size) - 1);
+            (first, last)
+        };
+        let (first_column, last_column) = within(columns, self.origin.0, self.size.0);
+        let (first_row, last_row) = within(rows, self.origin.1, self.size.1);
+        // Each row's cells in range as one slice: no index math or bounds
+        // check per cell (this runs for every visible cell, every frame)
+        let width = self.size.0 as usize;
+        let start = (first_column - i64::from(self.origin.0)).max(0) as usize;
+        let count = (last_column - first_column + 1).max(0) as usize;
+        // No column in range (the range is beside the grid): no row either,
+        // since `start` may then be past the row's end
+        let last_row = if count == 0 { first_row - 1 } else { last_row };
         (first_row..=last_row).flat_map(move |row| {
-            (first_column..=last_column)
-                .filter_map(move |column| self.get(column, row).map(|tile| ((column, row), tile)))
+            let row_start = (row - i64::from(self.origin.1)) as usize * width + start;
+            self.cells[row_start..row_start + count]
+                .iter()
+                .enumerate()
+                .filter(|(_, cell)| **cell != 0)
+                .map(move |(offset, cell)| {
+                    let column = first_column + offset as i64;
+                    ((column as i32, row as i32), cell - 1)
+                })
         })
+    }
+
+    /// At least as many as the cells with a tile: the grid's size, which
+    /// unlike [`tile_count`](Self::tile_count) costs nothing to compute.
+    pub fn tile_count_bound(&self) -> i64 {
+        self.size.0 as i64 * self.size.1 as i64
     }
 
     /// How many cells have a tile.

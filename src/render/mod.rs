@@ -154,6 +154,12 @@ pub fn paint_sprites(
             painter.add(current);
         }
         let mesh = mesh.get_or_insert_with(|| egui::Mesh::with_texture(texture_id));
+        // A tilemap's or emitter's quads at once, instead of growing quad by
+        // quad (meshes of a big map are hundreds of kilobytes)
+        if let Some(quads) = &entry.quads {
+            mesh.reserve_vertices(quads.len() * 4);
+            mesh.reserve_triangles(quads.len() * 2);
+        }
         match &entry.quads {
             None => add_quad(
                 mesh,
@@ -607,9 +613,13 @@ impl RenderEngine {
             0.5 / image_size.1.max(1) as f32,
         );
         let tint = self.sprite_tint(entity);
-        let tiles: Vec<Quad> = tilemap
-            .tiles_in((first.0, last.0), (first.1, last.1))
-            .map(|((column, row), number)| {
+        // At most the cells in range: allocated once instead of growing
+        let span = |(first, last): (i32, i32)| (last as i64 - first as i64 + 1).clamp(0, 1 << 20);
+        let capacity = (span((first.0, last.0)) * span((first.1, last.1)))
+            .min(tilemap.tile_count_bound()) as usize;
+        let mut tiles = Vec::with_capacity(capacity);
+        tiles.extend(tilemap.tiles_in((first.0, last.0), (first.1, last.1)).map(
+            |((column, row), number)| {
                 let world = (
                     origin.0 + column as f32 * tile.0,
                     origin.1 + row as f32 * tile.1,
@@ -624,8 +634,8 @@ impl RenderEngine {
                     uv: uv.shrink2(inset),
                     color: tint,
                 }
-            })
-            .collect();
+            },
+        ));
         if tiles.is_empty() {
             return None;
         }

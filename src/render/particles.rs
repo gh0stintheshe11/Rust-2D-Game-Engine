@@ -528,27 +528,25 @@ impl RenderEngine {
             egui::Pos2::ZERO,
             egui::vec2(self.viewport_size.0, self.viewport_size.1),
         );
-        group
-            .particles
-            .iter()
-            .filter_map(|particle| {
-                let t = (particle.age / particle.lifetime).clamp(0.0, 1.0);
-                let size = (settings.size + (settings.end_size - settings.size) * t) * zoom;
-                if size.is_nan() || size <= 0.0 {
-                    return None;
-                }
-                let center = self.camera.world_to_screen(particle.position);
-                let rect = egui::Rect::from_center_size(
-                    egui::pos2(center.0, center.1),
-                    egui::vec2(size, size),
-                );
-                viewport.intersects(rect).then(|| Quad {
-                    rect,
-                    uv: FULL_UV,
-                    color: blend(settings.color, settings.end_color, t),
-                })
+        let mut quads = Vec::with_capacity(group.particles.len());
+        quads.extend(group.particles.iter().filter_map(|particle| {
+            let t = (particle.age / particle.lifetime).clamp(0.0, 1.0);
+            let size = (settings.size + (settings.end_size - settings.size) * t) * zoom;
+            if size.is_nan() || size <= 0.0 {
+                return None;
+            }
+            let center = self.camera.world_to_screen(particle.position);
+            let rect = egui::Rect::from_center_size(
+                egui::pos2(center.0, center.1),
+                egui::vec2(size, size),
+            );
+            viewport.intersects(rect).then(|| Quad {
+                rect,
+                uv: FULL_UV,
+                color: blend(settings.color, settings.end_color, t),
             })
-            .collect()
+        }));
+        quads
     }
 
     /// The texture of an emitter's particles: its image, or the built-in dot

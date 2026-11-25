@@ -247,7 +247,7 @@ const SCENARIOS: &[Scenario] = &[
             let ground = scene
                 .create_physical_entity("ground", (0.0, 400.0, 0.0), PhysicsProperties::default())
                 .unwrap();
-            scene.get_entity_mut(ground).unwrap().tilemap = Some(map);
+            scene.get_entity_mut(ground).unwrap().tilemap = Some(Box::new(map));
             let props = PhysicsProperties {
                 is_movable: true,
                 affected_by_gravity: true,

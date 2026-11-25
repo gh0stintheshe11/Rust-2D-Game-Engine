@@ -825,7 +825,7 @@ mod tests {
         for (column, row) in cells {
             map.set(*column, *row, Some(0)).unwrap();
         }
-        scene.get_entity_mut(id).unwrap().tilemap = Some(map);
+        scene.get_entity_mut(id).unwrap().tilemap = Some(Box::new(map));
         id
     }
 
@@ -1038,7 +1038,7 @@ mod tests {
         let ground = scene
             .create_physical_entity("ground", (0.0, 100.0, 0.0), PhysicsProperties::default())
             .unwrap();
-        scene.get_entity_mut(ground).unwrap().tilemap = Some(map);
+        scene.get_entity_mut(ground).unwrap().tilemap = Some(Box::new(map));
         let falling = sized_entity(&mut scene, "box", (50.0, 0.0), (10.0, 10.0), dynamic(true));
         physics.load_scene(&scene);
         for _ in 0..300 {

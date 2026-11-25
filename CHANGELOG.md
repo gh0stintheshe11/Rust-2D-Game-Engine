@@ -10,14 +10,14 @@ versions may contain breaking changes).
 ### Added
 
 - Tilemaps: an entity can carry a grid of tiles drawn from a tileset image
-  (`Entity::tilemap`, `scene::Tilemap`). Only the visible tiles are drawn, in
-  one mesh; with `has_collision` the tiles form one voxel collider, so bodies
-  slide along rows of tiles without catching on their edges. Scripts read and
-  change tiles with `get_tile`, `set_tile` (which rebuilds the collider) and
-  `get_tile_cell`. Scene files store a map as readable rows. In the editor,
-  Create → Tilemap makes one, and its inspector section picks the tileset
-  and offers a palette and a paint mode: left-drag paints in the viewport,
-  one undo step per stroke.
+  (`Entity::tilemap`, a boxed `scene::Tilemap`). Only the visible tiles are
+  drawn, in one mesh; with `has_collision` the tiles form one voxel collider,
+  so bodies slide along rows of tiles without catching on their edges.
+  Scripts read and change tiles with `get_tile`, `set_tile` (which rebuilds
+  the collider) and `get_tile_cell`. Scene files store a map as readable
+  rows. In the editor, Create → Tilemap makes one, and its inspector section
+  picks the tileset and offers a palette and a paint mode: left-drag paints
+  in the viewport, one undo step per stroke.
 - Tiles can be one-way platforms or passable: each tile of a tileset
   collides as solid (the default), as a platform that bodies land on but
   jump up through and walk through sideways, or not at all, for decoration

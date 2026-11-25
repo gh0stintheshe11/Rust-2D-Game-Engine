@@ -1903,7 +1903,7 @@ mod session_tests {
                 map.set(column, 0, Some(1)).unwrap();
             }
             let entity = scene.get_entity_mut(ground).unwrap();
-            entity.tilemap = Some(map);
+            entity.tilemap = Some(Box::new(map));
             session.physics.borrow_mut().add_entity(entity);
             (ground, scene.create_entity("plain").unwrap())
         };

@@ -41,9 +41,11 @@ pub struct Entity {
     pub images: Vec<PathBuf>,    // Multiple images (sprites, textures)
     pub sounds: Vec<PathBuf>,    // Multiple sounds (effects, music)
     pub script: Option<PathBuf>, // Single script per entity
-    /// A grid of tiles drawn at the entity's position, instead of a sprite
+    /// A grid of tiles drawn at the entity's position, instead of a sprite.
+    /// Boxed: most entities have none, and entities stay small (they're
+    /// visited every frame).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub tilemap: Option<Tilemap>,
+    pub tilemap: Option<Box<Tilemap>>,
 }
 
 impl Entity {

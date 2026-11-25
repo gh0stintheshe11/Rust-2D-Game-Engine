@@ -212,10 +212,10 @@ mod tests {
         entity
             .set_script(first.join("assets").join("scripts").join("coin.lua"))
             .unwrap();
-        entity.tilemap = Some(rust_2d_game_engine::scene::Tilemap::new(
+        entity.tilemap = Some(Box::new(rust_2d_game_engine::scene::Tilemap::new(
             first.join("assets").join("images").join("tiles.png"),
             (16, 16),
-        ));
+        )));
 
         ProjectManager::make_entity_paths_relative(&mut entity, &first);
         assert_eq!(

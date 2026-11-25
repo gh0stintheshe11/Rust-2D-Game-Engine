@@ -389,7 +389,7 @@ fn test_tilemaps_draw_their_visible_tiles_as_one_mesh() {
     let id = scene.create_entity("ground").unwrap();
     let entity = scene.get_entity_mut(id).unwrap();
     entity.set_position(100.0, 50.0, 0.0).unwrap();
-    entity.tilemap = Some(map);
+    entity.tilemap = Some(Box::new(map));
 
     let queue = renderer.render(&scene);
     assert_eq!(queue.len(), 1, "one entry for the whole map");
