@@ -40,7 +40,12 @@ const API_GROUPS: &[(&str, &[ApiEntry])] = &[
             (
                 "is_mouse_just_pressed",
                 "is_mouse_just_pressed(\"left\")",
-                "True only on the frame the button goes down (also is_mouse_just_released)",
+                "True only on the frame the button goes down",
+            ),
+            (
+                "is_mouse_just_released",
+                "is_mouse_just_released(\"left\")",
+                "True only on the frame the button goes up",
             ),
             (
                 "get_mouse_position",
@@ -223,6 +228,26 @@ const API_GROUPS: &[(&str, &[ApiEntry])] = &[
                 "update_entity_attribute_bool",
                 "update_entity_attribute_bool(scene_id, entity_id, \"name\", true)",
                 "Set a Boolean attribute (same as set_attribute)",
+            ),
+        ],
+    ),
+    (
+        "Tilemaps",
+        &[
+            (
+                "get_tile",
+                "get_tile(scene_id, tilemap_id, column, row)",
+                "Tile number in a cell of a tilemap entity (find it with find_entity), or nil if empty",
+            ),
+            (
+                "set_tile",
+                "set_tile(scene_id, tilemap_id, column, row, 0)",
+                "Put a tile in a cell, or empty it with nil; the tilemap's collider follows",
+            ),
+            (
+                "get_tile_cell",
+                "get_tile_cell(scene_id, tilemap_id, x, y)",
+                "column, row of the cell containing a world position",
             ),
         ],
     ),
@@ -657,5 +682,86 @@ impl EditorApp {
             let ctx = ui.ctx().clone();
             self.insert_into_editor(&ctx, snippet);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::API_GROUPS;
+    use rust_2d_game_engine::audio::AudioEngine;
+    use rust_2d_game_engine::input::InputHandler;
+    use rust_2d_game_engine::physics::PhysicsEngine;
+    use rust_2d_game_engine::scene::SceneManager;
+    use rust_2d_game_engine::scripting::LuaScripting;
+    use std::cell::RefCell;
+    use std::collections::BTreeMap;
+    use std::num::NonZero;
+    use std::rc::Rc;
+
+    /// A Lua VM's globals, each with whether it's a function.
+    fn globals(scripting: &LuaScripting) -> BTreeMap<String, bool> {
+        let listed: String = scripting
+            .lua()
+            .load(
+                r#"
+                local names = {}
+                for name, value in pairs(_G) do
+                    names[#names + 1] = name .. "=" .. type(value)
+                end
+                return table.concat(names, " ")
+                "#,
+            )
+            .eval()
+            .unwrap();
+        listed
+            .split_whitespace()
+            .filter_map(|entry| entry.split_once('='))
+            .map(|(name, kind)| (name.to_string(), kind == "function"))
+            .collect()
+    }
+
+    #[test]
+    fn test_the_palette_lists_the_engine_api() {
+        // Lua's own globals, and those of a game's scripts
+        let lua_only = globals(&LuaScripting::new());
+        let mut scripting = LuaScripting::new();
+        let (audio, _output) =
+            AudioEngine::offline(NonZero::new(44_100).unwrap(), NonZero::new(2).unwrap());
+        scripting
+            .start_session(
+                Rc::new(RefCell::new(SceneManager::new())),
+                Rc::new(RefCell::new(PhysicsEngine::new())),
+                Rc::new(RefCell::new(InputHandler::new())),
+                Rc::new(RefCell::new(audio)),
+            )
+            .unwrap();
+        let in_scripts = globals(&scripting);
+        // Labels start with the name of what they show
+        let listed: Vec<&str> = API_GROUPS
+            .iter()
+            .flat_map(|(_, entries)| entries.iter())
+            .filter_map(|(label, _, _)| label.split_whitespace().next())
+            .collect();
+
+        let unlisted: Vec<&String> = in_scripts
+            .iter()
+            .filter(|(name, is_function)| **is_function && !lua_only.contains_key(*name))
+            .map(|(name, _)| name)
+            .filter(|name| !listed.contains(&name.as_str()))
+            .collect();
+        assert!(
+            unlisted.is_empty(),
+            "engine functions missing from the palette: {:?}",
+            unlisted
+        );
+        let unknown: Vec<&&str> = listed
+            .iter()
+            .filter(|name| !in_scripts.contains_key(**name))
+            .collect();
+        assert!(
+            unknown.is_empty(),
+            "palette entries scripts don't have: {:?}",
+            unknown
+        );
     }
 }
