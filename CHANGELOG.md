@@ -107,6 +107,9 @@ versions may contain breaking changes).
   it now counts as just pressed (and just released) in the next frame.
 - While playing in the editor, typing in a text field and clicking the play
   buttons or panels reached the game as key presses and clicks.
+- `cargo run -p star_catcher` from the repository root, as the demo's
+  README says, couldn't find the game's project; games started with
+  `cargo run` now also look in their package's folder.
 
 ## [0.5.0] - 2026-11-24
 
