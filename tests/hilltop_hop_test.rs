@@ -239,6 +239,31 @@ fn test_running_jumping_collecting_and_falling() {
     );
     assert_eq!((game.state("lives"), game.state("gems")), (3.0, 0.0));
 
+    // Gems bob (a tween going back and forth)
+    let gem_heights = |game: &Game| -> Vec<f32> {
+        let manager = game.runtime.get_scene_manager();
+        let scene = manager.get_active_scene().unwrap();
+        let mut heights: Vec<(uuid::Uuid, f32)> = scene
+            .entities
+            .values()
+            .filter(|entity| entity.name == "gem")
+            .map(|entity| (entity.id, entity.get_y()))
+            .collect();
+        heights.sort_by_key(|(id, _)| *id);
+        heights.into_iter().map(|(_, y)| y).collect()
+    };
+    let before = gem_heights(&game);
+    game.frames(20);
+    let after = gem_heights(&game);
+    assert_eq!(before.len(), after.len());
+    assert!(
+        before.iter().zip(&after).all(|(b, a)| (b - a).abs() <= 6.0)
+            && before.iter().zip(&after).any(|(b, a)| b != a),
+        "{:?} -> {:?}",
+        before,
+        after
+    );
+
     // Running right picks up the first gem, on the ground at column 8
     game.hold(egui::Key::ArrowRight, 0.8);
     let (x, _) = game.player();

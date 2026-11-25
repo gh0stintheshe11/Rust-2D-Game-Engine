@@ -37,7 +37,8 @@ versions may contain breaking changes).
 ### Changed
 
 - Both demos read their controls through input actions, and Star Catcher
-  plays with a gamepad too.
+  plays with a gamepad too. Hilltop Hop's gems bob with a tween and sparkle
+  from `on_destroy`, and a checkpoint's flag hops when reached.
 - `ProjectMetadata` has an `input_actions` field (breaking for Rust code
   that constructs it).
 
