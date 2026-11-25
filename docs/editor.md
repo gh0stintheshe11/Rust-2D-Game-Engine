@@ -17,7 +17,7 @@ tab) or the **script editor** (Editor tab).
 | Scene hierarchy | `panels/hierarchy/` | Scene/entity tree, create/rename/delete popups, asset attach/detach |
 | File browser | `panels/files.rs` | Project tree (rescanned every 2 s, ⟳ to refresh), file selection/deletion |
 | Inspector | `panels/inspector.rs` | Attributes (edit/add/delete), file previews, snippet insertion |
-| Menus | `menu_bar.rs`, `menus/` | File, Edit (undo/redo), View, Import, Project (build) |
+| Menus | `menu_bar.rs`, `menus/` | File, Edit (undo/redo), View, Import, Project (build, clear save data) |
 | State | `state.rs` | Shared state: open project, selection, undo history, requests; duplicating and pasting entities |
 | Clipboard | `clipboard.rs` | Entities as clipboard text, for pasting between windows and projects |
 | Project operations | `project/` | Scaffolding, asset import, builds (see [project.md](project.md)) |
@@ -79,6 +79,10 @@ console.
 
 Edits made while the game is playing change the editor's scenes, not the
 running game (Play gives the game its own copy). Undo works while playing.
+
+What the game saves with `save_data` while playing in the editor goes to the
+project's `saves/save.json`, not where the exported game keeps its saves (see
+[save.md](save.md)). Project → Clear Save Data deletes it.
 
 ## Viewport (Viewer tab)
 

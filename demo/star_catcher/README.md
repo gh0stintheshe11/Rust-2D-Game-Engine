@@ -2,7 +2,8 @@
 
 A small demo game for the Rust 2D Game Engine. Stars and rocks fall from the
 sky: catch the stars with the paddle, and don't let a rock hit it. Drops come
-faster over time, and the title screen remembers your best score.
+faster over time, and the title screen shows your best score, which is saved
+between runs.
 
 ![Star Catcher](../../docs/images/star_catcher.png)
 
@@ -21,7 +22,7 @@ over, Space plays again and Esc returns to the title screen.
 | Feature | Where |
 |---|---|
 | Several scenes: a title screen that starts the game (`change_scene`), and a round that restarts by changing to its own scene | `title` scene, `title.lua`, `spawner.lua` |
-| State that survives scene changes: the best score | `script_state` in `falling.lua`, `title.lua` |
+| State that survives scene changes, and runs of the game: the best score | `script_state`, `save_data` / `load_data` in `falling.lua` and `title.lua` |
 | Prefabs: stars and rocks are designed in a scene that never plays, and copied with `spawn` | `prefabs` scene, `spawner.lua` |
 | Collision layers: falling objects (layer 2) pass through each other | `star` and `rock` prefabs (`collision_layer`, `collides_with`) |
 | Kinematic body moved by a script, tuned by an attribute (`speed`) | `paddle` entity, `paddle.lua` |

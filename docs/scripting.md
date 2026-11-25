@@ -170,6 +170,23 @@ function init(scene_id, entity_id)
 end
 ```
 
+Save data (kept between runs of the game; see [save.md](save.md)):
+
+| Function | Notes |
+|---|---|
+| `save_data(key, value)` | Save a boolean, number, string, or a table of those (a list, or with string keys); `nil` removes the key. Written to disk right away; returns false (and logs why) when writing failed, the value then lasting until the game stops. Unsupported values raise an error |
+| `load_data(key)` | The value saved under the key, or nil |
+
+```lua
+function init(scene_id, entity_id)
+    script_state.state.best = load_data("best") or 0
+end
+
+-- ...when the round ends:
+--     state.best = math.max(state.best, state.score)
+--     save_data("best", state.best)
+```
+
 Scenes and entities:
 
 | Function | Notes |

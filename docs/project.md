@@ -13,7 +13,8 @@ my_game/
 ├── assets/{images,sounds,scripts}/
 ├── Cargo.toml               # the game's cargo package
 ├── src/main.rs              # calls rust_2d_game_engine::player::run
-└── .gitignore               # /target
+├── saves/save.json          # save data of games played in the editor
+└── .gitignore               # /target and /saves
 ```
 
 Only `project.epm` is required: version control drops empty folders, so a

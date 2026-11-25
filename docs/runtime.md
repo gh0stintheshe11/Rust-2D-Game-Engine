@@ -97,6 +97,14 @@ The scene that was left keeps its state until it is entered again. `reset()`
 restores every scene, and which one is active, to how they were at `run()`.
 `switch_scene` fails when the game is stopped or the scene doesn't exist.
 
+## Save data
+
+The runtime owns the game's `SaveData` (see [save.md](save.md)) and shares it
+with every scripting session, so it outlives Stop and Play. A new runtime
+keeps it in memory; `set_save_data` points it at a file (the player uses the
+user's data folder, the editor the project's `saves/` folder), and
+`save_data()` gives access, e.g. to clear it.
+
 ## Painting and cameras
 
 `set_camera_mode` picks the view:

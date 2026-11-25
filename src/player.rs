@@ -13,7 +13,8 @@
 //! working directory (so `cargo run` works inside the project folder).
 //!
 //! The scene's default camera is scaled to fit the window. After a script
-//! calls `end_game()`, Enter or R restarts the game.
+//! calls `end_game()`, Enter or R restarts the game. Save data goes to the
+//! user's data folder, in a folder named after the game (the `title`).
 
 use crate::audio::AudioEngine;
 use crate::input::InputHandler;
@@ -21,6 +22,7 @@ use crate::physics::PhysicsEngine;
 use crate::project::ProjectManager;
 use crate::render::RenderEngine;
 use crate::runtime::{CameraMode, GameRuntime, RuntimeState};
+use crate::save::SaveData;
 use crate::scene::SceneManager;
 use eframe::egui;
 use std::env;
@@ -46,6 +48,8 @@ pub fn run(title: &str) -> eframe::Result<()> {
         TARGET_FPS,
     );
     runtime.set_camera_mode(CameraMode::Game);
+    // Kept in the user's data folder, under the game's name
+    runtime.set_save_data(SaveData::for_game(title));
 
     let mut window_size = [800.0, 600.0];
     let error = match ProjectManager::load_scene_hierarchy(&project_dir) {

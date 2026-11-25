@@ -15,6 +15,7 @@ use rust_2d_game_engine::{
     physics::PhysicsEngine,
     render::RenderEngine,
     runtime::{GameRuntime, RuntimeState},
+    save::SaveData,
     scene::SceneManager,
 };
 use std::path::PathBuf;
@@ -155,6 +156,17 @@ impl EditorApp {
             }
         }
 
+        if std::mem::take(&mut self.gui_state.clear_save_data_requested) {
+            let mut save_data = self.game_runtime.save_data();
+            let location = save_data
+                .path()
+                .map_or("memory".to_string(), |path| path.display().to_string());
+            match save_data.clear() {
+                Ok(()) => LOGGER.info(format!("Cleared the save data ({})", location)),
+                Err(e) => LOGGER.error(format!("Clearing the save data failed: {}", e)),
+            }
+        }
+
         if std::mem::take(&mut self.gui_state.build_requested) {
             // Build what's on screen: unsaved script edits included
             if self.save_editor_if_dirty() && self.gui_state.save_project().is_ok() {
@@ -225,6 +237,12 @@ impl EditorApp {
         self.close_script();
         self.show_editor = false;
         self.game_runtime.reset();
+        // Playtests keep their save data in the project (exported games use
+        // the user's data folder)
+        self.game_runtime
+            .set_save_data(SaveData::open(editor_save_file(
+                &self.gui_state.project_path,
+            )));
         self.render_engine.cleanup();
         self.viewport_drag = None;
         self.inspector.reset();
@@ -417,6 +435,12 @@ impl eframe::App for EditorApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         self.frame(ui);
     }
+}
+
+/// Where games played in the editor keep their save data: `saves/save.json`
+/// in the project.
+fn editor_save_file(project_path: &std::path::Path) -> PathBuf {
+    project_path.join("saves").join("save.json")
 }
 
 #[cfg(test)]
@@ -1034,5 +1058,41 @@ mod tests {
         let output = hover_label(&mut app, &ctx, &output, "Grid");
         click_label(&mut app, &ctx, &output, "16 px", left);
         assert_eq!(app.gui_state.grid_size, 16.0);
+    }
+
+    #[test]
+    fn test_playtests_save_into_the_project_until_cleared() {
+        let (ctx, mut app, project) = app_with_project();
+        let script = project.join("assets").join("scripts").join("saver.lua");
+        std::fs::write(
+            &script,
+            r#"function update(scene_id, entity_id) save_data("best", 7) end"#,
+        )
+        .unwrap();
+        {
+            let manager = app.gui_state.scene_manager.as_mut().unwrap();
+            let scene = manager.get_active_scene_mut().unwrap();
+            let id = scene.create_entity("saver").unwrap();
+            scene
+                .get_entity_mut(id)
+                .unwrap()
+                .set_script(script)
+                .unwrap();
+        }
+        app.sync_scene_manager_to_runtime();
+        app.game_runtime.run().unwrap();
+        run_frames(&mut app, &ctx, 1280.0, 2);
+        app.game_runtime.reset();
+
+        let save = editor_save_file(&project);
+        assert_eq!(save, project.join("saves").join("save.json"));
+        let saved: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&save).unwrap()).unwrap();
+        assert_eq!(saved["best"], 7);
+
+        // Project > Clear Save Data
+        app.gui_state.clear_save_data_requested = true;
+        run_frames(&mut app, &ctx, 1280.0, 1);
+        assert!(!save.exists());
     }
 }

@@ -288,6 +288,21 @@ const API_GROUPS: &[(&str, &[ApiEntry])] = &[
         ],
     ),
     (
+        "Save data",
+        &[
+            (
+                "save_data",
+                "save_data(\"best\", score)",
+                "Keep a value between runs of the game (numbers, strings, booleans, tables); nil removes it",
+            ),
+            (
+                "load_data",
+                "load_data(\"best\")",
+                "The value saved under the key, or nil",
+            ),
+        ],
+    ),
+    (
         "Game flow",
         &[
             (

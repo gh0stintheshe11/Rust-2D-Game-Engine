@@ -1,5 +1,12 @@
--- The title screen: starts the game, and shows the best score of the
--- session (script_state carries over when scenes change).
+-- The title screen: starts the game, and shows the best score, which is
+-- saved between runs of the game (save_data / load_data) and carried in
+-- script_state while it runs.
+
+function init(scene_id, entity_id)
+    if script_state.state.best == nil then
+        script_state.state.best = load_data("best")
+    end
+end
 
 function update(scene_id, entity_id)
     draw_text("Star Catcher", 240, 140, {size = 60, color = "#ffd84a", align = "center"})

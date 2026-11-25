@@ -90,7 +90,8 @@ publish = false
             dependency = engine_dependency(engine_checkout().as_deref()),
         ),
     )?;
-    write(".gitignore", "/target\n".to_string())
+    // saves/: what games played in the editor save
+    write(".gitignore", "/target\n/saves\n".to_string())
 }
 
 /// The game's entry point. The title is embedded as an escaped string

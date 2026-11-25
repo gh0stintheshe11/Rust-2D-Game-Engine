@@ -9,6 +9,7 @@ use rust_2d_game_engine::physics::PhysicsEngine;
 use rust_2d_game_engine::project::ProjectManager;
 use rust_2d_game_engine::render::RenderEngine;
 use rust_2d_game_engine::runtime::{GameRuntime, RuntimeState};
+use rust_2d_game_engine::save::SaveData;
 use rust_2d_game_engine::scene::{AttributeValue, Entity, Scene, SceneManager};
 use std::path::PathBuf;
 
@@ -36,8 +37,12 @@ fn active_scene_name(runtime: &GameRuntime) -> String {
 }
 
 /// The demo, on its title screen, with a fixed random seed and the given
-/// share of rocks.
+/// share of rocks, and save data in memory.
 fn runtime(seed: i32, rock_chance: f32) -> GameRuntime {
+    runtime_with_save(seed, rock_chance, SaveData::in_memory())
+}
+
+fn runtime_with_save(seed: i32, rock_chance: f32, save_data: SaveData) -> GameRuntime {
     let mut manager = load_demo();
     let main = scene(&manager, "main").id;
     let spawner = manager
@@ -58,6 +63,7 @@ fn runtime(seed: i32, rock_chance: f32) -> GameRuntime {
         AudioEngine::new(),
         60,
     );
+    runtime.set_save_data(save_data);
     runtime.run().expect("the demo starts");
     runtime
 }
@@ -300,4 +306,25 @@ fn test_a_rock_on_the_paddle_ends_the_round() {
     assert_eq!(active_scene_name(&runtime), "title");
     let errors = script_errors();
     assert!(errors.is_empty(), "script errors: {:?}", errors);
+}
+
+#[test]
+fn test_the_best_score_is_saved_between_runs() {
+    let save_file = std::env::temp_dir()
+        .join(format!("rust2d_demo_save_{}", uuid::Uuid::new_v4()))
+        .join("save.json");
+    let ctx = egui::Context::default();
+
+    // A first run of the game: no best score yet
+    let mut first = runtime_with_save(7, 1.0, SaveData::open(save_file.clone()));
+    first.tick(FRAME);
+    assert!(!texts(&first).iter().any(|text| text.starts_with("Best")));
+    press(&mut first, &ctx, egui::Key::Space);
+    play_until_game_over(&mut first);
+    assert!(save_file.is_file(), "the best score was saved");
+
+    // The next run shows it on the title screen
+    let mut second = runtime_with_save(7, 1.0, SaveData::open(save_file));
+    second.tick(FRAME);
+    assert!(texts(&second).contains(&"Best: 0".to_string()));
 }

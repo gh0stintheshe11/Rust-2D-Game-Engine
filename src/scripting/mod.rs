@@ -16,12 +16,14 @@ use crate::input::InputHandler;
 use crate::logger::LOGGER;
 use crate::physics::PhysicsEngine;
 use crate::render::HudText;
+use crate::save::SaveData;
 use crate::scene::SceneManager;
 
 mod audio_bindings;
 mod input_bindings;
 mod physics_bindings;
 mod render_bindings;
+mod save_bindings;
 mod scene_bindings;
 
 /// Longest a single call into a script (a hook, or a file's top-level
@@ -131,6 +133,8 @@ pub struct LuaScripting {
     scene_change_request: Rc<Cell<Option<Uuid>>>,
     // Text drawn by scripts this frame (draw_text), painted by the runtime
     hud: Rc<RefCell<Vec<HudText>>>,
+    // What save_data / load_data read and write (see set_save_data)
+    save_data: Rc<RefCell<SaveData>>,
     // When the running script call must be aborted (see SCRIPT_TIME_LIMIT)
     deadline: Rc<Cell<Option<Instant>>>,
 }
@@ -177,6 +181,7 @@ impl LuaScripting {
             game_stop_requested: Rc::new(Cell::new(false)),
             scene_change_request: Rc::new(Cell::new(None)),
             hud: Rc::new(RefCell::new(Vec::new())),
+            save_data: Rc::new(RefCell::new(SaveData::in_memory())),
             deadline: Rc::new(Cell::new(None)),
         }
     }
@@ -185,6 +190,12 @@ impl LuaScripting {
     /// started.
     pub fn hud_texts(&self) -> Ref<'_, Vec<HudText>> {
         self.hud.borrow()
+    }
+
+    /// Use `save_data` for the `save_data` / `load_data` bindings of the
+    /// sessions started from now on (by default, save data in memory).
+    pub fn set_save_data(&mut self, save_data: Rc<RefCell<SaveData>>) {
+        self.save_data = save_data;
     }
 
     /// The session's Lua VM, e.g. to inspect globals in tests.
@@ -239,6 +250,8 @@ impl LuaScripting {
         self.register_scene_bindings(&scene_manager, &physics_engine)?;
         self.register_audio_bindings(&audio_engine)?;
         self.register_render_bindings(&scene_manager)?;
+        let save_data = Rc::clone(&self.save_data);
+        self.register_save_bindings(&save_data)?;
 
         LOGGER.info("Lua scripting session started");
         Ok(())

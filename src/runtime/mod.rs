@@ -11,11 +11,12 @@ use crate::{
     logger::LOGGER,
     physics::PhysicsEngine,
     render::{Camera, GameView, RenderEngine},
+    save::SaveData,
     scene::{Scene, SceneManager},
     scripting::LuaScripting,
 };
 use egui::Rect;
-use std::cell::{Ref, RefCell};
+use std::cell::{Ref, RefCell, RefMut};
 use std::collections::HashSet;
 use std::rc::Rc;
 use uuid::Uuid;
@@ -58,6 +59,8 @@ pub struct GameRuntime {
     render_engine: RenderEngine,
     input_handler: Rc<RefCell<InputHandler>>,
     audio_engine: Rc<RefCell<AudioEngine>>,
+    // What scripts save between runs; shared with the scripting session
+    save_data: Rc<RefCell<SaveData>>,
     state: RuntimeState,
     lua_scripting: LuaScripting,
     camera_mode: CameraMode,
@@ -81,6 +84,9 @@ impl GameRuntime {
         target_fps: u32,
     ) -> Self {
         physics_engine.set_time_step(1.0 / target_fps.max(1) as f32);
+        let save_data = Rc::new(RefCell::new(SaveData::in_memory()));
+        let mut lua_scripting = LuaScripting::new();
+        lua_scripting.set_save_data(Rc::clone(&save_data));
 
         Self {
             scene_manager: Rc::new(RefCell::new(scene_manager)),
@@ -89,8 +95,9 @@ impl GameRuntime {
             render_engine,
             input_handler: Rc::new(RefCell::new(input_handler)),
             audio_engine: Rc::new(RefCell::new(audio_engine)),
+            save_data,
             state: RuntimeState::Stopped,
-            lua_scripting: LuaScripting::new(),
+            lua_scripting,
             camera_mode: CameraMode::Game,
             show_colliders: false,
             reported_animation_problems: HashSet::new(),
@@ -505,6 +512,18 @@ impl GameRuntime {
     /// The input the game saw in the last [`update`](Self::update).
     pub fn input(&self) -> Ref<'_, InputHandler> {
         self.input_handler.borrow()
+    }
+
+    /// Keep the game's save data (`save_data` / `load_data` in scripts) in
+    /// `save_data`, e.g. [`SaveData::for_game`]. A new runtime keeps it in
+    /// memory only.
+    pub fn set_save_data(&mut self, save_data: SaveData) {
+        *self.save_data.borrow_mut() = save_data;
+    }
+
+    /// The game's save data, e.g. to clear it.
+    pub fn save_data(&self) -> RefMut<'_, SaveData> {
+        self.save_data.borrow_mut()
     }
 
     /// The scripting session, e.g. to inspect script state in tests.

@@ -17,7 +17,7 @@ standalone executable.
 | Editor | Scene hierarchy, inspector, file browser, Lua script editor with live syntax checking and an API palette, click-to-select and drag-to-move in the viewport, undo/redo, play/pause/reset, console |
 | Scenes | Scenes made of entities with named, typed attributes (numbers, booleans, strings, vectors); saved as portable JSON. Games switch scenes while playing (title screen, levels) and spawn copies of template entities (prefabs) |
 | Physics | rapier2d bodies and colliders built from entity attributes: dynamic, kinematic and fixed bodies, rotation, gravity scale, gravity fields, trigger zones, collision layers, raycasts, collision events |
-| Scripting | Lua 5.4 scripts per entity with `init` / `update` / `on_collision` / `on_collision_end` hooks, hot reload while playing, and a sandbox |
+| Scripting | Lua 5.4 scripts per entity with `init` / `update` / `on_collision` / `on_collision_end` hooks, save data kept between runs, hot reload while playing, and a sandbox |
 | Rendering | Sprites with rotation, scale, z-order, mirroring, opacity and tint; sprite sheet animation; text over the game; camera framing with letterboxing |
 | Audio | Sound effects and looping music with per-sound and master volume (wav, ogg, mp3, flac); runs fine without an audio device |
 | Export | One click builds a standalone game for your platform |

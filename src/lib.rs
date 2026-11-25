@@ -22,6 +22,7 @@ pub mod player;
 pub mod project;
 pub mod render;
 pub mod runtime;
+pub mod save;
 pub mod scene;
 pub mod scripting;
 

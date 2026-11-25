@@ -21,6 +21,17 @@ impl ProjectMenu {
             gui_state.build_requested = true;
             ui.close();
         }
+        if ui
+            .add_enabled(gui_state.project_open, egui::Button::new("Clear Save Data"))
+            .on_hover_text(
+                "Delete what the game saved with save_data while playing in the editor \
+                 (saves/save.json)",
+            )
+            .clicked()
+        {
+            gui_state.clear_save_data_requested = true;
+            ui.close();
+        }
     }
 
     pub fn show_active_popup(&mut self, ctx: &egui::Context, gui_state: &mut GuiState) {

@@ -26,6 +26,12 @@ versions may contain breaking changes).
   working values: physics bodies, trigger zones, collision layers, sprite
   effects, sprite sheet animation and more. The engine provides them as
   `attribute_presets()` with `Entity::apply_preset` and `has_preset`.
+- Save data: scripts keep values between runs of the game with
+  `save_data(key, value)` and `load_data(key)`. Exported games store them in
+  the user's data folder, games played in the editor in the project's
+  `saves/` folder (ignored by version control in new projects), which
+  Project → Clear Save Data empties (`SaveData`,
+  `GameRuntime::set_save_data`).
 - `ProjectManager::make_entity_paths_relative` and `resolve_entity_paths`
   convert a single entity's paths, and `RenderEngine::set_grid_size` sets
   the editor grid's cell size.
@@ -36,6 +42,7 @@ versions may contain breaking changes).
   the camera, instead of window coordinates, which differed between the
   editor and exported games. In an exported game whose camera frame starts
   at (0, 0) and fills the window at its own size, the values are unchanged.
+- The Star Catcher demo saves its best score between runs.
 
 ### Fixed
 

@@ -13,6 +13,7 @@ known limitations). Any change to a module's behavior updates its document.
 | [scripting.md](scripting.md) | Lua sessions, hooks, hot reload, sandbox, scenes and prefabs, the complete script API (`src/scripting/`) |
 | [runtime.md](runtime.md) | Play-mode state machine, the per-frame loop, switching scenes (`src/runtime/`, `src/player.rs`) |
 | [audio.md](audio.md) | Sound playback (`src/audio/`) |
+| [save.md](save.md) | Save data kept between runs of a game (`src/save/`) |
 | [input.md](input.md) | Keyboard and mouse state, key names (`src/input/`) |
 | [project.md](project.md) | Project files and folders (`src/project/`); creating, importing, building (`editor/src/project/`) |
 | [logger.md](logger.md) | The log behind the editor console (`src/logger/`) |

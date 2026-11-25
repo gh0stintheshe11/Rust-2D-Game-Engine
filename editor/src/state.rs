@@ -160,6 +160,8 @@ pub struct GuiState {
     /// saves the script editor buffer first.
     pub save_requested: bool,
     pub build_requested: bool,
+    /// Project > Clear Save Data: handled by the shell, which owns the game
+    pub clear_save_data_requested: bool,
 
     /// A file the user deleted from the file panel this frame.
     pub deleted_file: Option<PathBuf>,
@@ -211,6 +213,7 @@ impl GuiState {
             script_insert_request: None,
             save_requested: false,
             build_requested: false,
+            clear_save_data_requested: false,
             deleted_file: None,
 
             undo_stack: UndoStack::new(),

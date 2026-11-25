@@ -14,6 +14,7 @@ function on_collision(scene_id, entity_id, other_id)
             play_sound("assets/sounds/crash.wav")
             state.game_over = true
             state.best = math.max(state.best or 0, state.score)
+            save_data("best", state.best)
         end
     elseif other == "ground" or other == "paddle" then
         -- Missed, or the round is over: it just disappears

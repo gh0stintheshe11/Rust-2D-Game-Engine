@@ -1799,4 +1799,90 @@ mod session_tests {
             .unwrap();
         assert_eq!(failures, vec![false; 3]);
     }
+
+    /// Restart the session with save data kept in `path`.
+    fn restart_with_save_file(session: &mut TestSession, path: &std::path::Path) {
+        use rust_2d_game_engine::save::SaveData;
+
+        session
+            .lua
+            .set_save_data(Rc::new(RefCell::new(SaveData::open(path.to_path_buf()))));
+        session
+            .lua
+            .start_session(
+                Rc::clone(&session.scene_manager),
+                Rc::clone(&session.physics),
+                Rc::clone(&session.input),
+                Rc::clone(&session.audio),
+            )
+            .unwrap();
+    }
+
+    #[test]
+    fn test_save_and_load_data_bindings() {
+        let mut session = setup("save_data");
+        let path = session.script_dir.join("saves").join("save.json");
+        restart_with_save_file(&mut session, &path);
+
+        let checks: Vec<bool> = session
+            .lua
+            .lua()
+            .load(
+                r#"
+                local saved = save_data("best", 12)
+                save_data("ratio", 0.5)
+                save_data("name", "ada")
+                save_data("flags", {music = true, level = 3})
+                save_data("times", {3.5, 4, 5})
+                save_data("gone", "soon")
+                save_data("gone", nil)
+                local flags, times = load_data("flags"), load_data("times")
+                return {
+                    saved,
+                    math.type(load_data("best")) == "integer" and load_data("best") == 12,
+                    load_data("ratio") == 0.5,
+                    load_data("name") == "ada",
+                    flags.music == true and flags.level == 3,
+                    #times == 3 and times[1] == 3.5 and math.type(times[2]) == "integer",
+                    load_data("gone") == nil,
+                    load_data("missing") == nil,
+                }
+                "#,
+            )
+            .eval()
+            .unwrap();
+        assert_eq!(checks, vec![true; 8]);
+        assert!(path.is_file(), "written to disk");
+
+        let failures: Vec<bool> = session
+            .lua
+            .lua()
+            .load(
+                r#"
+                local cycle = {}
+                cycle.again = cycle
+                return {
+                    (pcall(save_data, "f", print)),
+                    (pcall(save_data, "nan", 0/0)),
+                    (pcall(save_data, "inf", math.huge)),
+                    (pcall(save_data, "mixed", {1, 2, x = 3})),
+                    (pcall(save_data, "sparse", {[1] = 1, [3] = 3})),
+                    (pcall(save_data, "cycle", cycle)),
+                }
+                "#,
+            )
+            .eval()
+            .unwrap();
+        assert_eq!(failures, vec![false; 6]);
+
+        // A later run of the game finds what was saved
+        restart_with_save_file(&mut session, &path);
+        let best: i64 = session
+            .lua
+            .lua()
+            .load(r#"return load_data("best")"#)
+            .eval()
+            .unwrap();
+        assert_eq!(best, 12);
+    }
 }
