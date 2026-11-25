@@ -1212,6 +1212,87 @@ mod session_tests {
     }
 
     #[test]
+    fn test_fade_music_and_group_bindings() {
+        use crate::common::{TONE_PEAK, assert_level, level, offline_audio, render, write_tone};
+
+        let (engine, mut output) = offline_audio();
+        let session = setup_with_audio("music", engine);
+        let lua = session.lua.lua();
+        let (first, second) = (write_tone(0.3), write_tone(0.4));
+        let globals = lua.globals();
+        globals
+            .set("FIRST", first.to_string_lossy().into_owned())
+            .unwrap();
+        globals
+            .set("SECOND", second.to_string_lossy().into_owned())
+            .unwrap();
+
+        // Music, crossfaded, in its group
+        lua.load("A = play_music(FIRST); set_group_volume('music', 0.5)")
+            .exec()
+            .unwrap();
+        assert_level(level(&mut output), 0.5 * TONE_PEAK);
+        let same: bool = lua
+            .load("return play_music(FIRST, {volume = 1}) == A")
+            .eval()
+            .unwrap();
+        assert!(same, "the same track plays on");
+        lua.load("B = play_music(SECOND, {crossfade = 0.2, loop = true})")
+            .exec()
+            .unwrap();
+        render(&mut output, 0.3);
+        session.audio.borrow_mut().update();
+        let (a_playing, b_playing, group): (bool, bool, f32) = lua
+            .load("return is_sound_playing(A), is_sound_playing(B), get_group_volume('music')")
+            .eval()
+            .unwrap();
+        assert!(!a_playing && b_playing);
+        assert_eq!(group, 0.5);
+        assert_level(level(&mut output), 0.5 * TONE_PEAK);
+        lua.load("stop_music(0.1)").exec().unwrap();
+        render(&mut output, 0.2);
+        assert!(level(&mut output) < 1e-6);
+
+        // A sound faded in, down, and out
+        lua.load("S = play_sound(FIRST, {loop = true, fade_in = 0.1, group = 'ui'})")
+            .exec()
+            .unwrap();
+        render(&mut output, 0.1);
+        assert_level(level(&mut output), TONE_PEAK);
+        lua.load("fade_sound(S, 0.25, 0.05)").exec().unwrap();
+        render(&mut output, 0.05);
+        assert_level(level(&mut output), 0.25 * TONE_PEAK);
+        lua.load("stop_sound(S, 0.05); fade_sound(nil, 1, 1)")
+            .exec()
+            .unwrap();
+        render(&mut output, 0.05);
+        assert!(level(&mut output) < 1e-6);
+
+        // Mistakes are errors
+        for (code, expected) in [
+            ("play_music(FIRST, {fade = 1})", "unknown option 'fade'"),
+            ("play_music(FIRST, {crossfade = -1})", "seconds must be"),
+            ("play_sound(FIRST, {group = ''})", "needs a name"),
+            (
+                "play_sound(FIRST, {fade_in = 'slow'})",
+                "fade_in must be a number",
+            ),
+            ("set_group_volume('music', -1)", "volume must be"),
+            ("fade_sound(S, 1, -1)", "seconds must be"),
+            ("stop_music(-1)", "seconds must be"),
+        ] {
+            let error: String = lua
+                .load(format!(
+                    "return tostring(select(2, pcall(function() {} end)))",
+                    code
+                ))
+                .eval()
+                .unwrap();
+            assert!(error.contains(expected), "{}: {}", code, error);
+        }
+    }
+
+    #[test]
     fn test_draw_text_collects_one_frame_of_text() {
         use rust_2d_game_engine::render::{HudText, TextAlign};
 

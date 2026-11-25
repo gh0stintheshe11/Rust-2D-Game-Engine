@@ -42,6 +42,8 @@ handler, e.g. for tests.
 The scene manager, physics engine, input handler and audio engine are
 `Rc<RefCell<…>>` because Lua bindings hold handles to them (see
 [scripting.md](scripting.md)). The `RenderEngine` is a plain field.
+`get_scene_manager()`, `input()`, `audio()`, `render_engine()` and
+`scripting()` lend them out, e.g. for tests.
 
 ```mermaid
 graph TD

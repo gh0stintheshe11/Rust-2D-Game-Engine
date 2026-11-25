@@ -20,7 +20,7 @@ standalone executable.
 | Scripting | Lua 5.4 scripts per entity with `init` / `update` / `on_collision` / `on_collision_end` / `on_destroy` hooks, timers and tweens (eased, looping, chained), save data kept between runs, hot reload while playing, and a sandbox |
 | Rendering | Sprites with rotation, scale, z-order, mirroring, opacity and tint; sprite sheet animation; tilemaps, drawing only the tiles on screen; particles; text, panels, images and buttons over the game; camera framing with letterboxing; a camera that follows an entity (smoothly, with a dead zone, within bounds) and shakes; fade and wipe transitions between scenes |
 | Input | Keyboard, mouse (in world or camera frame coordinates) and gamepads, with just-pressed and just-released states; input actions (`"jump"`, `"left"`) bound to keys and gamepad controls in the editor, and rebindable by scripts |
-| Audio | Sound effects and looping music with per-sound and master volume (wav, ogg, mp3, flac); runs fine without an audio device |
+| Audio | Sound effects and looping music (wav, ogg, mp3, flac) with smooth fades, music that crossfades from track to track, and volume groups (music, effects) for settings menus; runs fine without an audio device |
 | Export | One click builds a standalone game for your platform |
 
 ## Getting started

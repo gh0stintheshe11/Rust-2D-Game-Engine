@@ -690,6 +690,11 @@ impl GameRuntime {
         self.input_handler.borrow()
     }
 
+    /// The game's audio: what plays, the music, the volumes.
+    pub fn audio(&self) -> Ref<'_, AudioEngine> {
+        self.audio_engine.borrow()
+    }
+
     /// Keep the game's save data (`save_data` / `load_data` in scripts) in
     /// `save_data`, e.g. [`SaveData::for_game`]. A new runtime keeps it in
     /// memory only.

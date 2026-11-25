@@ -411,13 +411,38 @@ const API_GROUPS: &[(&str, &[ApiEntry])] = &[
             ),
             (
                 "play_sound with options",
-                "play_sound(\"assets/sounds/music.ogg\", {loop = true, volume = 0.5})",
-                "volume: 1.0 plays as recorded; loop: start over until stopped",
+                "play_sound(\"assets/sounds/wind.ogg\", {loop = true, volume = 0.5, fade_in = 2})",
+                "volume: 1.0 plays as recorded; loop: start over until stopped; group: its volume group (\"sfx\"); fade_in: seconds",
+            ),
+            (
+                "play_music",
+                "play_music(\"assets/sounds/level.ogg\", {volume = 0.6, crossfade = 1})",
+                "Make it the music (looping, in the \"music\" group): the music playing fades out as it fades in; the same file plays on",
+            ),
+            (
+                "stop_music",
+                "stop_music(1.5)",
+                "Fade the music out over the seconds (at once without), and stop it",
+            ),
+            (
+                "fade_sound",
+                "fade_sound(play_id, 0.2, 0.5)",
+                "Fade a playing sound's volume to this over the seconds",
             ),
             (
                 "set_sound_volume",
                 "set_sound_volume(play_id, 0.5)",
                 "Change a playing sound's volume",
+            ),
+            (
+                "set_group_volume",
+                "set_group_volume(\"music\", 0.5)",
+                "Scale a volume group's sounds (\"sfx\", \"music\", or your own): settings menus; back to 1.0 when the game stops",
+            ),
+            (
+                "get_group_volume",
+                "get_group_volume(\"music\")",
+                "A volume group's volume (1.0 unless set)",
             ),
             (
                 "set_master_volume",
@@ -426,8 +451,8 @@ const API_GROUPS: &[(&str, &[ApiEntry])] = &[
             ),
             (
                 "stop_sound",
-                "stop_sound(play_id)",
-                "Stop one playing sound",
+                "stop_sound(play_id, 0.5)",
+                "Stop one playing sound, fading it out over the seconds if given",
             ),
             (
                 "is_sound_playing",

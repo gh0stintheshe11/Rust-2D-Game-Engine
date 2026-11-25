@@ -226,17 +226,27 @@ Audio:
 
 | Function | Notes |
 |---|---|
-| `play_sound(path [, options])` | Returns a play id, or nil when nothing can be played (missing file, no audio device; reported once per file). `options` is a table with `volume` (1.0 plays as recorded, 0.5 at half the amplitude; default 1.0) and `loop` (start over at the end until stopped; default false). Unknown options and negative volumes raise an error |
+| `play_sound(path [, options])` | Returns a play id, or nil when nothing can be played (missing file, no audio device; reported once per file). `options` is a table with `volume` (1.0 plays as recorded, 0.5 at half the amplitude; default 1.0), `loop` (start over at the end until stopped; default false), `group` (its volume group: `"sfx"` unless given) and `fade_in` (seconds to fade in from silence). Unknown options and negative volumes raise an error |
+| `play_music(path [, options])` | Make a file the music, which loops in the `"music"` group; returns its play id, or nil. Options: `volume`, `crossfade` (seconds the music playing takes to fade out while this one fades in; 0, the default, switches at once), `loop` (default true). If that file is the music already, it plays on, fading to the new volume. Music carries over scene changes |
+| `stop_music([seconds])` | Fade the music out over `seconds` (at once without) and stop it |
+| `fade_sound(play_id, volume, seconds)` | Fade a playing sound's volume to `volume` over `seconds`, smoothly; accepts nil |
 | `set_sound_volume(play_id, volume)` | Change a playing sound's volume; accepts nil |
+| `set_group_volume(group, volume)` | Scale every sound of a volume group (`"sfx"`, `"music"`, or a name of your own), playing or started later: settings menus. Back to 1.0 when the game stops |
+| `get_group_volume(group)` | A group's volume: 1.0 unless set |
 | `set_master_volume(volume)` | Scales every sound, playing or started later; back to 1.0 when the game stops |
-| `stop_sound(play_id)` | Accepts nil |
+| `stop_sound(play_id [, seconds])` | Stop a sound, fading it out over `seconds` if given (it plays until it's silent); accepts nil |
 | `is_sound_playing(play_id)` | False for nil; a looping sound plays until stopped |
 | `stop_all_sounds()` | |
 
+A sound plays at its own volume times its group's times the master volume.
+
 ```lua
 function init(scene_id, entity_id)
-    -- Background music for the whole game
-    script_state.state.music = play_sound("assets/sounds/music.ogg", {loop = true, volume = 0.4})
+    -- Each level asks for its music: a new track crossfades, the same one
+    -- plays on
+    play_music("assets/sounds/forest.ogg", {volume = 0.5, crossfade = 1})
+    -- The player's setting, kept between runs
+    set_group_volume("music", load_data("music_volume") or 1)
 end
 ```
 

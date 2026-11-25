@@ -3,8 +3,16 @@
 //! Sound files are read once and kept in memory, still encoded and shared by
 //! all their playbacks; each playback decodes the file while it plays, in its
 //! own rodio `Player`, identified by a play id.
+//!
+//! A playback plays at its own volume, which fades smoothly on the audio
+//! thread ([`AudioEngine::fade`]), times its group's volume (a bus such as
+//! `"music"` or `"sfx"`), times the master volume. One playback at a time is the music, which another one can
+//! replace with a crossfade.
+
+mod fade;
 
 use crate::logger::LOGGER;
+use fade::{Faded, Gain};
 use lofty::file::AudioFile;
 use lofty::probe::Probe;
 use rodio::decoder::DecoderError;
@@ -17,14 +25,28 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use uuid::Uuid;
 
+/// The group sounds belong to unless they say otherwise.
+pub const DEFAULT_GROUP: &str = "sfx";
+
+/// The group music plays in (see [`AudioEngine::play_music`]).
+pub const MUSIC_GROUP: &str = "music";
+
+/// Longest group name, in characters.
+pub const MAX_GROUP_NAME_CHARS: usize = 64;
+
 /// How [`AudioEngine::play_sound_with`] plays a sound.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct PlayOptions {
     /// Loudness factor: 1.0 plays the file as recorded, 0.5 at half the
     /// amplitude, 0.0 silently. Values above 1.0 amplify, and may clip.
     pub volume: f32,
     /// Start over at the end, until the sound is stopped.
     pub looping: bool,
+    /// The volume group it plays in (see
+    /// [`AudioEngine::set_group_volume`]): [`DEFAULT_GROUP`] unless set.
+    pub group: String,
+    /// Seconds to fade in over, from silence; 0 starts at `volume`.
+    pub fade_in: f32,
 }
 
 impl Default for PlayOptions {
@@ -32,7 +54,54 @@ impl Default for PlayOptions {
         Self {
             volume: 1.0,
             looping: false,
+            group: DEFAULT_GROUP.to_string(),
+            fade_in: 0.0,
         }
+    }
+}
+
+/// How [`AudioEngine::play_music`] plays music.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct MusicOptions {
+    /// The music's own volume (see [`PlayOptions::volume`]).
+    pub volume: f32,
+    /// Seconds the music that was playing takes to fade out while this one
+    /// fades in; 0 switches at once.
+    pub crossfade: f32,
+    /// Start over at the end (the default), until stopped.
+    pub looping: bool,
+}
+
+impl Default for MusicOptions {
+    fn default() -> Self {
+        Self {
+            volume: 1.0,
+            crossfade: 0.0,
+            looping: true,
+        }
+    }
+}
+
+/// Validate a number of seconds: finite, at least 0.
+pub(crate) fn check_seconds(seconds: f32) -> Result<f32, String> {
+    if seconds.is_finite() && seconds >= 0.0 {
+        Ok(seconds)
+    } else {
+        Err(format!("seconds must be a number >= 0, got {}", seconds))
+    }
+}
+
+/// Validate a group name: 1 to [`MAX_GROUP_NAME_CHARS`] characters.
+pub(crate) fn check_group(group: &str) -> Result<(), String> {
+    if group.is_empty() {
+        Err("a volume group needs a name".to_string())
+    } else if group.chars().count() > MAX_GROUP_NAME_CHARS {
+        Err(format!(
+            "volume group names are at most {} characters long",
+            MAX_GROUP_NAME_CHARS
+        ))
+    } else {
+        Ok(())
     }
 }
 
@@ -61,8 +130,10 @@ impl Iterator for OfflineOutput {
 /// One playback.
 struct ActiveSound {
     player: Player,
-    /// The sound's own volume; it plays at `volume * master_volume`.
-    volume: f32,
+    /// The sound's own volume, which the audio thread fades; the player's
+    /// volume is its group's times the master volume.
+    gain: Arc<Gain>,
+    group: String,
 }
 
 /// Plays sounds through the default audio device (or an offline output) and
@@ -81,6 +152,10 @@ pub struct AudioEngine {
     // Files whose playback failed and was already reported
     reported_failures: HashSet<PathBuf>,
     master_volume: f32,
+    // Groups' volumes; a group not in here is at 1.0
+    group_volumes: HashMap<String, f32>,
+    // The music playing: its file and play id
+    music: Option<(PathBuf, Uuid)>,
 }
 
 impl Default for AudioEngine {
@@ -126,6 +201,8 @@ impl AudioEngine {
             immediate_sink: None,
             reported_failures: HashSet::new(),
             master_volume: 1.0,
+            group_volumes: HashMap::new(),
+            music: None,
         }
     }
 
@@ -174,10 +251,12 @@ impl AudioEngine {
     /// instead).
     pub fn play_sound_with(&mut self, path: &Path, options: PlayOptions) -> Result<Uuid, String> {
         check_volume(options.volume)?;
+        check_seconds(options.fade_in)?;
+        check_group(&options.group)?;
         if !self.has_output() {
             return Err("No audio output device available".to_string());
         }
-        let result = self.start_playback(path, options);
+        let result = self.start_playback(path, &options);
         if let Err(e) = &result
             && self.reported_failures.insert(path.to_path_buf())
         {
@@ -186,19 +265,27 @@ impl AudioEngine {
         result
     }
 
-    fn start_playback(&mut self, path: &Path, options: PlayOptions) -> Result<Uuid, String> {
+    fn start_playback(&mut self, path: &Path, options: &PlayOptions) -> Result<Uuid, String> {
         let data = self.load_sound(path)?;
         let player = self.new_player()?;
         // Set before the sound is queued, so it applies from the first sample
-        player.set_volume(options.volume * self.master_volume);
-        queue_sound(&player, data, options.looping)?;
+        player.set_volume(self.group_volume(&options.group) * self.master_volume);
+        let gain = if options.fade_in > 0.0 {
+            let gain = Gain::new(0.0);
+            gain.fade_to(options.volume, options.fade_in);
+            gain
+        } else {
+            Gain::new(options.volume)
+        };
+        queue_sound(&player, data, options.looping, Arc::clone(&gain))?;
 
         let play_id = Uuid::new_v4();
         self.active_sounds.insert(
             play_id,
             ActiveSound {
                 player,
-                volume: options.volume,
+                gain,
+                group: options.group.clone(),
             },
         );
         Ok(play_id)
@@ -211,7 +298,7 @@ impl AudioEngine {
         let data = self.load_sound(path)?;
         let player = self.new_player()?;
         player.set_volume(self.master_volume);
-        queue_sound(&player, data, false)?;
+        queue_sound(&player, data, false, Gain::new(1.0))?;
         self.immediate_sink = Some(player);
         Ok(())
     }
@@ -230,6 +317,34 @@ impl AudioEngine {
             .remove(&play_id)
             .ok_or("Sound not found")?;
         sound.player.stop();
+        if self.music.as_ref().is_some_and(|(_, id)| *id == play_id) {
+            self.music = None;
+        }
+        Ok(())
+    }
+
+    /// Fade a playback out over `seconds`, then stop it; with 0, stop it at
+    /// once. It counts as playing until it's silent.
+    pub fn stop_with_fade(&mut self, play_id: Uuid, seconds: f32) -> Result<(), String> {
+        let seconds = check_seconds(seconds)?;
+        // Silent already (faded out): nothing would end it
+        if seconds == 0.0 || self.sound(play_id)?.gain.current() == 0.0 {
+            return self.stop(play_id);
+        }
+        let sound = self.sound(play_id)?;
+        sound.gain.set_stop_when_silent(true);
+        sound.gain.fade_to(0.0, seconds);
+        Ok(())
+    }
+
+    /// Fade a playback's own volume to `volume` over `seconds`, linearly
+    /// from where it is (also when it's fading already).
+    pub fn fade(&mut self, play_id: Uuid, volume: f32, seconds: f32) -> Result<(), String> {
+        let volume = check_volume(volume)?;
+        let seconds = check_seconds(seconds)?;
+        let sound = self.sound(play_id)?;
+        sound.gain.set_stop_when_silent(false);
+        sound.gain.fade_to(volume, seconds);
         Ok(())
     }
 
@@ -243,22 +358,46 @@ impl AudioEngine {
         Ok(())
     }
 
-    /// Change a playback's volume (see [`PlayOptions::volume`]).
+    /// Change a playback's volume (see [`PlayOptions::volume`]), calling a
+    /// fade off. It gets there over a few milliseconds, which keeps the
+    /// change from clicking.
     pub fn set_volume(&mut self, play_id: Uuid, volume: f32) -> Result<(), String> {
+        self.fade(play_id, volume, 0.0)
+    }
+
+    /// A playback's own volume, without its group's and the master volume:
+    /// where it's fading to, while it fades.
+    pub fn volume(&self, play_id: Uuid) -> Option<f32> {
+        self.active_sounds
+            .get(&play_id)
+            .map(|sound| sound.gain.target())
+    }
+
+    /// Scale every sound of a volume group, playing or started later, by
+    /// `volume` (see [`PlayOptions::volume`]): a game's music and effects
+    /// settings, say. [`cleanup`](Self::cleanup) restores every group to
+    /// 1.0.
+    pub fn set_group_volume(&mut self, group: &str, volume: f32) -> Result<(), String> {
+        check_group(group)?;
         let volume = check_volume(volume)?;
-        let master_volume = self.master_volume;
-        let sound = self
+        if volume == 1.0 {
+            self.group_volumes.remove(group);
+        } else {
+            self.group_volumes.insert(group.to_string(), volume);
+        }
+        for sound in self
             .active_sounds
-            .get_mut(&play_id)
-            .ok_or("Sound not found")?;
-        sound.volume = volume;
-        sound.player.set_volume(volume * master_volume);
+            .values()
+            .filter(|sound| sound.group == group)
+        {
+            sound.player.set_volume(volume * self.master_volume);
+        }
         Ok(())
     }
 
-    /// A playback's own volume, without the master volume.
-    pub fn volume(&self, play_id: Uuid) -> Option<f32> {
-        self.active_sounds.get(&play_id).map(|sound| sound.volume)
+    /// A volume group's volume: 1.0 unless set.
+    pub fn group_volume(&self, group: &str) -> f32 {
+        self.group_volumes.get(group).copied().unwrap_or(1.0)
     }
 
     /// Scale every sound, playing or started later, by `volume` (see
@@ -266,7 +405,8 @@ impl AudioEngine {
     pub fn set_master_volume(&mut self, volume: f32) -> Result<(), String> {
         self.master_volume = check_volume(volume)?;
         for sound in self.active_sounds.values() {
-            sound.player.set_volume(sound.volume * self.master_volume);
+            let group_volume = self.group_volume(&sound.group);
+            sound.player.set_volume(group_volume * self.master_volume);
         }
         if let Some(player) = &self.immediate_sink {
             player.set_volume(self.master_volume);
@@ -276,6 +416,52 @@ impl AudioEngine {
 
     pub fn master_volume(&self) -> f32 {
         self.master_volume
+    }
+
+    // === Music ===
+
+    /// Play a file as the music, in the [`MUSIC_GROUP`]: one playback at a
+    /// time is the music. Music playing already fades out over
+    /// `options.crossfade` seconds (and stops) while this one fades in;
+    /// if it's this same file, it plays on instead, fading to the new
+    /// volume. Returns the music's play id. Errors are those of
+    /// [`play_sound_with`](Self::play_sound_with).
+    pub fn play_music(&mut self, path: &Path, options: MusicOptions) -> Result<Uuid, String> {
+        check_volume(options.volume)?;
+        let crossfade = check_seconds(options.crossfade)?;
+        if let Some((playing, id)) = self.music.clone() {
+            if playing == path && self.active_sounds.contains_key(&id) {
+                self.fade(id, options.volume, crossfade)?;
+                return Ok(id);
+            }
+            self.music = None;
+            // Gone already if it finished
+            let _ = self.stop_with_fade(id, crossfade);
+        }
+        let play_options = PlayOptions {
+            volume: options.volume,
+            looping: options.looping,
+            group: MUSIC_GROUP.to_string(),
+            fade_in: crossfade,
+        };
+        let id = self.play_sound_with(path, play_options)?;
+        self.music = Some((path.to_path_buf(), id));
+        Ok(id)
+    }
+
+    /// Fade the music out over `seconds` and stop it (at once with 0).
+    pub fn stop_music(&mut self, seconds: f32) -> Result<(), String> {
+        let seconds = check_seconds(seconds)?;
+        if let Some((_, id)) = self.music.take() {
+            // Gone already if it finished
+            let _ = self.stop_with_fade(id, seconds);
+        }
+        Ok(())
+    }
+
+    /// The music's play id, while it plays.
+    pub fn music(&self) -> Option<Uuid> {
+        self.music.as_ref().map(|(_, id)| *id)
     }
 
     fn sound(&self, play_id: Uuid) -> Result<&ActiveSound, String> {
@@ -316,12 +502,18 @@ impl AudioEngine {
     /// calls this every frame.
     pub fn update(&mut self) {
         self.active_sounds.retain(|_, sound| !sound.player.empty());
+        if let Some((_, id)) = &self.music
+            && !self.active_sounds.contains_key(id)
+        {
+            self.music = None;
+        }
     }
 
     pub fn stop_all(&mut self) {
         for (_, sound) in self.active_sounds.drain() {
             sound.player.stop();
         }
+        self.music = None;
     }
 
     /// Pause every playing sound (e.g. while the game is paused).
@@ -339,12 +531,13 @@ impl AudioEngine {
     }
 
     /// Stop everything, forget cached sound data and reported failures, and
-    /// restore the master volume.
+    /// restore the master and group volumes.
     pub fn cleanup(&mut self) {
         self.stop_all();
         self.stop_immediate();
         self.clear_cache();
         self.master_volume = 1.0;
+        self.group_volumes.clear();
     }
 
     /// Forget cached sound data; files are read again on next play.
@@ -379,16 +572,23 @@ impl AudioEngine {
     }
 }
 
-/// Queue an encoded sound file on `player`; it is decoded while it plays.
-/// A looping sound seeks back to the start at its end instead of keeping
-/// decoded samples around.
-fn queue_sound(player: &Player, data: Arc<[u8]>, looping: bool) -> Result<(), String> {
+/// Queue an encoded sound file on `player`, at the volume `gain` says; it is
+/// decoded while it plays. A looping sound seeks back to the start at its
+/// end instead of keeping decoded samples around.
+fn queue_sound(
+    player: &Player,
+    data: Arc<[u8]>,
+    looping: bool,
+    gain: Arc<Gain>,
+) -> Result<(), String> {
     let decode_error = |e: DecoderError| format!("Failed to decode sound: {}", e);
     let reader = Cursor::new(data);
     if looping {
-        player.append(Decoder::new_looped(reader).map_err(decode_error)?);
+        let decoder = Decoder::new_looped(reader).map_err(decode_error)?;
+        player.append(Faded::new(decoder, gain));
     } else {
-        player.append(Decoder::new(reader).map_err(decode_error)?);
+        let decoder = Decoder::new(reader).map_err(decode_error)?;
+        player.append(Faded::new(decoder, gain));
     }
     Ok(())
 }

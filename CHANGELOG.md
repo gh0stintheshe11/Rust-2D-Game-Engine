@@ -25,6 +25,17 @@ versions may contain breaking changes).
   in one of four directions. Changes asked for while the frame is being
   covered are ignored. In Rust: `GameRuntime::change_scene_with`,
   `transition_coverage` and `render::Transition`.
+- Audio fades, music and volume groups. Volumes fade on the audio thread,
+  sample by sample, so fades are smooth at any frame rate:
+  `play_sound(path, {fade_in = 2})`, `fade_sound(play_id, volume,
+  seconds)`, and `stop_sound(play_id, seconds)` fading out before it stops
+  (`AudioEngine::fade`, `stop_with_fade`). `play_music(path, {crossfade =
+  1})` makes a file the music, which loops and crossfades into the next
+  track, or plays on when it's the same file; `stop_music(seconds)` fades
+  it out. Sounds belong to volume groups (`"sfx"` by default, `"music"` for
+  music, or any name), which `set_group_volume` scales: settings menus.
+  Mixing costs about 0.8 ns more per sample of each sound.
+  `GameRuntime::audio` lends out the game's audio engine.
 
 ### Changed
 
@@ -33,6 +44,10 @@ versions may contain breaking changes).
   a brick; both demos go between scenes through transitions.
 - `LuaScripting::take_scene_change_request` returns a `SceneChange` (the
   scene and its transition) instead of the scene's id.
+- `audio::PlayOptions` has `group` and `fade_in` fields and is no longer
+  `Copy` (breaking for Rust code that constructs it without
+  `..PlayOptions::default()`). Setting a sound's volume gets there over 5
+  ms instead of jumping, so it doesn't click.
 
 ## [0.7.0] - 2026-11-25
 
