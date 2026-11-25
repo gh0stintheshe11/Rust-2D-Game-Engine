@@ -137,7 +137,7 @@ impl PhysicsEngine {
     pub fn add_entity(&mut self, entity: &Entity) {
         let participates = ["has_gravity", "has_collision", "creates_gravity"]
             .iter()
-            .any(|name| entity.get_attribute_by_name(name).is_ok());
+            .any(|name| entity.attribute(name).is_some());
         if !participates {
             return;
         }
@@ -226,7 +226,7 @@ impl PhysicsEngine {
                 is_fixed: !is_kinematic && !is_movable,
                 writes_rotation: is_movable && !is_kinematic && can_rotate,
                 affected_by_gravity: has_gravity,
-                position_attr: entity.get_attribute_by_name("position").ok().map(|a| a.id),
+                position_attr: entity.attribute("position").map(|a| a.id),
             },
         );
     }
@@ -590,8 +590,8 @@ fn new_world(gravity: Vector, time_step: f32) -> PhysicsWorld {
 /// sprite sheet) times the `scale` attribute, matching what the renderer
 /// draws.
 fn body_size(entity: &Entity) -> Option<(f32, f32)> {
-    let explicit_width = entity.get_attribute_by_name("collider_width").ok();
-    let explicit_height = entity.get_attribute_by_name("collider_height").ok();
+    let explicit_width = entity.attribute("collider_width");
+    let explicit_height = entity.attribute("collider_height");
     if let (Some(width), Some(height)) = (explicit_width, explicit_height)
         && let (AttributeValue::Float(w), AttributeValue::Float(h)) = (&width.value, &height.value)
     {
@@ -619,8 +619,8 @@ fn collider_builder(entity: &Entity, size: Option<(f32, f32)>) -> ColliderBuilde
         return ColliderBuilder::ball(0.5);
     };
     let wants_circle = matches!(
-        entity.get_attribute_by_name("collider_shape").map(|a| &a.value),
-        Ok(AttributeValue::String(shape)) if shape.eq_ignore_ascii_case("circle")
+        entity.attribute("collider_shape").map(|a| &a.value),
+        Some(AttributeValue::String(shape)) if shape.eq_ignore_ascii_case("circle")
     );
     if wants_circle {
         ColliderBuilder::ball(width.min(height) / 2.0)
@@ -677,27 +677,27 @@ fn collision_groups(entity: &Entity) -> (InteractionGroups, Vec<String>) {
 }
 
 fn attr_bool(entity: &Entity, name: &str, default: bool) -> bool {
-    match entity.get_attribute_by_name(name).map(|a| &a.value) {
-        Ok(AttributeValue::Boolean(value)) => *value,
+    match entity.attribute(name).map(|a| &a.value) {
+        Some(AttributeValue::Boolean(value)) => *value,
         _ => default,
     }
 }
 
 fn attr_float(entity: &Entity, name: &str, default: f32) -> f32 {
-    match entity.get_attribute_by_name(name).map(|a| &a.value) {
-        Ok(AttributeValue::Float(value)) if value.is_finite() => *value,
-        Ok(AttributeValue::Integer(value)) => *value as f32,
+    match entity.attribute(name).map(|a| &a.value) {
+        Some(AttributeValue::Float(value)) if value.is_finite() => *value,
+        Some(AttributeValue::Integer(value)) => *value as f32,
         _ => default,
     }
 }
 
 /// Set a Float attribute, creating it if the entity doesn't have it yet.
 fn set_float_attribute(entity: &mut Entity, name: &str, value: f32) {
-    match entity.get_attribute_by_name(name).map(|a| a.id) {
-        Ok(id) => {
+    match entity.attribute(name).map(|a| a.id) {
+        Some(id) => {
             let _ = entity.modify_attribute(id, None, None, Some(AttributeValue::Float(value)));
         }
-        Err(_) => {
+        None => {
             let _ =
                 entity.create_attribute(name, AttributeType::Float, AttributeValue::Float(value));
         }

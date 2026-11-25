@@ -44,7 +44,10 @@ Entities are specialized only by attributes:
 
 Typed getters (`get_bool`, `get_float`, `get_string`, `get_vector2`) read such
 optional attributes, returning `None` when one is missing or has another type;
-`set_or_create_attribute` sets one, creating it if needed.
+`set_or_create_attribute` sets one, creating it if needed. They look attributes
+up with `attribute(name)`, which, unlike `get_attribute_by_name`, builds no
+error message for a missing attribute: engine systems check optional
+attributes of every entity every frame.
 
 **Attribute presets** (`attribute_presets()`, in `archetype.rs` next to the
 Physics template) are named sets of such attributes that turn on a feature,

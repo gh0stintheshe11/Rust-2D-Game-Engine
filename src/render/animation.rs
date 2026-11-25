@@ -117,11 +117,8 @@ pub fn advance_animations(scene: &mut Scene, dt: f32) -> Vec<String> {
 /// Write the `frame` attribute, keeping its type if it exists (the Inspector
 /// creates Float attributes by default).
 fn set_frame(entity: &mut Entity, frame: u32) {
-    let value = match entity
-        .get_attribute_by_name("frame")
-        .map(|attr| &attr.data_type)
-    {
-        Ok(AttributeType::Float) => AttributeValue::Float(frame as f32),
+    let value = match entity.attribute("frame").map(|attr| &attr.data_type) {
+        Some(AttributeType::Float) => AttributeValue::Float(frame as f32),
         _ => AttributeValue::Integer(frame.min(i32::MAX as u32) as i32),
     };
     let _ = entity.set_or_create_attribute("frame", value);

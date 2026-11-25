@@ -61,7 +61,7 @@ impl Entity {
         preset
             .attributes
             .iter()
-            .all(|(name, _)| self.get_attribute_by_name(name).is_ok())
+            .all(|(name, _)| self.attribute(name).is_some())
     }
 
     /// Add the attributes of `preset` the entity doesn't have yet, with the
@@ -72,7 +72,7 @@ impl Entity {
             .attributes
             .iter()
             .filter(|(name, value)| {
-                self.get_attribute_by_name(name).is_err()
+                self.attribute(name).is_none()
                     && self
                         .create_attribute(name, value.data_type(), value.clone())
                         .is_ok()

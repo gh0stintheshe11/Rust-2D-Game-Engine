@@ -171,7 +171,7 @@ impl Entity {
         if name.trim().is_empty() {
             return Err("Attribute name cannot be empty".to_string());
         }
-        if self.get_attribute_by_name(name).is_ok() {
+        if self.attribute(name).is_some() {
             return Err(format!("Attribute '{}' already exists", name));
         }
         value
@@ -249,7 +249,7 @@ impl Entity {
             if name.trim().is_empty() {
                 return Err("Attribute name cannot be empty".to_string());
             }
-            if self.get_attribute_by_name(name).is_ok() {
+            if self.attribute(name).is_some() {
                 return Err(format!("Attribute '{}' already exists", name));
             }
         }
@@ -274,18 +274,23 @@ impl Entity {
     }
 
     pub fn get_attribute_by_name(&self, name: &str) -> Result<&Attribute, String> {
-        self.attributes
-            .iter()
-            .find(|(_, attr)| attr.name == name)
-            .map(|(_, attr)| attr)
+        self.attribute(name)
             .ok_or_else(|| format!("Attribute '{}' not found", name))
+    }
+
+    /// The attribute with this name, if any. Unlike
+    /// [`get_attribute_by_name`](Self::get_attribute_by_name) it doesn't
+    /// build an error message, so looking up optional attributes every frame
+    /// costs no allocation.
+    pub fn attribute(&self, name: &str) -> Option<&Attribute> {
+        self.attributes.values().find(|attr| attr.name == name)
     }
 
     // Typed access to optional attributes, as engine systems read them:
     // None when the attribute is missing or holds another type.
 
     pub fn get_bool(&self, name: &str) -> Option<bool> {
-        match self.get_attribute_by_name(name).ok()?.value {
+        match self.attribute(name)?.value {
             AttributeValue::Boolean(value) => Some(value),
             _ => None,
         }
@@ -293,7 +298,7 @@ impl Entity {
 
     /// A Float attribute, or an Integer one converted.
     pub fn get_float(&self, name: &str) -> Option<f32> {
-        match self.get_attribute_by_name(name).ok()?.value {
+        match self.attribute(name)?.value {
             AttributeValue::Float(value) => Some(value),
             AttributeValue::Integer(value) => Some(value as f32),
             _ => None,
@@ -301,14 +306,14 @@ impl Entity {
     }
 
     pub fn get_string(&self, name: &str) -> Option<&str> {
-        match &self.get_attribute_by_name(name).ok()?.value {
+        match &self.attribute(name)?.value {
             AttributeValue::String(value) => Some(value),
             _ => None,
         }
     }
 
     pub fn get_vector2(&self, name: &str) -> Option<(f32, f32)> {
-        match self.get_attribute_by_name(name).ok()?.value {
+        match self.attribute(name)?.value {
             AttributeValue::Vector2(x, y) => Some((x, y)),
             _ => None,
         }
@@ -323,9 +328,9 @@ impl Entity {
         name: &str,
         value: AttributeValue,
     ) -> Result<(), String> {
-        match self.get_attribute_by_name(name).map(|attr| attr.id) {
-            Ok(id) => self.modify_attribute(id, None, None, Some(value)),
-            Err(_) => self
+        match self.attribute(name).map(|attr| attr.id) {
+            Some(id) => self.modify_attribute(id, None, None, Some(value)),
+            None => self
                 .create_attribute(name, value.data_type(), value)
                 .map(|_| ()),
         }
@@ -408,7 +413,7 @@ impl Entity {
 
     // Helper methods for position
     pub fn set_x(&mut self, x: f32) -> Result<(), String> {
-        if let Ok(attr) = self.get_attribute_by_name("x") {
+        if let Some(attr) = self.attribute("x") {
             self.modify_attribute(attr.id, None, None, Some(AttributeValue::Float(x)))?;
             Ok(())
         } else {
@@ -417,7 +422,7 @@ impl Entity {
     }
 
     pub fn set_y(&mut self, y: f32) -> Result<(), String> {
-        if let Ok(attr) = self.get_attribute_by_name("y") {
+        if let Some(attr) = self.attribute("y") {
             self.modify_attribute(attr.id, None, None, Some(AttributeValue::Float(y)))?;
             Ok(())
         } else {
@@ -426,7 +431,7 @@ impl Entity {
     }
 
     pub fn set_z(&mut self, z: f32) -> Result<(), String> {
-        if let Ok(attr) = self.get_attribute_by_name("z") {
+        if let Some(attr) = self.attribute("z") {
             self.modify_attribute(attr.id, None, None, Some(AttributeValue::Float(z)))?;
             Ok(())
         } else {
@@ -442,39 +447,24 @@ impl Entity {
     }
 
     pub fn get_x(&self) -> f32 {
-        self.get_attribute_by_name("x")
-            .and_then(|attr| {
-                if let AttributeValue::Float(x) = attr.value {
-                    Ok(x)
-                } else {
-                    Err("Attribute value is not a float".to_string())
-                }
-            })
-            .unwrap_or(0.0)
+        match self.attribute("x").map(|attr| &attr.value) {
+            Some(AttributeValue::Float(value)) => *value,
+            _ => 0.0,
+        }
     }
 
     pub fn get_y(&self) -> f32 {
-        self.get_attribute_by_name("y")
-            .and_then(|attr| {
-                if let AttributeValue::Float(y) = attr.value {
-                    Ok(y)
-                } else {
-                    Err("Attribute value is not a float".to_string())
-                }
-            })
-            .unwrap_or(0.0)
+        match self.attribute("y").map(|attr| &attr.value) {
+            Some(AttributeValue::Float(value)) => *value,
+            _ => 0.0,
+        }
     }
 
     pub fn get_z(&self) -> f32 {
-        self.get_attribute_by_name("z")
-            .and_then(|attr| {
-                if let AttributeValue::Float(z) = attr.value {
-                    Ok(z)
-                } else {
-                    Err("Attribute value is not a float".to_string())
-                }
-            })
-            .unwrap_or(0.0)
+        match self.attribute("z").map(|attr| &attr.value) {
+            Some(AttributeValue::Float(value)) => *value,
+            _ => 0.0,
+        }
     }
 
     pub fn get_position(&self) -> Result<(f32, f32, f32), String> {
@@ -483,56 +473,36 @@ impl Entity {
 
     // Camera attribute getters
     pub fn get_camera_width(&self) -> f32 {
-        self.get_attribute_by_name("width")
-            .and_then(|attr| {
-                if let AttributeValue::Float(w) = attr.value {
-                    Ok(w)
-                } else {
-                    Err("Attribute value is not a float".to_string())
-                }
-            })
-            .unwrap_or(800.0)
+        match self.attribute("width").map(|attr| &attr.value) {
+            Some(AttributeValue::Float(value)) => *value,
+            _ => 800.0,
+        }
     }
 
     pub fn get_camera_height(&self) -> f32 {
-        self.get_attribute_by_name("height")
-            .and_then(|attr| {
-                if let AttributeValue::Float(h) = attr.value {
-                    Ok(h)
-                } else {
-                    Err("Attribute value is not a float".to_string())
-                }
-            })
-            .unwrap_or(600.0)
+        match self.attribute("height").map(|attr| &attr.value) {
+            Some(AttributeValue::Float(value)) => *value,
+            _ => 600.0,
+        }
     }
 
     pub fn get_camera_zoom(&self) -> f32 {
-        self.get_attribute_by_name("zoom")
-            .and_then(|attr| {
-                if let AttributeValue::Float(z) = attr.value {
-                    Ok(z)
-                } else {
-                    Err("Attribute value is not a float".to_string())
-                }
-            })
-            .unwrap_or(1.0)
+        match self.attribute("zoom").map(|attr| &attr.value) {
+            Some(AttributeValue::Float(value)) => *value,
+            _ => 1.0,
+        }
     }
 
     pub fn get_camera_rotation(&self) -> f32 {
-        self.get_attribute_by_name("rotation")
-            .and_then(|attr| {
-                if let AttributeValue::Float(r) = attr.value {
-                    Ok(r)
-                } else {
-                    Err("Attribute value is not a float".to_string())
-                }
-            })
-            .unwrap_or(0.0)
+        match self.attribute("rotation").map(|attr| &attr.value) {
+            Some(AttributeValue::Float(value)) => *value,
+            _ => 0.0,
+        }
     }
 
     // Camera attribute setters
     pub fn set_camera_width(&mut self, width: f32) -> Result<(), String> {
-        if let Ok(attr) = self.get_attribute_by_name("width") {
+        if let Some(attr) = self.attribute("width") {
             self.modify_attribute(attr.id, None, None, Some(AttributeValue::Float(width)))?;
             Ok(())
         } else {
@@ -541,7 +511,7 @@ impl Entity {
     }
 
     pub fn set_camera_height(&mut self, height: f32) -> Result<(), String> {
-        if let Ok(attr) = self.get_attribute_by_name("height") {
+        if let Some(attr) = self.attribute("height") {
             self.modify_attribute(attr.id, None, None, Some(AttributeValue::Float(height)))?;
             Ok(())
         } else {
@@ -550,7 +520,7 @@ impl Entity {
     }
 
     pub fn set_camera_zoom(&mut self, zoom: f32) -> Result<(), String> {
-        if let Ok(attr) = self.get_attribute_by_name("zoom") {
+        if let Some(attr) = self.attribute("zoom") {
             self.modify_attribute(attr.id, None, None, Some(AttributeValue::Float(zoom)))?;
             Ok(())
         } else {
@@ -559,7 +529,7 @@ impl Entity {
     }
 
     pub fn set_camera_rotation(&mut self, rotation: f32) -> Result<(), String> {
-        if let Ok(attr) = self.get_attribute_by_name("rotation") {
+        if let Some(attr) = self.attribute("rotation") {
             self.modify_attribute(attr.id, None, None, Some(AttributeValue::Float(rotation)))?;
             Ok(())
         } else {
@@ -574,14 +544,9 @@ impl Entity {
     }
 
     pub fn is_camera(&self) -> bool {
-        self.get_attribute_by_name("is_camera")
-            .and_then(|attr| {
-                if let AttributeValue::Boolean(is_cam) = attr.value {
-                    Ok(is_cam)
-                } else {
-                    Err("Attribute value is not a boolean".to_string())
-                }
-            })
-            .unwrap_or(false)
+        match self.attribute("is_camera").map(|attr| &attr.value) {
+            Some(AttributeValue::Boolean(value)) => *value,
+            _ => false,
+        }
     }
 }
