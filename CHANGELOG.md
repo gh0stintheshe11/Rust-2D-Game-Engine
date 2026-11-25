@@ -45,6 +45,9 @@ versions may contain breaking changes).
   world, triggers from 0 to 1), on any pad or on pad n, and count pads with
   `get_gamepad_count`. `GameRuntime::queue_gamepad_events` feeds gamepad
   events, e.g. from tests.
+- `get_velocity(entity_id)` returns a body's velocity to scripts, so they
+  can change one direction and keep the other (a platformer's run speed
+  under gravity).
 - Scripts see releases and mouse clicks: `is_key_just_released`,
   `is_mouse_just_pressed` and `is_mouse_just_released`.
 - `get_mouse_screen_position()` returns the pointer in the camera frame's

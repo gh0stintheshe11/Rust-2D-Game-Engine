@@ -79,6 +79,7 @@ Physics:
 | Function | Notes |
 |---|---|
 | `set_velocity(entity_id, x, y)` | Entity must have a physics body |
+| `get_velocity(entity_id)` | `vx, vy` of the entity's physics body, px/s (+y is down): e.g. to set the horizontal speed and keep the vertical one |
 | `apply_force(entity_id, x, y)` | Pushes for the current frame; call it every frame for a continuous force (independent of the frame rate) |
 | `apply_impulse(entity_id, x, y)` | Instant change of momentum |
 | `set_angular_velocity(entity_id, radians_per_second)` | Positive spins clockwise on screen; the body needs `can_rotate` |

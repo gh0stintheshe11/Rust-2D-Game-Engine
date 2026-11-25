@@ -2087,4 +2087,37 @@ mod session_tests {
             .unwrap();
         assert_eq!(failures, vec![false; 3]);
     }
+
+    #[test]
+    fn test_get_velocity() {
+        let session = setup("get_velocity");
+        let body = {
+            let mut manager = session.scene_manager.borrow_mut();
+            let scene = manager.get_scene_mut(session.scene_id).unwrap();
+            let props = rust_2d_game_engine::scene::PhysicsProperties {
+                is_movable: true,
+                ..Default::default()
+            };
+            let body = scene
+                .create_physical_entity("mover", (0.0, 0.0, 0.0), props)
+                .unwrap();
+            session
+                .physics
+                .borrow_mut()
+                .add_entity(scene.get_entity(body).unwrap());
+            body
+        };
+        let lua = session.lua.lua();
+        lua.globals().set("BODY", body.to_string()).unwrap();
+        let (vx, vy): (f32, f32) = lua
+            .load("set_velocity(BODY, 30, -40) return get_velocity(BODY)")
+            .eval()
+            .unwrap();
+        assert_eq!((vx, vy), (30.0, -40.0));
+        let missing: bool = lua
+            .load(r#"return (pcall(get_velocity, "00000000-0000-0000-0000-000000000000"))"#)
+            .eval()
+            .unwrap();
+        assert!(!missing);
+    }
 }

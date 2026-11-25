@@ -30,6 +30,17 @@ impl LuaScripting {
                 })?;
         globals.set("set_velocity", set_velocity)?;
 
+        // get_velocity(entity_id) -> vx, vy: the body's velocity, px/s (+y
+        // is down), e.g. to change one direction and keep the other
+        let physics = Rc::clone(physics_engine);
+        let get_velocity = self.lua.create_function(move |_, entity_id: String| {
+            let uuid = parse_uuid(&entity_id, "entity")?;
+            physics.borrow().get_velocity(uuid).ok_or_else(|| {
+                mlua::Error::external(format!("Entity '{}' not found in physics engine", uuid))
+            })
+        })?;
+        globals.set("get_velocity", get_velocity)?;
+
         let physics = Rc::clone(physics_engine);
         let apply_force =
             self.lua

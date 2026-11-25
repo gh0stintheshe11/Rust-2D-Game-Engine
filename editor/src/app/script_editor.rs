@@ -103,6 +103,11 @@ const API_GROUPS: &[(&str, &[ApiEntry])] = &[
                 "Set the entity's velocity (+y is down)",
             ),
             (
+                "get_velocity",
+                "local vx, vy = get_velocity(entity_id)",
+                "The body's velocity, px/s (+y is down)",
+            ),
+            (
                 "apply_force",
                 "apply_force(entity_id, 0.0, 0.0)",
                 "Push for this frame; call every frame for a continuous force",
