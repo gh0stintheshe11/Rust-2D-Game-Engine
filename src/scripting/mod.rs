@@ -17,7 +17,7 @@ use crate::logger::LOGGER;
 use crate::physics::PhysicsEngine;
 use crate::render::HudText;
 use crate::save::SaveData;
-use crate::scene::SceneManager;
+use crate::scene::{Scene, SceneManager};
 
 mod audio_bindings;
 mod input_bindings;
@@ -103,6 +103,33 @@ enum InitState {
     Failed(PathBuf),
 }
 
+/// A scene's scripted entities, grouped by script file: `files` lists each
+/// file once, and `entities` pairs every scripted entity with its file's
+/// index, so per-file work happens once.
+struct ScriptedEntities {
+    files: Vec<PathBuf>,
+    entities: Vec<(Uuid, usize)>,
+}
+
+impl ScriptedEntities {
+    fn of(scene: &Scene) -> Self {
+        let mut files: Vec<PathBuf> = Vec::new();
+        let mut index: HashMap<&Path, usize> = HashMap::new();
+        let mut entities = Vec::with_capacity(scene.entities.len());
+        for (id, entity) in &scene.entities {
+            let Some(path) = entity.script.as_deref() else {
+                continue;
+            };
+            let file = *index.entry(path).or_insert_with(|| {
+                files.push(path.to_path_buf());
+                files.len() - 1
+            });
+            entities.push((*id, file));
+        }
+        Self { files, entities }
+    }
+}
+
 /// Lua scripting engine.
 ///
 /// - [`start_session`](Self::start_session) is called when the game starts
@@ -135,6 +162,9 @@ pub struct LuaScripting {
     hud: Rc<RefCell<Vec<HudText>>>,
     // What save_data / load_data read and write (see set_save_data)
     save_data: Rc<RefCell<SaveData>>,
+    // Entity and scene ids as Lua strings, for hook arguments: creating
+    // them for every call costs far more than the calls themselves
+    id_strings: HashMap<Uuid, mlua::LuaString>,
     // When the running script call must be aborted (see SCRIPT_TIME_LIMIT)
     deadline: Rc<Cell<Option<Instant>>>,
 }
@@ -182,6 +212,7 @@ impl LuaScripting {
             scene_change_request: Rc::new(Cell::new(None)),
             hud: Rc::new(RefCell::new(Vec::new())),
             save_data: Rc::new(RefCell::new(SaveData::in_memory())),
+            id_strings: HashMap::new(),
             deadline: Rc::new(Cell::new(None)),
         }
     }
@@ -215,6 +246,7 @@ impl LuaScripting {
         audio_engine: Rc<RefCell<AudioEngine>>,
     ) -> Result<(), mlua::Error> {
         self.lua = self.new_sandboxed_vm()?;
+        self.id_strings.clear();
         self.scripts.clear();
         self.init_states.clear();
         self.previous_contacts.clear();
@@ -314,6 +346,7 @@ impl LuaScripting {
     pub fn begin_scene(&mut self) {
         self.init_states.clear();
         self.previous_contacts.clear();
+        self.id_strings.clear();
         self.hud.borrow_mut().clear();
     }
 
@@ -351,49 +384,52 @@ impl LuaScripting {
             .clone()
             .ok_or_else(|| "Lua session not started".to_string())?;
 
-        // Snapshot (entity, script) pairs without holding a borrow while
+        // Snapshot the scripted entities without holding a borrow while
         // scripts run - scripts may mutate the scene through bindings.
-        let scripts: Vec<(Uuid, PathBuf)> = {
+        let ScriptedEntities { files, entities } = {
             let manager = scene_manager.borrow();
             let scene = manager
                 .get_scene(active_scene_id)
                 .ok_or_else(|| "Active scene not found.".to_string())?;
             // Forget per-entity state of entities that no longer exist
-            self.init_states
-                .retain(|id, _| scene.entities.contains_key(id));
-            self.previous_contacts
-                .retain(|id, _| scene.entities.contains_key(id));
-            scene
-                .entities
-                .iter()
-                .filter_map(|(id, entity)| entity.script.clone().map(|path| (*id, path)))
-                .collect()
+            let exists = |id: &Uuid| scene.entities.contains_key(id);
+            self.init_states.retain(|id, _| exists(id));
+            self.previous_contacts.retain(|id, _| exists(id));
+            self.id_strings
+                .retain(|id, _| *id == active_scene_id || exists(id));
+            ScriptedEntities::of(scene)
         };
 
         // Each file is checked for changes once per frame
-        let mut checked: HashSet<PathBuf> = HashSet::new();
-        for (entity_id, script_path) in scripts {
+        let scripts: Vec<Option<CompiledScript>> = files
+            .iter()
+            .map(|path| {
+                self.refresh_script(path);
+                self.usable_script(path)
+            })
+            .collect();
+        let scene_arg = self.lua_id(active_scene_id).map_err(|e| e.to_string())?;
+
+        for (entity_id, file) in entities {
+            let Some(script) = &scripts[file] else {
+                continue;
+            };
             // The entity may have been removed by a script earlier this frame
             if !entity_exists(&scene_manager, active_scene_id, entity_id) {
                 continue;
             }
-
-            if checked.insert(script_path.clone()) {
-                self.refresh_script(&script_path);
-            }
-            let Some(script) = self.usable_script(&script_path) else {
-                continue;
-            };
-            if !self.ensure_initialized(entity_id, &script_path, &script, active_scene_id) {
+            if !self.ensure_initialized(entity_id, &files[file], script, active_scene_id) {
                 continue;
             }
             if let Some(update_fn) = &script.update_fn {
-                let args = (active_scene_id.to_string(), entity_id.to_string());
-                if let Err(e) = self.with_time_limit(|| update_fn.call::<()>(args)) {
+                let entity_arg = self.lua_id(entity_id).map_err(|e| e.to_string())?;
+                let result =
+                    self.with_time_limit(|| update_fn.call::<()>((&scene_arg, &entity_arg)));
+                if let Err(e) = result {
                     LOGGER.error(format!(
                         "Script update() error for entity {} ({}): {}",
                         entity_id,
-                        script_path.display(),
+                        files[file].display(),
                         e
                     ));
                 }
@@ -401,6 +437,16 @@ impl LuaScripting {
         }
 
         Ok(())
+    }
+
+    /// An entity or scene id as a Lua string, cached for the scene.
+    fn lua_id(&mut self, id: Uuid) -> mlua::Result<mlua::LuaString> {
+        if let Some(string) = self.id_strings.get(&id) {
+            return Ok(string.clone());
+        }
+        let string = self.lua.create_string(id.to_string())?;
+        self.id_strings.insert(id, string.clone());
+        Ok(string)
     }
 
     /// Fire `on_collision(scene_id, entity_id, other_id)` for every contact a
@@ -417,38 +463,48 @@ impl LuaScripting {
             .clone()
             .ok_or_else(|| "Lua session not started".to_string())?;
 
-        // Snapshot scripted entities and their current contacts up front
-        let contacts: Vec<(Uuid, PathBuf, HashSet<Uuid>)> = {
+        // Scripts are (re)loaded by the update pass; use what's loaded. Only
+        // entities whose script has a collision hook track their contacts.
+        let ScriptedEntities { files, entities } = {
             let manager = scene_manager.borrow();
             let Some(scene) = manager.get_scene(active_scene_id) else {
                 return Ok(());
             };
+            ScriptedEntities::of(scene)
+        };
+        let scripts: Vec<Option<CompiledScript>> = files
+            .iter()
+            .map(|path| {
+                self.usable_script(path).filter(|script| {
+                    script.on_collision_fn.is_some() || script.on_collision_end_fn.is_some()
+                })
+            })
+            .collect();
+        // Their contacts, read up front
+        let contacts: Vec<(Uuid, usize, HashSet<Uuid>)> = {
             let physics = physics.borrow();
-            scene
-                .entities
-                .iter()
-                .filter_map(|(id, entity)| {
-                    let path = entity.script.clone()?;
-                    let current: HashSet<Uuid> =
-                        physics.get_colliding_entities(*id).into_iter().collect();
-                    Some((*id, path, current))
+            entities
+                .into_iter()
+                .filter(|(_, file)| scripts[*file].is_some())
+                .map(|(id, file)| {
+                    let current = physics.get_colliding_entities(id).into_iter().collect();
+                    (id, file, current)
                 })
                 .collect()
         };
 
-        for (entity_id, script_path, current) in contacts {
+        for (entity_id, file, current) in contacts {
             let previous = self
                 .previous_contacts
-                .insert(entity_id, current.clone())
+                .remove(&entity_id)
                 .unwrap_or_default();
             let started: Vec<Uuid> = current.difference(&previous).copied().collect();
             let ended: Vec<Uuid> = previous.difference(&current).copied().collect();
+            self.previous_contacts.insert(entity_id, current);
             if started.is_empty() && ended.is_empty() {
                 continue;
             }
-
-            // Scripts are (re)loaded by the update pass; use what's loaded
-            let Some(script) = self.usable_script(&script_path) else {
+            let (Some(script), script_path) = (&scripts[file], &files[file]) else {
                 continue;
             };
             // Contacts that ended first, so leaving one zone comes before
@@ -477,15 +533,17 @@ impl LuaScripting {
                         continue;
                     }
                     // Hooks always see an initialized entity
-                    if !self.ensure_initialized(entity_id, &script_path, &script, active_scene_id) {
+                    if !self.ensure_initialized(entity_id, script_path, script, active_scene_id) {
                         break;
                     }
-                    let args = (
-                        active_scene_id.to_string(),
-                        entity_id.to_string(),
-                        other_id.to_string(),
-                    );
-                    if let Err(e) = self.with_time_limit(|| hook.call::<()>(args)) {
+                    let args = self.lua_id(active_scene_id).and_then(|scene| {
+                        let entity = self.lua_id(entity_id)?;
+                        Ok((scene, entity, self.lua_id(other_id)?))
+                    });
+                    let result = args.and_then(|(scene, entity, other)| {
+                        self.with_time_limit(|| hook.call::<()>((&scene, &entity, &other)))
+                    });
+                    if let Err(e) = result {
                         LOGGER.error(format!(
                             "Script {}() error for entity {} ({}): {}",
                             hook_name,
@@ -517,8 +575,13 @@ impl LuaScripting {
         }
         let succeeded = match &script.init_fn {
             Some(init_fn) => {
-                let args = (scene_id.to_string(), entity_id.to_string());
-                match self.with_time_limit(|| init_fn.call::<()>(args)) {
+                let args = self
+                    .lua_id(scene_id)
+                    .and_then(|scene| self.lua_id(entity_id).map(|entity| (scene, entity)));
+                let result = args.and_then(|(scene, entity)| {
+                    self.with_time_limit(|| init_fn.call::<()>((&scene, &entity)))
+                });
+                match result {
                     Ok(()) => true,
                     Err(e) => {
                         LOGGER.error(format!(
