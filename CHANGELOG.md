@@ -45,6 +45,10 @@ versions may contain breaking changes).
   world, triggers from 0 to 1), on any pad or on pad n, and count pads with
   `get_gamepad_count`. `GameRuntime::queue_gamepad_events` feeds gamepad
   events, e.g. from tests.
+- Hilltop Hop, a second demo game: a platformer on a tilemap level with
+  one-way platforms, breakable bricks, spikes, gems, checkpoints, particles,
+  a title menu and HUD made with the game UI functions, and gamepad support
+  (`demo/hilltop_hop`, `cargo run -p hilltop_hop`).
 - `get_velocity(entity_id)` returns a body's velocity to scripts, so they
   can change one direction and keep the other (a platformer's run speed
   under gravity).

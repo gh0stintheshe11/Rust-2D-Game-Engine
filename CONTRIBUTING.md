@@ -17,7 +17,7 @@ You need the Rust toolchain (1.95 or newer, see `rust-version` in
 
 ```bash
 cargo run                       # the editor
-cargo run -p star_catcher       # the demo game, standalone
+cargo run -p hilltop_hop        # a demo game, standalone (also star_catcher)
 cargo test --workspace          # all tests; headless, no window or audio needed
 cargo bench --bench frame       # frame times for scenes of 100 to 2000 entities
 ```
@@ -28,7 +28,7 @@ keep `cargo bench --bench frame` at least as fast; it runs headless, and
 "sprites".
 
 The repository is a cargo workspace: the engine library at the root (`src/`,
-`tests/`), the editor in `editor/`, the demo game in `demo/star_catcher/`.
+`tests/`), the editor in `editor/`, the demo games in `demo/`.
 [docs/](docs/README.md) has a design document per module; start there.
 
 ## Making a change

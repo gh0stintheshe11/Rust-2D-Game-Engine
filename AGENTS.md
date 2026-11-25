@@ -16,7 +16,7 @@ Cargo workspace:
 | `src/` | Engine library `rust-2d-game-engine` (crate `rust_2d_game_engine`): `scene`, `physics`, `render`, `scripting`, `audio`, `input`, `runtime`, `player`, `project`, `logger` |
 | `tests/` | Engine integration tests; headless (no window or audio device needed) |
 | `editor/` | Editor binary `rust-2d-game-editor`: app shell, panels, menus, project scaffolding/build |
-| `demo/star_catcher/` | Demo game (a workspace member), also played by `tests/demo_integration_test.rs` |
+| `demo/star_catcher/`, `demo/hilltop_hop/` | Demo games (workspace members), also played by `tests/demo_integration_test.rs` and `tests/hilltop_hop_test.rs` |
 | `docs/` | One design doc per module; `docs/README.md` is the index; `docs/archive/` holds historical course documents (don't update them) |
 
 Exported games depend on the engine crate only; a game's `main.rs` is a

@@ -1,5 +1,5 @@
 [workspace]
-members = ["editor", "demo/star_catcher"]
+members = ["editor", "demo/star_catcher", "demo/hilltop_hop"]
 # `cargo run` / `cargo test` at the root cover the engine and the editor;
 # the demo is built and linted with `--workspace`
 default-members = [".", "editor"]

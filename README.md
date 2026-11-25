@@ -44,15 +44,22 @@ Building games from the editor needs the Rust toolchain
 On WSLg, if the window loses its connection (`Broken pipe`) after a while, run
 through X11 instead: `WAYLAND_DISPLAY= cargo run --release`.
 
-### Try the demo
+### Try the demos
 
-[Star Catcher](demo/star_catcher/) is a small game made with the engine: catch
-the falling stars, dodge the rocks.
+Two small games made with the engine:
 
-![Star Catcher](docs/images/star_catcher.png)
+- [Hilltop Hop](demo/hilltop_hop/), a platformer: run and jump across a
+  tilemap level, collect the gems and reach the flag. It shows one-way
+  platforms, breakable bricks, particles, a gamepad, and a menu and HUD made
+  with the game UI functions.
+- [Star Catcher](demo/star_catcher/): catch the falling stars, dodge the
+  rocks.
 
-- In the editor: **File → Open Project** → `demo/star_catcher`, then **▶ Play**.
-- Standalone: `cargo run -p star_catcher`.
+![Hilltop Hop](docs/images/hilltop_hop.png)
+
+- In the editor: **File → Open Project** → `demo/hilltop_hop` (or
+  `demo/star_catcher`), then **▶ Play**.
+- Standalone: `cargo run -p hilltop_hop` (or `-p star_catcher`).
 
 ### Make your own game
 
@@ -90,7 +97,7 @@ for the editor.
 |---|---|
 | `src/` | The engine library (`rust-2d-game-engine`), linked into every game |
 | `editor/` | The editor application (`rust-2d-game-editor`) |
-| `demo/star_catcher/` | The demo game |
+| `demo/` | The demo games: `hilltop_hop/`, `star_catcher/` |
 | `docs/` | Module documentation |
 | `tests/` | Engine integration tests |
 

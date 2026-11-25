@@ -1,0 +1,3810 @@
+{
+  "scenes": {
+    "79080f1b-6c6a-490f-9f69-c2c875fbe7e8": {
+      "id": "79080f1b-6c6a-490f-9f69-c2c875fbe7e8",
+      "name": "title",
+      "entities": {
+        "f00fae3d-8a69-4c7f-b68e-a89f007ca1d3": {
+          "id": "f00fae3d-8a69-4c7f-b68e-a89f007ca1d3",
+          "name": "main_camera",
+          "attributes": {
+            "4a0951bb-deb8-4ed6-85b5-ef0e114483f9": {
+              "id": "4a0951bb-deb8-4ed6-85b5-ef0e114483f9",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 480.0
+              }
+            },
+            "ee81ab70-337d-430b-8a32-267a4becc7d5": {
+              "id": "ee81ab70-337d-430b-8a32-267a4becc7d5",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 270.0
+              }
+            },
+            "b36ade33-cf79-4f62-8d71-bec3fbb27fdf": {
+              "id": "b36ade33-cf79-4f62-8d71-bec3fbb27fdf",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "398410e3-6fc5-4c74-b880-bb92eab93cac": {
+              "id": "398410e3-6fc5-4c74-b880-bb92eab93cac",
+              "name": "width",
+              "data_type": "Float",
+              "value": {
+                "Float": 960.0
+              }
+            },
+            "7bbd240f-8305-4a0d-95d9-28461f8cb839": {
+              "id": "7bbd240f-8305-4a0d-95d9-28461f8cb839",
+              "name": "height",
+              "data_type": "Float",
+              "value": {
+                "Float": 540.0
+              }
+            },
+            "6dae7fa1-7025-408f-b025-58f84935a55c": {
+              "id": "6dae7fa1-7025-408f-b025-58f84935a55c",
+              "name": "zoom",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "0a79fa23-c691-4716-bdde-00d538faaaa9": {
+              "id": "0a79fa23-c691-4716-bdde-00d538faaaa9",
+              "name": "rotation",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "12bf5348-e223-491a-b40c-6a6c714449f0": {
+              "id": "12bf5348-e223-491a-b40c-6a6c714449f0",
+              "name": "is_camera",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            }
+          },
+          "images": [],
+          "sounds": [],
+          "script": null
+        },
+        "2d93ec66-9715-412f-ab4e-41e3056db92e": {
+          "id": "2d93ec66-9715-412f-ab4e-41e3056db92e",
+          "name": "sky",
+          "attributes": {
+            "675712fe-ffa7-42b4-83dc-29978276bbed": {
+              "id": "675712fe-ffa7-42b4-83dc-29978276bbed",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "0c2997bb-80b2-44e2-b930-1117aacc2d07": {
+              "id": "0c2997bb-80b2-44e2-b930-1117aacc2d07",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "b362835a-1f04-4e14-8bda-23d9ef6bc92b": {
+              "id": "b362835a-1f04-4e14-8bda-23d9ef6bc92b",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": -20.0
+              }
+            }
+          },
+          "images": [
+            "assets/images/sky.png"
+          ],
+          "sounds": [],
+          "script": null
+        },
+        "ed8a97ac-7805-485d-8f11-7477988cf39a": {
+          "id": "ed8a97ac-7805-485d-8f11-7477988cf39a",
+          "name": "hills",
+          "attributes": {
+            "b2098008-2953-491a-b54c-f8462ea84bc8": {
+              "id": "b2098008-2953-491a-b54c-f8462ea84bc8",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "968bea7d-1c5f-4117-9b41-70e1ba0f061f": {
+              "id": "968bea7d-1c5f-4117-9b41-70e1ba0f061f",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 240.0
+              }
+            },
+            "384b8236-0b57-400d-9015-67b090989c5b": {
+              "id": "384b8236-0b57-400d-9015-67b090989c5b",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": -19.0
+              }
+            }
+          },
+          "images": [
+            "assets/images/hills.png"
+          ],
+          "sounds": [],
+          "script": null
+        },
+        "5853bdb0-b72b-406e-87eb-0216413106f2": {
+          "id": "5853bdb0-b72b-406e-87eb-0216413106f2",
+          "name": "ground",
+          "attributes": {
+            "2f8b25f5-4e79-4cf5-8e2b-f229667d7e8c": {
+              "id": "2f8b25f5-4e79-4cf5-8e2b-f229667d7e8c",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "eb07bc23-a83d-43e0-905d-5683a7769818": {
+              "id": "eb07bc23-a83d-43e0-905d-5683a7769818",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "2c42786a-fce4-4c7c-bf1b-7f0310428455": {
+              "id": "2c42786a-fce4-4c7c-bf1b-7f0310428455",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            }
+          },
+          "images": [],
+          "sounds": [],
+          "script": null,
+          "tilemap": {
+            "tileset": "assets/images/tiles.png",
+            "tile_size": [
+              32,
+              32
+            ],
+            "collision": {
+              "4": "one_way",
+              "5": "passable",
+              "6": "passable",
+              "7": "passable"
+            },
+            "origin": [
+              0,
+              12
+            ],
+            "rows": [
+              ". 5 . . 6 . . . 7 . . . . 5 . . . . . 6 . . . 7 . . . 5 . .",
+              "0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0",
+              "1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1",
+              "1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1",
+              "1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1"
+            ]
+          }
+        },
+        "ee48b2ca-0b2f-4ef5-a347-e33516430b5a": {
+          "id": "ee48b2ca-0b2f-4ef5-a347-e33516430b5a",
+          "name": "pollen",
+          "attributes": {
+            "74414037-8d9f-4e32-b0ed-34a2068db1ac": {
+              "id": "74414037-8d9f-4e32-b0ed-34a2068db1ac",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "fff4644d-bceb-46ab-aa62-526ec8bf21b4": {
+              "id": "fff4644d-bceb-46ab-aa62-526ec8bf21b4",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 40.0
+              }
+            },
+            "728fef84-9769-4879-9754-cb13c30832f5": {
+              "id": "728fef84-9769-4879-9754-cb13c30832f5",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.8
+              }
+            },
+            "0588a1cf-a5c0-4868-ba2d-1ccd5e9de6ca": {
+              "id": "0588a1cf-a5c0-4868-ba2d-1ccd5e9de6ca",
+              "name": "particle_rate",
+              "data_type": "Float",
+              "value": {
+                "Float": 3.0
+              }
+            },
+            "eb223a4a-7cb7-40ce-ba81-d2d09bbc951e": {
+              "id": "eb223a4a-7cb7-40ce-ba81-d2d09bbc951e",
+              "name": "particle_lifetime",
+              "data_type": "Float",
+              "value": {
+                "Float": 6.0
+              }
+            },
+            "a767f2d9-7eba-4db1-96bc-f1fb7efaef01": {
+              "id": "a767f2d9-7eba-4db1-96bc-f1fb7efaef01",
+              "name": "particle_velocity",
+              "data_type": "Vector2",
+              "value": {
+                "Vector2": [
+                  14.0,
+                  -8.0
+                ]
+              }
+            },
+            "3c06f4ef-c7e3-4f38-ae4a-643057002242": {
+              "id": "3c06f4ef-c7e3-4f38-ae4a-643057002242",
+              "name": "particle_spread",
+              "data_type": "Float",
+              "value": {
+                "Float": 90.0
+              }
+            },
+            "71073b21-a0a2-461b-8538-b16831c79f4b": {
+              "id": "71073b21-a0a2-461b-8538-b16831c79f4b",
+              "name": "particle_variation",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.6
+              }
+            },
+            "aa9c980d-178d-4c64-926f-2cc41b86af65": {
+              "id": "aa9c980d-178d-4c64-926f-2cc41b86af65",
+              "name": "particle_gravity",
+              "data_type": "Vector2",
+              "value": {
+                "Vector2": [
+                  0.0,
+                  0.0
+                ]
+              }
+            },
+            "b232d3f0-4b9d-46f9-a159-09440fce826f": {
+              "id": "b232d3f0-4b9d-46f9-a159-09440fce826f",
+              "name": "particle_size",
+              "data_type": "Float",
+              "value": {
+                "Float": 7.0
+              }
+            },
+            "3dcb4837-6e9c-4fff-b29d-de3f26be11f8": {
+              "id": "3dcb4837-6e9c-4fff-b29d-de3f26be11f8",
+              "name": "particle_end_size",
+              "data_type": "Float",
+              "value": {
+                "Float": 4.0
+              }
+            },
+            "541cb15f-75c8-4fbb-ab02-6a90eb9072c1": {
+              "id": "541cb15f-75c8-4fbb-ab02-6a90eb9072c1",
+              "name": "particle_color",
+              "data_type": "String",
+              "value": {
+                "String": "#fffce4eb"
+              }
+            },
+            "7c3ea48b-3da3-40d4-b56a-d5651b38f20e": {
+              "id": "7c3ea48b-3da3-40d4-b56a-d5651b38f20e",
+              "name": "particle_end_color",
+              "data_type": "String",
+              "value": {
+                "String": "#ffecaa00"
+              }
+            },
+            "ce788ca6-398d-4d8b-86f7-c8b818a19043": {
+              "id": "ce788ca6-398d-4d8b-86f7-c8b818a19043",
+              "name": "particle_area",
+              "data_type": "Vector2",
+              "value": {
+                "Vector2": [
+                  960.0,
+                  320.0
+                ]
+              }
+            }
+          },
+          "images": [],
+          "sounds": [],
+          "script": null
+        },
+        "02f4d1ce-0172-4811-bbe0-e8514a3560ed": {
+          "id": "02f4d1ce-0172-4811-bbe0-e8514a3560ed",
+          "name": "hero",
+          "attributes": {
+            "80a78825-c014-48c3-bdc6-6ab0ef853ce2": {
+              "id": "80a78825-c014-48c3-bdc6-6ab0ef853ce2",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 110.0
+              }
+            },
+            "f1f470c3-2058-4ccd-b938-a41bf2223144": {
+              "id": "f1f470c3-2058-4ccd-b938-a41bf2223144",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 290.0
+              }
+            },
+            "c1bb67f6-4734-4aff-984d-f4f0049050a8": {
+              "id": "c1bb67f6-4734-4aff-984d-f4f0049050a8",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "0dcbfb96-18c7-43bf-b516-b19922cd4306": {
+              "id": "0dcbfb96-18c7-43bf-b516-b19922cd4306",
+              "name": "frame_size",
+              "data_type": "Vector2",
+              "value": {
+                "Vector2": [
+                  28.0,
+                  42.0
+                ]
+              }
+            },
+            "8a7ee99a-be42-4552-95c2-2f9b896557f5": {
+              "id": "8a7ee99a-be42-4552-95c2-2f9b896557f5",
+              "name": "frame",
+              "data_type": "Integer",
+              "value": {
+                "Integer": 0
+              }
+            },
+            "0e377b20-cacc-4068-8f9e-ab84f61d78e1": {
+              "id": "0e377b20-cacc-4068-8f9e-ab84f61d78e1",
+              "name": "scale",
+              "data_type": "Vector2",
+              "value": {
+                "Vector2": [
+                  3.0,
+                  3.0
+                ]
+              }
+            },
+            "3068ef68-5a42-41d9-8a57-3319abea7641": {
+              "id": "3068ef68-5a42-41d9-8a57-3319abea7641",
+              "name": "animation",
+              "data_type": "String",
+              "value": {
+                "String": "0,0,0,0,1"
+              }
+            },
+            "b864b048-87d4-4c70-b9cd-ed9a2d659e1c": {
+              "id": "b864b048-87d4-4c70-b9cd-ed9a2d659e1c",
+              "name": "animation_fps",
+              "data_type": "Float",
+              "value": {
+                "Float": 3.0
+              }
+            },
+            "d82a9747-a76e-47ef-bb85-e827674add6a": {
+              "id": "d82a9747-a76e-47ef-bb85-e827674add6a",
+              "name": "animation_loop",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            }
+          },
+          "images": [
+            "assets/images/player.png"
+          ],
+          "sounds": [],
+          "script": null
+        },
+        "92898a64-3182-4eb0-94d3-1002ab1e2f5c": {
+          "id": "92898a64-3182-4eb0-94d3-1002ab1e2f5c",
+          "name": "gem",
+          "attributes": {
+            "e034166f-caa9-4538-a739-741e54548e2f": {
+              "id": "e034166f-caa9-4538-a739-741e54548e2f",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 760.0
+              }
+            },
+            "8d60e67c-84fe-416b-ad55-73a06475713c": {
+              "id": "8d60e67c-84fe-416b-ad55-73a06475713c",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 330.0
+              }
+            },
+            "e059c5e7-bd17-4139-b32c-53761443dcad": {
+              "id": "e059c5e7-bd17-4139-b32c-53761443dcad",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "ac910196-ebb2-40a8-b561-3d9298dc7a77": {
+              "id": "ac910196-ebb2-40a8-b561-3d9298dc7a77",
+              "name": "scale",
+              "data_type": "Vector2",
+              "value": {
+                "Vector2": [
+                  2.0,
+                  2.0
+                ]
+              }
+            }
+          },
+          "images": [
+            "assets/images/gem.png"
+          ],
+          "sounds": [],
+          "script": "assets/scripts/gem.lua"
+        },
+        "3f3efd5e-945e-4268-b77c-cf63f47fbf58": {
+          "id": "3f3efd5e-945e-4268-b77c-cf63f47fbf58",
+          "name": "gem",
+          "attributes": {
+            "5e6d2b07-b053-410e-a242-7796e106186c": {
+              "id": "5e6d2b07-b053-410e-a242-7796e106186c",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 820.0
+              }
+            },
+            "cf6a4f25-17c4-4563-bba8-5575ce4eb6a7": {
+              "id": "cf6a4f25-17c4-4563-bba8-5575ce4eb6a7",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 290.0
+              }
+            },
+            "29701762-292c-4d81-b561-ff546f70947e": {
+              "id": "29701762-292c-4d81-b561-ff546f70947e",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "e76c1502-39b5-4953-8387-628f74747eb4": {
+              "id": "e76c1502-39b5-4953-8387-628f74747eb4",
+              "name": "scale",
+              "data_type": "Vector2",
+              "value": {
+                "Vector2": [
+                  2.0,
+                  2.0
+                ]
+              }
+            }
+          },
+          "images": [
+            "assets/images/gem.png"
+          ],
+          "sounds": [],
+          "script": "assets/scripts/gem.lua"
+        },
+        "dbaef9e1-825c-4b30-a144-e3c899ec3ba6": {
+          "id": "dbaef9e1-825c-4b30-a144-e3c899ec3ba6",
+          "name": "gem",
+          "attributes": {
+            "d496bee8-6259-46ce-9f4b-ac2e5b880eee": {
+              "id": "d496bee8-6259-46ce-9f4b-ac2e5b880eee",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 700.0
+              }
+            },
+            "46cd4bb6-0941-451c-9a0e-298f581ea15d": {
+              "id": "46cd4bb6-0941-451c-9a0e-298f581ea15d",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 300.0
+              }
+            },
+            "bfb553bf-2540-4ee3-b9e0-115dbe6ba20e": {
+              "id": "bfb553bf-2540-4ee3-b9e0-115dbe6ba20e",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "75de1b2a-0290-4147-a8eb-deaf1597bb14": {
+              "id": "75de1b2a-0290-4147-a8eb-deaf1597bb14",
+              "name": "scale",
+              "data_type": "Vector2",
+              "value": {
+                "Vector2": [
+                  2.0,
+                  2.0
+                ]
+              }
+            }
+          },
+          "images": [
+            "assets/images/gem.png"
+          ],
+          "sounds": [],
+          "script": "assets/scripts/gem.lua"
+        },
+        "4124cf5b-5bb5-4283-a3b9-ca1ba82a0c32": {
+          "id": "4124cf5b-5bb5-4283-a3b9-ca1ba82a0c32",
+          "name": "title",
+          "attributes": {
+            "ad9586c4-1e26-46fc-85d3-b0b244be2f47": {
+              "id": "ad9586c4-1e26-46fc-85d3-b0b244be2f47",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "1cc16e7f-d361-43ac-8621-8da16e6a8b00": {
+              "id": "1cc16e7f-d361-43ac-8621-8da16e6a8b00",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "701c8503-a54d-4ea9-bf2c-275c691ceb23": {
+              "id": "701c8503-a54d-4ea9-bf2c-275c691ceb23",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            }
+          },
+          "images": [],
+          "sounds": [],
+          "script": "assets/scripts/title.lua"
+        }
+      },
+      "shared_entity_refs": [],
+      "default_camera": "f00fae3d-8a69-4c7f-b68e-a89f007ca1d3"
+    },
+    "01e9385c-5ce1-40ef-9800-008b1cc6e364": {
+      "id": "01e9385c-5ce1-40ef-9800-008b1cc6e364",
+      "name": "level",
+      "entities": {
+        "9d159dc4-7371-435f-90ee-c28a0af60a17": {
+          "id": "9d159dc4-7371-435f-90ee-c28a0af60a17",
+          "name": "main_camera",
+          "attributes": {
+            "3e44e7e7-80f7-4538-9141-6e242e87f364": {
+              "id": "3e44e7e7-80f7-4538-9141-6e242e87f364",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 480.0
+              }
+            },
+            "f88a74e6-4414-4840-aff0-e5f1df2e2039": {
+              "id": "f88a74e6-4414-4840-aff0-e5f1df2e2039",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 270.0
+              }
+            },
+            "cf9240d8-0aee-49ee-8148-0de5426078e3": {
+              "id": "cf9240d8-0aee-49ee-8148-0de5426078e3",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "fba729f1-960f-444f-a17f-0b6363a389d6": {
+              "id": "fba729f1-960f-444f-a17f-0b6363a389d6",
+              "name": "width",
+              "data_type": "Float",
+              "value": {
+                "Float": 960.0
+              }
+            },
+            "eeb277ce-4bc2-4e52-a743-8202bcbcf6ab": {
+              "id": "eeb277ce-4bc2-4e52-a743-8202bcbcf6ab",
+              "name": "height",
+              "data_type": "Float",
+              "value": {
+                "Float": 540.0
+              }
+            },
+            "e38eb1e7-e54d-43e8-8240-6e1f687a7666": {
+              "id": "e38eb1e7-e54d-43e8-8240-6e1f687a7666",
+              "name": "zoom",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "7e8cb456-feac-44be-8f9f-8162107edbbd": {
+              "id": "7e8cb456-feac-44be-8f9f-8162107edbbd",
+              "name": "rotation",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "92c85913-ee84-42d4-ab80-3b1958984328": {
+              "id": "92c85913-ee84-42d4-ab80-3b1958984328",
+              "name": "is_camera",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            }
+          },
+          "images": [],
+          "sounds": [],
+          "script": null
+        },
+        "a6b935a0-7e16-40e7-948f-74ab2a16cbd1": {
+          "id": "a6b935a0-7e16-40e7-948f-74ab2a16cbd1",
+          "name": "sky",
+          "attributes": {
+            "f87c5430-e40f-405f-9bcf-8f079f87136a": {
+              "id": "f87c5430-e40f-405f-9bcf-8f079f87136a",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "237c6219-139e-4a8a-be96-1367dfb86a6e": {
+              "id": "237c6219-139e-4a8a-be96-1367dfb86a6e",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "b72177e9-d0c3-4701-b819-a977030cf56a": {
+              "id": "b72177e9-d0c3-4701-b819-a977030cf56a",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": -20.0
+              }
+            }
+          },
+          "images": [
+            "assets/images/sky.png"
+          ],
+          "sounds": [],
+          "script": null
+        },
+        "86f1306d-f78d-49aa-bbb4-cef8746d3ef2": {
+          "id": "86f1306d-f78d-49aa-bbb4-cef8746d3ef2",
+          "name": "hills",
+          "attributes": {
+            "da39795a-5732-425f-bd84-cd619e7a425a": {
+              "id": "da39795a-5732-425f-bd84-cd619e7a425a",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "cc07941e-b5ec-4e8d-bd45-e46c402e8605": {
+              "id": "cc07941e-b5ec-4e8d-bd45-e46c402e8605",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 240.0
+              }
+            },
+            "59009bd2-034f-42d4-ab12-f1212fa0c384": {
+              "id": "59009bd2-034f-42d4-ab12-f1212fa0c384",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": -19.0
+              }
+            }
+          },
+          "images": [
+            "assets/images/hills.png"
+          ],
+          "sounds": [],
+          "script": null
+        },
+        "7f7543d9-7294-4c00-805b-6fa88927bb96": {
+          "id": "7f7543d9-7294-4c00-805b-6fa88927bb96",
+          "name": "ground",
+          "attributes": {
+            "48e719ae-79ea-470a-9ed8-7d9cba3aa785": {
+              "id": "48e719ae-79ea-470a-9ed8-7d9cba3aa785",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "d19bc050-e658-4b36-bf3c-a52e202f1ca7": {
+              "id": "d19bc050-e658-4b36-bf3c-a52e202f1ca7",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "e4a0a597-e96f-4a0f-89a9-138424bbad03": {
+              "id": "e4a0a597-e96f-4a0f-89a9-138424bbad03",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "deba9156-4f19-4f35-8226-aa7b6209d8fd": {
+              "id": "deba9156-4f19-4f35-8226-aa7b6209d8fd",
+              "name": "is_movable",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "64a6f420-0117-499d-b038-96cc7e370434": {
+              "id": "64a6f420-0117-499d-b038-96cc7e370434",
+              "name": "has_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "6cbd595e-2f7b-495a-84a4-350f3f4c3c6b": {
+              "id": "6cbd595e-2f7b-495a-84a4-350f3f4c3c6b",
+              "name": "creates_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "bab129fd-c839-451a-a23b-e356c3d9f2c3": {
+              "id": "bab129fd-c839-451a-a23b-e356c3d9f2c3",
+              "name": "has_collision",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "969b635d-59b1-489e-add1-87df3c194ea4": {
+              "id": "969b635d-59b1-489e-add1-87df3c194ea4",
+              "name": "friction",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "89f1a59a-6fe4-4c93-8f66-2e4b4ec04611": {
+              "id": "89f1a59a-6fe4-4c93-8f66-2e4b4ec04611",
+              "name": "restitution",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "0fe1cf3a-5891-4838-8049-9c687962502d": {
+              "id": "0fe1cf3a-5891-4838-8049-9c687962502d",
+              "name": "density",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "fa21fdb6-92cd-41c1-995c-c7da5efb0815": {
+              "id": "fa21fdb6-92cd-41c1-995c-c7da5efb0815",
+              "name": "can_rotate",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            }
+          },
+          "images": [],
+          "sounds": [],
+          "script": null,
+          "tilemap": {
+            "tileset": "assets/images/tiles.png",
+            "tile_size": [
+              32,
+              32
+            ],
+            "collision": {
+              "4": "one_way",
+              "5": "passable",
+              "6": "passable",
+              "7": "passable"
+            },
+            "origin": [
+              -1,
+              0
+            ],
+            "rows": [
+              "2 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 2",
+              "2 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 2",
+              "2 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 2",
+              "2 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 2",
+              "2 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 4 4 4 4 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 2",
+              "2 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 2",
+              "2 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 2",
+              "2 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 4 4 4 4 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 2",
+              "2 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 2",
+              "2 . . . . . . . . . . . . . . . . . . . . . . . . . . . 3 3 3 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 3 3 3 3 3 . . . . . . . . . . . . . . . . . . . . . 2",
+              "2 . . . . . . . . . . . . . . . . . . . . . 4 4 4 4 4 . . . . . . . . . . . . . . . . . . . . . . . . . . 2 2 . . . . . . 4 4 4 4 . . . . . . . . . . . . . 4 4 4 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 2",
+              "2 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 4 4 4 4 . . . . . . . . . . . 2 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 4 4 4 4 . . . . . . . . . . 2",
+              "2 . . 5 . . 6 . . . 5 . . 7 . . . . . . . 5 . . . . . 6 . . . . . . . . . . 5 . . . . . 6 . 2 2 . . 7 . . . . . . . . 5 . . . . . . . . . . . . . . . 7 . . . . . . . . 5 . . . . . . . 6 . 7 . . . . . . . . 5 . 6 . . . 7 . 2",
+              "2 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 . . . 0 0 0 0 0 0 0 0 0 0 0 0 0 . . . . 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 . . . . . . 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 . . . . . 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 . . . . 0 0 0 0 0 0 0 0 0 0 2",
+              "2 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 . . . 1 1 1 1 1 1 1 1 1 1 1 1 1 . . . . 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 . . . . . . 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 . . . . . 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 . . . . 1 1 1 1 1 1 1 1 1 1 2",
+              "2 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 . . . 1 1 1 1 1 1 1 1 1 1 1 1 1 . . . . 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 . . . . . . 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 . . . . . 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 . . . . 1 1 1 1 1 1 1 1 1 1 2",
+              "2 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 . . . 1 1 1 1 1 1 1 1 1 1 1 1 1 . . . . 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 . . . . . . 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 . . . . . 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 . . . . 1 1 1 1 1 1 1 1 1 1 2"
+            ]
+          }
+        },
+        "11df4fa2-a9f9-4017-8c37-6eef0d4f9153": {
+          "id": "11df4fa2-a9f9-4017-8c37-6eef0d4f9153",
+          "name": "spikes",
+          "attributes": {
+            "e97e49d0-5c04-41d3-abfa-36bb53ec04dd": {
+              "id": "e97e49d0-5c04-41d3-abfa-36bb53ec04dd",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "c953dcac-d2d9-4516-a025-e815ed2dfab7": {
+              "id": "c953dcac-d2d9-4516-a025-e815ed2dfab7",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "9603474f-091b-427d-86f2-70e79e26a37d": {
+              "id": "9603474f-091b-427d-86f2-70e79e26a37d",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.5
+              }
+            },
+            "617e353f-4cde-468b-887e-f50fc1dd83ae": {
+              "id": "617e353f-4cde-468b-887e-f50fc1dd83ae",
+              "name": "is_movable",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "34ed8009-3761-434b-80a9-ca83f485d006": {
+              "id": "34ed8009-3761-434b-80a9-ca83f485d006",
+              "name": "has_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "4db8a001-f951-4fcc-941a-afa9d3c9590c": {
+              "id": "4db8a001-f951-4fcc-941a-afa9d3c9590c",
+              "name": "creates_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "39f11dd3-2368-45d9-9f87-5778309f8a65": {
+              "id": "39f11dd3-2368-45d9-9f87-5778309f8a65",
+              "name": "has_collision",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "a687d120-d440-4339-b9b4-b271aed90bd6": {
+              "id": "a687d120-d440-4339-b9b4-b271aed90bd6",
+              "name": "friction",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "c7994c6b-be98-49fd-aebe-471b3420b2f4": {
+              "id": "c7994c6b-be98-49fd-aebe-471b3420b2f4",
+              "name": "restitution",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "ff82c946-2e18-4eb4-a4d3-91375d7c2404": {
+              "id": "ff82c946-2e18-4eb4-a4d3-91375d7c2404",
+              "name": "density",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "c73f52a1-4291-4da5-a16c-1282feb20fef": {
+              "id": "c73f52a1-4291-4da5-a16c-1282feb20fef",
+              "name": "can_rotate",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "9edeedd2-9803-4ff9-a1a0-c333cc719dc6": {
+              "id": "9edeedd2-9803-4ff9-a1a0-c333cc719dc6",
+              "name": "is_sensor",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            }
+          },
+          "images": [],
+          "sounds": [],
+          "script": null,
+          "tilemap": {
+            "tileset": "assets/images/tiles.png",
+            "tile_size": [
+              32,
+              32
+            ],
+            "collision": {
+              "4": "one_way",
+              "5": "passable",
+              "6": "passable",
+              "7": "passable"
+            },
+            "origin": [
+              40,
+              12
+            ],
+            "rows": [
+              "8 8 8 . . . . . . . . . . . . . . . . . . . 8 8 8"
+            ]
+          }
+        },
+        "e83b5965-8c52-4717-b336-2ad5bd1c3d3c": {
+          "id": "e83b5965-8c52-4717-b336-2ad5bd1c3d3c",
+          "name": "pollen",
+          "attributes": {
+            "4daca9a5-f1d7-452d-aef5-c6bf6cb054c3": {
+              "id": "4daca9a5-f1d7-452d-aef5-c6bf6cb054c3",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "6832afed-7af3-43b3-a65d-9270d899b490": {
+              "id": "6832afed-7af3-43b3-a65d-9270d899b490",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 40.0
+              }
+            },
+            "37c06579-1b47-4e0c-8f6b-6e0fa7f88b36": {
+              "id": "37c06579-1b47-4e0c-8f6b-6e0fa7f88b36",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.8
+              }
+            },
+            "bdc71f6e-74bd-4bbd-863a-577b8d7dfff7": {
+              "id": "bdc71f6e-74bd-4bbd-863a-577b8d7dfff7",
+              "name": "particle_rate",
+              "data_type": "Float",
+              "value": {
+                "Float": 11.0
+              }
+            },
+            "877a98a1-2da1-49a2-8f3d-3ba5374ce31e": {
+              "id": "877a98a1-2da1-49a2-8f3d-3ba5374ce31e",
+              "name": "particle_lifetime",
+              "data_type": "Float",
+              "value": {
+                "Float": 6.0
+              }
+            },
+            "6f417416-259f-4067-9ec9-094b9542f61f": {
+              "id": "6f417416-259f-4067-9ec9-094b9542f61f",
+              "name": "particle_velocity",
+              "data_type": "Vector2",
+              "value": {
+                "Vector2": [
+                  14.0,
+                  -8.0
+                ]
+              }
+            },
+            "ccab3a25-3d07-4638-b830-c1dd39bdaecc": {
+              "id": "ccab3a25-3d07-4638-b830-c1dd39bdaecc",
+              "name": "particle_spread",
+              "data_type": "Float",
+              "value": {
+                "Float": 90.0
+              }
+            },
+            "03d041a4-8046-4caf-b459-fffd42d958cc": {
+              "id": "03d041a4-8046-4caf-b459-fffd42d958cc",
+              "name": "particle_variation",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.6
+              }
+            },
+            "bb73a4f2-c7d7-408d-94c4-b6e3aa01bd7b": {
+              "id": "bb73a4f2-c7d7-408d-94c4-b6e3aa01bd7b",
+              "name": "particle_gravity",
+              "data_type": "Vector2",
+              "value": {
+                "Vector2": [
+                  0.0,
+                  0.0
+                ]
+              }
+            },
+            "2bbacba6-8cf0-480b-91ef-00ccf8f9f266": {
+              "id": "2bbacba6-8cf0-480b-91ef-00ccf8f9f266",
+              "name": "particle_size",
+              "data_type": "Float",
+              "value": {
+                "Float": 7.0
+              }
+            },
+            "9f38c0ff-2003-4867-b613-072daccc8302": {
+              "id": "9f38c0ff-2003-4867-b613-072daccc8302",
+              "name": "particle_end_size",
+              "data_type": "Float",
+              "value": {
+                "Float": 4.0
+              }
+            },
+            "c69ff8ce-ceee-4be1-91d0-c0024f74cbbd": {
+              "id": "c69ff8ce-ceee-4be1-91d0-c0024f74cbbd",
+              "name": "particle_color",
+              "data_type": "String",
+              "value": {
+                "String": "#fffce4eb"
+              }
+            },
+            "c86221e6-48de-4083-a1a7-73d83f298cee": {
+              "id": "c86221e6-48de-4083-a1a7-73d83f298cee",
+              "name": "particle_end_color",
+              "data_type": "String",
+              "value": {
+                "String": "#ffecaa00"
+              }
+            },
+            "a932e1fc-1cbc-4ff5-8817-03d566bafda5": {
+              "id": "a932e1fc-1cbc-4ff5-8817-03d566bafda5",
+              "name": "particle_area",
+              "data_type": "Vector2",
+              "value": {
+                "Vector2": [
+                  3520.0,
+                  320.0
+                ]
+              }
+            }
+          },
+          "images": [],
+          "sounds": [],
+          "script": null
+        },
+        "8e45fa2f-9fcb-4514-b64b-92f0a96526e7": {
+          "id": "8e45fa2f-9fcb-4514-b64b-92f0a96526e7",
+          "name": "dust",
+          "attributes": {
+            "03292f8e-56c2-4ecf-b74f-79f215293f81": {
+              "id": "03292f8e-56c2-4ecf-b74f-79f215293f81",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "b7757b2c-3e04-41a1-9fda-a8cdcdacc3f3": {
+              "id": "b7757b2c-3e04-41a1-9fda-a8cdcdacc3f3",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "6ffdc5cd-6d0d-4233-b834-99cea78452d3": {
+              "id": "6ffdc5cd-6d0d-4233-b834-99cea78452d3",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 2.0
+              }
+            },
+            "8b856bbd-3444-43d1-b0ef-284a9336d945": {
+              "id": "8b856bbd-3444-43d1-b0ef-284a9336d945",
+              "name": "particle_rate",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "d10c6a39-cb56-43cc-a7b8-df92560d0381": {
+              "id": "d10c6a39-cb56-43cc-a7b8-df92560d0381",
+              "name": "particle_lifetime",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.45
+              }
+            },
+            "e2386d9d-3f44-43aa-b9bf-86bf76a68a9d": {
+              "id": "e2386d9d-3f44-43aa-b9bf-86bf76a68a9d",
+              "name": "particle_velocity",
+              "data_type": "Vector2",
+              "value": {
+                "Vector2": [
+                  0.0,
+                  -50.0
+                ]
+              }
+            },
+            "fd36c71e-84fb-471a-9664-6118d27bc724": {
+              "id": "fd36c71e-84fb-471a-9664-6118d27bc724",
+              "name": "particle_spread",
+              "data_type": "Float",
+              "value": {
+                "Float": 150.0
+              }
+            },
+            "83f446ec-7d6d-425c-b03d-ff15ec4f7981": {
+              "id": "83f446ec-7d6d-425c-b03d-ff15ec4f7981",
+              "name": "particle_variation",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.6
+              }
+            },
+            "758df5ae-75ca-4edd-98a5-a85345ea7c47": {
+              "id": "758df5ae-75ca-4edd-98a5-a85345ea7c47",
+              "name": "particle_gravity",
+              "data_type": "Vector2",
+              "value": {
+                "Vector2": [
+                  0.0,
+                  150.0
+                ]
+              }
+            },
+            "0e583549-3b2a-4a63-ae7d-8ff9c086e43f": {
+              "id": "0e583549-3b2a-4a63-ae7d-8ff9c086e43f",
+              "name": "particle_size",
+              "data_type": "Float",
+              "value": {
+                "Float": 8.0
+              }
+            },
+            "69aa7b55-bcad-462a-a85d-a1402d564cab": {
+              "id": "69aa7b55-bcad-462a-a85d-a1402d564cab",
+              "name": "particle_end_size",
+              "data_type": "Float",
+              "value": {
+                "Float": 2.0
+              }
+            },
+            "993439fc-0a1c-443c-89b0-1a60040420f2": {
+              "id": "993439fc-0a1c-443c-89b0-1a60040420f2",
+              "name": "particle_color",
+              "data_type": "String",
+              "value": {
+                "String": "#ece2cedc"
+              }
+            },
+            "686b0d21-0fcb-4d62-91df-1496e3762061": {
+              "id": "686b0d21-0fcb-4d62-91df-1496e3762061",
+              "name": "particle_end_color",
+              "data_type": "String",
+              "value": {
+                "String": "#c8b9a000"
+              }
+            },
+            "30fa7312-e704-4180-a6ca-4b0abf9d97de": {
+              "id": "30fa7312-e704-4180-a6ca-4b0abf9d97de",
+              "name": "particle_area",
+              "data_type": "Vector2",
+              "value": {
+                "Vector2": [
+                  0.0,
+                  0.0
+                ]
+              }
+            }
+          },
+          "images": [],
+          "sounds": [],
+          "script": null
+        },
+        "7e1249f8-f24c-44a2-bc3d-8e69b344da98": {
+          "id": "7e1249f8-f24c-44a2-bc3d-8e69b344da98",
+          "name": "debris",
+          "attributes": {
+            "f787109f-64b0-40b1-acaf-dca588660d62": {
+              "id": "f787109f-64b0-40b1-acaf-dca588660d62",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "173e871c-4afd-482c-8125-15ce47040615": {
+              "id": "173e871c-4afd-482c-8125-15ce47040615",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "2605c955-958a-418c-9873-a0321df4040a": {
+              "id": "2605c955-958a-418c-9873-a0321df4040a",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 2.0
+              }
+            },
+            "b8c6fa20-028c-4209-8847-57830e2a7599": {
+              "id": "b8c6fa20-028c-4209-8847-57830e2a7599",
+              "name": "particle_rate",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "d0e3cea1-def8-47f8-81fb-87ce26500b7c": {
+              "id": "d0e3cea1-def8-47f8-81fb-87ce26500b7c",
+              "name": "particle_lifetime",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.8
+              }
+            },
+            "ca167e3e-9127-4869-b819-87f78666ecc2": {
+              "id": "ca167e3e-9127-4869-b819-87f78666ecc2",
+              "name": "particle_velocity",
+              "data_type": "Vector2",
+              "value": {
+                "Vector2": [
+                  0.0,
+                  -180.0
+                ]
+              }
+            },
+            "1fdac487-fc47-4ea6-b61a-ee384b4c8076": {
+              "id": "1fdac487-fc47-4ea6-b61a-ee384b4c8076",
+              "name": "particle_spread",
+              "data_type": "Float",
+              "value": {
+                "Float": 120.0
+              }
+            },
+            "3fe2b42b-b88a-42a2-b32c-d35d814ceb83": {
+              "id": "3fe2b42b-b88a-42a2-b32c-d35d814ceb83",
+              "name": "particle_variation",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.6
+              }
+            },
+            "5eb62acb-92dc-4aca-b808-4d7abb076e31": {
+              "id": "5eb62acb-92dc-4aca-b808-4d7abb076e31",
+              "name": "particle_gravity",
+              "data_type": "Vector2",
+              "value": {
+                "Vector2": [
+                  0.0,
+                  900.0
+                ]
+              }
+            },
+            "ad01f1f4-50cc-4447-b63b-9a76728a6575": {
+              "id": "ad01f1f4-50cc-4447-b63b-9a76728a6575",
+              "name": "particle_size",
+              "data_type": "Float",
+              "value": {
+                "Float": 7.0
+              }
+            },
+            "68af084a-c6ae-43e4-ac1f-e7ed00d2ff3c": {
+              "id": "68af084a-c6ae-43e4-ac1f-e7ed00d2ff3c",
+              "name": "particle_end_size",
+              "data_type": "Float",
+              "value": {
+                "Float": 5.0
+              }
+            },
+            "1bd4a75d-5a01-4c91-914c-6282b7b0a110": {
+              "id": "1bd4a75d-5a01-4c91-914c-6282b7b0a110",
+              "name": "particle_color",
+              "data_type": "String",
+              "value": {
+                "String": "#b5653a"
+              }
+            },
+            "a49475b0-b736-4530-8676-20a007f512bf": {
+              "id": "a49475b0-b736-4530-8676-20a007f512bf",
+              "name": "particle_end_color",
+              "data_type": "String",
+              "value": {
+                "String": "#6f3a2000"
+              }
+            },
+            "2eef9621-2f00-43ff-97e2-dd0bc0927f03": {
+              "id": "2eef9621-2f00-43ff-97e2-dd0bc0927f03",
+              "name": "particle_area",
+              "data_type": "Vector2",
+              "value": {
+                "Vector2": [
+                  0.0,
+                  0.0
+                ]
+              }
+            }
+          },
+          "images": [],
+          "sounds": [],
+          "script": null
+        },
+        "f75d5271-9a6f-4af9-acc9-556a139c8857": {
+          "id": "f75d5271-9a6f-4af9-acc9-556a139c8857",
+          "name": "sparkle",
+          "attributes": {
+            "aed2b99c-2df6-408c-b0f9-d428f172a4bc": {
+              "id": "aed2b99c-2df6-408c-b0f9-d428f172a4bc",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "78764116-890d-4cf1-8287-837f5384cb48": {
+              "id": "78764116-890d-4cf1-8287-837f5384cb48",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "3a6879cf-8e55-4e0d-929b-2783ef960505": {
+              "id": "3a6879cf-8e55-4e0d-929b-2783ef960505",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 3.0
+              }
+            },
+            "955dae55-0cde-4837-a432-24097128f44c": {
+              "id": "955dae55-0cde-4837-a432-24097128f44c",
+              "name": "particle_rate",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "480f9723-71d5-41c2-925c-edf371fe39c1": {
+              "id": "480f9723-71d5-41c2-925c-edf371fe39c1",
+              "name": "particle_lifetime",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.6
+              }
+            },
+            "77c9a8fa-6433-447e-9fd3-3d3b3f18f999": {
+              "id": "77c9a8fa-6433-447e-9fd3-3d3b3f18f999",
+              "name": "particle_velocity",
+              "data_type": "Vector2",
+              "value": {
+                "Vector2": [
+                  0.0,
+                  -100.0
+                ]
+              }
+            },
+            "7a15e490-0822-4d93-97bc-a438296c5a7f": {
+              "id": "7a15e490-0822-4d93-97bc-a438296c5a7f",
+              "name": "particle_spread",
+              "data_type": "Float",
+              "value": {
+                "Float": 360.0
+              }
+            },
+            "2e69f3a5-a3c6-4220-85cf-a25496e13c62": {
+              "id": "2e69f3a5-a3c6-4220-85cf-a25496e13c62",
+              "name": "particle_variation",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.7
+              }
+            },
+            "f2aa7dc9-d966-42f0-8368-f5069d59f6ae": {
+              "id": "f2aa7dc9-d966-42f0-8368-f5069d59f6ae",
+              "name": "particle_gravity",
+              "data_type": "Vector2",
+              "value": {
+                "Vector2": [
+                  0.0,
+                  80.0
+                ]
+              }
+            },
+            "1dd08813-c63e-4b7b-a78a-9eec6c79e02a": {
+              "id": "1dd08813-c63e-4b7b-a78a-9eec6c79e02a",
+              "name": "particle_size",
+              "data_type": "Float",
+              "value": {
+                "Float": 6.0
+              }
+            },
+            "c380042a-9f92-4271-9df0-de3dc03f21d4": {
+              "id": "c380042a-9f92-4271-9df0-de3dc03f21d4",
+              "name": "particle_end_size",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "6908f4b6-36a0-4ef4-8e38-0cc722657084": {
+              "id": "6908f4b6-36a0-4ef4-8e38-0cc722657084",
+              "name": "particle_color",
+              "data_type": "String",
+              "value": {
+                "String": "#d2faff"
+              }
+            },
+            "0f747db4-3658-430d-a2fa-7481e34a7953": {
+              "id": "0f747db4-3658-430d-a2fa-7481e34a7953",
+              "name": "particle_end_color",
+              "data_type": "String",
+              "value": {
+                "String": "#4fd6ff00"
+              }
+            },
+            "a57d1691-3069-4f49-aa0f-df2184eb8c00": {
+              "id": "a57d1691-3069-4f49-aa0f-df2184eb8c00",
+              "name": "particle_area",
+              "data_type": "Vector2",
+              "value": {
+                "Vector2": [
+                  0.0,
+                  0.0
+                ]
+              }
+            }
+          },
+          "images": [],
+          "sounds": [],
+          "script": null
+        },
+        "7655c15f-8b77-4833-a84c-d08ea2073393": {
+          "id": "7655c15f-8b77-4833-a84c-d08ea2073393",
+          "name": "confetti",
+          "attributes": {
+            "f9cf27f7-a572-4839-8207-2051fd83b4b9": {
+              "id": "f9cf27f7-a572-4839-8207-2051fd83b4b9",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "55ecaaee-1f8e-41eb-8630-5366e4249114": {
+              "id": "55ecaaee-1f8e-41eb-8630-5366e4249114",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "b0a523eb-9f95-4db4-b951-041755b445d6": {
+              "id": "b0a523eb-9f95-4db4-b951-041755b445d6",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 3.0
+              }
+            },
+            "4fce9e49-f9cf-494a-9e53-08ff81e1c0ec": {
+              "id": "4fce9e49-f9cf-494a-9e53-08ff81e1c0ec",
+              "name": "particle_rate",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "394ac0ec-5410-41a1-a61a-5e83d4d4d2c0": {
+              "id": "394ac0ec-5410-41a1-a61a-5e83d4d4d2c0",
+              "name": "particle_lifetime",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.8
+              }
+            },
+            "cc63d8db-1ebd-44aa-956a-488641afc94d": {
+              "id": "cc63d8db-1ebd-44aa-956a-488641afc94d",
+              "name": "particle_velocity",
+              "data_type": "Vector2",
+              "value": {
+                "Vector2": [
+                  0.0,
+                  -380.0
+                ]
+              }
+            },
+            "93c23eaa-e152-4465-86fd-4430ffd83823": {
+              "id": "93c23eaa-e152-4465-86fd-4430ffd83823",
+              "name": "particle_spread",
+              "data_type": "Float",
+              "value": {
+                "Float": 80.0
+              }
+            },
+            "1960f305-5da6-4d98-b850-0ba8cc8e6342": {
+              "id": "1960f305-5da6-4d98-b850-0ba8cc8e6342",
+              "name": "particle_variation",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.6
+              }
+            },
+            "61512c78-9408-4bf7-926f-263785b0fe07": {
+              "id": "61512c78-9408-4bf7-926f-263785b0fe07",
+              "name": "particle_gravity",
+              "data_type": "Vector2",
+              "value": {
+                "Vector2": [
+                  0.0,
+                  450.0
+                ]
+              }
+            },
+            "d8028644-c93f-4d93-914c-34f27d846731": {
+              "id": "d8028644-c93f-4d93-914c-34f27d846731",
+              "name": "particle_size",
+              "data_type": "Float",
+              "value": {
+                "Float": 7.0
+              }
+            },
+            "ada954b5-3cfb-445c-a72b-f44df315b4a1": {
+              "id": "ada954b5-3cfb-445c-a72b-f44df315b4a1",
+              "name": "particle_end_size",
+              "data_type": "Float",
+              "value": {
+                "Float": 5.0
+              }
+            },
+            "b100c0f2-38f5-4feb-bcd8-6b46c9b4bbd4": {
+              "id": "b100c0f2-38f5-4feb-bcd8-6b46c9b4bbd4",
+              "name": "particle_color",
+              "data_type": "String",
+              "value": {
+                "String": "#ffd84a"
+              }
+            },
+            "30906e8c-4a04-47c9-a5b4-a60bf092c796": {
+              "id": "30906e8c-4a04-47c9-a5b4-a60bf092c796",
+              "name": "particle_end_color",
+              "data_type": "String",
+              "value": {
+                "String": "#ff5aa000"
+              }
+            },
+            "73930262-192c-49e6-9f2e-7758e43ad4a6": {
+              "id": "73930262-192c-49e6-9f2e-7758e43ad4a6",
+              "name": "particle_area",
+              "data_type": "Vector2",
+              "value": {
+                "Vector2": [
+                  0.0,
+                  0.0
+                ]
+              }
+            }
+          },
+          "images": [],
+          "sounds": [],
+          "script": null
+        },
+        "b11eb081-d494-4971-a8a4-6b91fefa4885": {
+          "id": "b11eb081-d494-4971-a8a4-6b91fefa4885",
+          "name": "player",
+          "attributes": {
+            "2f09ec67-4542-416d-a7b8-efbc4f1ba529": {
+              "id": "2f09ec67-4542-416d-a7b8-efbc4f1ba529",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 98.0
+              }
+            },
+            "b98457e2-a7ba-46ac-b476-4ce4ddc00298": {
+              "id": "b98457e2-a7ba-46ac-b476-4ce4ddc00298",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 373.0
+              }
+            },
+            "04827c5b-e83c-4778-90b3-ab8953c3a814": {
+              "id": "04827c5b-e83c-4778-90b3-ab8953c3a814",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "7b30e7f0-7a9f-45fd-aecb-cb038b7df70d": {
+              "id": "7b30e7f0-7a9f-45fd-aecb-cb038b7df70d",
+              "name": "is_movable",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "5906e322-22db-4430-ab7a-8b63353d90a4": {
+              "id": "5906e322-22db-4430-ab7a-8b63353d90a4",
+              "name": "has_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "6525f223-a9a5-45b6-b62a-b69fb9203989": {
+              "id": "6525f223-a9a5-45b6-b62a-b69fb9203989",
+              "name": "creates_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "56767a30-f7d3-4474-b59d-687c3ba307d0": {
+              "id": "56767a30-f7d3-4474-b59d-687c3ba307d0",
+              "name": "has_collision",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "97a930fb-bc15-4284-93c3-7658cf5159fd": {
+              "id": "97a930fb-bc15-4284-93c3-7658cf5159fd",
+              "name": "friction",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "c2f52e2b-b7a1-4da5-92fe-7c3e07e20f49": {
+              "id": "c2f52e2b-b7a1-4da5-92fe-7c3e07e20f49",
+              "name": "restitution",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "dd3ae3cc-eb1a-4ee0-b90b-b97d1db22262": {
+              "id": "dd3ae3cc-eb1a-4ee0-b90b-b97d1db22262",
+              "name": "density",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "7ddbfa41-58a3-4ff8-ad7c-7ad737dcaf37": {
+              "id": "7ddbfa41-58a3-4ff8-ad7c-7ad737dcaf37",
+              "name": "can_rotate",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "a9848607-2eca-4885-8d97-5217b71fd6f2": {
+              "id": "a9848607-2eca-4885-8d97-5217b71fd6f2",
+              "name": "frame_size",
+              "data_type": "Vector2",
+              "value": {
+                "Vector2": [
+                  28.0,
+                  42.0
+                ]
+              }
+            },
+            "b0027fa4-a19e-4eff-9218-f0158aeab626": {
+              "id": "b0027fa4-a19e-4eff-9218-f0158aeab626",
+              "name": "frame",
+              "data_type": "Integer",
+              "value": {
+                "Integer": 0
+              }
+            },
+            "3cfffe8f-724b-4a78-bd19-fbb2f517ab53": {
+              "id": "3cfffe8f-724b-4a78-bd19-fbb2f517ab53",
+              "name": "flip_x",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "3b1ec8c2-d137-48a2-8b67-477bf0deba3a": {
+              "id": "3b1ec8c2-d137-48a2-8b67-477bf0deba3a",
+              "name": "opacity",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "6b177a36-c899-4846-84d3-06801d19d516": {
+              "id": "6b177a36-c899-4846-84d3-06801d19d516",
+              "name": "speed",
+              "data_type": "Float",
+              "value": {
+                "Float": 230.0
+              }
+            },
+            "334b54a4-4e98-4c36-a258-66912d920141": {
+              "id": "334b54a4-4e98-4c36-a258-66912d920141",
+              "name": "jump_speed",
+              "data_type": "Float",
+              "value": {
+                "Float": 600.0
+              }
+            }
+          },
+          "images": [
+            "assets/images/player.png"
+          ],
+          "sounds": [],
+          "script": "assets/scripts/player.lua"
+        },
+        "ad177f46-b52b-459f-9c28-9550fbd6cdd2": {
+          "id": "ad177f46-b52b-459f-9c28-9550fbd6cdd2",
+          "name": "gem",
+          "attributes": {
+            "8dd71507-b3ef-4abd-b178-f97d114a3538": {
+              "id": "8dd71507-b3ef-4abd-b178-f97d114a3538",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 261.0
+              }
+            },
+            "b2891f4f-a413-4704-b006-a5f3da6486e1": {
+              "id": "b2891f4f-a413-4704-b006-a5f3da6486e1",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 387.0
+              }
+            },
+            "bb9a90bc-ed2e-46a0-bb16-df1273510237": {
+              "id": "bb9a90bc-ed2e-46a0-bb16-df1273510237",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "2333c311-d838-4c48-9199-17896117005a": {
+              "id": "2333c311-d838-4c48-9199-17896117005a",
+              "name": "is_movable",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "cfc8f5d5-d186-4c44-ba22-40a988ebb462": {
+              "id": "cfc8f5d5-d186-4c44-ba22-40a988ebb462",
+              "name": "has_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "8de4b74b-f9f7-478c-8565-8767fafe052b": {
+              "id": "8de4b74b-f9f7-478c-8565-8767fafe052b",
+              "name": "creates_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "edd84468-470d-4d43-ae3a-4ebed412b74a": {
+              "id": "edd84468-470d-4d43-ae3a-4ebed412b74a",
+              "name": "has_collision",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "6fbce5ac-3daa-4c8f-979c-46ccedad49e9": {
+              "id": "6fbce5ac-3daa-4c8f-979c-46ccedad49e9",
+              "name": "friction",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.5
+              }
+            },
+            "9165466d-5ea6-4eb3-970b-9e625aaf4681": {
+              "id": "9165466d-5ea6-4eb3-970b-9e625aaf4681",
+              "name": "restitution",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "5419ce37-28fc-4261-8389-cff463ed5180": {
+              "id": "5419ce37-28fc-4261-8389-cff463ed5180",
+              "name": "density",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "dae4fb42-177d-44d5-b5df-9f38fd3f7c24": {
+              "id": "dae4fb42-177d-44d5-b5df-9f38fd3f7c24",
+              "name": "can_rotate",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "4d3d0213-93a7-4f23-9612-ff90300fe290": {
+              "id": "4d3d0213-93a7-4f23-9612-ff90300fe290",
+              "name": "is_sensor",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            }
+          },
+          "images": [
+            "assets/images/gem.png"
+          ],
+          "sounds": [],
+          "script": "assets/scripts/gem.lua"
+        },
+        "2277f501-e105-43ef-9530-ee979a50c37b": {
+          "id": "2277f501-e105-43ef-9530-ee979a50c37b",
+          "name": "gem",
+          "attributes": {
+            "1384a0dd-9d58-4adc-b429-d03e08a5b9ab": {
+              "id": "1384a0dd-9d58-4adc-b429-d03e08a5b9ab",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 709.0
+              }
+            },
+            "dc092fae-5a1c-4011-a7b5-85b26c694c8a": {
+              "id": "dc092fae-5a1c-4011-a7b5-85b26c694c8a",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 291.0
+              }
+            },
+            "3f898248-e0e4-475b-8e6d-64131b3c658a": {
+              "id": "3f898248-e0e4-475b-8e6d-64131b3c658a",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "c1978b0a-aa65-41fa-abb8-c4aab8d44ede": {
+              "id": "c1978b0a-aa65-41fa-abb8-c4aab8d44ede",
+              "name": "is_movable",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "0e3c6afa-8c13-46ae-a997-a3f4f397f0c8": {
+              "id": "0e3c6afa-8c13-46ae-a997-a3f4f397f0c8",
+              "name": "has_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "a2af4678-8048-4ca9-a88e-63e1caabe880": {
+              "id": "a2af4678-8048-4ca9-a88e-63e1caabe880",
+              "name": "creates_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "28ae7d35-f61a-4968-aef9-117990c4db4c": {
+              "id": "28ae7d35-f61a-4968-aef9-117990c4db4c",
+              "name": "has_collision",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "da606c8a-a740-48da-82ea-5a1e9917a842": {
+              "id": "da606c8a-a740-48da-82ea-5a1e9917a842",
+              "name": "friction",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.5
+              }
+            },
+            "ced610e5-f1fd-4a0c-b0bb-7baedf9c6b5f": {
+              "id": "ced610e5-f1fd-4a0c-b0bb-7baedf9c6b5f",
+              "name": "restitution",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "f8af8c7b-3364-415b-8fd3-230448c4f7fb": {
+              "id": "f8af8c7b-3364-415b-8fd3-230448c4f7fb",
+              "name": "density",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "c0477f9c-c6a6-4ae9-b71c-056c13b5983c": {
+              "id": "c0477f9c-c6a6-4ae9-b71c-056c13b5983c",
+              "name": "can_rotate",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "070b5a04-7f47-43d3-bc54-5fa9c98727d2": {
+              "id": "070b5a04-7f47-43d3-bc54-5fa9c98727d2",
+              "name": "is_sensor",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            }
+          },
+          "images": [
+            "assets/images/gem.png"
+          ],
+          "sounds": [],
+          "script": "assets/scripts/gem.lua"
+        },
+        "4f456a39-8db7-4ac6-bf83-961fcaf01604": {
+          "id": "4f456a39-8db7-4ac6-bf83-961fcaf01604",
+          "name": "gem",
+          "attributes": {
+            "1d99d2c2-9301-4515-8e27-1328c1416aab": {
+              "id": "1d99d2c2-9301-4515-8e27-1328c1416aab",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 773.0
+              }
+            },
+            "c5d39fb0-0169-4bdb-8af9-9e98915d2899": {
+              "id": "c5d39fb0-0169-4bdb-8af9-9e98915d2899",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 291.0
+              }
+            },
+            "cb856491-f63f-4a9b-b11d-a17dc93face6": {
+              "id": "cb856491-f63f-4a9b-b11d-a17dc93face6",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "30022a2d-7629-4a54-a215-7cd216844073": {
+              "id": "30022a2d-7629-4a54-a215-7cd216844073",
+              "name": "is_movable",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "77c2cf1c-c172-422a-a9e6-0827ef2ec1db": {
+              "id": "77c2cf1c-c172-422a-a9e6-0827ef2ec1db",
+              "name": "has_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "4e8cd345-552a-47cd-a33d-01d26abf7db0": {
+              "id": "4e8cd345-552a-47cd-a33d-01d26abf7db0",
+              "name": "creates_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "489e5658-eda8-4083-93f7-abc000586829": {
+              "id": "489e5658-eda8-4083-93f7-abc000586829",
+              "name": "has_collision",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "6dfc9088-f3ed-4b8e-a113-ac6430955228": {
+              "id": "6dfc9088-f3ed-4b8e-a113-ac6430955228",
+              "name": "friction",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.5
+              }
+            },
+            "64a1ee1b-3054-4da5-b689-6599cd96b79f": {
+              "id": "64a1ee1b-3054-4da5-b689-6599cd96b79f",
+              "name": "restitution",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "0dcbb015-1ae7-449a-b2b7-fb82fbc6d49a": {
+              "id": "0dcbb015-1ae7-449a-b2b7-fb82fbc6d49a",
+              "name": "density",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "897769af-6814-4f1b-af1c-b71949b23be4": {
+              "id": "897769af-6814-4f1b-af1c-b71949b23be4",
+              "name": "can_rotate",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "2ce1cd42-7424-4095-bbf0-92ae80cddbcb": {
+              "id": "2ce1cd42-7424-4095-bbf0-92ae80cddbcb",
+              "name": "is_sensor",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            }
+          },
+          "images": [
+            "assets/images/gem.png"
+          ],
+          "sounds": [],
+          "script": "assets/scripts/gem.lua"
+        },
+        "9f169c43-9496-4f2b-932a-c7f483da3669": {
+          "id": "9f169c43-9496-4f2b-932a-c7f483da3669",
+          "name": "gem",
+          "attributes": {
+            "ae65d8f7-7fe2-4afb-b801-85e211231a44": {
+              "id": "ae65d8f7-7fe2-4afb-b801-85e211231a44",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 901.0
+              }
+            },
+            "b38a68fd-eab6-44f7-9b45-a07892e14263": {
+              "id": "b38a68fd-eab6-44f7-9b45-a07892e14263",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 259.0
+              }
+            },
+            "6037ae37-6fd6-4986-a650-4404996abaaf": {
+              "id": "6037ae37-6fd6-4986-a650-4404996abaaf",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "ba8fa562-f8d1-4143-9b7c-f05085980eee": {
+              "id": "ba8fa562-f8d1-4143-9b7c-f05085980eee",
+              "name": "is_movable",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "c0aaa17d-c017-4095-9287-b2fb41b9f357": {
+              "id": "c0aaa17d-c017-4095-9287-b2fb41b9f357",
+              "name": "has_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "58609c96-d797-4799-89bf-976e2d566c16": {
+              "id": "58609c96-d797-4799-89bf-976e2d566c16",
+              "name": "creates_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "18a63e8c-5d60-4f8b-a040-37b7153d0b28": {
+              "id": "18a63e8c-5d60-4f8b-a040-37b7153d0b28",
+              "name": "has_collision",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "94d1f621-c133-4feb-898a-48a67c0a14f6": {
+              "id": "94d1f621-c133-4feb-898a-48a67c0a14f6",
+              "name": "friction",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.5
+              }
+            },
+            "088f34c4-0262-4e16-913f-b365a401bd76": {
+              "id": "088f34c4-0262-4e16-913f-b365a401bd76",
+              "name": "restitution",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "5f0123bd-5624-4954-989b-2a63f1144028": {
+              "id": "5f0123bd-5624-4954-989b-2a63f1144028",
+              "name": "density",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "d48cbe34-6fe6-47ea-8430-5c8c79484dd2": {
+              "id": "d48cbe34-6fe6-47ea-8430-5c8c79484dd2",
+              "name": "can_rotate",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "0bf18b5a-46aa-475b-b795-cbce698a3fb4": {
+              "id": "0bf18b5a-46aa-475b-b795-cbce698a3fb4",
+              "name": "is_sensor",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            }
+          },
+          "images": [
+            "assets/images/gem.png"
+          ],
+          "sounds": [],
+          "script": "assets/scripts/gem.lua"
+        },
+        "ab3d80e7-31f7-43c9-9f60-74457df9da4f": {
+          "id": "ab3d80e7-31f7-43c9-9f60-74457df9da4f",
+          "name": "gem",
+          "attributes": {
+            "9557050c-1311-4890-8d91-2e4539952462": {
+              "id": "9557050c-1311-4890-8d91-2e4539952462",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 1029.0
+              }
+            },
+            "fbff2baf-cccc-405c-a177-b7d5b98ffb4c": {
+              "id": "fbff2baf-cccc-405c-a177-b7d5b98ffb4c",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 323.0
+              }
+            },
+            "a14aec87-7e66-41e9-8c40-ae10288f5305": {
+              "id": "a14aec87-7e66-41e9-8c40-ae10288f5305",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "07d44850-edf7-4df6-854f-651756571c09": {
+              "id": "07d44850-edf7-4df6-854f-651756571c09",
+              "name": "is_movable",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "bcaf6510-ea58-40a5-ac54-eb612daffcd9": {
+              "id": "bcaf6510-ea58-40a5-ac54-eb612daffcd9",
+              "name": "has_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "620c5f71-fa1b-44bd-98ac-d8b161a61487": {
+              "id": "620c5f71-fa1b-44bd-98ac-d8b161a61487",
+              "name": "creates_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "578f1a08-97b9-4d0d-b337-c9215ca4c6fc": {
+              "id": "578f1a08-97b9-4d0d-b337-c9215ca4c6fc",
+              "name": "has_collision",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "9b8582e1-8545-4dbe-be48-54bacee1679b": {
+              "id": "9b8582e1-8545-4dbe-be48-54bacee1679b",
+              "name": "friction",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.5
+              }
+            },
+            "63b02b3d-2509-4b6e-b5e0-e67904dd2565": {
+              "id": "63b02b3d-2509-4b6e-b5e0-e67904dd2565",
+              "name": "restitution",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "55ae24f1-d7cb-4f04-900f-c63fe91d1703": {
+              "id": "55ae24f1-d7cb-4f04-900f-c63fe91d1703",
+              "name": "density",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "9110a4fc-cf0e-4781-8b1b-68fa5e4d6a34": {
+              "id": "9110a4fc-cf0e-4781-8b1b-68fa5e4d6a34",
+              "name": "can_rotate",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "fc7e2731-7ae3-4251-ba69-89d16dc7f7d3": {
+              "id": "fc7e2731-7ae3-4251-ba69-89d16dc7f7d3",
+              "name": "is_sensor",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            }
+          },
+          "images": [
+            "assets/images/gem.png"
+          ],
+          "sounds": [],
+          "script": "assets/scripts/gem.lua"
+        },
+        "b920571f-41f7-424d-a51e-5281de306982": {
+          "id": "b920571f-41f7-424d-a51e-5281de306982",
+          "name": "gem",
+          "attributes": {
+            "50ab6b7a-28a4-49d0-bdd6-96ce574fdda9": {
+              "id": "50ab6b7a-28a4-49d0-bdd6-96ce574fdda9",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 1061.0
+              }
+            },
+            "db5ac24a-6b79-417b-a5c1-819ba3059da0": {
+              "id": "db5ac24a-6b79-417b-a5c1-819ba3059da0",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 323.0
+              }
+            },
+            "6c9d2bd6-4aee-4580-ae0b-cee47b492201": {
+              "id": "6c9d2bd6-4aee-4580-ae0b-cee47b492201",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "306a1991-92bb-4df1-b2fb-26489c83131f": {
+              "id": "306a1991-92bb-4df1-b2fb-26489c83131f",
+              "name": "is_movable",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "dbfc3dc9-27e8-4845-a7a3-2c3a249d47ca": {
+              "id": "dbfc3dc9-27e8-4845-a7a3-2c3a249d47ca",
+              "name": "has_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "2d584e03-11eb-4382-97fc-c353e1b4cc24": {
+              "id": "2d584e03-11eb-4382-97fc-c353e1b4cc24",
+              "name": "creates_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "497a7087-90fe-4974-9d9a-67d01f94c494": {
+              "id": "497a7087-90fe-4974-9d9a-67d01f94c494",
+              "name": "has_collision",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "166b6a0e-f160-4265-af73-307756b85bf2": {
+              "id": "166b6a0e-f160-4265-af73-307756b85bf2",
+              "name": "friction",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.5
+              }
+            },
+            "40953f26-c7f3-448c-81aa-883095d2bfc1": {
+              "id": "40953f26-c7f3-448c-81aa-883095d2bfc1",
+              "name": "restitution",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "84107295-7d21-47a5-af0e-7b7cc53cac3a": {
+              "id": "84107295-7d21-47a5-af0e-7b7cc53cac3a",
+              "name": "density",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "70f73152-3b22-4ad6-81a2-6ec2add4f513": {
+              "id": "70f73152-3b22-4ad6-81a2-6ec2add4f513",
+              "name": "can_rotate",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "a4f4e9a1-e980-4c60-b5e4-c388f4ee26f6": {
+              "id": "a4f4e9a1-e980-4c60-b5e4-c388f4ee26f6",
+              "name": "is_sensor",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            }
+          },
+          "images": [
+            "assets/images/gem.png"
+          ],
+          "sounds": [],
+          "script": "assets/scripts/gem.lua"
+        },
+        "6c478e1f-1f51-47e0-994e-4e03dc8b751a": {
+          "id": "6c478e1f-1f51-47e0-994e-4e03dc8b751a",
+          "name": "gem",
+          "attributes": {
+            "9973c7cb-b945-4ced-b4e4-6eacf3bcee5e": {
+              "id": "9973c7cb-b945-4ced-b4e4-6eacf3bcee5e",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 1477.0
+              }
+            },
+            "049593a5-29e5-4bde-a356-e8bffe9c47c6": {
+              "id": "049593a5-29e5-4bde-a356-e8bffe9c47c6",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 291.0
+              }
+            },
+            "fd6a556f-4adc-4196-9fda-7053cca65466": {
+              "id": "fd6a556f-4adc-4196-9fda-7053cca65466",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "88e1c03d-a08c-4026-97a2-d8be5adb9097": {
+              "id": "88e1c03d-a08c-4026-97a2-d8be5adb9097",
+              "name": "is_movable",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "d537a116-ff51-4063-b162-6bb230c442cc": {
+              "id": "d537a116-ff51-4063-b162-6bb230c442cc",
+              "name": "has_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "c095942f-7e82-4cc7-85c1-87e00ee23036": {
+              "id": "c095942f-7e82-4cc7-85c1-87e00ee23036",
+              "name": "creates_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "4a6a3f54-32fa-4c57-b723-cb422970d9df": {
+              "id": "4a6a3f54-32fa-4c57-b723-cb422970d9df",
+              "name": "has_collision",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "69ca171f-7105-4b0b-be53-f74058e8c3ca": {
+              "id": "69ca171f-7105-4b0b-be53-f74058e8c3ca",
+              "name": "friction",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.5
+              }
+            },
+            "d0f5d5f0-7e08-4a51-9563-470f77f8091c": {
+              "id": "d0f5d5f0-7e08-4a51-9563-470f77f8091c",
+              "name": "restitution",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "f44622c5-4e85-49eb-ba61-21ebccd843ae": {
+              "id": "f44622c5-4e85-49eb-ba61-21ebccd843ae",
+              "name": "density",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "9445ba9d-d46d-44b6-ade3-65ec475642af": {
+              "id": "9445ba9d-d46d-44b6-ade3-65ec475642af",
+              "name": "can_rotate",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "b4c8b606-b6d6-4914-b23c-59f21a9495f0": {
+              "id": "b4c8b606-b6d6-4914-b23c-59f21a9495f0",
+              "name": "is_sensor",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            }
+          },
+          "images": [
+            "assets/images/gem.png"
+          ],
+          "sounds": [],
+          "script": "assets/scripts/gem.lua"
+        },
+        "c426df64-d42d-4850-944b-dfbb845eee0e": {
+          "id": "c426df64-d42d-4850-944b-dfbb845eee0e",
+          "name": "gem",
+          "attributes": {
+            "45207ad1-aa9c-48b4-8890-efa5a7e18a5f": {
+              "id": "45207ad1-aa9c-48b4-8890-efa5a7e18a5f",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 1669.0
+              }
+            },
+            "ac2a133d-1ba7-44c7-86d0-6e58be239185": {
+              "id": "ac2a133d-1ba7-44c7-86d0-6e58be239185",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 291.0
+              }
+            },
+            "a5dec9e8-9294-4c8f-ad47-46eab9da7689": {
+              "id": "a5dec9e8-9294-4c8f-ad47-46eab9da7689",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "787d3c53-7a35-4a60-af5e-8cfd41eecca8": {
+              "id": "787d3c53-7a35-4a60-af5e-8cfd41eecca8",
+              "name": "is_movable",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "80d822ff-a2d4-456b-8616-6385235c8d2c": {
+              "id": "80d822ff-a2d4-456b-8616-6385235c8d2c",
+              "name": "has_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "894a747a-d529-417d-84b6-728cf10a7013": {
+              "id": "894a747a-d529-417d-84b6-728cf10a7013",
+              "name": "creates_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "85c5c438-6d2f-4c91-8e0a-e157a3e5f0b8": {
+              "id": "85c5c438-6d2f-4c91-8e0a-e157a3e5f0b8",
+              "name": "has_collision",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "f56314f7-bdd4-459a-87c1-58294458a65c": {
+              "id": "f56314f7-bdd4-459a-87c1-58294458a65c",
+              "name": "friction",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.5
+              }
+            },
+            "5bae8771-0132-495a-9e65-e3ffa0ea657d": {
+              "id": "5bae8771-0132-495a-9e65-e3ffa0ea657d",
+              "name": "restitution",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "3fc08a19-9539-4cb2-85ac-663cb573b1b6": {
+              "id": "3fc08a19-9539-4cb2-85ac-663cb573b1b6",
+              "name": "density",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "4d935729-f8af-44e4-a7e8-6a1ad2a59333": {
+              "id": "4d935729-f8af-44e4-a7e8-6a1ad2a59333",
+              "name": "can_rotate",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "fffa1734-6056-4846-8863-89ea38a32aad": {
+              "id": "fffa1734-6056-4846-8863-89ea38a32aad",
+              "name": "is_sensor",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            }
+          },
+          "images": [
+            "assets/images/gem.png"
+          ],
+          "sounds": [],
+          "script": "assets/scripts/gem.lua"
+        },
+        "acc246e7-3ff5-4721-87e1-14cbf05a7d55": {
+          "id": "acc246e7-3ff5-4721-87e1-14cbf05a7d55",
+          "name": "gem",
+          "attributes": {
+            "27677866-b357-4544-b282-5cc1560ea5e1": {
+              "id": "27677866-b357-4544-b282-5cc1560ea5e1",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 2117.0
+              }
+            },
+            "88f1b76c-c577-4992-ab5a-753728d20d0b": {
+              "id": "88f1b76c-c577-4992-ab5a-753728d20d0b",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 195.0
+              }
+            },
+            "fec64269-2abc-479a-8107-aa0b299df717": {
+              "id": "fec64269-2abc-479a-8107-aa0b299df717",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "15f55f41-5a2c-4dee-9963-93249f20469e": {
+              "id": "15f55f41-5a2c-4dee-9963-93249f20469e",
+              "name": "is_movable",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "4e5c8969-32b5-4c66-b5a5-c787a9c721f4": {
+              "id": "4e5c8969-32b5-4c66-b5a5-c787a9c721f4",
+              "name": "has_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "5a3f1d65-1396-4f45-b619-e0f1570d6f8b": {
+              "id": "5a3f1d65-1396-4f45-b619-e0f1570d6f8b",
+              "name": "creates_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "c36f3064-4c93-4cbc-ac79-c45bb7bca704": {
+              "id": "c36f3064-4c93-4cbc-ac79-c45bb7bca704",
+              "name": "has_collision",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "e11fb4a6-92e3-4d83-a06c-1aa612e12988": {
+              "id": "e11fb4a6-92e3-4d83-a06c-1aa612e12988",
+              "name": "friction",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.5
+              }
+            },
+            "0b0b8eae-dee3-42ed-9fd5-fe383e0a8a83": {
+              "id": "0b0b8eae-dee3-42ed-9fd5-fe383e0a8a83",
+              "name": "restitution",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "910b6d37-e7d7-4b03-8492-dde2be98ded1": {
+              "id": "910b6d37-e7d7-4b03-8492-dde2be98ded1",
+              "name": "density",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "09f672aa-8505-494e-b1d1-c1bde738fbad": {
+              "id": "09f672aa-8505-494e-b1d1-c1bde738fbad",
+              "name": "can_rotate",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "ea677e9c-7e2a-4008-a411-ce2ceff03111": {
+              "id": "ea677e9c-7e2a-4008-a411-ce2ceff03111",
+              "name": "is_sensor",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            }
+          },
+          "images": [
+            "assets/images/gem.png"
+          ],
+          "sounds": [],
+          "script": "assets/scripts/gem.lua"
+        },
+        "6cf36d69-d37c-41ab-8d7f-76c92d6072d7": {
+          "id": "6cf36d69-d37c-41ab-8d7f-76c92d6072d7",
+          "name": "gem",
+          "attributes": {
+            "01f5a955-897c-49d8-9c7a-49cc9e12f5ac": {
+              "id": "01f5a955-897c-49d8-9c7a-49cc9e12f5ac",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 2277.0
+              }
+            },
+            "5a17f537-de8f-467b-8889-5fcbccc1e363": {
+              "id": "5a17f537-de8f-467b-8889-5fcbccc1e363",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 99.0
+              }
+            },
+            "4df7889e-9040-4856-968d-97f0ec2a44ed": {
+              "id": "4df7889e-9040-4856-968d-97f0ec2a44ed",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "b32422b8-8c75-421a-a367-6e1f6334504b": {
+              "id": "b32422b8-8c75-421a-a367-6e1f6334504b",
+              "name": "is_movable",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "998dcd80-e911-4c23-938d-7ac9a4f20f1e": {
+              "id": "998dcd80-e911-4c23-938d-7ac9a4f20f1e",
+              "name": "has_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "4413a4e5-340a-4d51-9f12-e264a36e653d": {
+              "id": "4413a4e5-340a-4d51-9f12-e264a36e653d",
+              "name": "creates_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "a31ad76d-ae17-4930-b89a-dd9f7bfee30f": {
+              "id": "a31ad76d-ae17-4930-b89a-dd9f7bfee30f",
+              "name": "has_collision",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "56f5ca7b-a13c-4a61-a37f-239c42e79c4f": {
+              "id": "56f5ca7b-a13c-4a61-a37f-239c42e79c4f",
+              "name": "friction",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.5
+              }
+            },
+            "71a662e9-7fbe-48c0-bda0-f0da16285c68": {
+              "id": "71a662e9-7fbe-48c0-bda0-f0da16285c68",
+              "name": "restitution",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "81afdd04-4b2d-4541-97de-9986be593c51": {
+              "id": "81afdd04-4b2d-4541-97de-9986be593c51",
+              "name": "density",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "ca7fb7bc-c6b6-49c5-a491-0c0942fe9dc6": {
+              "id": "ca7fb7bc-c6b6-49c5-a491-0c0942fe9dc6",
+              "name": "can_rotate",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "5e3540ca-b35c-4d4a-a882-b22c26210535": {
+              "id": "5e3540ca-b35c-4d4a-a882-b22c26210535",
+              "name": "is_sensor",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            }
+          },
+          "images": [
+            "assets/images/gem.png"
+          ],
+          "sounds": [],
+          "script": "assets/scripts/gem.lua"
+        },
+        "630c93a4-2d1e-4c31-be92-02225302e992": {
+          "id": "630c93a4-2d1e-4c31-be92-02225302e992",
+          "name": "gem",
+          "attributes": {
+            "aaabfe48-ac2f-4485-bfb2-461b15ee3c28": {
+              "id": "aaabfe48-ac2f-4485-bfb2-461b15ee3c28",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 2309.0
+              }
+            },
+            "2b9f77ae-e34f-4336-a067-cbba56c17c8e": {
+              "id": "2b9f77ae-e34f-4336-a067-cbba56c17c8e",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 99.0
+              }
+            },
+            "66c23d05-9faf-4692-a540-8342da3c5535": {
+              "id": "66c23d05-9faf-4692-a540-8342da3c5535",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "aef76f77-47cb-470d-87a9-3078ddd0161e": {
+              "id": "aef76f77-47cb-470d-87a9-3078ddd0161e",
+              "name": "is_movable",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "56484cd8-dcfa-41ea-858d-11f518c8caf5": {
+              "id": "56484cd8-dcfa-41ea-858d-11f518c8caf5",
+              "name": "has_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "0c14941c-d6b4-4867-af45-e523526639b4": {
+              "id": "0c14941c-d6b4-4867-af45-e523526639b4",
+              "name": "creates_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "51a815e8-41a1-47ec-a51d-61343df52b82": {
+              "id": "51a815e8-41a1-47ec-a51d-61343df52b82",
+              "name": "has_collision",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "436e099b-90da-4985-9f48-63eff80143c4": {
+              "id": "436e099b-90da-4985-9f48-63eff80143c4",
+              "name": "friction",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.5
+              }
+            },
+            "0672d30e-6b95-4659-8a80-22f91e112c40": {
+              "id": "0672d30e-6b95-4659-8a80-22f91e112c40",
+              "name": "restitution",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "57675ed6-a6f9-4b12-9593-9972e48310d9": {
+              "id": "57675ed6-a6f9-4b12-9593-9972e48310d9",
+              "name": "density",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "0e5bfa4a-dbdd-4816-a15a-c08cb48b7451": {
+              "id": "0e5bfa4a-dbdd-4816-a15a-c08cb48b7451",
+              "name": "can_rotate",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "6aee6831-96e2-45b4-b4cc-6fa32cc1c03f": {
+              "id": "6aee6831-96e2-45b4-b4cc-6fa32cc1c03f",
+              "name": "is_sensor",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            }
+          },
+          "images": [
+            "assets/images/gem.png"
+          ],
+          "sounds": [],
+          "script": "assets/scripts/gem.lua"
+        },
+        "4f8e31b3-570e-45e9-b428-fc951147db06": {
+          "id": "4f8e31b3-570e-45e9-b428-fc951147db06",
+          "name": "gem",
+          "attributes": {
+            "0d92f5e2-3a11-4bd4-be88-1d648304b936": {
+              "id": "0d92f5e2-3a11-4bd4-be88-1d648304b936",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 2501.0
+              }
+            },
+            "934268e0-cee7-4d83-a43f-88cc86ea8309": {
+              "id": "934268e0-cee7-4d83-a43f-88cc86ea8309",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 291.0
+              }
+            },
+            "b56d0db1-9c06-4006-8119-51f2f735b307": {
+              "id": "b56d0db1-9c06-4006-8119-51f2f735b307",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "95f57bef-341d-4be0-8d7d-06bac9aa2aac": {
+              "id": "95f57bef-341d-4be0-8d7d-06bac9aa2aac",
+              "name": "is_movable",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "5d44fc20-2b24-463d-9f4c-f698d96e19d6": {
+              "id": "5d44fc20-2b24-463d-9f4c-f698d96e19d6",
+              "name": "has_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "0a8e1376-5e39-4414-96b3-7addc73f13c2": {
+              "id": "0a8e1376-5e39-4414-96b3-7addc73f13c2",
+              "name": "creates_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "70e9bc7c-b2ea-4c94-95f9-6249575dedaa": {
+              "id": "70e9bc7c-b2ea-4c94-95f9-6249575dedaa",
+              "name": "has_collision",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "19d02606-8723-4c8f-aebe-be08265eae2f": {
+              "id": "19d02606-8723-4c8f-aebe-be08265eae2f",
+              "name": "friction",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.5
+              }
+            },
+            "8646eedf-17e3-4287-ac18-7c264e8b9771": {
+              "id": "8646eedf-17e3-4287-ac18-7c264e8b9771",
+              "name": "restitution",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "4e3c6ce2-9987-4c03-8138-bf44b27b3d67": {
+              "id": "4e3c6ce2-9987-4c03-8138-bf44b27b3d67",
+              "name": "density",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "21557f22-c64e-4dff-b68a-9d262c6e9fc1": {
+              "id": "21557f22-c64e-4dff-b68a-9d262c6e9fc1",
+              "name": "can_rotate",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "b7e2d8b1-a819-468d-bb7b-951ada4c3521": {
+              "id": "b7e2d8b1-a819-468d-bb7b-951ada4c3521",
+              "name": "is_sensor",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            }
+          },
+          "images": [
+            "assets/images/gem.png"
+          ],
+          "sounds": [],
+          "script": "assets/scripts/gem.lua"
+        },
+        "ed9957d9-ae3a-4949-a507-677c33dfed3b": {
+          "id": "ed9957d9-ae3a-4949-a507-677c33dfed3b",
+          "name": "gem",
+          "attributes": {
+            "c7351726-68ad-467d-86c3-fc258d6c8959": {
+              "id": "c7351726-68ad-467d-86c3-fc258d6c8959",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 2725.0
+              }
+            },
+            "ad1ffbaa-9ab5-42b8-aefc-ca46d6b049fd": {
+              "id": "ad1ffbaa-9ab5-42b8-aefc-ca46d6b049fd",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 259.0
+              }
+            },
+            "1fa36b69-78b6-4128-b829-01c230365b4c": {
+              "id": "1fa36b69-78b6-4128-b829-01c230365b4c",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "672963a7-2f55-476b-9f5e-9e13da7d6f1a": {
+              "id": "672963a7-2f55-476b-9f5e-9e13da7d6f1a",
+              "name": "is_movable",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "6020ea4b-fba4-4d8d-a618-a0b67e80ea10": {
+              "id": "6020ea4b-fba4-4d8d-a618-a0b67e80ea10",
+              "name": "has_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "6ead0403-f43b-4fd3-a013-7b066eec6219": {
+              "id": "6ead0403-f43b-4fd3-a013-7b066eec6219",
+              "name": "creates_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "afd346ee-2d16-4547-b6b5-23f9881a33e5": {
+              "id": "afd346ee-2d16-4547-b6b5-23f9881a33e5",
+              "name": "has_collision",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "c8b0b5b6-fa7f-4d36-83ca-b7eb0e97b9ee": {
+              "id": "c8b0b5b6-fa7f-4d36-83ca-b7eb0e97b9ee",
+              "name": "friction",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.5
+              }
+            },
+            "8aa013a1-6340-4d65-a1c2-b8622f85ad05": {
+              "id": "8aa013a1-6340-4d65-a1c2-b8622f85ad05",
+              "name": "restitution",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "4c76fa0a-ee8a-41f4-96f7-ca89c86e3f6e": {
+              "id": "4c76fa0a-ee8a-41f4-96f7-ca89c86e3f6e",
+              "name": "density",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "1452ed1e-97ac-4173-8133-e8a26cdec932": {
+              "id": "1452ed1e-97ac-4173-8133-e8a26cdec932",
+              "name": "can_rotate",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "8e2178d4-827c-4ae4-8b97-ae013445cc74": {
+              "id": "8e2178d4-827c-4ae4-8b97-ae013445cc74",
+              "name": "is_sensor",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            }
+          },
+          "images": [
+            "assets/images/gem.png"
+          ],
+          "sounds": [],
+          "script": "assets/scripts/gem.lua"
+        },
+        "a4d825c2-3072-4952-bf42-81ff6d094765": {
+          "id": "a4d825c2-3072-4952-bf42-81ff6d094765",
+          "name": "gem",
+          "attributes": {
+            "9c53a96c-cbf6-4382-8170-91feaa5811e0": {
+              "id": "9c53a96c-cbf6-4382-8170-91feaa5811e0",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 2789.0
+              }
+            },
+            "1552b5e7-3ad2-4b69-81ff-e127704929af": {
+              "id": "1552b5e7-3ad2-4b69-81ff-e127704929af",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 259.0
+              }
+            },
+            "3b61d1df-a08d-4dad-a314-a2c37a446574": {
+              "id": "3b61d1df-a08d-4dad-a314-a2c37a446574",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "9dce4e96-8760-4e3f-a950-b283f375ac36": {
+              "id": "9dce4e96-8760-4e3f-a950-b283f375ac36",
+              "name": "is_movable",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "8d3f931b-ce95-4ff5-b6b2-2260779a28fa": {
+              "id": "8d3f931b-ce95-4ff5-b6b2-2260779a28fa",
+              "name": "has_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "ba237efc-144a-453d-a401-537160a4df97": {
+              "id": "ba237efc-144a-453d-a401-537160a4df97",
+              "name": "creates_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "c40b65b8-8331-42c8-8edc-02bc2be3cf7b": {
+              "id": "c40b65b8-8331-42c8-8edc-02bc2be3cf7b",
+              "name": "has_collision",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "24a27b81-eb67-4472-a74d-306e3d2817a4": {
+              "id": "24a27b81-eb67-4472-a74d-306e3d2817a4",
+              "name": "friction",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.5
+              }
+            },
+            "fdedd885-0246-41fb-b575-4f788f0222fd": {
+              "id": "fdedd885-0246-41fb-b575-4f788f0222fd",
+              "name": "restitution",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "e25a5f60-235c-4e58-919f-4f994b8b7cc1": {
+              "id": "e25a5f60-235c-4e58-919f-4f994b8b7cc1",
+              "name": "density",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "5e8cc384-d073-451e-a5c4-334a35346d7d": {
+              "id": "5e8cc384-d073-451e-a5c4-334a35346d7d",
+              "name": "can_rotate",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "9ba338fc-a6f2-49e3-ae63-30a98340877b": {
+              "id": "9ba338fc-a6f2-49e3-ae63-30a98340877b",
+              "name": "is_sensor",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            }
+          },
+          "images": [
+            "assets/images/gem.png"
+          ],
+          "sounds": [],
+          "script": "assets/scripts/gem.lua"
+        },
+        "c462491a-f5e8-41ef-baed-ee365c39d8b1": {
+          "id": "c462491a-f5e8-41ef-baed-ee365c39d8b1",
+          "name": "gem",
+          "attributes": {
+            "36f76771-583c-4834-b551-753acfe8b29d": {
+              "id": "36f76771-583c-4834-b551-753acfe8b29d",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 3141.0
+              }
+            },
+            "a5f89a56-7bb9-4a6f-8660-6335e63e6d8d": {
+              "id": "a5f89a56-7bb9-4a6f-8660-6335e63e6d8d",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 323.0
+              }
+            },
+            "d7ab466e-e971-46be-bb9d-233d961b6d99": {
+              "id": "d7ab466e-e971-46be-bb9d-233d961b6d99",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "fa68e5f1-7bff-4262-a04a-5e5dce9ddddd": {
+              "id": "fa68e5f1-7bff-4262-a04a-5e5dce9ddddd",
+              "name": "is_movable",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "2bc9135e-8ab9-419d-bb4e-0843e82bf59d": {
+              "id": "2bc9135e-8ab9-419d-bb4e-0843e82bf59d",
+              "name": "has_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "a809ce44-d9bf-4cf2-8d72-590b0cc8d7c2": {
+              "id": "a809ce44-d9bf-4cf2-8d72-590b0cc8d7c2",
+              "name": "creates_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "11cd53ee-f9e0-45bb-ac98-a95ddfdf9e67": {
+              "id": "11cd53ee-f9e0-45bb-ac98-a95ddfdf9e67",
+              "name": "has_collision",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "58c5f317-1fe7-4371-9b68-921dd26365e0": {
+              "id": "58c5f317-1fe7-4371-9b68-921dd26365e0",
+              "name": "friction",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.5
+              }
+            },
+            "2871ab37-a0ea-4b6d-ad0d-bc5786b5c47a": {
+              "id": "2871ab37-a0ea-4b6d-ad0d-bc5786b5c47a",
+              "name": "restitution",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "86edcbaa-94b7-448b-9dc9-f4ff5b0dd7e6": {
+              "id": "86edcbaa-94b7-448b-9dc9-f4ff5b0dd7e6",
+              "name": "density",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "6d21093b-f11c-4fcd-9fc5-c4680bba7613": {
+              "id": "6d21093b-f11c-4fcd-9fc5-c4680bba7613",
+              "name": "can_rotate",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "2fc0ca85-f28b-474f-be12-ddec530fdd6a": {
+              "id": "2fc0ca85-f28b-474f-be12-ddec530fdd6a",
+              "name": "is_sensor",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            }
+          },
+          "images": [
+            "assets/images/gem.png"
+          ],
+          "sounds": [],
+          "script": "assets/scripts/gem.lua"
+        },
+        "519595fb-4c2c-48f3-b4da-86a7438619c6": {
+          "id": "519595fb-4c2c-48f3-b4da-86a7438619c6",
+          "name": "checkpoint",
+          "attributes": {
+            "a351ef9d-65da-4cd3-b9b9-885297e3740c": {
+              "id": "a351ef9d-65da-4cd3-b9b9-885297e3740c",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 1540.0
+              }
+            },
+            "f93f2236-c56b-40bf-82a1-e56f570b9cf4": {
+              "id": "f93f2236-c56b-40bf-82a1-e56f570b9cf4",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 360.0
+              }
+            },
+            "d9e1fc85-2154-4cfc-a51e-d3dc667ed2e6": {
+              "id": "d9e1fc85-2154-4cfc-a51e-d3dc667ed2e6",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.6
+              }
+            },
+            "3ba31ba1-546d-4763-9ee0-6c816745f446": {
+              "id": "3ba31ba1-546d-4763-9ee0-6c816745f446",
+              "name": "is_movable",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "136b6092-a5e6-4b04-8d6d-709bbb918b7f": {
+              "id": "136b6092-a5e6-4b04-8d6d-709bbb918b7f",
+              "name": "has_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "4b4dd910-bcc6-4960-b7e6-3c84ebf78775": {
+              "id": "4b4dd910-bcc6-4960-b7e6-3c84ebf78775",
+              "name": "creates_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "4c8fb1eb-de2c-49a3-b291-7b9457d83676": {
+              "id": "4c8fb1eb-de2c-49a3-b291-7b9457d83676",
+              "name": "has_collision",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "34540748-c7b2-4522-9fc5-f0d9df1e52e1": {
+              "id": "34540748-c7b2-4522-9fc5-f0d9df1e52e1",
+              "name": "friction",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.5
+              }
+            },
+            "4e7d5599-6c81-47e6-83d2-2da075659772": {
+              "id": "4e7d5599-6c81-47e6-83d2-2da075659772",
+              "name": "restitution",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "ca9cbed0-aecf-4e6e-805e-faf5b10d21be": {
+              "id": "ca9cbed0-aecf-4e6e-805e-faf5b10d21be",
+              "name": "density",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "850e0b51-6a69-4e88-9c7e-ce19dfa2b9f4": {
+              "id": "850e0b51-6a69-4e88-9c7e-ce19dfa2b9f4",
+              "name": "can_rotate",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "5f4f813a-40c7-4bc7-8d44-239f9d8e9398": {
+              "id": "5f4f813a-40c7-4bc7-8d44-239f9d8e9398",
+              "name": "is_sensor",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "38bf42cc-fb8c-45f4-bb2f-7c1acbda9cea": {
+              "id": "38bf42cc-fb8c-45f4-bb2f-7c1acbda9cea",
+              "name": "frame_size",
+              "data_type": "Vector2",
+              "value": {
+                "Vector2": [
+                  24.0,
+                  56.0
+                ]
+              }
+            },
+            "1a705a54-a313-4f4e-a04c-ee4076c2df97": {
+              "id": "1a705a54-a313-4f4e-a04c-ee4076c2df97",
+              "name": "frame",
+              "data_type": "Integer",
+              "value": {
+                "Integer": 0
+              }
+            }
+          },
+          "images": [
+            "assets/images/checkpoint.png"
+          ],
+          "sounds": [],
+          "script": "assets/scripts/checkpoint.lua"
+        },
+        "10a1b698-2cd1-49e8-b0f0-18fd00502a97": {
+          "id": "10a1b698-2cd1-49e8-b0f0-18fd00502a97",
+          "name": "checkpoint",
+          "attributes": {
+            "2c93d6ae-52c6-4587-b2e6-2d51733231a5": {
+              "id": "2c93d6ae-52c6-4587-b2e6-2d51733231a5",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 2884.0
+              }
+            },
+            "7b22c61c-3e12-4f90-96a6-001b831bff3a": {
+              "id": "7b22c61c-3e12-4f90-96a6-001b831bff3a",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 360.0
+              }
+            },
+            "d1a158a2-bcac-4f60-b545-779aa5f4360b": {
+              "id": "d1a158a2-bcac-4f60-b545-779aa5f4360b",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.6
+              }
+            },
+            "af8b510c-c553-47db-92b5-3c4eabfac814": {
+              "id": "af8b510c-c553-47db-92b5-3c4eabfac814",
+              "name": "is_movable",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "e7d70b6a-abb0-4a14-8de4-3fea138c852d": {
+              "id": "e7d70b6a-abb0-4a14-8de4-3fea138c852d",
+              "name": "has_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "ed73c001-cef5-4783-afc9-9a5c9b438190": {
+              "id": "ed73c001-cef5-4783-afc9-9a5c9b438190",
+              "name": "creates_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "a23b6c39-9f95-40c2-a779-447fc6d03d03": {
+              "id": "a23b6c39-9f95-40c2-a779-447fc6d03d03",
+              "name": "has_collision",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "4eb0b81c-9faa-4173-bdbe-5739aed8f36e": {
+              "id": "4eb0b81c-9faa-4173-bdbe-5739aed8f36e",
+              "name": "friction",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.5
+              }
+            },
+            "4b68708a-a28f-4628-9190-c2e549ec919a": {
+              "id": "4b68708a-a28f-4628-9190-c2e549ec919a",
+              "name": "restitution",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "a6f0dd7d-8ebc-43b8-960c-155f3f62c01b": {
+              "id": "a6f0dd7d-8ebc-43b8-960c-155f3f62c01b",
+              "name": "density",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "5f624253-1e04-46cb-8fdd-7ef28b4cf3e2": {
+              "id": "5f624253-1e04-46cb-8fdd-7ef28b4cf3e2",
+              "name": "can_rotate",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "799fff47-296f-45a5-9543-2d866cdcb130": {
+              "id": "799fff47-296f-45a5-9543-2d866cdcb130",
+              "name": "is_sensor",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "9691511b-1a4d-478c-9c23-8de5df3f5c57": {
+              "id": "9691511b-1a4d-478c-9c23-8de5df3f5c57",
+              "name": "frame_size",
+              "data_type": "Vector2",
+              "value": {
+                "Vector2": [
+                  24.0,
+                  56.0
+                ]
+              }
+            },
+            "700752d8-ba23-4224-8c4a-548d162306c4": {
+              "id": "700752d8-ba23-4224-8c4a-548d162306c4",
+              "name": "frame",
+              "data_type": "Integer",
+              "value": {
+                "Integer": 0
+              }
+            }
+          },
+          "images": [
+            "assets/images/checkpoint.png"
+          ],
+          "sounds": [],
+          "script": "assets/scripts/checkpoint.lua"
+        },
+        "5253b4fd-c771-4d7e-9f7a-afb7a47f133f": {
+          "id": "5253b4fd-c771-4d7e-9f7a-afb7a47f133f",
+          "name": "goal",
+          "attributes": {
+            "767df604-5aa6-4742-ac05-a2f52a574fe6": {
+              "id": "767df604-5aa6-4742-ac05-a2f52a574fe6",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 3392.0
+              }
+            },
+            "b36f70b0-8cdf-4435-82ad-99c71e1148f6": {
+              "id": "b36f70b0-8cdf-4435-82ad-99c71e1148f6",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 320.0
+              }
+            },
+            "c50aa4d7-187d-4714-a640-19a959103c3f": {
+              "id": "c50aa4d7-187d-4714-a640-19a959103c3f",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.6
+              }
+            },
+            "c933aadf-44bb-41a4-b3c8-5fcd977e07ba": {
+              "id": "c933aadf-44bb-41a4-b3c8-5fcd977e07ba",
+              "name": "is_movable",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "93021ee1-13f8-4f05-abe1-a2480afc414f": {
+              "id": "93021ee1-13f8-4f05-abe1-a2480afc414f",
+              "name": "has_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "742925c8-b9f1-439f-9f39-67be052a7582": {
+              "id": "742925c8-b9f1-439f-9f39-67be052a7582",
+              "name": "creates_gravity",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "e2fd1688-83ae-4440-8387-03ccc4aae7a3": {
+              "id": "e2fd1688-83ae-4440-8387-03ccc4aae7a3",
+              "name": "has_collision",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            },
+            "aa03ec59-52f2-4522-adba-1b6e2c18e15d": {
+              "id": "aa03ec59-52f2-4522-adba-1b6e2c18e15d",
+              "name": "friction",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.5
+              }
+            },
+            "1fd8167a-3ed2-4f17-9f48-6e487d307c55": {
+              "id": "1fd8167a-3ed2-4f17-9f48-6e487d307c55",
+              "name": "restitution",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "b4b8189a-2ea9-4bc8-833b-49fb30a27792": {
+              "id": "b4b8189a-2ea9-4bc8-833b-49fb30a27792",
+              "name": "density",
+              "data_type": "Float",
+              "value": {
+                "Float": 1.0
+              }
+            },
+            "ce3e8523-d782-47e6-b2b7-f77e61539962": {
+              "id": "ce3e8523-d782-47e6-b2b7-f77e61539962",
+              "name": "can_rotate",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": false
+              }
+            },
+            "1659dd19-269f-4164-a74d-dfc409eb18ea": {
+              "id": "1659dd19-269f-4164-a74d-dfc409eb18ea",
+              "name": "is_sensor",
+              "data_type": "Boolean",
+              "value": {
+                "Boolean": true
+              }
+            }
+          },
+          "images": [
+            "assets/images/flag.png"
+          ],
+          "sounds": [],
+          "script": "assets/scripts/goal.lua"
+        },
+        "7a1eb580-2705-4c4f-8ec4-e13ba73647fd": {
+          "id": "7a1eb580-2705-4c4f-8ec4-e13ba73647fd",
+          "name": "level",
+          "attributes": {
+            "e0dd3763-730b-44b4-a5e5-96af1d1991a1": {
+              "id": "e0dd3763-730b-44b4-a5e5-96af1d1991a1",
+              "name": "x",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "36345b37-7243-43e1-a6c8-667e92e6d4c2": {
+              "id": "36345b37-7243-43e1-a6c8-667e92e6d4c2",
+              "name": "y",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            },
+            "9aa41215-16aa-46bf-8bab-d57d428027b5": {
+              "id": "9aa41215-16aa-46bf-8bab-d57d428027b5",
+              "name": "z",
+              "data_type": "Float",
+              "value": {
+                "Float": 0.0
+              }
+            }
+          },
+          "images": [],
+          "sounds": [],
+          "script": "assets/scripts/level.lua"
+        }
+      },
+      "shared_entity_refs": [],
+      "default_camera": "9d159dc4-7371-435f-90ee-c28a0af60a17"
+    }
+  },
+  "shared_entities": {},
+  "active_scene": "79080f1b-6c6a-490f-9f69-c2c875fbe7e8"
+}

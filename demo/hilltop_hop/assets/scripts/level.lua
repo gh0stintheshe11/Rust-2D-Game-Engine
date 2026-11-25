@@ -1,0 +1,92 @@
+-- The level: starts the round, follows the player with the camera (the sky
+-- moves along, the hills at half speed for depth), keeps time, and draws
+-- the heads-up display and the end screens.
+
+local TILE = 32
+local LEVEL_WIDTH = 110 * TILE
+local VIEW_WIDTH, VIEW_HEIGHT = 960, 540
+local HILLS_Y = 240
+local GEMS_TOTAL = 15
+local MAX_LIVES = 3
+-- Keys and gamepad buttons answer the end screens only after this long, so
+-- the jump that reached the flag doesn't press "Play again" too
+local END_SCREEN_DELAY = 0.6
+
+local camera, player, sky, hills
+
+function init(scene_id, entity_id)
+    set_gravity(0, 1500)
+    camera = find_entity(scene_id, "main_camera")
+    player = find_entity(scene_id, "player")
+    sky = find_entity(scene_id, "sky")
+    hills = find_entity(scene_id, "hills")
+    local state = script_state.state
+    state.lives, state.gems, state.time = MAX_LIVES, 0, 0
+    state.won, state.game_over, state.checkpoint = false, false, nil
+end
+
+local function follow_player(scene_id)
+    local x = get_attribute(scene_id, player, "x")
+    local center = math.max(VIEW_WIDTH / 2, math.min(LEVEL_WIDTH - VIEW_WIDTH / 2, x + 14))
+    local left = center - VIEW_WIDTH / 2
+    set_position(scene_id, camera, center, VIEW_HEIGHT / 2)
+    set_position(scene_id, sky, left, 0)
+    set_position(scene_id, hills, left * 0.5, HILLS_Y)
+end
+
+local function heads_up(state)
+    draw_rect(10, 10, 190, 74, { color = "#10182c90", radius = 10 })
+    for i = 1, MAX_LIVES do
+        draw_image("assets/images/heart.png", 22 + (i - 1) * 32, 18,
+            { width = 26, opacity = i <= state.lives and 1 or 0.25 })
+    end
+    draw_image("assets/images/gem.png", 24, 50, { width = 18 })
+    draw_text(state.gems .. " / " .. GEMS_TOTAL, 50, 50, { size = 22 })
+    draw_text(string.format("%.1f s", state.time), VIEW_WIDTH - 20, 16,
+        { size = 26, align = "right" })
+end
+
+local function end_screen(title, color, lines)
+    draw_rect(0, 0, VIEW_WIDTH, VIEW_HEIGHT, { color = "#00000050" })
+    draw_rect(290, 110, 380, 310, { color = "#10182ce8", radius = 16, outline = "#ffffff30" })
+    draw_text(title, VIEW_WIDTH / 2, 132, { size = 46, color = color, align = "center" })
+    for i, line in ipairs(lines) do
+        draw_text(line, VIEW_WIDTH / 2, 200 + (i - 1) * 34, { size = 24, align = "center" })
+    end
+end
+
+-- The end screens' two buttons: again (Enter or gamepad A), or the title
+-- screen (Escape or gamepad B)
+local function end_buttons(state, again_label)
+    local ready = accumulated_time - state.ended_at >= END_SCREEN_DELAY
+    if button(again_label, 320, 340, 150, 54) or (ready and (is_key_just_pressed("Enter")
+            or is_gamepad_just_pressed("a"))) then
+        change_scene("level")
+    elseif button("Title", 490, 340, 150, 54) or (ready and (is_key_just_pressed("Escape")
+            or is_gamepad_just_pressed("b"))) then
+        change_scene("title")
+    end
+end
+
+function update(scene_id, entity_id)
+    local state = script_state.state
+    follow_player(scene_id)
+    if not (state.won or state.game_over) then
+        state.time = state.time + delta_time
+    end
+    heads_up(state)
+
+    if state.won then
+        local time = string.format("Time: %.1f s", state.time)
+        if state.new_best_time then
+            time = time .. "  (best!)"
+        end
+        end_screen("You made it!", "#ffd84a", { "Gems: " .. state.gems .. " / " .. GEMS_TOTAL, time })
+        end_buttons(state, "Play again")
+    elseif state.game_over then
+        end_screen("Out of hearts", "#ff8080", { "Gems: " .. state.gems .. " / " .. GEMS_TOTAL })
+        end_buttons(state, "Try again")
+    elseif is_key_just_pressed("Escape") or is_gamepad_just_pressed("start") then
+        change_scene("title")
+    end
+end

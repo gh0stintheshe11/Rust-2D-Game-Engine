@@ -1,0 +1,40 @@
+# Hilltop Hop
+
+A small platformer made with the Rust 2D Game Engine. Run and jump across a
+grassy hillside, collect the 15 gems, and reach the flag at the end. Pits
+and spikes cost a heart; with all three gone, the round is over. The title
+screen shows your best time, which is saved between runs.
+
+![Hilltop Hop](../../docs/images/hilltop_hop.png)
+
+**Controls:** ← / → or A / D to run, Space, W or ↑ to jump (hold for a
+higher jump). A gamepad works too: the left stick or d-pad runs, (A) jumps.
+Esc (or Start) returns to the title screen; on the end screens, Enter or (A)
+plays again and Esc or (B) goes to the title screen, or click the buttons.
+
+## Running it
+
+- **In the editor:** File → Open Project → this folder, then ▶ Play.
+- **As a standalone game:** `cargo run -p hilltop_hop` from the repository,
+  or Project → Build Project in the editor.
+
+## What it shows
+
+| Feature | Where |
+|---|---|
+| A tilemap level painted from one tileset: solid ground and stone, one-way wooden planks you jump up through, and grass and flowers that don't collide | `ground` entity in the `level` scene (Tilemap section of the inspector) |
+| A tilemap as a trigger zone: spikes | `spikes` entity (`is_sensor`), `player.lua` |
+| Changing tiles from a script: bricks break when hit from below | `break_bricks` in `player.lua` (`get_tile_cell`, `get_tile`, `set_tile`) |
+| Platformer movement on a dynamic body: run speed with `set_velocity` / `get_velocity`, ground checks with `raycast`, coyote time, jump buffering, short hops | `player.lua`, tuned by the `speed` and `jump_speed` attributes |
+| Sprite sheet animation and mirroring | `player` entity (`frame_size`), `play_animation` and `flip_x` in `player.lua` |
+| Particles: pollen in the air, and bursts of dust, brick debris, sparkles and confetti | the `pollen`, `dust`, `debris`, `sparkle` and `confetti` emitters, `emit_particles` in the scripts |
+| Game UI: hearts and gem count, end screens with buttons, the title menu | `level.lua`, `title.lua` (`draw_rect`, `draw_image`, `draw_text`, `button`) |
+| Keyboard and gamepad input side by side | `read_input` in `player.lua`, `level.lua`, `title.lua` |
+| A camera following the player, with the sky and slower hills behind it (parallax) | `follow_player` in `level.lua` |
+| Trigger zones with collision hooks: gems, checkpoints, the goal | `gem.lua`, `checkpoint.lua`, `goal.lua` |
+| State shared by scripts and kept between runs: hearts, gems, the best time | `script_state`, `save_data` / `load_data` in `goal.lua` and `title.lua` |
+
+## Assets
+
+All images and sounds in `assets/` were generated for this project and are
+covered by the repository's license (Apache-2.0).
