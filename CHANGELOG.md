@@ -7,6 +7,14 @@ versions may contain breaking changes).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-25
+
+Less code for everyday game logic: input actions, named controls bound to
+keys and gamepads in the editor and rebound by players; timers and tweens
+for scripts; and an `on_destroy` hook. Both demos use them, and Star
+Catcher plays with a gamepad. When upgrading, Rust code that constructs
+`ProjectMetadata` needs its new `input_actions` field.
+
 ### Added
 
 - Input actions: named controls such as `jump` or `left`, each bound to
@@ -344,7 +352,8 @@ Renovation of the 2024 course project: rewritten Lua scripting core, physics
 and runtime fixes, GPU texture caching, undo/redo, viewport picking and
 dragging, script editor improvements, CI and multi-platform releases.
 
-[Unreleased]: https://github.com/gh0stintheshe11/Rust-2D-Game-Engine/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/gh0stintheshe11/Rust-2D-Game-Engine/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/gh0stintheshe11/Rust-2D-Game-Engine/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/gh0stintheshe11/Rust-2D-Game-Engine/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/gh0stintheshe11/Rust-2D-Game-Engine/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/gh0stintheshe11/Rust-2D-Game-Engine/compare/v0.3.0...v0.4.0
