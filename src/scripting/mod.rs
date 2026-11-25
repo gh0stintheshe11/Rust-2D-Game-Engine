@@ -20,6 +20,7 @@ use crate::save::SaveData;
 use crate::scene::{Scene, SceneManager};
 
 mod audio_bindings;
+mod button_focus;
 mod input_bindings;
 mod physics_bindings;
 mod render_bindings;
@@ -164,6 +165,8 @@ pub struct LuaScripting {
     hud: Rc<RefCell<Vec<HudItem>>>,
     // Bursts scripts asked for with emit_particles, for the runtime to take
     particle_bursts: Rc<RefCell<Vec<ParticleBurst>>>,
+    // Which button drawn with `button` has the keyboard and gamepad focus
+    button_focus: Rc<RefCell<button_focus::ButtonFocus>>,
     // What save_data / load_data read and write (see set_save_data)
     save_data: Rc<RefCell<SaveData>>,
     // Entity and scene ids as Lua strings, for hook arguments: creating
@@ -216,6 +219,7 @@ impl LuaScripting {
             scene_change_request: Rc::new(Cell::new(None)),
             hud: Rc::new(RefCell::new(Vec::new())),
             particle_bursts: Rc::new(RefCell::new(Vec::new())),
+            button_focus: Rc::new(RefCell::new(button_focus::ButtonFocus::default())),
             save_data: Rc::new(RefCell::new(SaveData::in_memory())),
             id_strings: HashMap::new(),
             deadline: Rc::new(Cell::new(None)),
@@ -276,6 +280,7 @@ impl LuaScripting {
         self.previous_contacts.clear();
         self.hud.borrow_mut().clear();
         self.particle_bursts.borrow_mut().clear();
+        *self.button_focus.borrow_mut() = button_focus::ButtonFocus::default();
         self.accumulated_time = 0.0;
         self.scene_manager = Some(Rc::clone(&scene_manager));
         self.physics_engine = Some(Rc::clone(&physics_engine));
@@ -376,6 +381,7 @@ impl LuaScripting {
         self.id_strings.clear();
         self.hud.borrow_mut().clear();
         self.particle_bursts.borrow_mut().clear();
+        *self.button_focus.borrow_mut() = button_focus::ButtonFocus::default();
     }
 
     /// Advance the game clock: `accumulated_time` grows by `delta_time`.
@@ -389,6 +395,13 @@ impl LuaScripting {
     }
 
     /// Refresh the `keys_pressed` array global from the input handler.
+    /// Move the keyboard and gamepad focus among the buttons scripts drew
+    /// last frame, for this frame's input (see `button`). Called every
+    /// frame before scripts run.
+    pub fn update_button_focus(&self, input_handler: &InputHandler) {
+        self.button_focus.borrow_mut().begin_frame(input_handler);
+    }
+
     pub fn bind_keys_pressed(&self, input_handler: &InputHandler) -> Result<(), mlua::Error> {
         let keys_pressed_table = self
             .lua

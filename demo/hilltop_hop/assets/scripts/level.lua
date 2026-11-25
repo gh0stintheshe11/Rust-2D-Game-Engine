@@ -8,8 +8,8 @@ local VIEW_WIDTH, VIEW_HEIGHT = 960, 540
 local HILLS_Y = 240
 local GEMS_TOTAL = 15
 local MAX_LIVES = 3
--- Keys and gamepad buttons answer the end screens only after this long, so
--- the jump that reached the flag doesn't press "Play again" too
+-- The end screens' buttons take the keyboard and gamepad focus only after
+-- this long, so the jump that reached the flag doesn't press "Play again"
 local END_SCREEN_DELAY = 0.6
 
 local camera, player, sky, hills
@@ -55,15 +55,15 @@ local function end_screen(title, color, lines)
     end
 end
 
--- The end screens' two buttons: again (Enter or gamepad A), or the title
--- screen (Escape or gamepad B)
+-- The end screens' two buttons: again, focused by default, or the title
+-- screen (also Escape or gamepad B). The arrow keys or the d-pad move the
+-- focus, and Enter or gamepad A press the focused button.
 local function end_buttons(state, again_label)
     local ready = accumulated_time - state.ended_at >= END_SCREEN_DELAY
-    if button(again_label, 320, 340, 150, 54) or (ready and (is_key_just_pressed("Enter")
-            or is_gamepad_just_pressed("a"))) then
+    if button(again_label, 320, 340, 150, 54, { default = ready }) then
         change_scene("level")
-    elseif button("Title", 490, 340, 150, 54) or (ready and (is_key_just_pressed("Escape")
-            or is_gamepad_just_pressed("b"))) then
+    elseif button("Title", 490, 340, 150, 54)
+        or (ready and (is_key_just_pressed("Escape") or is_gamepad_just_pressed("b"))) then
         change_scene("title")
     end
 end

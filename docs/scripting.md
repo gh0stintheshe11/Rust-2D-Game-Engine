@@ -166,17 +166,26 @@ pixels; later drawings cover earlier ones):
 |---|---|
 | `draw_rect(x, y, width, height [, options])` | A filled rectangle: panels, health bars. Options: `color` (default white), `radius` (corner radius, default 0), `outline` (a color), `outline_width` (default 2 with an outline) |
 | `draw_image(path, x, y [, options])` | An image file (project-relative path): icons, lives. Without `width` and `height` it has its own size; with one of them, its proportions. Options: `width`, `height`, `color` (tint), `opacity` (0 to 1) |
-| `button(label, x, y, width, height [, options])` | Draws a button and returns whether it was clicked this frame: pressed and released with the left mouse button on it. It's lighter while hovered and darker while pressed. Options: `size` (label height, default 22), `color` (label), `background`, `hover`, `pressed`, `radius` (default 8), `outline`, `outline_width` |
+| `button(label, x, y, width, height [, options])` | Draws a button and returns whether it was clicked this frame (pressed and released with the left mouse button on it, or pressed with Enter or gamepad A while it has the focus) and whether it has the keyboard and gamepad focus. It's lighter while hovered or focused, darker while pressed, and outlined while focused. Options: `size` (label height, default 22), `color` (label), `background`, `hover`, `pressed`, `radius` (default 8), `outline`, `outline_width`, `focus` (the focus outline's color), `default` (true: it takes the focus when the buttons appear, so Enter or A press it right away), `focusable` (false: keyboard and gamepad never focus it, e.g. a button over the game while playing), `id` (who the button is for the focus, when its label changes) |
 
 Colors are `"#rrggbb"` or `"#rrggbbaa"`; unknown options, values of the
 wrong type and negative sizes raise an error.
 
+**Focus.** One button at a time has the keyboard and gamepad focus. The up
+and left arrows, Shift+Tab, the d-pad's up and left and the left stick
+pushed up or left move it to the previous button, in the order the buttons
+are drawn; the down and right arrows, Tab and the other directions to the
+next one, wrapping around at the ends. The stick moves it once per push.
+The mouse moving over a button focuses it. Without a `default` button, no
+button has the focus until one of those moves it. Buttons are known by their
+label (or `id`), so the focus stays on a button that moves.
+
 ```lua
--- A title screen
+-- A title screen: Play has the focus first, so Enter or gamepad A start
 function update(scene_id, entity_id)
     draw_rect(440, 180, 400, 330, {color = "#10142080", radius = 12})
     draw_text("My Game", 640, 210, {size = 48, align = "center"})
-    if button("Play", 540, 300, 200, 60) then
+    if button("Play", 540, 300, 200, 60, {default = true}) then
         change_scene("level 1")
     end
     if button("Quit", 540, 390, 200, 60) then
@@ -327,9 +336,10 @@ for live error reporting.
 
 ## Known limitations
 
-- Buttons answer the mouse only: there's no keyboard or gamepad focus to
-  move between them, and a click on a button is also seen by
-  `is_mouse_just_pressed` and friends.
+- The focus moves among buttons in drawing order, not by direction on
+  screen, and the keys and gamepad buttons that move and press it are also
+  seen by the game's scripts (`is_key_just_pressed` and friends), like a
+  click on a button.
 - No `on_destroy` hook.
 - Prefabs are single entities: there are no groups of entities or nested
   prefabs.

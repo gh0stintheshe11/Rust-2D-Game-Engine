@@ -24,6 +24,11 @@ const BUTTON_OUTLINE: (Color32, f32) = (
     Color32::from_rgba_unmultiplied_const(255, 255, 255, 64),
     1.5,
 );
+/// The outline marking the button with the keyboard and gamepad focus.
+const BUTTON_FOCUS: (Color32, f32) = (
+    Color32::from_rgba_unmultiplied_const(255, 255, 255, 220),
+    3.0,
+);
 
 /// Width of an outline given only a color.
 const DEFAULT_OUTLINE_WIDTH: f32 = 2.0;
@@ -90,6 +95,22 @@ fn read_options(
         }
     }
     Ok(())
+}
+
+/// A boolean option: `None` when it isn't a boolean.
+fn boolean(value: &Value) -> Option<bool> {
+    match value {
+        Value::Boolean(value) => Some(*value),
+        _ => None,
+    }
+}
+
+/// A string option: `None` when it isn't a string.
+fn string(value: &Value) -> mlua::Result<Option<String>> {
+    match value {
+        Value::String(text) => Ok(Some(text.to_str()?.to_string())),
+        _ => Ok(None),
+    }
 }
 
 /// A color option: `None` when it isn't a string.
@@ -215,13 +236,19 @@ impl LuaScripting {
         globals.set("draw_image", draw_image)?;
 
         // button(label, x, y, width, height [, options]) -> whether it was
-        // clicked this frame: pressed and released with the left button on
-        // it. Drawn for the current frame, lighter while hovered and darker
-        // while pressed; call it every frame, from update. Options: size,
-        // color (the label's), background, hover, pressed, radius, outline,
-        // outline_width.
+        // clicked this frame (pressed and released with the left button on
+        // it, or pressed with Enter or gamepad A while it has the focus),
+        // and whether it has the keyboard and gamepad focus. Drawn for the
+        // current frame, lighter while hovered or focused, darker while
+        // pressed, outlined while focused; call it every frame, from update.
+        // Options: size, color (the label's), background, hover, pressed,
+        // radius, outline, outline_width, focus (the focus outline's color),
+        // default (focused when the buttons appear), focusable (false keeps
+        // it out of keyboard and gamepad focus), id (who it is for the
+        // focus, instead of its label).
         let hud = Rc::clone(&self.hud);
         let input = Rc::clone(input_handler);
+        let focus = Rc::clone(&self.button_focus);
         let button = self.lua.create_function(
             move |_,
                   (label, x, y, width, height, options): (
@@ -234,6 +261,7 @@ impl LuaScripting {
             )| {
                 const NAME: &str = "button";
                 let (position, size) = area(NAME, x, y, width, height)?;
+                let mut name = label.clone();
                 let mut button = HudButton {
                     label,
                     position,
@@ -246,6 +274,8 @@ impl LuaScripting {
                 };
                 let (mut hover, mut pressed) = (BUTTON_HOVER, BUTTON_PRESSED);
                 let mut outline_width = None;
+                let mut focus_color = BUTTON_FOCUS.0;
+                let (mut default, mut focusable) = (false, true);
                 read_options(
                     NAME,
                     options.as_ref(),
@@ -258,6 +288,10 @@ impl LuaScripting {
                         "radius",
                         "outline",
                         "outline_width",
+                        "focus",
+                        "default",
+                        "focusable",
+                        "id",
                     ],
                     |key, value| {
                         Ok(match key {
@@ -278,15 +312,22 @@ impl LuaScripting {
                             "outline" => {
                                 color(NAME, &value)?.map(|c| button.outline.0 = c).is_some()
                             }
-                            _ => number(NAME, key, &value, false)?
+                            "outline_width" => number(NAME, key, &value, false)?
                                 .map(|w| outline_width = Some(w))
                                 .is_some(),
+                            "focus" => color(NAME, &value)?.map(|c| focus_color = c).is_some(),
+                            "default" => boolean(&value).map(|d| default = d).is_some(),
+                            "focusable" => boolean(&value).map(|f| focusable = f).is_some(),
+                            _ => string(&value)?.map(|id| name = id).is_some(),
                         })
                     },
                 )?;
                 if let Some(width) = outline_width {
                     button.outline.1 = width;
                 }
+                let (focused, pressed_by_key) = focus
+                    .borrow_mut()
+                    .button(&name, position, size, focusable, default);
 
                 let input = input.borrow();
                 let hovered = button.contains(input.get_mouse_screen_pos());
@@ -299,11 +340,14 @@ impl LuaScripting {
                 drop(input);
                 if hovered && armed && held {
                     button.background = pressed;
-                } else if hovered {
+                } else if hovered || focused {
                     button.background = hover;
                 }
+                if focused {
+                    button.outline = (focus_color, BUTTON_FOCUS.1);
+                }
                 hud.borrow_mut().push(HudItem::Button(button));
-                Ok(clicked)
+                Ok((clicked || pressed_by_key, focused))
             },
         )?;
         globals.set("button", button)?;

@@ -245,6 +245,12 @@ impl InputHandler {
         self.mouse_just_released.contains(button)
     }
 
+    /// The modifier keys held (all released while the keyboard is
+    /// withheld).
+    pub fn modifiers(&self) -> egui::Modifiers {
+        self.modifiers
+    }
+
     /// The pointer's position in the window (the last known one when it
     /// isn't over the window).
     pub fn get_mouse_pos(&self) -> egui::Pos2 {

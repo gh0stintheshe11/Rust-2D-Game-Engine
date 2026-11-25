@@ -832,3 +832,112 @@ fn test_scripts_read_gamepads() {
     assert_eq!(lua_number(&runtime, "script_state.state.jumps"), 1.0);
     assert_eq!(lua_number(&runtime, "script_state.state.steer"), 1.0);
 }
+
+fn lua_string(runtime: &GameRuntime, expression: &str) -> String {
+    runtime
+        .scripting()
+        .lua()
+        .load(format!("return {}", expression))
+        .eval()
+        .unwrap()
+}
+
+#[test]
+fn test_buttons_take_keyboard_and_gamepad_focus() {
+    use rust_2d_game_engine::input::{GamepadAxis, GamepadButton, GamepadEvent};
+
+    // Three buttons, the second the default, at frame pixels (100, 50i) to
+    // (200, 50i + 40), and one out of the focus
+    let mut runtime = ui_scene(
+        r##"
+        function update(scene_id, entity_id)
+            local state = script_state.state
+            state.focused = "none"
+            for i, label in ipairs({"One", "Two", "Three"}) do
+                local clicked, focused = button(label, 100, 50 * i, 100, 40, {default = label == "Two"})
+                if clicked then state.pressed = label end
+                if focused then state.focused = label end
+            end
+            local _, hud = button("HUD", 300, 10, 60, 30, {focusable = false})
+            if hud then state.focused = "HUD" end
+        end
+        "##,
+    );
+    let mut window = Window::new();
+    let focused = |runtime: &GameRuntime| lua_string(runtime, "script_state.state.focused");
+    let pressed = |runtime: &GameRuntime| lua_string(runtime, "script_state.state.pressed or ''");
+    let tap = |window: &mut Window, runtime: &mut GameRuntime, name: egui::Key| {
+        window.frame(runtime, vec![key(name, true)], no_widgets);
+        window.frame(runtime, vec![key(name, false)], no_widgets);
+    };
+
+    window.frame(&mut runtime, vec![], no_widgets);
+    window.frame(&mut runtime, vec![], no_widgets);
+    assert_eq!(focused(&runtime), "Two", "the default");
+    tap(&mut window, &mut runtime, egui::Key::ArrowDown);
+    assert_eq!(focused(&runtime), "Three");
+    tap(&mut window, &mut runtime, egui::Key::ArrowRight);
+    assert_eq!(focused(&runtime), "One", "wrapped around");
+    tap(&mut window, &mut runtime, egui::Key::ArrowUp);
+    assert_eq!(focused(&runtime), "Three");
+    assert_eq!(pressed(&runtime), "");
+    tap(&mut window, &mut runtime, egui::Key::Enter);
+    assert_eq!(pressed(&runtime), "Three");
+    // Shift+Tab goes back
+    let shift = egui::Event::ModifiersChanged(egui::Modifiers::SHIFT);
+    window.frame(
+        &mut runtime,
+        vec![shift, key(egui::Key::Tab, true)],
+        no_widgets,
+    );
+    let released = egui::Event::ModifiersChanged(egui::Modifiers::NONE);
+    window.frame(
+        &mut runtime,
+        vec![key(egui::Key::Tab, false), released],
+        no_widgets,
+    );
+    assert_eq!(focused(&runtime), "Two");
+
+    // The d-pad moves it, the stick once per push, and gamepad A presses
+    let button = |button, pressed| {
+        let event = if pressed {
+            GamepadEvent::ButtonPressed { gamepad: 0, button }
+        } else {
+            GamepadEvent::ButtonReleased { gamepad: 0, button }
+        };
+        vec![GamepadEvent::Connected { gamepad: 0 }, event]
+    };
+    let stick = |value| {
+        vec![GamepadEvent::AxisMoved {
+            gamepad: 0,
+            axis: GamepadAxis::LeftStickY,
+            value,
+        }]
+    };
+    runtime.queue_gamepad_events(button(GamepadButton::DPadDown, true));
+    window.frame(&mut runtime, vec![], no_widgets);
+    runtime.queue_gamepad_events(button(GamepadButton::DPadDown, false));
+    window.frame(&mut runtime, vec![], no_widgets);
+    assert_eq!(focused(&runtime), "Three");
+    runtime.queue_gamepad_events(stick(0.9));
+    window.frame(&mut runtime, vec![], no_widgets);
+    window.frame(&mut runtime, vec![], no_widgets);
+    assert_eq!(focused(&runtime), "One", "once, though still pushed");
+    runtime.queue_gamepad_events(stick(0.0));
+    window.frame(&mut runtime, vec![], no_widgets);
+    runtime.queue_gamepad_events(stick(-0.9));
+    window.frame(&mut runtime, vec![], no_widgets);
+    assert_eq!(focused(&runtime), "Three");
+    runtime.queue_gamepad_events(button(GamepadButton::South, true));
+    window.frame(&mut runtime, vec![], no_widgets);
+    runtime.queue_gamepad_events(button(GamepadButton::South, false));
+    window.frame(&mut runtime, vec![], no_widgets);
+    assert_eq!(pressed(&runtime), "Three");
+
+    // The mouse moving over a button focuses it, unless it takes no focus
+    window.frame(&mut runtime, vec![pointer_at(300.0, 210.0)], no_widgets);
+    assert_eq!(focused(&runtime), "Two");
+    window.frame(&mut runtime, vec![pointer_at(660.0, 40.0)], no_widgets);
+    window.frame(&mut runtime, vec![], no_widgets);
+    assert_eq!(focused(&runtime), "Two");
+}

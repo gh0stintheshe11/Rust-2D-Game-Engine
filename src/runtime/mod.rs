@@ -289,6 +289,8 @@ impl GameRuntime {
         {
             LOGGER.error(format!("Failed to update Lua keys_pressed: {}", e));
         }
+        self.lua_scripting
+            .update_button_focus(&self.input_handler.borrow());
         if let Err(e) = self.lua_scripting.run_scripts_for_scene(scene_id) {
             LOGGER.error(format!(
                 "Error running scripts for scene {}: {}",

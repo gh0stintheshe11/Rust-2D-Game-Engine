@@ -9,8 +9,9 @@ screen shows your best time, which is saved between runs.
 
 **Controls:** ← / → or A / D to run, Space, W or ↑ to jump (hold for a
 higher jump). A gamepad works too: the left stick or d-pad runs, (A) jumps.
-Esc (or Start) returns to the title screen; on the end screens, Enter or (A)
-plays again and Esc or (B) goes to the title screen, or click the buttons.
+Esc (or Start) returns to the title screen. In the menus, the arrow keys or
+the d-pad choose a button and Enter or (A) presses it, or click it; on the
+end screens, Esc or (B) also goes to the title screen.
 
 ## Running it
 
@@ -28,7 +29,7 @@ plays again and Esc or (B) goes to the title screen, or click the buttons.
 | Platformer movement on a dynamic body: run speed with `set_velocity` / `get_velocity`, ground checks with `raycast`, coyote time, jump buffering, short hops | `player.lua`, tuned by the `speed` and `jump_speed` attributes |
 | Sprite sheet animation and mirroring | `player` entity (`frame_size`), `play_animation` and `flip_x` in `player.lua` |
 | Particles: pollen in the air, and bursts of dust, brick debris, sparkles and confetti | the `pollen`, `dust`, `debris`, `sparkle` and `confetti` emitters, `emit_particles` in the scripts |
-| Game UI: hearts and gem count, end screens with buttons, the title menu | `level.lua`, `title.lua` (`draw_rect`, `draw_image`, `draw_text`, `button`) |
+| Game UI: hearts and gem count, end screens with buttons, the title menu; buttons chosen with the keyboard or a gamepad, with a default button | `level.lua`, `title.lua` (`draw_rect`, `draw_image`, `draw_text`, `button` and its `default` option) |
 | Keyboard and gamepad input side by side | `read_input` in `player.lua`, `level.lua`, `title.lua` |
 | A camera following the player, with the sky and slower hills behind it (parallax) | `follow_player` in `level.lua` |
 | Trigger zones with collision hooks: gems, checkpoints, the goal | `gem.lua`, `checkpoint.lua`, `goal.lua` |

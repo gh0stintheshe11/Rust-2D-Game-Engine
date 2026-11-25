@@ -327,8 +327,10 @@ fn test_losing_every_heart_ends_the_round() {
     game.frames(30);
     assert!(game.flag("game_over"));
     assert!(game.texts().contains(&"Out of hearts".to_string()));
+    // Once "Try again" has the focus, the right arrow moves it to "Title"
     game.frames(40);
-    game.tap(egui::Key::Escape);
+    game.tap(egui::Key::ArrowRight);
+    game.tap(egui::Key::Enter);
     assert_eq!(game.scene_name(), "title");
     assert!(script_errors().is_empty(), "{:?}", script_errors());
 }

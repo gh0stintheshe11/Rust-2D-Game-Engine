@@ -317,12 +317,12 @@ const API_GROUPS: &[(&str, &[ApiEntry])] = &[
             (
                 "button",
                 "if button(\"Play\", 540, 300, 200, 60) then change_scene(\"level 1\") end",
-                "Draw a button this frame; true on the frame it's clicked (camera frame pixels, like draw_text)",
+                "Draw a button this frame; true on the frame it's clicked or pressed with Enter / gamepad A while focused (camera frame pixels, like draw_text)",
             ),
             (
                 "button with options",
                 "button(\"Quit\", 540, 380, 200, 60, {size = 26, background = \"#5a2a2acc\"})",
-                "size, color (label), background, hover, pressed, radius, outline, outline_width",
+                "size, color (label), background, hover, pressed, radius, outline, outline_width, focus, default (focused first), focusable, id",
             ),
             (
                 "draw_rect",

@@ -35,8 +35,11 @@ versions may contain breaking changes).
   images (`draw_image`: icons, lives) and buttons over the game.
   `button(label, x, y, width, height)` returns true on the frame it's
   clicked, pressed and released on it, and shows hover and press states.
-  Like `draw_text` they're laid out in camera frame pixels, and later
-  drawings cover earlier ones. `InputHandler::get_mouse_press_screen_pos`
+  Buttons work with a keyboard or a gamepad too: the arrow keys, Tab, the
+  d-pad or the left stick move the focus among them, Enter or gamepad A
+  press the focused one, and a `default` button has the focus when the
+  buttons appear. Like `draw_text` they're laid out in camera frame
+  pixels, and later drawings cover earlier ones. `InputHandler::get_mouse_press_screen_pos`
   tells where the left button went down.
 - Gamepads: scripts read buttons (`is_gamepad_pressed`,
   `is_gamepad_just_pressed`, `is_gamepad_just_released`, with Xbox names
