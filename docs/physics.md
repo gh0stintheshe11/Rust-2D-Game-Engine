@@ -91,17 +91,31 @@ through the player and each other.
 An entity with a tilemap (see [scene.md](scene.md#tilemaps)) gets a fixed
 body with its origin at the entity's `x`/`y`, the top-left corner of cell
 (0, 0); `is_movable`, `is_kinematic`, `rotation` and the collider size
-attributes don't apply. With `has_collision`, every cell that has a tile is
-solid: the cells form one **voxel collider**, which keeps bodies sliding
-along a row of tiles from catching on the edges between them (with a box per
-tile they would). The entity's material, `is_sensor` and collision layers
-apply as for any collider; contacts report the tilemap entity, and raycasts
-hit it. Put decoration in a second tilemap without collision.
+attributes don't apply. With `has_collision`, the cells with a tile collide
+as their tile's `TileCollision` says:
 
-`update_tilemap(entity)` rebuilds a tilemap's collider after its tiles
-changed (scripts' `set_tile` calls it) and wakes the bodies that touched it,
-so none stays floating where a tile was removed. Debug outlines draw a square
-per solid tile.
+- **Solid** (the default) cells form one **voxel collider**, which keeps
+  bodies sliding along a row of tiles from catching on the edges between
+  them (with a box per tile they would).
+- **One-way** cells form a second voxel collider, flagged for the
+  `OneWayPlatforms` physics hook. It keeps a contact only when its normal
+  points within 45° of straight up out of the platform, so bodies land on
+  it, jump up through it from below and move through it sideways. Rapier's
+  `update_as_oneway_platform` keeps a contact refused while the body still
+  penetrates, so a body halfway through isn't popped on top. A refused
+  contact isn't reported: a body passing through isn't colliding with the
+  tilemap.
+- **Passable** cells don't collide (decoration).
+
+The entity's material, `is_sensor` and collision layers apply to both
+colliders; a sensor tilemap's one-way cells are part of the zone like its
+solid ones. Contacts report the tilemap entity, and raycasts hit it.
+
+`update_tilemap(entity)` rebuilds a tilemap's colliders after its tiles, or
+how they collide, changed (scripts' `set_tile` calls it) and wakes the
+bodies that touched them, so none stays floating where a tile was removed.
+Debug outlines draw a square per solid tile and the top edge of each one-way
+tile.
 
 ## Raycasts
 
@@ -154,10 +168,11 @@ let touching = physics.get_colliding_entities(player_id);
 - Joints, continuous collision detection settings and shape casts are not
   exposed; raycasts can exclude one entity only.
 - `raycast` doesn't see bodies added since the last `step`.
-- A tilemap is solid wherever it has a tile: tiles can't be passable or
-  one-way (platforms you jump through from below), and its collider is
-  rebuilt whole when a tile changes, which gets slow for very large maps
-  changing every frame.
+- A tilemap's colliders are rebuilt whole when a tile changes, which gets
+  slow for very large maps changing every frame.
+- One-way tiles only face up, and bodies can't drop down through them
+  (there's no "fall through the platform" control). Raycasts hit them from
+  every side.
 - `load_scene` adds only a scene's local entities; shared entities are
   ignored.
 - Changing a physics attribute while playing has no effect until the entity is

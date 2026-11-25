@@ -2,10 +2,26 @@
 //! entity.
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 /// Most columns, or rows, a tilemap can span.
 pub const MAX_TILEMAP_SIDE: u32 = 1024;
+
+/// How the cells with a tile collide, in a tilemap with `has_collision`.
+/// Set per tile of the tileset, like the tile's picture.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TileCollision {
+    /// Solid from every side: ground, walls, ceilings
+    #[default]
+    Solid,
+    /// Solid only from above (a one-way platform): bodies jump up through
+    /// it and land on it
+    OneWay,
+    /// Not solid: decoration
+    Passable,
+}
 
 /// A grid of tiles drawn from one tileset image. Cell (0, 0) has its
 /// top-left corner at the entity's `x`/`y`; columns grow to the right and
@@ -27,6 +43,8 @@ pub struct Tilemap {
     size: (u32, u32),
     /// Row-major cells: 0 is empty, n is tile n - 1
     cells: Vec<u32>,
+    /// How tiles of the tileset collide, for those that aren't solid
+    collision: BTreeMap<u32, TileCollision>,
 }
 
 impl Tilemap {
@@ -38,6 +56,21 @@ impl Tilemap {
             origin: (0, 0),
             size: (0, 0),
             cells: Vec::new(),
+            collision: BTreeMap::new(),
+        }
+    }
+
+    /// How the cells with this tile of the tileset collide.
+    pub fn tile_collision(&self, tile: u32) -> TileCollision {
+        self.collision.get(&tile).copied().unwrap_or_default()
+    }
+
+    /// Set how the cells with this tile of the tileset collide.
+    pub fn set_tile_collision(&mut self, tile: u32, collision: TileCollision) {
+        if collision == TileCollision::Solid {
+            self.collision.remove(&tile);
+        } else {
+            self.collision.insert(tile, collision);
         }
     }
 
@@ -204,6 +237,9 @@ fn saturate(value: f32) -> i32 {
 struct StoredTilemap {
     tileset: PathBuf,
     tile_size: (u32, u32),
+    /// Tiles that aren't solid
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    collision: BTreeMap<u32, TileCollision>,
     origin: (i32, i32),
     rows: Vec<String>,
 }
@@ -225,6 +261,7 @@ impl Serialize for Tilemap {
         StoredTilemap {
             tileset: self.tileset.clone(),
             tile_size: self.tile_size,
+            collision: self.collision.clone(),
             origin,
             rows,
         }
@@ -272,6 +309,9 @@ impl<'de> Deserialize<'de> for Tilemap {
             }
         }
         let mut tilemap = Tilemap::new(stored.tileset, stored.tile_size);
+        for (tile, collision) in stored.collision {
+            tilemap.set_tile_collision(tile, collision);
+        }
         if !cells.is_empty() {
             tilemap.origin = stored.origin;
             tilemap.size = (columns as u32, rows.len() as u32);

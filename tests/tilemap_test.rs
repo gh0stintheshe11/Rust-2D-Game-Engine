@@ -1,6 +1,6 @@
 //! Tilemaps: the grid of tiles, and how scene files store it.
 
-use rust_2d_game_engine::scene::{Entity, MAX_TILEMAP_SIDE, Tilemap};
+use rust_2d_game_engine::scene::{Entity, MAX_TILEMAP_SIDE, TileCollision, Tilemap};
 use std::path::PathBuf;
 
 fn tilemap() -> Tilemap {
@@ -108,4 +108,34 @@ fn test_entities_without_a_tilemap_store_none() {
     );
     let read: Entity = serde_json::from_value(json).unwrap();
     assert!(read.tilemap.is_none());
+}
+
+#[test]
+fn test_tiles_collide_as_set_per_tile() {
+    let mut map = tilemap();
+    map.set(0, 0, Some(3)).unwrap();
+    assert_eq!(map.tile_collision(3), TileCollision::Solid, "by default");
+    map.set_tile_collision(3, TileCollision::OneWay);
+    map.set_tile_collision(5, TileCollision::Passable);
+    assert_eq!(map.tile_collision(3), TileCollision::OneWay);
+
+    // Scene files list the tiles that aren't solid
+    let json = serde_json::to_value(&map).unwrap();
+    assert_eq!(
+        json["collision"],
+        serde_json::json!({"3": "one_way", "5": "passable"})
+    );
+    let read: Tilemap = serde_json::from_value(json.clone()).unwrap();
+    assert_eq!(read, map);
+
+    // Solid again: not listed, and a map without the key is all solid
+    map.set_tile_collision(3, TileCollision::Solid);
+    map.set_tile_collision(5, TileCollision::Solid);
+    let json = serde_json::to_value(&map).unwrap();
+    assert!(json.get("collision").is_none(), "{}", json);
+    assert_eq!(serde_json::from_value::<Tilemap>(json).unwrap(), map);
+
+    let mut bad = serde_json::to_value(&map).unwrap();
+    bad["collision"] = serde_json::json!({"1": "bouncy"});
+    assert!(serde_json::from_value::<Tilemap>(bad).is_err());
 }

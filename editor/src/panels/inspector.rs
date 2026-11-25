@@ -3,9 +3,9 @@ use crate::state::{GuiState, SelectedItem, TileBrush};
 use eframe::egui;
 use rust_2d_game_engine::audio::AudioEngine;
 use rust_2d_game_engine::logger::LOGGER;
-use rust_2d_game_engine::render::sheet_frame;
+use rust_2d_game_engine::render::{ONE_WAY_OUTLINE_COLOR, sheet_frame};
 use rust_2d_game_engine::scene::{
-    AttributeType, AttributeValue, Entity, Tilemap, attribute_presets,
+    AttributeType, AttributeValue, Entity, TileCollision, Tilemap, attribute_presets,
 };
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -480,6 +480,47 @@ impl Inspector {
             });
         });
         self.show_tile_palette(ui, ctx, tilemap, brush);
+        self.show_tile_collision(ui, tilemap, *brush);
+    }
+
+    /// How the brush's tile collides, as a choice.
+    fn show_tile_collision(&mut self, ui: &mut egui::Ui, tilemap: &mut Tilemap, brush: TileBrush) {
+        let TileBrush::Tile(tile) = brush else {
+            return;
+        };
+        if tilemap.tileset.as_os_str().is_empty() {
+            return;
+        }
+        let current = tilemap.tile_collision(tile);
+        ui.horizontal(|ui| {
+            ui.label(format!("Tile {} is", tile));
+            egui::ComboBox::from_id_salt("tile_collision")
+                .selected_text(collision_label(current))
+                .show_ui(ui, |ui| {
+                    for kind in [
+                        TileCollision::Solid,
+                        TileCollision::OneWay,
+                        TileCollision::Passable,
+                    ] {
+                        let help = match kind {
+                            TileCollision::Solid => "Solid from every side",
+                            TileCollision::OneWay => {
+                                "Solid only from above: bodies jump up through it and land on it"
+                            }
+                            TileCollision::Passable => "Not solid: decoration",
+                        };
+                        if ui
+                            .selectable_label(current == kind, collision_label(kind))
+                            .on_hover_text(help)
+                            .clicked()
+                            && kind != current
+                        {
+                            tilemap.set_tile_collision(tile, kind);
+                            self.data_updated = true;
+                        }
+                    }
+                });
+        });
     }
 
     /// The tileset's tiles as buttons; clicking one makes it the brush.
@@ -514,12 +555,39 @@ impl Inspector {
                 let image =
                     egui::Image::new((texture.id(), egui::Vec2::splat(PALETTE_TILE_SIZE))).uv(uv);
                 let selected = *brush == TileBrush::Tile(number);
-                if ui
+                let collision = tilemap.tile_collision(number);
+                let response = ui
                     .add(egui::Button::image(image).selected(selected))
-                    .on_hover_text(format!("Tile {}", number))
-                    .clicked()
-                {
+                    .on_hover_text(format!("Tile {} · {}", number, collision_label(collision)));
+                if response.clicked() {
                     *brush = TileBrush::Tile(number);
+                }
+                // Tiles that aren't solid are marked: one-way ones with
+                // their top edge, as in collider outlines
+                let rect = response.rect.shrink(3.0);
+                match collision {
+                    TileCollision::Solid => {}
+                    TileCollision::OneWay => {
+                        ui.painter().line_segment(
+                            [rect.left_top(), rect.right_top()],
+                            egui::Stroke::new(2.0, ONE_WAY_OUTLINE_COLOR),
+                        );
+                    }
+                    TileCollision::Passable => {
+                        let corners = [
+                            rect.left_top(),
+                            rect.right_top(),
+                            rect.right_bottom(),
+                            rect.left_bottom(),
+                            rect.left_top(),
+                        ];
+                        ui.painter().extend(egui::Shape::dashed_line(
+                            &corners,
+                            egui::Stroke::new(1.0, egui::Color32::LIGHT_GRAY),
+                            3.0,
+                            3.0,
+                        ));
+                    }
                 }
             }
         });
@@ -779,6 +847,15 @@ impl Inspector {
 
 /// Parse `text` as the attribute's current type and store it. Returns
 /// whether the value changed; invalid input is reported and ignored.
+/// How a tile collides, in words.
+fn collision_label(collision: TileCollision) -> &'static str {
+    match collision {
+        TileCollision::Solid => "Solid",
+        TileCollision::OneWay => "One-way platform",
+        TileCollision::Passable => "Passable",
+    }
+}
+
 /// The project's images (`assets/images` and its folders), sorted.
 fn project_images(project_path: &Path) -> Vec<PathBuf> {
     let extensions = AssetType::Image.valid_extensions();

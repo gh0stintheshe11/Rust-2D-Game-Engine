@@ -212,10 +212,14 @@ fn add_quad(
 /// Outline color of sensors (trigger zones), whatever their shape.
 pub const SENSOR_OUTLINE_COLOR: egui::Color32 = egui::Color32::GREEN;
 
+/// Color of one-way platforms' outlines: their top edge.
+pub const ONE_WAY_OUTLINE_COLOR: egui::Color32 = egui::Color32::from_rgb(0, 200, 255);
+
 /// Paint a collider outline given in viewport-relative screen space (see
 /// [`RenderEngine::render_colliders`]); `origin` is the viewport's top-left.
 /// Solid circles are red and solid rectangles blue; sensors are
-/// [`SENSOR_OUTLINE_COLOR`].
+/// [`SENSOR_OUTLINE_COLOR`]; one-way platforms, solid only from above, are
+/// their top edge in [`ONE_WAY_OUTLINE_COLOR`].
 pub fn paint_collider_outline(
     painter: &egui::Painter,
     outline: &ColliderOutline,
@@ -247,10 +251,17 @@ pub fn paint_collider_outline(
                 (-half_w, half_h),
             ]
             .map(|(x, y)| center + egui::vec2(x * cos - y * sin, x * sin + y * cos));
-            painter.add(egui::Shape::closed_line(
-                corners.to_vec(),
-                egui::Stroke::new(1.0, color(egui::Color32::BLUE)),
-            ));
+            if outline.one_way && !outline.is_sensor {
+                painter.line_segment(
+                    [corners[0], corners[1]],
+                    egui::Stroke::new(2.0, ONE_WAY_OUTLINE_COLOR),
+                );
+            } else {
+                painter.add(egui::Shape::closed_line(
+                    corners.to_vec(),
+                    egui::Stroke::new(1.0, color(egui::Color32::BLUE)),
+                ));
+            }
         }
     }
 }

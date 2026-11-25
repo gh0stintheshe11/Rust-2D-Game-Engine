@@ -323,12 +323,14 @@ fn test_sprite_sheet_frames() {
 }
 
 #[test]
-fn test_sensor_outlines_have_their_own_color() {
+fn test_sensor_and_one_way_outlines_have_their_own_colors() {
     use rust_2d_game_engine::physics::{ColliderOutline, ColliderShape};
-    use rust_2d_game_engine::render::{SENSOR_OUTLINE_COLOR, paint_collider_outline};
+    use rust_2d_game_engine::render::{
+        ONE_WAY_OUTLINE_COLOR, SENSOR_OUTLINE_COLOR, paint_collider_outline,
+    };
 
     // The stroke colors painted for each outline
-    let colors = |is_sensor: bool| -> Vec<egui::Color32> {
+    let colors = |is_sensor: bool, one_way: bool| -> Vec<egui::Color32> {
         let ctx = egui::Context::default();
         let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
             for shape in [ColliderShape::Circle, ColliderShape::Rectangle] {
@@ -338,6 +340,7 @@ fn test_sensor_outlines_have_their_own_color() {
                     rotation: 0.0,
                     shape,
                     is_sensor,
+                    one_way,
                 };
                 paint_collider_outline(ui.painter(), &outline, egui::Pos2::ZERO);
             }
@@ -349,6 +352,7 @@ fn test_sensor_outlines_have_their_own_color() {
             .into_iter()
             .filter_map(|clipped| match clipped.shape {
                 egui::Shape::Circle(circle) => Some(circle.stroke.color),
+                egui::Shape::LineSegment { stroke, .. } => Some(stroke.color),
                 egui::Shape::Path(path) => match path.stroke.color {
                     egui::epaint::ColorMode::Solid(color) => Some(color),
                     _ => None,
@@ -357,8 +361,16 @@ fn test_sensor_outlines_have_their_own_color() {
             })
             .collect()
     };
-    assert_eq!(colors(false), vec![egui::Color32::RED, egui::Color32::BLUE]);
-    assert_eq!(colors(true), vec![SENSOR_OUTLINE_COLOR; 2]);
+    assert_eq!(
+        colors(false, false),
+        vec![egui::Color32::RED, egui::Color32::BLUE]
+    );
+    assert_eq!(colors(true, false), vec![SENSOR_OUTLINE_COLOR; 2]);
+    // A one-way tile's outline is its top edge
+    assert_eq!(
+        colors(false, true),
+        vec![egui::Color32::RED, ONE_WAY_OUTLINE_COLOR]
+    );
 }
 
 #[test]

@@ -15,7 +15,7 @@ screen space; callers paint them with `paint_sprites`, using GPU textures from
 | `paint_sprites` | Paints queue entries in order as few meshes as possible: consecutive entries with the same texture share one mesh, which egui draws in one call |
 | `paint_sprite` | Paints a single textured rect, rotated around its center if needed |
 | `game_view(scene, viewport_size)` | Fits the scene's default camera into a viewport (see below) |
-| `render_colliders` / `paint_collider_outline` | Debug outlines of physics colliders, rotated with their bodies: circles red, rectangles blue, sensors (trigger zones) green |
+| `render_colliders` / `paint_collider_outline` | Debug outlines of physics colliders, rotated with their bodies: circles red, rectangles blue, sensors (trigger zones) green, one-way platforms the top edge in cyan |
 
 ## Sprites
 

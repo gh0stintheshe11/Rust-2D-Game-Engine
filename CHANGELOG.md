@@ -18,7 +18,11 @@ versions may contain breaking changes).
   Create → Tilemap makes one, and its inspector section picks the tileset
   and offers a palette and a paint mode: left-drag paints in the viewport,
   one undo step per stroke.
-
+- Tiles can be one-way platforms or passable: each tile of a tileset
+  collides as solid (the default), as a platform that bodies land on but
+  jump up through and walk through sideways, or not at all, for decoration
+  (`Tilemap::set_tile_collision`; the editor sets it below the palette).
+  Bodies passing through a platform don't collide with it.
 - Scripts see releases and mouse clicks: `is_key_just_released`,
   `is_mouse_just_pressed` and `is_mouse_just_released`.
 - `get_mouse_screen_position()` returns the pointer in the camera frame's

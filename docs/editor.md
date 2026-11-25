@@ -73,7 +73,10 @@ console.
   32 px tiles and `has_collision` (a solid ground; turn it off for
   decoration). Its inspector section picks the tileset among the project's
   images, sets the tile size, counts the tiles, and has a palette of the
-  tileset's tiles (the first 512) plus an Eraser. Once the tilemap has a
+  tileset's tiles (the first 512) plus an Eraser. Below the palette, the
+  brush's tile is set to collide as solid, as a one-way platform or not at
+  all (passable); in the palette, one-way tiles have a cyan top edge and
+  passable ones a dashed border. Once the tilemap has a
   tileset (tiles painted without one would be invisible, yet solid),
   🖌 Paint turns on paint mode for the selected tilemap: left-drag in the
   viewport paints the chosen tile (or erases) into the cells under the

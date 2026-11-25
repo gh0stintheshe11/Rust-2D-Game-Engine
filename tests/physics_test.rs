@@ -4,7 +4,7 @@ mod tests {
         ColliderShape, DEFAULT_GRAVITY, DEFAULT_TIME_STEP, PhysicsEngine,
     };
     use rust_2d_game_engine::scene::{
-        AttributeType, AttributeValue, Entity, PhysicsProperties, Scene,
+        AttributeType, AttributeValue, Entity, PhysicsProperties, Scene, TileCollision,
     };
     use uuid::Uuid;
 
@@ -936,6 +936,138 @@ mod tests {
         let falling = sized_entity(&mut scene, "box", (50.0, 0.0), (10.0, 10.0), dynamic(true));
         physics.load_scene(&scene);
         for _ in 0..240 {
+            physics.step(&mut scene);
+        }
+        assert!(y(&scene, falling) > 150.0, "y = {}", y(&scene, falling));
+    }
+
+    /// Make tile 0, which the cells of [`tilemap`] have, collide as `kind`.
+    fn set_tile_kind(scene: &mut Scene, id: Uuid, kind: TileCollision) {
+        let entity = scene.get_entity_mut(id).unwrap();
+        entity.tilemap.as_mut().unwrap().set_tile_collision(0, kind);
+    }
+
+    #[test]
+    fn test_one_way_tiles_hold_bodies_coming_from_above_only() {
+        let mut scene = Scene::new("test_scene").unwrap();
+        let mut physics = PhysicsEngine::new();
+        physics.set_gravity(0.0, 400.0);
+        // A platform from y = 100 to 116
+        let platform = tilemap(&mut scene, (0.0, 100.0), &row_of_tiles(20), true);
+        set_tile_kind(&mut scene, platform, TileCollision::OneWay);
+        let lander = sized_entity(
+            &mut scene,
+            "lander",
+            (40.0, 0.0),
+            (10.0, 10.0),
+            dynamic(true),
+        );
+        let jumper = sized_entity(
+            &mut scene,
+            "jumper",
+            (200.0, 130.0),
+            (10.0, 10.0),
+            dynamic(true),
+        );
+        physics.load_scene(&scene);
+        // From below the platform, up through it
+        physics.set_velocity(jumper, (0.0, -300.0));
+
+        let mut highest = f32::MAX;
+        for _ in 0..240 {
+            physics.step(&mut scene);
+            highest = highest.min(y(&scene, jumper));
+            // (Resting bodies jitter around 0)
+            let rising = physics.get_velocity(jumper).unwrap().1 < -1.0;
+            assert!(
+                !(rising && physics.get_colliding_entities(jumper).contains(&platform)),
+                "touched the platform on the way up at y = {}",
+                y(&scene, jumper)
+            );
+        }
+        assert!(
+            highest < 50.0,
+            "blocked from below: rose to y = {}",
+            highest
+        );
+        // Both rest on top of it
+        for id in [lander, jumper] {
+            assert!((y(&scene, id) - 90.0).abs() < 1.0, "y = {}", y(&scene, id));
+            assert!(physics.get_colliding_entities(id).contains(&platform));
+        }
+    }
+
+    #[test]
+    fn test_bodies_move_through_one_way_tiles_sideways() {
+        let mut scene = Scene::new("test_scene").unwrap();
+        let mut physics = PhysicsEngine::new();
+        physics.set_gravity(0.0, 0.0);
+        // A column of one-way tiles from x = 100 to 116
+        let wall = tilemap(&mut scene, (100.0, 100.0), &[(0, 0), (0, 1), (0, 2)], true);
+        set_tile_kind(&mut scene, wall, TileCollision::OneWay);
+        let mover = sized_entity(
+            &mut scene,
+            "mover",
+            (40.0, 115.0),
+            (10.0, 10.0),
+            dynamic(false),
+        );
+        physics.load_scene(&scene);
+        physics.set_velocity(mover, (200.0, 0.0));
+        for _ in 0..60 {
+            physics.step(&mut scene);
+        }
+        let x = scene.get_entity(mover).unwrap().get_x();
+        assert!(x > 230.0, "stopped at x = {}", x);
+    }
+
+    #[test]
+    fn test_passable_tiles_dont_collide() {
+        let mut scene = Scene::new("test_scene").unwrap();
+        let mut physics = PhysicsEngine::new();
+        // Passable tiles (1) at y = 100, solid ones (0) at y = 148, one-way
+        // ones (2) beside them
+        let mut map = rust_2d_game_engine::scene::Tilemap::new("tiles.png".into(), (16, 16));
+        for column in 0..10 {
+            map.set(column, 0, Some(1)).unwrap();
+            map.set(column, 3, Some(0)).unwrap();
+            map.set(column + 10, 3, Some(2)).unwrap();
+        }
+        map.set_tile_collision(1, TileCollision::Passable);
+        map.set_tile_collision(2, TileCollision::OneWay);
+        let ground = scene
+            .create_physical_entity("ground", (0.0, 100.0, 0.0), PhysicsProperties::default())
+            .unwrap();
+        scene.get_entity_mut(ground).unwrap().tilemap = Some(map);
+        let falling = sized_entity(&mut scene, "box", (50.0, 0.0), (10.0, 10.0), dynamic(true));
+        physics.load_scene(&scene);
+        for _ in 0..300 {
+            physics.step(&mut scene);
+        }
+        assert!(
+            (y(&scene, falling) - 138.0).abs() < 1.0,
+            "y = {}",
+            y(&scene, falling)
+        );
+
+        // Outlines: the solid tiles, and the one-way tiles' top edges
+        let outlines = physics.collider_outlines();
+        let one_way = outlines.iter().filter(|outline| outline.one_way).count();
+        assert_eq!(
+            (outlines.len() - one_way, one_way),
+            (10 + 1, 10),
+            "box, then tiles"
+        );
+
+        // Turning the solid tiles passable drops the box
+        let entity = scene.get_entity_mut(ground).unwrap();
+        entity
+            .tilemap
+            .as_mut()
+            .unwrap()
+            .set_tile_collision(0, TileCollision::Passable);
+        physics.update_tilemap(scene.get_entity(ground).unwrap());
+        for _ in 0..60 {
             physics.step(&mut scene);
         }
         assert!(y(&scene, falling) > 150.0, "y = {}", y(&scene, falling));

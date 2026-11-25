@@ -75,15 +75,21 @@ coordinates.
   `cell_at(map_position, world)` gives the cell containing a world position.
 - `bounds()` is the area with tiles; `grid_bounds()`, the grid the map has
   grown to, costs nothing to compute.
+- `tile_collision(tile)` and `set_tile_collision(tile, collision)`: how the
+  cells with a tile of the tileset collide, a `TileCollision`: `Solid` (the
+  default), `OneWay` (a platform, solid only from above) or `Passable`
+  (decoration).
 
 Scene files store the area with tiles only, a string per row with a token
 per cell (`.` for an empty cell, otherwise the tile number), so maps stay
-readable and diffable:
+readable and diffable; `collision` lists the tiles that aren't solid, and is
+left out when there are none:
 
 ```json
 "tilemap": {
   "tileset": "assets/images/tiles.png",
   "tile_size": [16, 16],
+  "collision": {"4": "one_way", "7": "passable"},
   "origin": [0, 3],
   "rows": [". . 4 4", "1 1 1 1"]
 }

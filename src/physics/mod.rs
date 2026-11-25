@@ -6,7 +6,7 @@
 //! rotate around the sprite's center like the renderer does.
 
 use crate::logger::LOGGER;
-use crate::scene::{AttributeType, AttributeValue, Entity, Scene, Tilemap};
+use crate::scene::{AttributeType, AttributeValue, Entity, Scene, TileCollision, Tilemap};
 use rapier2d::math::IVector;
 use rapier2d::prelude::*;
 use std::collections::{HashMap, HashSet};
@@ -25,6 +25,10 @@ pub const DEFAULT_GRAVITY_FIELD_STRENGTH: f32 = 500_000.0;
 /// Gravity fields treat closer bodies as being this far away, so the
 /// attraction stays finite when two bodies overlap.
 const MIN_GRAVITY_FIELD_DISTANCE: f32 = 10.0;
+
+/// A one-way platform holds bodies whose contact with it points at most
+/// this far (radians) from straight up: landing on its corner counts too.
+const ONE_WAY_ALLOWED_ANGLE: f32 = std::f32::consts::FRAC_PI_4;
 
 /// Where a ray first hits a collider (see [`PhysicsEngine::raycast`]).
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -54,12 +58,16 @@ pub struct ColliderOutline {
     pub shape: ColliderShape,
     /// A trigger zone (`is_sensor`), which reports overlaps without blocking.
     pub is_sensor: bool,
+    /// A one-way platform (a tilemap's one-way tile), solid only from above.
+    pub one_way: bool,
 }
 
 /// Bookkeeping for one entity mirrored into the physics world.
 struct BodyInfo {
     body: RigidBodyHandle,
     collider: Option<ColliderHandle>,
+    /// A tilemap's one-way tiles, apart from its solid ones (`collider`)
+    one_way_collider: Option<ColliderHandle>,
     /// Offset from the entity's `x`/`y` (sprite top-left) to the body origin.
     half_extents: (f32, f32),
     /// Fixed bodies never move by themselves; nothing to write back.
@@ -70,6 +78,48 @@ struct BodyInfo {
     affected_by_gravity: bool,
     /// Optional `position` Vector2 attribute, kept in sync with `x`/`y`.
     position_attr: Option<Uuid>,
+}
+
+impl BodyInfo {
+    /// The body's colliders: at most one, except for a tilemap with solid
+    /// and one-way tiles.
+    fn colliders(&self) -> impl Iterator<Item = ColliderHandle> + use<> {
+        self.collider.into_iter().chain(self.one_way_collider)
+    }
+}
+
+/// Physics hooks making colliders with
+/// [`ActiveHooks::MODIFY_SOLVER_CONTACTS`] (a tilemap's one-way tiles) solid
+/// only for bodies coming from above: a body jumps up through them, lands on
+/// them, and walks through them sideways.
+struct OneWayPlatforms;
+
+impl PhysicsHooks for OneWayPlatforms {
+    fn modify_solver_contacts(&self, context: &mut ContactModificationContext) {
+        let colliders = context.colliders;
+        let is_platform = |handle: ColliderHandle| {
+            colliders.get(handle).is_some_and(|collider| {
+                collider
+                    .active_hooks()
+                    .contains(ActiveHooks::MODIFY_SOLVER_CONTACTS)
+            })
+        };
+        // Contact normals point out of collider1: the allowed one points up
+        // (-y) out of a platform, or down into it
+        let allowed = if is_platform(context.collider1) {
+            Vector::new(0.0, -1.0)
+        } else if is_platform(context.collider2) {
+            Vector::new(0.0, 1.0)
+        } else {
+            return;
+        };
+        let Some(collider1) = colliders.get(context.collider1) else {
+            return;
+        };
+        // ...in collider1's frame, which a rotating body turns
+        let allowed = collider1.rotation().inverse() * allowed;
+        context.update_as_oneway_platform(allowed, ONE_WAY_ALLOWED_ANGLE);
+    }
 }
 
 pub struct PhysicsEngine {
@@ -207,6 +257,7 @@ impl PhysicsEngine {
             BodyInfo {
                 body,
                 collider,
+                one_way_collider: None,
                 half_extents,
                 is_fixed: !is_kinematic && !is_movable,
                 writes_rotation: is_movable && !is_kinematic && can_rotate,
@@ -264,7 +315,7 @@ impl PhysicsEngine {
         }
 
         self.apply_gravity_fields(scene);
-        self.world.step();
+        self.world.step_with_events(&OneWayPlatforms, &());
 
         // Field forces are persistent in rapier; they're recomputed each step
         for (_, rb) in self.world.bodies.iter_mut() {
@@ -379,10 +430,12 @@ impl PhysicsEngine {
     }
 
     /// A tilemap's body: fixed with its origin at the entity's `x`/`y` (the
-    /// top-left corner of cell (0, 0)), and with `has_collision` solid
-    /// wherever the map has a tile. The cells form one voxel collider, which
-    /// keeps bodies sliding along a row of tiles from catching on the edges
-    /// between them.
+    /// top-left corner of cell (0, 0)), and with `has_collision` colliding
+    /// where the map has tiles, as each tile's [`TileCollision`] says. The
+    /// solid cells form one voxel collider, which keeps bodies sliding along
+    /// a row of tiles from catching on the edges between them; the one-way
+    /// cells form another, which [`OneWayPlatforms`] makes solid only from
+    /// above.
     fn add_tilemap(&mut self, entity: &Entity, tilemap: &Tilemap) {
         let origin = Vector::new(entity.get_x(), entity.get_y());
         let body = self.world.insert_body(
@@ -391,19 +444,35 @@ impl PhysicsEngine {
                 .user_data(entity.id.as_u128())
                 .build(),
         );
-        let cells: Vec<IVector> = tilemap
-            .tiles()
-            .map(|((column, row), _)| IVector::new(column, row))
-            .collect();
-        let collider = (attr_bool(entity, "has_collision", true) && !cells.is_empty()).then(|| {
-            let tile = Vector::new(tilemap.tile_size.0 as f32, tilemap.tile_size.1 as f32);
-            self.insert_collider(entity, ColliderBuilder::voxels(tile, &cells), body)
+        // The cells of solid tiles, and of one-way tiles. A trigger zone has
+        // no side to land on: its one-way tiles are part of the zone.
+        let is_sensor = attr_bool(entity, "is_sensor", false);
+        let (mut solid, mut one_way) = (Vec::new(), Vec::new());
+        if attr_bool(entity, "has_collision", true) {
+            for ((column, row), tile) in tilemap.tiles() {
+                let cell = IVector::new(column, row);
+                match tilemap.tile_collision(tile) {
+                    TileCollision::Solid => solid.push(cell),
+                    TileCollision::OneWay if is_sensor => solid.push(cell),
+                    TileCollision::OneWay => one_way.push(cell),
+                    TileCollision::Passable => {}
+                }
+            }
+        }
+        let tile = Vector::new(tilemap.tile_size.0 as f32, tilemap.tile_size.1 as f32);
+        let collider = (!solid.is_empty())
+            .then(|| self.insert_collider(entity, ColliderBuilder::voxels(tile, &solid), body));
+        let one_way_collider = (!one_way.is_empty()).then(|| {
+            let builder = ColliderBuilder::voxels(tile, &one_way)
+                .active_hooks(ActiveHooks::MODIFY_SOLVER_CONTACTS);
+            self.insert_collider(entity, builder, body)
         });
         self.bodies.insert(
             entity.id,
             BodyInfo {
                 body,
                 collider,
+                one_way_collider,
                 half_extents: (0.0, 0.0),
                 is_fixed: true,
                 writes_rotation: false,
@@ -452,23 +521,23 @@ impl PhysicsEngine {
         let Some(info) = self.bodies.get(&entity.id) else {
             return;
         };
-        let collider = info.collider;
-        let touching: Vec<RigidBodyHandle> = match collider {
-            Some(collider) => self
-                .world
-                .narrow_phase
-                .contact_pairs_with(collider)
-                .filter_map(|pair| {
-                    let other = if pair.collider1 == collider {
-                        pair.collider2
-                    } else {
-                        pair.collider1
-                    };
-                    self.world.colliders.get(other)?.parent()
-                })
-                .collect(),
-            None => Vec::new(),
-        };
+        let world = &self.world;
+        let touching: Vec<RigidBodyHandle> = info
+            .colliders()
+            .flat_map(|collider| {
+                world
+                    .narrow_phase
+                    .contact_pairs_with(collider)
+                    .filter_map(move |pair| {
+                        let other = if pair.collider1 == collider {
+                            pair.collider2
+                        } else {
+                            pair.collider1
+                        };
+                        world.colliders.get(other)?.parent()
+                    })
+            })
+            .collect();
         self.add_entity(entity);
         for body in touching {
             self.world.wake_up(body, true);
@@ -478,9 +547,16 @@ impl PhysicsEngine {
     /// Entities whose colliders currently touch this entity's collider, or
     /// overlap it when either is a sensor.
     pub fn get_colliding_entities(&self, entity_id: Uuid) -> Vec<Uuid> {
-        let Some(collider) = self.bodies.get(&entity_id).and_then(|info| info.collider) else {
+        let Some(info) = self.bodies.get(&entity_id) else {
             return Vec::new();
         };
+        info.colliders()
+            .flat_map(|collider| self.colliding_with(collider))
+            .collect()
+    }
+
+    /// Entities whose colliders touch or overlap this collider.
+    fn colliding_with(&self, collider: ColliderHandle) -> Vec<Uuid> {
         let contacts = self
             .world
             .narrow_phase
@@ -551,16 +627,21 @@ impl PhysicsEngine {
         let colliders = self
             .bodies
             .values()
-            .filter_map(|info| self.world.colliders.get(info.collider?));
+            .flat_map(BodyInfo::colliders)
+            .filter_map(|handle| self.world.colliders.get(handle));
         for collider in colliders {
             let center = collider.translation();
             let rotation = collider.rotation().angle();
+            let one_way = collider
+                .active_hooks()
+                .contains(ActiveHooks::MODIFY_SOLVER_CONTACTS);
             let outline = |center: (f32, f32), size: (f32, f32), shape| ColliderOutline {
                 center,
                 size,
                 rotation,
                 shape,
                 is_sensor: collider.is_sensor(),
+                one_way,
             };
             let shape = collider.shape();
             if let Some(ball) = shape.as_ball() {
@@ -611,7 +692,7 @@ impl PhysicsEngine {
     pub fn has_collider(&self, entity_id: Uuid) -> bool {
         self.bodies
             .get(&entity_id)
-            .is_some_and(|info| info.collider.is_some())
+            .is_some_and(|info| info.colliders().next().is_some())
     }
 
     fn body(&self, entity_id: Uuid) -> Option<&RigidBody> {

@@ -1184,6 +1184,15 @@ mod tests {
         );
         assert!(undo_steps && app.gui_state.undo_stack.can_undo());
 
+        // The brush's tile can be made a one-way platform
+        let output = frame_with(&mut app, &ctx, vec![]);
+        let output = click_label(&mut app, &ctx, &output, "Solid", left);
+        click_label(&mut app, &ctx, &output, "One-way platform", left);
+        assert_eq!(
+            entity(&app).tilemap.unwrap().tile_collision(0),
+            rust_2d_game_engine::scene::TileCollision::OneWay
+        );
+
         // The eraser clears cells
         app.gui_state.tile_brush = TileBrush::Eraser;
         let from = on_screen(48.0, 16.0);
