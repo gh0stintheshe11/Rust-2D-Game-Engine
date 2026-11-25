@@ -968,6 +968,21 @@ mod tests {
             })
     }
 
+    /// Where every text shape with this text was painted in the last frame,
+    /// and the rectangle it was clipped to.
+    fn shape_rects(output: &egui::FullOutput, text: &str) -> Vec<(egui::Rect, egui::Rect)> {
+        output
+            .shapes
+            .iter()
+            .filter_map(|clipped| match &clipped.shape {
+                egui::Shape::Text(shape) if shape.galley.text() == text => {
+                    Some((shape.visual_bounding_rect(), clipped.clip_rect))
+                }
+                _ => None,
+            })
+            .collect()
+    }
+
     /// Click the label with this text (as painted in the last frame), with
     /// `button`, and run frames until whatever it opened has been drawn;
     /// returns the last frame's output.
@@ -1205,17 +1220,42 @@ mod tests {
             rust_2d_game_engine::scene::TileCollision::OneWay
         );
 
-        // ...and animated, its frames typed like a sprite animation's
+        // ...and animated, its frames typed like a sprite animation's. Each
+        // step is checked, so a failure says which one went wrong.
         let output = frame_with(&mut app, &ctx, vec![]);
+        let hint = shape_rects(&output, "frames, e.g. 5,9");
         click_label(&mut app, &ctx, &output, "frames, e.g. 5,9", left);
+        assert!(
+            ctx.memory(|m| m.focused()).is_some(),
+            "the frames field has the focus; its hint (rect, clip) {:?}, top layer there {:?}, \
+             brush {:?}",
+            hint,
+            hint.first()
+                .and_then(|(rect, _)| ctx.layer_id_at(rect.center())),
+            app.gui_state.tile_brush
+        );
         frame_with(&mut app, &ctx, vec![egui::Event::Text("0,1".to_string())]);
+        // (The field shows new text from the next frame on)
+        let output = frame_with(&mut app, &ctx, vec![]);
+        assert!(
+            label_rect(&output, "0,1").is_some(),
+            "the frames are typed; focused {:?}",
+            ctx.memory(|m| m.focused())
+        );
         frame_with(
             &mut app,
             &ctx,
             vec![key_press(egui::Key::Enter, egui::Modifiers::NONE)],
         );
         let map = entity(&app).tilemap.unwrap();
-        let animation = map.tile_animation(0).expect("animated");
+        let animation = map.tile_animation(0).unwrap_or_else(|| {
+            panic!(
+                "tile 0 animated; brush {:?}, animated tiles {:?}, focused {:?}",
+                app.gui_state.tile_brush,
+                map.tile_animations().collect::<Vec<_>>(),
+                ctx.memory(|m| m.focused())
+            )
+        });
         assert_eq!((animation.frames(), animation.fps()), (&[0, 1][..], 4.0));
 
         // The eraser clears cells
