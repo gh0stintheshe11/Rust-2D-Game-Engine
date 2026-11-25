@@ -10,7 +10,9 @@
 //!
 //! The project files (`scenes/`, `assets/`) are looked up next to the
 //! executable (where the editor's Build command copies them), then in the
-//! working directory (so `cargo run` works inside the project folder).
+//! game's package folder when `cargo run` started it (so `cargo run -p
+//! my_game` works from anywhere in a workspace), then in the working
+//! directory.
 //!
 //! The scene's default camera is scaled to fit the window. After a script
 //! calls `end_game()`, Enter or R restarts the game. Save data goes to the
@@ -84,13 +86,24 @@ fn find_project_dir() -> PathBuf {
     let exe_dir = env::current_exe()
         .ok()
         .and_then(|exe| exe.parent().map(Path::to_path_buf));
-    let candidates = exe_dir.iter().cloned().chain(env::current_dir().ok());
-    for dir in candidates {
-        if dir.join("scenes").join("scene_manager.json").is_file() {
-            return dir;
-        }
-    }
-    exe_dir.unwrap_or_else(|| PathBuf::from("."))
+    // Set by `cargo run` for the program it runs
+    let package_dir = env::var_os("CARGO_MANIFEST_DIR").map(PathBuf::from);
+    find_project_dir_in(exe_dir, package_dir, env::current_dir().ok())
+}
+
+/// The first of these folders that holds a project's scenes; the
+/// executable's folder if none does.
+fn find_project_dir_in(
+    exe_dir: Option<PathBuf>,
+    package_dir: Option<PathBuf>,
+    current_dir: Option<PathBuf>,
+) -> PathBuf {
+    [exe_dir.clone(), package_dir, current_dir]
+        .into_iter()
+        .flatten()
+        .find(|dir| dir.join("scenes").join("scene_manager.json").is_file())
+        .or(exe_dir)
+        .unwrap_or_else(|| PathBuf::from("."))
 }
 
 /// Size of the active scene's camera frame, used as the initial window size.
@@ -145,5 +158,38 @@ impl eframe::App for PlayerApp {
                 self.error = self.runtime.restart().err();
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::find_project_dir_in;
+
+    #[test]
+    fn test_projects_are_found_where_cargo_run_started_them() {
+        let root = std::env::temp_dir().join(format!("rust2d_player_{}", uuid::Uuid::new_v4()));
+        let (exe, game, elsewhere) = (root.join("target"), root.join("game"), root.join("cwd"));
+        for dir in [&exe, &elsewhere, &game.join("scenes")] {
+            std::fs::create_dir_all(dir).unwrap();
+        }
+        std::fs::write(game.join("scenes").join("scene_manager.json"), "{}").unwrap();
+
+        // `cargo run -p game` from the workspace root: only the package
+        // folder has the project
+        let found = find_project_dir_in(
+            Some(exe.clone()),
+            Some(game.clone()),
+            Some(elsewhere.clone()),
+        );
+        assert_eq!(found, game);
+        // An exported game, started from anywhere: next to the executable
+        let found = find_project_dir_in(Some(game.clone()), None, Some(elsewhere.clone()));
+        assert_eq!(found, game);
+        // Nowhere: the executable's folder
+        assert_eq!(
+            find_project_dir_in(Some(exe.clone()), None, Some(elsewhere)),
+            exe
+        );
+        let _ = std::fs::remove_dir_all(root);
     }
 }
