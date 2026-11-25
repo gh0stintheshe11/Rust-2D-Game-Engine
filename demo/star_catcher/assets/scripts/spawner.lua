@@ -38,9 +38,9 @@ local function game_over_screen(scene_id)
     draw_text("Esc or (B): title screen", 240, 366, {size = 26, align = "center"})
     if is_action_just_pressed("start") then
         -- Changing to the current scene starts it over
-        change_scene(scene_id)
+        change_scene(scene_id, {transition = "wipe_down", seconds = 0.4})
     elseif is_action_just_pressed("back") then
-        change_scene("title")
+        change_scene("title", {transition = "fade", seconds = 0.4})
     end
 end
 

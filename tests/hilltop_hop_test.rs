@@ -118,6 +118,24 @@ impl Game {
             .id
     }
 
+    /// Where an entity of the level is: its x / y.
+    fn position(&self, id: Uuid) -> (f32, f32) {
+        let manager = self.runtime.get_scene_manager();
+        let entity = manager.get_active_scene().unwrap().get_entity(id).unwrap();
+        (entity.get_x(), entity.get_y())
+    }
+
+    /// The middle of the camera's frame.
+    fn camera(&self) -> (f32, f32) {
+        let camera = self
+            .runtime
+            .get_scene_manager()
+            .get_active_scene()
+            .unwrap()
+            .default_camera;
+        self.position(camera.unwrap())
+    }
+
     fn player(&self) -> (f32, f32) {
         let player = self.entity("player");
         let manager = self.runtime.get_scene_manager();
@@ -159,10 +177,12 @@ impl Game {
         texts.into_iter().map(|text| text.text).collect()
     }
 
-    /// From the title screen into the level, settled on the ground.
+    /// From the title screen into the level (through a half-second fade),
+    /// settled on the ground.
     fn start_level(&mut self) {
         assert_eq!(self.scene_name(), "title");
         self.tap(egui::Key::Space);
+        self.frames(15);
         assert_eq!(self.scene_name(), "level");
         self.frames(30);
     }
@@ -268,6 +288,19 @@ fn test_running_jumping_collecting_and_falling() {
     game.hold(egui::Key::ArrowRight, 0.8);
     let (x, _) = game.player();
     assert!(x > START.0 + 150.0, "ran to x = {}", x);
+    // The camera followed, a little behind, but not past the level's left
+    // end (its frame is 960 wide); the sky came along
+    let camera = game.camera();
+    let expected = (x + 14.0).max(480.0);
+    assert!(
+        (camera.0 - expected).abs() < 60.0,
+        "{:?} for x = {}",
+        camera,
+        x
+    );
+    assert_eq!(camera.1, 270.0, "the level is as high as the view");
+    let sky = game.position(game.entity("sky"));
+    assert_eq!(sky.0, camera.0 - 480.0);
     assert_eq!(game.state("gems"), 1.0);
     assert!(
         game.runtime.render_engine().particle_count() > 0,
@@ -346,6 +379,14 @@ fn test_down_drops_through_planks() {
     // On the planks at row 10, columns 21 to 25
     game.teleport(23.0 * TILE, 10.0 * TILE - 43.0);
     game.frames(30);
+    // The camera caught up with the player (14 is half its width), nearly:
+    // half a second is five times its smoothing, so 270 px are down to 2
+    let camera = game.camera();
+    assert!(
+        (camera.0 - (23.0 * TILE + 14.0)).abs() < 3.0,
+        "{:?}",
+        camera
+    );
     let (_, on_plank) = game.player();
     assert!(
         close(on_plank, 10.0 * TILE - 42.0, 2.0),
@@ -381,10 +422,14 @@ fn test_reaching_the_flag_wins_and_keeps_the_best_time() {
     let best: Option<f64> = game.lua("return load_data('best_time')");
     assert!(best.is_some_and(|time| time > 0.0), "{:?}", best);
 
-    // Enter plays again, once the end screen has been up a moment
+    // Enter plays again, once the end screen has been up a moment (through
+    // a half-second fade: the level starts over halfway)
     game.frames(40);
     game.tap(egui::Key::Enter);
     game.frames(5);
+    assert!(game.flag("won"), "still fading out");
+    assert!(game.runtime.transition_coverage() > 0.3);
+    game.frames(15);
     assert!(!game.flag("won"));
     assert_eq!(game.state("lives"), 3.0);
     let (x, _) = game.player();
@@ -397,15 +442,23 @@ fn test_losing_every_heart_ends_the_round() {
     let mut game = Game::new();
     game.start_level();
     game.lua::<()>("script_state.state.lives = 1");
-    // Onto the spikes at column 40
+    // Onto the spikes at column 40: the camera shakes
     game.teleport(40.0 * TILE + 2.0, START.1 - 40.0);
-    game.frames(30);
+    let mut shake: f32 = 0.0;
+    for _ in 0..30 {
+        game.frames(1);
+        let offset = (game.camera().1 - 270.0).abs();
+        assert!(offset <= 7.0, "{}", offset);
+        shake = shake.max(offset);
+    }
+    assert!(shake > 1.0, "{}", shake);
     assert!(game.flag("game_over"));
     assert!(game.texts().contains(&"Out of hearts".to_string()));
     // Once "Try again" has the focus, the right arrow moves it to "Title"
     game.frames(40);
     game.tap(egui::Key::ArrowRight);
     game.tap(egui::Key::Enter);
+    game.frames(15);
     assert_eq!(game.scene_name(), "title");
     assert!(script_errors().is_empty(), "{:?}", script_errors());
 }

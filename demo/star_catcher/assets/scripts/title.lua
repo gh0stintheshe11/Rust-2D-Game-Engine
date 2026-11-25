@@ -20,6 +20,7 @@ function update(scene_id, entity_id)
     draw_text("Arrow keys, A / D or a gamepad to move", 240, 560, {size = 20, color = "#c8c8d8", align = "center"})
 
     if is_action_just_pressed("start") then
-        change_scene("main")
+        -- The night sky wipes down over the title, like a falling star
+        change_scene("main", {transition = "wipe_down", seconds = 0.4})
     end
 end

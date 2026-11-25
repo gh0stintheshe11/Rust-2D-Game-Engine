@@ -28,6 +28,9 @@ versions may contain breaking changes).
 
 ### Changed
 
+- Hilltop Hop's camera follows the player with `camera_follow` (a moment
+  behind, within the level) and shakes when the player gets hurt or breaks
+  a brick; both demos go between scenes through transitions.
 - `LuaScripting::take_scene_change_request` returns a `SceneChange` (the
   scene and its transition) instead of the scene's id.
 

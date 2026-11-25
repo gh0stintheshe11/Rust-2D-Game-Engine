@@ -34,6 +34,7 @@ the title screen. The keys and buttons are the project's input actions
 | Global gravity from a script, random seeds from an attribute | `spawner.lua` (`seed` = 0 is random) |
 | Text over the game: the score, the title and game over screens, drawn every frame | `spawner.lua`, `title.lua` (`draw_text`) |
 | Camera framing: a 480 × 640 frame centered on the camera entity | `main_camera` |
+| Scene transitions: the night wipes down into a round, and fades back to the title | `title.lua`, `spawner.lua` (`change_scene` with a transition) |
 
 ## Assets
 

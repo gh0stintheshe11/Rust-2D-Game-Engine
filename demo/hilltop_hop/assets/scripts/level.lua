@@ -1,4 +1,4 @@
--- The level: starts the round, follows the player with the camera (the sky
+-- The level: starts the round, has the camera follow the player (the sky
 -- moves along, the hills at half speed for depth), keeps time, and draws
 -- the heads-up display and the end screens.
 
@@ -11,26 +11,34 @@ local MAX_LIVES = 3
 -- The end screens' buttons take the keyboard and gamepad focus only after
 -- this long, so the jump that reached the flag doesn't press "Play again"
 local END_SCREEN_DELAY = 0.6
+-- How the screen goes to another scene
+local FADE = { transition = "fade", seconds = 0.5 }
 
 local camera, player, sky, hills
 
 function init(scene_id, entity_id)
     set_gravity(0, 1500)
-    camera = find_entity(scene_id, "main_camera")
+    camera = get_camera(scene_id)
     player = find_entity(scene_id, "player")
     sky = find_entity(scene_id, "sky")
     hills = find_entity(scene_id, "hills")
     local state = script_state.state
     state.lives, state.gems, state.time = MAX_LIVES, 0, 0
     state.won, state.game_over, state.checkpoint = false, false, nil
+    -- The camera keeps the player in view, a moment behind, and doesn't
+    -- show what's beyond the level's ends
+    camera_follow(player, {
+        smoothing = 0.1,
+        bounds = { x = 0, y = 0, width = LEVEL_WIDTH, height = VIEW_HEIGHT },
+    })
 end
 
-local function follow_player(scene_id)
-    local x = get_attribute(scene_id, player, "x")
-    local center = math.max(VIEW_WIDTH / 2, math.min(LEVEL_WIDTH - VIEW_WIDTH / 2, x + 14))
-    local left = center - VIEW_WIDTH / 2
-    set_position(scene_id, camera, center, VIEW_HEIGHT / 2)
-    set_position(scene_id, sky, left, 0)
+-- The sky moves along with the camera (shakes included), the hills at half
+-- its speed. The camera has moved for this frame before updates run.
+local function place_backgrounds(scene_id)
+    local left = get_attribute(scene_id, camera, "x") - VIEW_WIDTH / 2
+    local top = get_attribute(scene_id, camera, "y") - VIEW_HEIGHT / 2
+    set_position(scene_id, sky, left, top)
     set_position(scene_id, hills, left * 0.5, HILLS_Y)
 end
 
@@ -61,15 +69,15 @@ end
 local function end_buttons(state, again_label)
     local ready = accumulated_time - state.ended_at >= END_SCREEN_DELAY
     if button(again_label, 320, 340, 150, 54, { default = ready }) then
-        change_scene("level")
+        change_scene("level", FADE)
     elseif button("Title", 490, 340, 150, 54) or (ready and is_action_just_pressed("back")) then
-        change_scene("title")
+        change_scene("title", FADE)
     end
 end
 
 function update(scene_id, entity_id)
     local state = script_state.state
-    follow_player(scene_id)
+    place_backgrounds(scene_id)
     if not (state.won or state.game_over) then
         state.time = state.time + delta_time
     end
@@ -86,6 +94,6 @@ function update(scene_id, entity_id)
         end_screen("Out of hearts", "#ff8080", { "Gems: " .. state.gems .. " / " .. GEMS_TOTAL })
         end_buttons(state, "Try again")
     elseif is_action_just_pressed("menu") then
-        change_scene("title")
+        change_scene("title", FADE)
     end
 end

@@ -83,6 +83,22 @@ fn play(runtime: &mut GameRuntime, seconds: f32) {
     }
 }
 
+/// Play on until the scene transition under way has changed the scene: it's
+/// past its midpoint. The demo's transitions last 0.4 seconds.
+fn wait_for_scene_change(runtime: &mut GameRuntime) {
+    let mut last = runtime.transition_coverage();
+    assert!(last > 0.0, "a transition is under way");
+    for _ in 0..60 {
+        runtime.tick(FRAME);
+        let now = runtime.transition_coverage();
+        if now < last {
+            return;
+        }
+        last = now;
+    }
+    panic!("the transition never got past its midpoint");
+}
+
 /// Two frames through the whole update path (input, tick, paint), the way
 /// the player runs the game: one with `key` going down, one with it
 /// released.
@@ -238,6 +254,7 @@ fn test_the_demo_plays_with_a_gamepad() {
             button: a,
         }],
     );
+    wait_for_scene_change(&mut runtime);
     assert_eq!(active_scene_name(&runtime), "main", "(A) plays");
 
     let start = position(&runtime.get_scene_manager(), "paddle");
@@ -272,6 +289,8 @@ fn test_demo_drops_and_catches_stars() {
     assert_eq!(active_scene_name(&runtime), "title", "waits for the player");
 
     press(&mut runtime, &ctx, egui::Key::Space);
+    assert_eq!(active_scene_name(&runtime), "title", "wiping down");
+    wait_for_scene_change(&mut runtime);
     assert_eq!(active_scene_name(&runtime), "main");
     let paddle_start = position(&runtime.get_scene_manager(), "paddle");
     let ground_start = position(&runtime.get_scene_manager(), "ground");
@@ -343,6 +362,7 @@ fn test_a_rock_on_the_paddle_ends_the_round() {
     let ctx = egui::Context::default();
     let mut runtime = runtime(7, 1.0);
     press(&mut runtime, &ctx, egui::Key::Space);
+    wait_for_scene_change(&mut runtime);
     play_until_game_over(&mut runtime);
     runtime.tick(FRAME);
     assert_eq!(runtime.get_state(), RuntimeState::Playing);
@@ -351,6 +371,7 @@ fn test_a_rock_on_the_paddle_ends_the_round() {
 
     // Space plays again: the scene starts over
     press(&mut runtime, &ctx, egui::Key::Space);
+    wait_for_scene_change(&mut runtime);
     assert_eq!(active_scene_name(&runtime), "main");
     assert!(!game_over(&runtime));
     assert!(entities_named(&runtime.get_scene_manager(), "rock").is_empty());
@@ -358,6 +379,7 @@ fn test_a_rock_on_the_paddle_ends_the_round() {
     // Esc goes back to the title, which shows the best score
     play_until_game_over(&mut runtime);
     press(&mut runtime, &ctx, egui::Key::Escape);
+    wait_for_scene_change(&mut runtime);
     assert_eq!(active_scene_name(&runtime), "title");
     assert!(texts(&runtime).contains(&"Best: 0".to_string()));
 
@@ -382,6 +404,7 @@ fn test_the_best_score_is_saved_between_runs() {
     first.tick(FRAME);
     assert!(!texts(&first).iter().any(|text| text.starts_with("Best")));
     press(&mut first, &ctx, egui::Key::Space);
+    wait_for_scene_change(&mut first);
     play_until_game_over(&mut first);
     assert!(save_file.is_file(), "the best score was saved");
 

@@ -72,6 +72,7 @@ local function hurt(scene_id, entity_id, fell)
     end
     state.lives = state.lives - 1
     play_sound("assets/sounds/hurt.wav", { volume = 0.8 })
+    camera_shake(7, 0.35)
     respawn(scene_id, entity_id)
     if state.lives <= 0 then
         state.game_over = true
@@ -93,6 +94,7 @@ local function break_bricks(scene_id, x, y, vy)
     end
     if broke then
         play_sound("assets/sounds/brick.wav", { volume = 0.8 })
+        camera_shake(3, 0.15)
     end
     return broke
 end

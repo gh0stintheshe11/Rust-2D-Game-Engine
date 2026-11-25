@@ -18,7 +18,7 @@ function update(scene_id, entity_id)
     -- the jump and menu actions
     if button("Play", CENTER - 90, 228, 180, 58, { size = 30, default = true })
         or is_action_just_pressed("jump") or is_action_just_pressed("menu") then
-        change_scene("level")
+        change_scene("level", { transition = "fade", seconds = 0.5 })
     end
     draw_text("Run: arrow keys, A / D, stick or d-pad", CENTER, 300, { size = 18, color = "#dde6f5", align = "center" })
     draw_text("Jump: Space, W, Up or gamepad A", CENTER, 322, { size = 18, color = "#dde6f5", align = "center" })

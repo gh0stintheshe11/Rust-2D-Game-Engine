@@ -36,7 +36,8 @@ Actions in the editor.
 | Game UI: hearts and gem count, end screens with buttons, the title menu; buttons chosen with the keyboard or a gamepad, with a default button | `level.lua`, `title.lua` (`draw_rect`, `draw_image`, `draw_text`, `button` and its `default` option) |
 | Input actions: keyboard and gamepad controls behind names (`left`, `right`, `jump`, `down`, `menu`, `back`); the stick runs as far as it's pushed, and has to be pushed well down to drop through a plank | `project.epm` (Project → Input Actions), `read_input` in `player.lua` (`get_action_axis`, `is_action_just_pressed`), `level.lua`, `title.lua` |
 | Tweens and the `on_destroy` hook: gems bob with a looping tween and sparkle as they're removed; a checkpoint's flag hops when reached | `gem.lua` (`tween`, `on_destroy`), `checkpoint.lua` (`tween` and its `on_done`) |
-| A camera following the player, with the sky and slower hills behind it (parallax) | `follow_player` in `level.lua` |
+| A camera following the player a moment behind, held within the level (`camera_follow` with `smoothing` and `bounds`), with the sky and slower hills placed by it (parallax); it shakes when the player gets hurt or breaks a brick (`camera_shake`) | `init` and `place_backgrounds` in `level.lua`, `player.lua` |
+| Fades between the title screen and the level (`change_scene` with a transition) | `title.lua`, `level.lua` |
 | Trigger zones with collision hooks: gems, checkpoints, the goal | `gem.lua`, `checkpoint.lua`, `goal.lua` |
 | State shared by scripts and kept between runs: hearts, gems, the best time | `script_state`, `save_data` / `load_data` in `goal.lua` and `title.lua` |
 
