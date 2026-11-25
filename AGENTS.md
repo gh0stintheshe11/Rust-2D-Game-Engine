@@ -29,6 +29,7 @@ cargo run                                              # launch the editor (WSLg
 cargo test --workspace                                 # full test suite
 cargo clippy --workspace --all-targets -- -D warnings  # must be clean, CI enforces it
 cargo fmt --all --check                                # must be clean, CI enforces it
+cargo bench --bench frame                              # frame-time benchmark (headless); compare before/after per-frame changes
 ```
 
 Linux system packages needed to build are listed in `README.md`. Editor UI

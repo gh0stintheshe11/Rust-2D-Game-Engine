@@ -48,3 +48,8 @@ rodio = "0.23"
 chrono = "0.4.45"
 indexmap = { version = "2.14", features = ["serde"] }
 lofty = "0.25.0"
+
+# Frame-time benchmark: cargo bench --bench frame
+[[bench]]
+name = "frame"
+harness = false

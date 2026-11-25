@@ -19,7 +19,13 @@ You need the Rust toolchain (1.95 or newer, see `rust-version` in
 cargo run                       # the editor
 cargo run -p star_catcher       # the demo game, standalone
 cargo test --workspace          # all tests; headless, no window or audio needed
+cargo bench --bench frame       # frame times for scenes of 100 to 2000 entities
 ```
+
+Changes to code that runs every frame (scripts, physics, rendering) should
+keep `cargo bench --bench frame` at least as fast; it runs headless, and
+`cargo bench --bench frame -- sprites` runs the scenarios whose name contains
+"sprites".
 
 The repository is a cargo workspace: the engine library at the root (`src/`,
 `tests/`), the editor in `editor/`, the demo game in `demo/star_catcher/`.
