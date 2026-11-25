@@ -1968,4 +1968,68 @@ mod session_tests {
             .unwrap();
         assert_eq!(failures, vec![false; 4]);
     }
+
+    #[test]
+    fn test_emit_particles() {
+        use rust_2d_game_engine::render::{MAX_BURST, ParticleSettings};
+
+        let session = setup("emit_particles");
+        let (emitter, plain) = {
+            let mut manager = session.scene_manager.borrow_mut();
+            let scene = manager.get_scene_mut(session.scene_id).unwrap();
+            let emitter = scene.create_entity("sparks").unwrap();
+            let entity = scene.get_entity_mut(emitter).unwrap();
+            entity.set_position(10.0, 20.0, 3.0).unwrap();
+            for (name, value) in ParticleSettings::default().attributes() {
+                entity.set_or_create_attribute(name, value).unwrap();
+            }
+            (emitter, scene.create_entity("plain").unwrap())
+        };
+        let lua = session.lua.lua();
+        let globals = lua.globals();
+        globals.set("SCENE", session.scene_id.to_string()).unwrap();
+        globals.set("EMITTER", emitter.to_string()).unwrap();
+        globals.set("PLAIN", plain.to_string()).unwrap();
+
+        lua.load(
+            r#"
+            emit_particles(SCENE, EMITTER, 12)
+            emit_particles(SCENE, EMITTER, 5, 40, 50)
+            emit_particles(SCENE, EMITTER, 1e9)
+            emit_particles(SCENE, EMITTER, -5)
+            "#,
+        )
+        .exec()
+        .unwrap();
+        let bursts = session.lua.take_particle_bursts();
+        let summary: Vec<(u32, (f32, f32), f32)> = bursts
+            .iter()
+            .map(|burst| (burst.count, burst.origin, burst.z))
+            .collect();
+        assert_eq!(
+            summary,
+            vec![
+                (12, (10.0, 20.0), 3.0),
+                (5, (40.0, 50.0), 3.0),
+                (MAX_BURST, (10.0, 20.0), 3.0),
+            ],
+            "a negative count emits nothing"
+        );
+        assert!(session.lua.take_particle_bursts().is_empty(), "taken");
+
+        let failures: Vec<bool> = lua
+            .load(
+                r#"
+                return {
+                    (pcall(emit_particles, SCENE, PLAIN, 3)),
+                    (pcall(emit_particles, SCENE, EMITTER, 3, 1)),
+                    (pcall(emit_particles, SCENE, EMITTER, 0/0)),
+                    (pcall(emit_particles, SCENE, "not an id", 3)),
+                }
+                "#,
+            )
+            .eval()
+            .unwrap();
+        assert_eq!(failures, vec![false; 4]);
+    }
 }

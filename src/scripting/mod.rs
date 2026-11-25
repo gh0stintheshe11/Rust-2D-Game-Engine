@@ -15,7 +15,7 @@ use crate::audio::AudioEngine;
 use crate::input::InputHandler;
 use crate::logger::LOGGER;
 use crate::physics::PhysicsEngine;
-use crate::render::HudText;
+use crate::render::{HudText, ParticleBurst};
 use crate::save::SaveData;
 use crate::scene::{Scene, SceneManager};
 
@@ -161,6 +161,8 @@ pub struct LuaScripting {
     scene_change_request: Rc<Cell<Option<Uuid>>>,
     // Text drawn by scripts this frame (draw_text), painted by the runtime
     hud: Rc<RefCell<Vec<HudText>>>,
+    // Bursts scripts asked for with emit_particles, for the runtime to take
+    particle_bursts: Rc<RefCell<Vec<ParticleBurst>>>,
     // What save_data / load_data read and write (see set_save_data)
     save_data: Rc<RefCell<SaveData>>,
     // Entity and scene ids as Lua strings, for hook arguments: creating
@@ -212,6 +214,7 @@ impl LuaScripting {
             game_stop_requested: Rc::new(Cell::new(false)),
             scene_change_request: Rc::new(Cell::new(None)),
             hud: Rc::new(RefCell::new(Vec::new())),
+            particle_bursts: Rc::new(RefCell::new(Vec::new())),
             save_data: Rc::new(RefCell::new(SaveData::in_memory())),
             id_strings: HashMap::new(),
             deadline: Rc::new(Cell::new(None)),
@@ -222,6 +225,12 @@ impl LuaScripting {
     /// started.
     pub fn hud_texts(&self) -> Ref<'_, Vec<HudText>> {
         self.hud.borrow()
+    }
+
+    /// The particle bursts scripts asked for since the last call (with
+    /// `emit_particles`), for the render engine.
+    pub fn take_particle_bursts(&self) -> Vec<ParticleBurst> {
+        std::mem::take(&mut *self.particle_bursts.borrow_mut())
     }
 
     /// Use `save_data` for the `save_data` / `load_data` bindings of the
@@ -252,6 +261,7 @@ impl LuaScripting {
         self.init_states.clear();
         self.previous_contacts.clear();
         self.hud.borrow_mut().clear();
+        self.particle_bursts.borrow_mut().clear();
         self.accumulated_time = 0.0;
         self.scene_manager = Some(Rc::clone(&scene_manager));
         self.physics_engine = Some(Rc::clone(&physics_engine));
@@ -350,6 +360,7 @@ impl LuaScripting {
         self.previous_contacts.clear();
         self.id_strings.clear();
         self.hud.borrow_mut().clear();
+        self.particle_bursts.borrow_mut().clear();
     }
 
     /// Advance the game clock: `accumulated_time` grows by `delta_time`.

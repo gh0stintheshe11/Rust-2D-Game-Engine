@@ -979,6 +979,16 @@ mod tests {
         let pos = label_rect(output, text)
             .unwrap_or_else(|| panic!("no label {:?} on screen", text))
             .center();
+        click_at(app, ctx, pos, button)
+    }
+
+    /// Click at a screen position, and let the result be drawn.
+    fn click_at(
+        app: &mut EditorApp,
+        ctx: &egui::Context,
+        pos: egui::Pos2,
+        button: egui::PointerButton,
+    ) -> egui::FullOutput {
         let press = |pressed| egui::Event::PointerButton {
             pos,
             button,
@@ -1268,5 +1278,72 @@ mod tests {
             egui::Modifiers::NONE,
         );
         assert_eq!(entity(&app).tilemap.unwrap().tile_count(), 7);
+    }
+
+    #[test]
+    fn test_particle_emitters_have_a_marker_and_preview_when_selected() {
+        use crate::state::SelectedItem;
+        use rust_2d_game_engine::scene::attribute_presets;
+
+        let (ctx, mut app, _project) = app_with_project();
+        let emitter = {
+            let manager = app.gui_state.scene_manager.as_mut().unwrap();
+            let scene_id = manager.active_scene.unwrap();
+            let scene = manager.get_scene_mut(scene_id).unwrap();
+            let id = scene.create_entity("sparks").unwrap();
+            let entity = scene.get_entity_mut(id).unwrap();
+            // In front of anything else there
+            entity.set_position(100.0, 100.0, 100.0).unwrap();
+            let particles = attribute_presets()
+                .into_iter()
+                .find(|preset| preset.name == "Particles")
+                .unwrap();
+            entity.apply_preset(&particles);
+            id
+        };
+        app.gui_state.commit_change();
+        app.gui_state.clear_selection();
+
+        // Not selected: only its marker shows (once the main window has
+        // faded in)
+        for _ in 0..20 {
+            frame_with(&mut app, &ctx, vec![]);
+        }
+        let output = frame_with(&mut app, &ctx, vec![]);
+        let marker = output
+            .shapes
+            .iter()
+            .find_map(|clipped| match &clipped.shape {
+                egui::Shape::Circle(circle)
+                    if circle.stroke.color == viewport::EMITTER_MARKER_COLOR =>
+                {
+                    Some(circle.center)
+                }
+                _ => None,
+            })
+            .expect("the emitter's marker");
+        for _ in 0..10 {
+            frame_with(&mut app, &ctx, vec![]);
+        }
+        assert_eq!(app.render_engine.particle_count(), 0);
+
+        // Clicking the marker selects the emitter, which previews its
+        // particles
+        click_at(&mut app, &ctx, marker, egui::PointerButton::Primary);
+        assert!(matches!(
+            app.gui_state.selected_item,
+            SelectedItem::Entity(_, id) if id == emitter
+        ));
+        for _ in 0..10 {
+            frame_with(&mut app, &ctx, vec![]);
+        }
+        assert!(app.render_engine.particle_count() > 0);
+
+        // Deselected, they fade away
+        app.gui_state.clear_selection();
+        for _ in 0..90 {
+            frame_with(&mut app, &ctx, vec![]);
+        }
+        assert_eq!(app.render_engine.particle_count(), 0);
     }
 }

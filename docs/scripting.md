@@ -137,6 +137,7 @@ Drawing and animation:
 | Function | Notes |
 |---|---|
 | `play_animation(scene_id, entity_id, frames [, options])` | Play frames of the entity's sprite sheet (it needs a `frame_size`, see [render.md](render.md)): `frames` like `"0-3"` or `"0,1,2,1"`. Options: `fps` (default 10), `loop` (default true), `restart`. Playing the animation that is already playing keeps it running, so it can be called every frame; other frames, or `restart = true`, start over. Creates the animation attributes the entity lacks; invalid frames or options raise an error |
+| `emit_particles(scene_id, entity_id, count [, x, y])` | A burst of `count` particles (at most 1,000) from a particle emitter (an entity with `particle_rate`, see [render.md](render.md#particles)), at its position or at `x`, `y`. The particles play out even if the emitter is removed right after. Errors for an entity that isn't an emitter |
 | `draw_text(text, x, y [, options])` | Draw text over the game for the current frame; call it every frame, from `update`. Numbers are converted to text. `x`/`y` (the top of the text) and sizes are in the camera frame's pixels: (0, 0) is its top-left corner, the frame is the camera's `width` × `height`, and the text scales with it like the sprites. Options: `size` (font height, default 24), `color` (`"#rrggbb"` or `"#rrggbbaa"`, default white), `align` (`"left"`, `"center"` or `"right"` of `x`; default left). Text stays on screen while the game is paused or over |
 
 ```lua

@@ -87,7 +87,7 @@ impl Entity {
 /// don't have to be looked up.
 #[derive(Clone, Debug, PartialEq)]
 pub struct AttributePreset {
-    /// The feature area: "Physics", "Sprite" or "Animation".
+    /// The feature area: "Physics", "Sprite", "Animation" or "Effects".
     pub group: &'static str,
     pub name: &'static str,
     /// One line on what the attributes do.
@@ -233,6 +233,12 @@ pub fn attribute_presets() -> Vec<AttributePreset> {
                 ("animation_fps", Float(10.0)),
                 ("animation_loop", Boolean(true)),
             ],
+        ),
+        preset(
+            "Effects",
+            "Particles",
+            "Gives off particles (sparks, smoke, dust, rain); its image, if any, is their texture",
+            crate::render::ParticleSettings::default().attributes(),
         ),
     ]
 }

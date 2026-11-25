@@ -29,6 +29,14 @@ pub struct HudText {
 /// Parse a color written as `#rrggbb` or `#rrggbbaa` (hexadecimal, any
 /// case; `aa` is the opacity, ff = opaque).
 pub fn parse_color(text: &str) -> Result<egui::Color32, String> {
+    let [r, g, b, a] = parse_rgba(text)?;
+    Ok(egui::Color32::from_rgba_unmultiplied(r, g, b, a))
+}
+
+/// [`parse_color`]'s red, green, blue and opacity, before the color is
+/// multiplied by its opacity: a transparent color keeps its hue, so colors
+/// can be blended towards it.
+pub fn parse_rgba(text: &str) -> Result<[u8; 4], String> {
     let invalid = || {
         format!(
             "invalid color \"{}\" (expected \"#rrggbb\" or \"#rrggbbaa\")",
@@ -41,12 +49,7 @@ pub fn parse_color(text: &str) -> Result<egui::Color32, String> {
     }
     let channel = |i: usize| u8::from_str_radix(&hex[i..i + 2], 16).map_err(|_| invalid());
     let alpha = if hex.len() == 8 { channel(6)? } else { 255 };
-    Ok(egui::Color32::from_rgba_unmultiplied(
-        channel(0)?,
-        channel(2)?,
-        channel(4)?,
-        alpha,
-    ))
+    Ok([channel(0)?, channel(2)?, channel(4)?, alpha])
 }
 
 /// Paint texts; `origin` is the screen position of the camera frame's

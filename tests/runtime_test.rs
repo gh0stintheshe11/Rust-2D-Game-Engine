@@ -613,3 +613,70 @@ fn test_editor_widgets_keep_their_input() {
     window.frame(&mut runtime, vec![key(egui::Key::B, true)], widgets(false));
     assert!(runtime.input().is_key_just_pressed(egui::Key::B));
 }
+
+#[test]
+fn test_particles_play_with_the_game() {
+    use rust_2d_game_engine::render::ParticleSettings;
+
+    // The box gives off sparks; after 10 frames it bursts and is removed
+    let (mut manager, box_id) = falling_box_scene();
+    {
+        let scene = manager.get_active_scene_mut().unwrap();
+        let entity = scene.get_entity_mut(box_id).unwrap();
+        for (name, value) in ParticleSettings::default().attributes() {
+            entity.set_or_create_attribute(name, value).unwrap();
+        }
+    }
+    with_script(
+        &mut manager,
+        box_id,
+        r#"
+        local frames = 0
+        function update(scene_id, entity_id)
+            frames = frames + 1
+            if frames == 10 then
+                emit_particles(scene_id, entity_id, 50)
+                remove_entity(scene_id, entity_id)
+            end
+        end
+        "#,
+    );
+    let mut runtime = runtime(manager);
+    let count = |runtime: &GameRuntime| runtime.render_engine().particle_count();
+    runtime.tick(FRAME);
+    assert_eq!(count(&runtime), 0, "stopped: nothing plays");
+
+    runtime.run().unwrap();
+    for _ in 0..9 {
+        runtime.tick(FRAME);
+    }
+    let streamed = count(&runtime);
+    assert!(streamed > 0);
+    runtime.tick(FRAME);
+    assert_eq!(
+        count(&runtime),
+        streamed + 50,
+        "the burst outlives its emitter"
+    );
+
+    runtime.pause();
+    for _ in 0..30 {
+        runtime.tick(FRAME);
+    }
+    assert_eq!(count(&runtime), streamed + 50, "frozen while paused");
+    runtime.resume();
+    for _ in 0..90 {
+        runtime.tick(FRAME);
+    }
+    assert_eq!(count(&runtime), 0, "they die");
+
+    // Stopping the game removes them
+    runtime.reset();
+    runtime.run().unwrap();
+    for _ in 0..5 {
+        runtime.tick(FRAME);
+    }
+    assert!(count(&runtime) > 0);
+    runtime.reset();
+    assert_eq!(count(&runtime), 0);
+}

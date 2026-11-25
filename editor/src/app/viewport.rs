@@ -279,6 +279,21 @@ impl EditorApp {
         let Some(active_scene) = scene_manager.get_scene(active_scene_id) else {
             return;
         };
+        // The selected emitter previews its particles; others' fade away
+        let selected = match self.gui_state.selected_item {
+            crate::state::SelectedItem::Entity(_, entity_id) => Some(entity_id),
+            _ => None,
+        };
+        let dt = ui.input(|i| i.stable_dt).min(MAX_PREVIEW_DT);
+        self.render_engine.update_particles(
+            active_scene,
+            dt,
+            |id| Some(id) == selected,
+            Vec::new(),
+        );
+        if self.render_engine.particle_count() > 0 {
+            ui.ctx().request_repaint();
+        }
         let render_queue = self.render_engine.render(active_scene);
 
         let selected_entity = match self.gui_state.scene_panel_selected_item {
@@ -297,6 +312,20 @@ impl EditorApp {
                     .map(|texture| texture.id())
             },
         );
+
+        // Emitters aren't drawn themselves: a marker shows where they are
+        for entry in &render_queue {
+            if active_scene
+                .get_entity(entry.entity_id)
+                .is_ok_and(rust_2d_game_engine::render::is_particle_emitter)
+            {
+                let center = entry.screen_rect(content_rect.min).center();
+                let stroke = egui::Stroke::new(1.5, EMITTER_MARKER_COLOR);
+                ui.painter().circle_stroke(center, 5.0, stroke);
+                ui.painter()
+                    .circle_filled(center, 1.5, EMITTER_MARKER_COLOR);
+            }
+        }
 
         // Selection highlight, over every sprite
         if let Some(entry) = render_queue
@@ -581,6 +610,13 @@ impl EditorApp {
         }
     }
 }
+
+/// Color of the marker standing for a particle emitter in the viewport.
+pub(super) const EMITTER_MARKER_COLOR: egui::Color32 = egui::Color32::from_rgb(255, 170, 60);
+
+/// Longest time step of the editor's particle preview, in seconds: after an
+/// idle pause, the preview doesn't jump ahead.
+const MAX_PREVIEW_DT: f32 = 0.1;
 
 /// A tilemap stroke in progress.
 #[derive(Default)]

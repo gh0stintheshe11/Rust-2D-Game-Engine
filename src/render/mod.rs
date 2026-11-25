@@ -14,11 +14,16 @@ use uuid::Uuid;
 
 mod animation;
 mod camera;
+mod particles;
 mod text;
 
 pub use animation::{DEFAULT_ANIMATION_FPS, advance_animations, parse_frames};
 pub use camera::Camera;
-pub use text::{HudText, TextAlign, paint_texts, parse_color};
+pub use particles::{
+    EMITTER_MARKER_SIZE, MAX_BURST, MAX_PARTICLES, PARTICLE_TEXTURE_ID, ParticleBurst,
+    ParticleSettings, ParticleSystem, is_particle_emitter,
+};
+pub use text::{HudText, TextAlign, paint_texts, parse_color, parse_rgba};
 
 /// One sprite draw command in viewport-relative screen space.
 #[derive(Debug, Clone)]
@@ -36,19 +41,22 @@ pub struct RenderQueueEntry {
     /// Rotation around the sprite center, in radians (entity attribute is in degrees).
     pub rotation: f32,
     pub z: f32,
-    /// A tilemap's visible tiles, drawn instead of the sprite; empty for a
-    /// sprite. The entry's `screen_pos` and `screen_size` then cover the
-    /// whole map.
-    pub tiles: Vec<TileQuad>,
+    /// What the entry draws instead of a sprite: a tilemap's visible tiles,
+    /// or a particle emitter's particles; `None` for a sprite. The entry's
+    /// `screen_pos` and `screen_size` then cover the whole map, or the
+    /// emitter's marker (see [`EMITTER_MARKER_SIZE`]).
+    pub quads: Option<Vec<Quad>>,
 }
 
-/// One tile of a tilemap on screen.
+/// A textured rectangle on screen: a tile of a tilemap, or a particle.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct TileQuad {
+pub struct Quad {
     /// Viewport-relative screen rect.
     pub rect: egui::Rect,
-    /// Part of the tileset texture (0..1).
+    /// Part of the texture (0..1).
     pub uv: egui::Rect,
+    /// Color the texture is multiplied by (premultiplied alpha).
+    pub color: egui::Color32,
 }
 
 /// The whole texture, unmirrored.
@@ -133,6 +141,10 @@ pub fn paint_sprites(
 ) {
     let mut mesh: Option<egui::Mesh> = None;
     for entry in entries {
+        // An emitter without particles, say
+        if entry.quads.as_ref().is_some_and(Vec::is_empty) {
+            continue;
+        }
         let Some(texture_id) = texture(entry.texture_id) else {
             continue;
         };
@@ -140,18 +152,20 @@ pub fn paint_sprites(
             painter.add(current);
         }
         let mesh = mesh.get_or_insert_with(|| egui::Mesh::with_texture(texture_id));
-        if entry.tiles.is_empty() {
-            add_quad(
+        match &entry.quads {
+            None => add_quad(
                 mesh,
                 entry.screen_rect(origin),
                 entry.uv,
                 entry.tint,
                 entry.rotation,
-            );
-        }
-        for tile in &entry.tiles {
-            let rect = tile.rect.translate(origin.to_vec2());
-            add_quad(mesh, rect, tile.uv, entry.tint, 0.0);
+            ),
+            Some(quads) => {
+                for quad in quads {
+                    let rect = quad.rect.translate(origin.to_vec2());
+                    add_quad(mesh, rect, quad.uv, quad.color, 0.0);
+                }
+            }
         }
     }
     if let Some(mesh) = mesh {
@@ -378,6 +392,8 @@ pub struct RenderEngine {
     texture_ids: HashMap<PathBuf, Uuid>,
     // Cell size of the editor grid, in world units
     grid_size: f32,
+    // Particles alive, by emitter (see `update_particles`)
+    particles: ParticleSystem,
     pub camera: Camera,
 }
 
@@ -400,6 +416,7 @@ impl RenderEngine {
             reported_tints: HashSet::new(),
             texture_ids: HashMap::new(),
             grid_size: DEFAULT_GRID_SIZE,
+            particles: ParticleSystem::default(),
             camera: Camera::new(),
         }
     }
@@ -480,6 +497,11 @@ impl RenderEngine {
                 }
                 continue;
             }
+            // An emitter's image is its particles' texture
+            if is_particle_emitter(entity) {
+                render_queue.push(self.emitter_entry(*entity_id, entity));
+                continue;
+            }
             let Ok(image_path) = entity.get_image(0) else {
                 continue;
             };
@@ -525,10 +547,12 @@ impl RenderEngine {
                     tint,
                     rotation,
                     z: entity.get_z(),
-                    tiles: Vec::new(),
+                    quads: None,
                 });
             }
         }
+
+        render_queue.extend(self.orphan_particle_entries(scene));
 
         // Lower z values are drawn first; total_cmp keeps the order total
         // (and the sort panic-free) even if a z is NaN
@@ -567,7 +591,8 @@ impl RenderEngine {
             0.5 / image_size.0.max(1) as f32,
             0.5 / image_size.1.max(1) as f32,
         );
-        let tiles: Vec<TileQuad> = tilemap
+        let tint = self.sprite_tint(entity);
+        let tiles: Vec<Quad> = tilemap
             .tiles_in((first.0, last.0), (first.1, last.1))
             .map(|((column, row), number)| {
                 let world = (
@@ -576,12 +601,13 @@ impl RenderEngine {
                 );
                 let screen = self.camera.world_to_screen(world);
                 let (uv, _) = sheet_frame(image_size, tile, number as i64);
-                TileQuad {
+                Quad {
                     rect: egui::Rect::from_min_size(
                         egui::pos2(screen.0, screen.1),
                         egui::vec2(tile.0 * zoom, tile.1 * zoom),
                     ),
                     uv: uv.shrink2(inset),
+                    color: tint,
                 }
             })
             .collect();
@@ -600,10 +626,10 @@ impl RenderEngine {
             screen_pos,
             screen_size: (columns as f32 * tile.0 * zoom, rows as f32 * tile.1 * zoom),
             uv: FULL_UV,
-            tint: self.sprite_tint(entity),
+            tint,
             rotation: 0.0,
             z: entity.get_z(),
-            tiles,
+            quads: Some(tiles),
         })
     }
 
@@ -679,9 +705,10 @@ impl RenderEngine {
         self.viewport_size
     }
 
-    /// Clear all caches and reset the camera.
+    /// Clear all caches, remove the particles and reset the camera.
     pub fn cleanup(&mut self) {
         self.clear_cache();
+        self.clear_particles();
         self.camera.reset();
     }
 

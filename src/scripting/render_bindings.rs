@@ -4,7 +4,9 @@ use std::rc::Rc;
 use mlua::{Table, Value};
 
 use super::{LuaScripting, parse_uuid};
-use crate::render::{HudText, TextAlign, parse_color, parse_frames};
+use crate::render::{
+    HudText, MAX_BURST, MAX_PARTICLES, ParticleBurst, TextAlign, parse_color, parse_frames,
+};
 use crate::scene::{AttributeValue, SceneManager};
 
 /// Font height of `draw_text` when no `size` is given, in camera frame
@@ -13,6 +15,10 @@ const DEFAULT_TEXT_SIZE: f32 = 24.0;
 
 fn draw_text_error(message: String) -> mlua::Error {
     mlua::Error::external(format!("draw_text: {}", message))
+}
+
+fn emit_particles_error(message: impl std::fmt::Display) -> mlua::Error {
+    mlua::Error::external(format!("emit_particles: {}", message))
 }
 
 /// Apply `draw_text`'s options table: `size` (number > 0), `color`
@@ -170,6 +176,61 @@ impl LuaScripting {
             },
         )?;
         globals.set("draw_text", draw_text)?;
+
+        // emit_particles(scene_id, entity_id, count [, x, y]): a burst of
+        // `count` particles (at most MAX_BURST) from an emitter, at its
+        // position or at x, y. The particles live on if the emitter is
+        // removed right after (an explosion where an enemy was).
+        let manager = Rc::clone(scene_manager);
+        let bursts = Rc::clone(&self.particle_bursts);
+        let emit_particles = self.lua.create_function(
+            move |_,
+                  (scene_id, entity_id, count, x, y): (
+                String,
+                String,
+                f64,
+                Option<f32>,
+                Option<f32>,
+            )| {
+                let scene_uuid = parse_uuid(&scene_id, "scene")?;
+                let entity_uuid = parse_uuid(&entity_id, "entity")?;
+                if count.is_nan() {
+                    return Err(emit_particles_error("the count must be a number"));
+                }
+                let origin = match (x, y) {
+                    (None, None) => None,
+                    (Some(x), Some(y)) if x.is_finite() && y.is_finite() => Some((x, y)),
+                    _ => {
+                        return Err(emit_particles_error(
+                            "give both x and y, as finite numbers, or neither",
+                        ));
+                    }
+                };
+                let manager = manager.borrow();
+                let entity = manager
+                    .get_scene(scene_uuid)
+                    .ok_or_else(|| {
+                        emit_particles_error(format!("scene '{}' not found", scene_uuid))
+                    })?
+                    .get_entity(entity_uuid)
+                    .map_err(emit_particles_error)?;
+                // (The float-to-int conversion saturates)
+                let count = count.clamp(0.0, MAX_BURST as f64) as u32;
+                let burst = ParticleBurst::from_entity(entity, count, origin).ok_or_else(|| {
+                    emit_particles_error(format!(
+                        "entity '{}' isn't a particle emitter (it has no particle_rate)",
+                        entity.name
+                    ))
+                })?;
+                let mut bursts = bursts.borrow_mut();
+                // A runaway loop can't queue more than the particles allowed
+                if count > 0 && bursts.len() < MAX_PARTICLES {
+                    bursts.push(burst);
+                }
+                Ok(())
+            },
+        )?;
+        globals.set("emit_particles", emit_particles)?;
 
         // play_animation(scene_id, entity_id, frames [, {fps = 10, loop = true, restart = false}]):
         // play sprite sheet frames ("0-3", "0,1,2,1"). Starts over when the

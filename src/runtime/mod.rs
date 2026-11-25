@@ -185,6 +185,7 @@ impl GameRuntime {
         self.time_accumulator = 0.0;
         self.physics_engine.borrow_mut().cleanup();
         self.render_engine.clear_cache();
+        self.render_engine.clear_particles();
         self.audio_engine.borrow_mut().cleanup();
         if let Some(initial) = self.initial_state.take() {
             *self.scene_manager.borrow_mut() = initial;
@@ -234,8 +235,8 @@ impl GameRuntime {
 
     /// Advance the game by one rendered frame of `frame_dt` seconds: scripts
     /// run once, then physics catches up in fixed steps, each followed by
-    /// the collision hooks of contacts it started or ended. Does nothing
-    /// unless playing.
+    /// the collision hooks of contacts it started or ended, and animations
+    /// and particles move on. Does nothing unless playing.
     ///
     /// When a script calls `end_game()` or `change_scene()`, the request
     /// takes effect as soon as the current pass of hooks (the scripts'
@@ -293,7 +294,7 @@ impl GameRuntime {
             }
         }
 
-        // Sprite sheet animations move on by the frame's time
+        // Sprite sheet animations and particles move on by the frame's time
         {
             let mut manager = self.scene_manager.borrow_mut();
             if let Some(scene) = manager.get_scene_mut(scene_id) {
@@ -302,6 +303,9 @@ impl GameRuntime {
                         LOGGER.warning(problem);
                     }
                 }
+                let bursts = self.lua_scripting.take_particle_bursts();
+                self.render_engine
+                    .update_particles(scene, frame_dt, |_| true, bursts);
             }
         }
 
@@ -373,6 +377,7 @@ impl GameRuntime {
             }
         }
         self.lua_scripting.begin_scene();
+        self.render_engine.clear_particles();
         self.time_accumulator = 0.0;
         LOGGER.info(format!("Switched to scene '{}'", name));
         Ok(())
@@ -493,6 +498,11 @@ impl GameRuntime {
 
     pub fn get_scene_manager(&self) -> Ref<'_, SceneManager> {
         self.scene_manager.borrow()
+    }
+
+    /// The render engine painting the game, with its particles.
+    pub fn render_engine(&self) -> &RenderEngine {
+        &self.render_engine
     }
 
     /// The input the game saw in the last [`update`](Self::update).

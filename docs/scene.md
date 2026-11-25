@@ -52,8 +52,8 @@ attributes of every entity every frame.
 **Attribute presets** (`attribute_presets()`, in `archetype.rs` next to the
 Physics template) are named sets of such attributes that turn on a feature,
 with working default values: a trigger zone, collision layers, a sprite sheet
-animation, a tint, … Each has a group ("Physics", "Sprite", "Animation"), a
-name and a one-line description. `Entity::apply_preset` adds the preset's
+animation, a tint, a particle emitter, … Each has a group ("Physics",
+"Sprite", "Animation", "Effects"), a name and a one-line description. `Entity::apply_preset` adds the preset's
 attributes the entity lacks (existing ones keep their values) and returns how
 many it added; `has_preset` tells whether the entity has them all. The editor
 lists them in the inspector's Add Feature menu.

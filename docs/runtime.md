@@ -71,7 +71,9 @@ graph TD
    allows. After **each step**, `on_collision_end` and `on_collision` fire for
    the contacts that step ended and started, so short contacts aren't missed
    between frames.
-5. Sprite sheet animations advance by the frame time.
+5. Sprite sheet animations advance by the frame time, and so do particles,
+   adding the bursts scripts asked for (see
+   [render.md](render.md#particles)).
 6. Finished sounds are reaped.
 
 When a script calls `end_game()` or `change_scene()`, the request takes

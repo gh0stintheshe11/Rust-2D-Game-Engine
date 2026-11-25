@@ -260,6 +260,11 @@ const API_GROUPS: &[(&str, &[ApiEntry])] = &[
                 "Text over the game for this frame: call it every frame (in update)",
             ),
             (
+                "emit_particles",
+                "emit_particles(scene_id, entity_id, 20)",
+                "A burst of particles from an emitter (Add Feature > Effects > Particles), at its position or at x, y",
+            ),
+            (
                 "play_animation",
                 "play_animation(scene_id, entity_id, \"0-3\")",
                 "Cycle sprite sheet frames (needs frame_size); keeps running if already playing",

@@ -269,6 +269,32 @@ const SCENARIOS: &[Scenario] = &[
         },
     },
     Scenario {
+        name: "particles",
+        description: "emitters keeping about five particles per entity alive (10,000 at 2000)",
+        build: |scene, _assets, count| {
+            let emitters = (count / 200).max(1);
+            // Each particle lives a second: the rates add up to the count
+            let settings = rust_2d_game_engine::render::ParticleSettings {
+                rate: (count * 5) as f32 / emitters as f32,
+                lifetime: 1.0,
+                variation: 0.0,
+                spread: 360.0,
+                velocity: (0.0, -60.0),
+                gravity: (0.0, 0.0),
+                ..Default::default()
+            };
+            for i in 0..emitters {
+                let (x, y) = grid(i, emitters);
+                let id = scene.create_entity("emitter").unwrap();
+                let entity = scene.get_entity_mut(id).unwrap();
+                entity.set_position(x + 40.0, y + 100.0, 0.0).unwrap();
+                for (name, value) in settings.attributes() {
+                    entity.set_or_create_attribute(name, value).unwrap();
+                }
+            }
+        },
+    },
+    Scenario {
         name: "spawn_bullets",
         description: "bullets spawned from a template and removed off screen, about this many alive",
         build: |scene, assets, count| {

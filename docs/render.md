@@ -11,7 +11,7 @@ screen space; callers paint them with `paint_sprites`, using GPU textures from
 |---|---|
 | `Camera` | `position` = world point at the viewport's top-left, `zoom` = screen pixels per world unit; `world_to_screen` and its inverse `screen_to_world` |
 | `RenderEngine` | Owns a `Camera`, the viewport size, and caches of decoded images and GPU textures keyed by file path (`path_to_uuid`); `get_grid_lines` draws the editor grid, whose cell size `set_grid_size` sets (`DEFAULT_GRID_SIZE`, 32) |
-| `RenderQueueEntry` | One sprite: entity, texture, screen position and size (`screen_rect`), texture rectangle, tint, rotation (radians), z |
+| `RenderQueueEntry` | One sprite: entity, texture, screen position and size (`screen_rect`), texture rectangle, tint, rotation (radians), z; or a tilemap's or emitter's textured `quads` |
 | `paint_sprites` | Paints queue entries in order as few meshes as possible: consecutive entries with the same texture share one mesh, which egui draws in one call |
 | `paint_sprite` | Paints a single textured rect, rotated around its center if needed |
 | `game_view(scene, viewport_size)` | Fits the scene's default camera into a viewport (see below) |
@@ -93,6 +93,41 @@ the map; `rotation`, `scale` and mirroring don't.
 Each tile's texture rectangle is inset by half a texel, so linear filtering
 doesn't blend in the neighbouring tiles of the tileset (visible seams).
 
+## Particles
+
+An entity with a `particle_rate` attribute is a **particle emitter**: it
+gives off small, short-lived sprites (sparks, smoke, dust, rain), and isn't
+drawn itself. Its first image, if it has one, is the particles' texture;
+otherwise they use a built-in soft white dot (`PARTICLE_TEXTURE_ID`). The
+editor's Add Feature → Effects → Particles adds every attribute with working
+values (warm sparks); `ParticleSettings` reads them, keeping the default for
+a missing or invalid one (reported once in the console):
+
+| Attribute | Type | Meaning |
+|---|---|---|
+| `particle_rate` | Float | Particles per second; 0 gives off only bursts |
+| `particle_lifetime` | Float | Seconds a particle lives |
+| `particle_velocity` | Vector2 | A new particle's velocity, px/s (+y is down) |
+| `particle_spread` | Float | Degrees the direction varies by around `particle_velocity`; 360 sends them every way |
+| `particle_variation` | Float | 0 to 1: how much slower and shorter-lived a particle may randomly be |
+| `particle_gravity` | Vector2 | Acceleration of the particles, px/s² |
+| `particle_size`, `particle_end_size` | Float | Width and height when born and when dying, in world units |
+| `particle_color`, `particle_end_color` | String | Colors when born and when dying (`"#rrggbb"` or `"#rrggbbaa"`), blended before applying opacity, so fading out to `#ff000000` also turns the color red |
+| `particle_area` | Vector2 | Width and height of the rectangle particles start in, from the emitter's `x`/`y`; (0, 0) is that point |
+
+The particles live in the `RenderEngine`, in world space: once given off,
+they don't follow the emitter. `update_particles(scene, dt, emitting,
+bursts)` moves and ages them, lets the emitters for which `emitting` holds
+give off particles at their rate, and adds `bursts` (`ParticleBurst`, e.g.
+from scripts' `emit_particles`). A burst carries its emitter's settings, so
+it plays out even when the emitter is removed in the same frame (an
+explosion where an enemy was); the particles of an emitter that is gone live
+out their lives. `render()` makes one queue entry per emitter: its particles
+inside the viewport as `quads`, drawn in one mesh with the others of the same
+texture, and a marker square around its position (`EMITTER_MARKER_SIZE`) for
+the editor. At most `MAX_PARTICLES` (20,000) live at once, and a burst gives
+off at most `MAX_BURST` (1,000).
+
 ## Game camera
 
 `camera_frame(scene)` describes the frame the scene's default camera entity
@@ -125,8 +160,8 @@ scripts use.
 ## Caches
 
 `clear_cache()` drops decoded images, GPU textures and remembered load
-failures; `unload_texture(path)` does so for one file; `cleanup()` also resets
-the camera. Images are not reloaded automatically when their file changes on
+failures; `unload_texture(path)` does so for one file; `clear_particles()`
+removes every particle; `cleanup()` does all of it and resets the camera. Images are not reloaded automatically when their file changes on
 disk.
 
 ## Known limitations
@@ -139,6 +174,10 @@ disk.
 - Sprite sheets are uniform grids; frames of different sizes (texture atlases)
   and spacing between frames aren't supported. The same goes for tilesets,
   and tiles can't be animated.
+- Particles don't collide, rotate or animate their texture, and every
+  particle of an emitter has the same texture; an emitter gives off
+  particles only into the world (none follow it), and only from a point or
+  a rectangle.
 - The same image referenced through two different path spellings is cached
   twice.
 - The editor and the runtime each own a `RenderEngine`, so images used in

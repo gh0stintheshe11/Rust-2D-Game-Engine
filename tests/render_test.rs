@@ -397,14 +397,15 @@ fn test_tilemaps_draw_their_visible_tiles_as_one_mesh() {
     assert_eq!(entry.entity_id, id);
     assert_eq!(entry.screen_pos, (100.0, 50.0));
     assert_eq!(entry.screen_size, (96.0, 64.0), "6 x 4 cells");
-    let rects: Vec<egui::Rect> = entry.tiles.iter().map(|tile| tile.rect).collect();
+    let tiles = entry.quads.as_ref().expect("a tilemap draws quads");
+    let rects: Vec<egui::Rect> = tiles.iter().map(|tile| tile.rect).collect();
     let rect = |x: f32, y: f32| egui::Rect::from_min_size(egui::pos2(x, y), egui::vec2(16.0, 16.0));
     assert_eq!(
         rects,
         vec![rect(100.0, 50.0), rect(116.0, 50.0), rect(180.0, 98.0)]
     );
     // Tile 1 is the tileset's right half, half a texel in on every side
-    let uv = entry.tiles[1].uv;
+    let uv = tiles[1].uv;
     assert_eq!((uv.min.x, uv.max.x), (0.5 + 0.5 / 32.0, 1.0 - 0.5 / 32.0));
     assert_eq!((uv.min.y, uv.max.y), (0.5 / 16.0, 1.0 - 0.5 / 16.0));
 
@@ -412,7 +413,7 @@ fn test_tilemaps_draw_their_visible_tiles_as_one_mesh() {
     renderer.camera.position = (150.0, 0.0);
     let queue = renderer.render(&scene);
     assert_eq!(
-        queue[0].tiles.len(),
+        queue[0].quads.as_ref().unwrap().len(),
         1,
         "the first two cells are left of it"
     );

@@ -23,6 +23,14 @@ versions may contain breaking changes).
   jump up through and walk through sideways, or not at all, for decoration
   (`Tilemap::set_tile_collision`; the editor sets it below the palette).
   Bodies passing through a platform don't collide with it.
+- Particles: an entity with `particle_*` attributes (Add Feature → Effects →
+  Particles) gives off small sprites for sparks, smoke, dust or rain, with a
+  rate, lifetime, velocity and spread, gravity, and size and color changing
+  over their life; its image, if any, is their texture. Scripts fire bursts
+  with `emit_particles`, which play out even when the emitter is removed
+  right after. Up to 20,000 particles are simulated and drawn in a few
+  batched meshes (10,000 cost about 0.35 ms per frame). The editor marks
+  emitters in the viewport and previews the selected one.
 - Scripts see releases and mouse clicks: `is_key_just_released`,
   `is_mouse_just_pressed` and `is_mouse_just_released`.
 - `get_mouse_screen_position()` returns the pointer in the camera frame's

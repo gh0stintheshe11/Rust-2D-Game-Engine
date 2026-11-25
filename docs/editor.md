@@ -85,11 +85,16 @@ console.
   dragging entities is off (a drag that began before, like the one that
   selected the tilemap, still moves it), right-drag still pans, and Esc ends
   paint mode. See [scene.md](scene.md#tilemaps).
+- **Particles**: an emitter (see [render.md](render.md#particles)) shows as
+  an orange ring in the viewport, where it can be clicked and dragged; while
+  it's selected, it previews its particles, and the viewport keeps
+  redrawing as long as particles are alive.
 - **Presets**: the inspector's Add Feature menu adds the attributes an engine
   feature needs, with working values: physics (physics, static or kinematic
   body, trigger zone, collision layers, collider size, circle collider,
   gravity scale, gravity field), sprites (scale, rotation, mirror, opacity,
-  tint) and animation (sprite sheet, animation). Attributes the entity has
+  tint), animation (sprite sheet, animation) and effects (particles).
+  Attributes the entity has
   keep their values; presets it has entirely are greyed out (see
   [scene.md](scene.md)).
 
